@@ -12,7 +12,11 @@
     document.addEventListener('DOMContentLoaded', () => {
         InventoryApp.Persistence.iniciar();
         sincronizarSecuenciaIdsProducto();
-        obtenerTasaOficialBCV();
+        if (typeof iniciarSincronizacionBCV === 'function') {
+            iniciarSincronizacionBCV();
+        } else {
+            obtenerTasaOficialBCV();
+        }
         renderizarPosProductos();
         renderizarInventario();
         renderizarClientes();
@@ -27,8 +31,8 @@
         actualizarVistaImagenProducto();
     });
 
-    window.InventoryApp.version = 'Beta 1.0.0';
-    window.InventoryApp.releaseName = 'Versión Beta — Arquitectura Producción';
+    window.InventoryApp.version = '4.0.0-beta';
+    window.InventoryApp.releaseName = 'Versión 4.0.0-beta — Sistema POS Multimoneda BCV';
     window.InventoryApp.architecture = {
         state: 'core/app-state.js',
         modules: [

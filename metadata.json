@@ -1,0 +1,6 @@
+{
+  "name": "TuBodeguitaDeConfianza",
+  "description": "Sistema POS Multimoneda con tasas oficiales BCV, inventario, clientes, pagos y auditoría.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
