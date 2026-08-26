@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema POS Multimoneda BCV</title>
+    <!-- Font Awesome para los íconos del BCV -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>TuBodeguitaDeConfianza Josnairit Salazar</h1>
+
+        <!-- Sección de Tasa Oficial BCV -->
+        <div class="hero-calculator-card">
+            <div class="currency-switch">
+                <button type="button" class="currency-btn active" id="btn-usd" onclick="seleccionarMonedaBCV('USD')">
+                    <i class="fas fa-dollar-sign"></i> Dólar BCV
+                </button>
+                <button type="button" class="currency-btn" id="btn-eur" onclick="seleccionarMonedaBCV('EUR')">
+                    <i class="fas fa-euro-sign"></i> Euro BCV
+                </button>
+            </div>
+
+            <div class="persistence-status" id="persistencia-status"><i class="fas fa-cloud-arrow-up"></i> Guardado automático</div>
+
+            <div class="rate-box">
+                <small class="rate-text">
+                    <i class="fas fa-chart-line"></i>
+                    <strong>Tasa oficial:</strong>
+                    <span id="tasaActual" style="color: #fde047; font-weight: bold;">Consultando BCV...</span>
+                </small>
+                <small class="rate-date">
+                    <i class="far fa-clock"></i>
+                    <span id="fechaActualizacion">Actualizando...</span>
+                </small>
+            </div>
+        </div>
+    </header>
+
+    <div class="nav-tabs">
+        <button class="nav-btn active" onclick="switchTab('pos')">Punto de Venta</button>
+        <button class="nav-btn" onclick="switchTab('inventario')">Inventario & Precios</button>
+        <button class="nav-btn" onclick="switchTab('clientes')">Clientes & Cuentas x Cobrar</button>
+        <button class="nav-btn" onclick="switchTab('transacciones')">Tipos de Transacciones</button>
+        <button class="nav-btn" onclick="switchTab('auditoria')">Auditoría de Inventario</button>
+    </div>
+
+    <!-- VISTA 1: POS -->
+    <div id="pos" class="view-content active">
+        <div class="pos-grid">
+            <div class="card">
+                <h3>Catálogo de Productos</h3>
+                <div style="margin: 15px 0;">
+                    <input type="text" id="pos-search" placeholder="Buscar por código o nombre..." oninput="filtrarPosProductos()" style="width: 100%;">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th class="num">Precio ($)</th>
+                                <th class="num">Precio (Bs)</th>
+                                <th class="num">Stock</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pos-productos-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Carrito de Venta</h3>
+                <div style="margin: 15px 0;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Cliente:</label>
+                    <select id="pos-cliente-select" style="width: 100%; margin-top: 5px;"></select>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="num">Cant.</th>
+                                <th class="num">Total ($)</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pos-carrito-body"></tbody>
+                    </table>
+                </div>
+                <hr style="margin: 15px 0;">
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold;">
+                        <span>Total Divisa:</span>
+                        <span id="pos-total-usd">$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1rem; color: var(--text-muted); font-weight: 600; margin-top: 5px;">
+                        <span>Total VES:</span>
+                        <span id="pos-total-ves">Bs. 0.00</span>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Condición de Pago:</label>
+                    <select id="pos-tipo-pago">
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="procesarVenta()">Completar Transacción</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 2: INVENTARIO -->
+    <div id="inventario" class="view-content">
+        <!-- TASAS OFICIALES BCV - Inventario -->
+        <div class="inventory-bcv-card">
+            <div class="inventory-bcv-header">
+                <div>
+                    <div class="inventory-bcv-title">
+                        <i class="fas fa-landmark"></i>
+                        Tasas Oficiales BCV
+                    </div>
+                    <div class="inventory-bcv-subtitle">
+                        Actualización automática al abrir el sistema
+                    </div>
+                </div>
+                <div id="bcv-sync-status" class="bcv-sync-status">
+                    <i class="fas fa-sync-alt"></i> Actualizando...
+                </div>
+            </div>
+
+            <div class="inventory-bcv-rates">
+                <div class="inventory-bcv-rate">
+                    <div class="inventory-bcv-currency">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>Dólar BCV</span>
+                    </div>
+                    <strong id="inventario-tasa-usd">Cargando...</strong>
+                    <small>1 USD = Bs.</small>
+                </div>
+
+                <div class="inventory-bcv-rate">
+                    <div class="inventory-bcv-currency">
+                        <i class="fas fa-euro-sign"></i>
+                        <span>Euro BCV</span>
+                    </div>
+                    <strong id="inventario-tasa-eur">Cargando...</strong>
+                    <small>1 EUR = Bs.</small>
+                </div>
+            </div>
+
+            <div class="inventory-bcv-footer">
+                <span>
+                    <i class="far fa-calendar-alt"></i>
+                    Fecha de la tasa:
+                    <strong id="inventario-fecha-tasa">Cargando...</strong>
+                </span>
+                <span>
+                    <i class="far fa-clock"></i>
+                    Consulta:
+                    <strong id="inventario-hora-consulta">--</strong>
+                </span>
+            </div>
+        </div>
+
+        <div class="card product-form-card">
+            <h3>Registrar / Editar Producto</h3>
+            <form id="form-producto" class="product-form" style="margin-top: 15px;" onsubmit="guardarProducto(event)">
+                <input type="hidden" id="prod-id">
+
+                <div class="product-image-panel">
+                    <div class="product-image-title">IMAGEN DEL PRODUCTO</div>
+                    <div
+                        id="product-image-dropzone"
+                        class="product-image-dropzone"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Adjuntar imagen del producto"
+                        onclick="abrirSelectorImagenProducto()"
+                        onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); abrirSelectorImagenProducto(); }"
+                        ondragover="manejarDragImagenProducto(event)"
+                        ondragleave="manejarDragLeaveImagenProducto(event)"
+                        ondrop="manejarDropImagenProducto(event)"
+                    >
+                        <input type="file" id="prod-imagen-input" accept="image/jpeg,image/png,image/webp" hidden onchange="seleccionarImagenProducto(event)">
+                        <div id="product-image-empty" class="product-image-empty">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <strong>Arrastra y suelta una imagen aquí</strong>
+                            <span>o haz clic para seleccionar</span>
+                            <span class="image-select-hint"><i class="fas fa-folder-open"></i> Seleccionar imagen</span>
+                            <span class="image-format-hint">JPG, PNG o WEBP · Máximo 2 MB</span>
+                        </div>
+                        <div id="product-image-preview" class="product-image-preview" hidden>
+                            <img id="prod-imagen-preview" src="" alt="Vista previa del producto">
+                            <button type="button" class="product-image-remove" title="Eliminar imagen" aria-label="Eliminar imagen" onclick="eliminarImagenProducto(event)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="product-image-actions" class="product-image-actions" hidden>
+                            <button type="button" class="btn product-image-change" onclick="cambiarImagenProducto(event)">
+                                <i class="fas fa-upload"></i> Cambiar imagen
+                            </button>
+                        </div>
+                    </div>
+                    <small class="product-image-help">Formatos: JPG, PNG, WEBP · Máx. 2 MB</small>
+                </div>
+
+                <div class="product-form-fields">
+                    <div class="product-form-top">
+                        <div class="form-group">
+                            <label>Código</label>
+                            <input type="text" id="prod-codigo" required readonly title="El código se genera automáticamente en secuencia">
+                            <small>Se genera automáticamente en secuencia.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Nombre del Producto</label>
+                            <input type="text" id="prod-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Costo Compra ($)</label>
+                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" required>
+                        </div>
+                        <div class="form-group">
+                            <label>% Ganancia</label>
+                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="calcularPreciosDesdeCosto()" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio Venta ($)</label>
+                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularGananciaDesdePrecio()" required>
+                        </div>
+                        <div class="form-group product-stock-group">
+                            <label class="product-stock-label">
+                                Stock Inicial
+                                <span class="product-stock-help-trigger" tabindex="0" aria-label="Información sobre el stock" data-tooltip="Al crear: define el stock inicial. Al editar: el stock queda bloqueado y solo cambia mediante Venta, Retiro o Auditoría.">
+                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                                </span>
+                            </label>
+                            <input type="number" id="prod-stock" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group product-description-group">
+                        <label>Descripción del Producto</label>
+                        <textarea id="prod-descripcion" rows="3" placeholder="Describe brevemente el producto, sabor, características, etc."></textarea>
+                        <small>Puedes incluir detalles adicionales sobre el producto.</small>
+                    </div>
+
+                    <div class="product-form-bottom">
+                        <div class="form-group">
+                            <label>Detalle del Contenido / Medida</label>
+                            <input type="text" id="prod-contenido" placeholder="Ej. 500g, 250ml, 12 unidades, 1 litro, 6 pack">
+                            <small>Indica la presentación exacta que se vende.</small>
+                        </div>
+                    </div>
+
+                    <div class="product-form-actions">
+                        <button type="submit" class="btn" id="btn-prod-save"><i class="fas fa-save"></i> Guardar Producto</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Resumen del Inventario</h3>
+            <div class="kpi-grid" style="margin-top: 15px;">
+                <div class="kpi-card">
+                    <div class="kpi-title">VALOR DEL INVENTARIO (COSTO)</div>
+                    <div class="kpi-value-usd" id="inventario-total-costo-usd">$0.00</div>
+                    <div class="kpi-value-ves" id="inventario-total-costo-ves">Bs. —</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: var(--success);">
+                    <div class="kpi-title">GANANCIA ESPERADA</div>
+                    <div class="kpi-value-usd" id="inventario-ganancia-esperada-usd" style="color: var(--success);">$0.00</div>
+                    <div class="kpi-value-ves" id="inventario-ganancia-esperada-ves">Bs. —</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Listado de Inventario</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Descripción</th>
+                            <th>Contenido / Medida</th>
+                            <th class="num">Costo ($)</th>
+                            <th class="num">% Margen</th>
+                            <th class="num">Precio ($)</th>
+                            <th class="num">Precio (Bs)</th>
+                            <th class="num">Stock</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventario-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fas fa-trash-alt"></i> Historial de Productos Retirados</h3>
+                <button type="button" class="btn btn-danger" onclick="limpiarHistorialEliminaciones()"><i class="fas fa-broom"></i> Limpiar Historial</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 8px 0 15px;">
+                Registra las unidades retiradas del inventario, el motivo y el comentario. Si retiras todo el stock de un producto, el producto se elimina y los códigos posteriores se corren automáticamente.
+            </p>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código Anterior</th>
+                            <th>Producto</th>
+                            <th class="num">Stock Antes</th>
+                            <th class="num">Cantidad Retirada</th>
+                            <th class="num">Stock Después</th>
+                            <th>Motivo</th>
+                            <th>Comentario</th>
+                            <th class="num">Costo ($)</th>
+                            <th class="num">Pérdida ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eliminaciones-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 3: CLIENTES -->
+    <div id="clientes" class="view-content">
+        <div class="card">
+            <h3>Registrar Nuevo Cliente</h3>
+            <form id="form-cliente" class="form-grid" style="margin-top: 15px;" onsubmit="guardarCliente(event)">
+                <div class="form-group">
+                    <label>ID / Cédula / RIF</label>
+                    <input type="text" id="cli-id" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="cli-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" id="cli-telefono" required>
+                </div>
+                <button type="submit" class="btn btn-success">Crear Cliente</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Directorio de Clientes</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th class="num">Total Comprado ($)</th>
+                            <th class="num">Deuda ($)</th>
+                            <th class="num">Deuda Equivalente (Bs)</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+                <h3 style="margin:0;">Historial de Clientes Eliminados</h3>
+                <button class="btn btn-danger" type="button" onclick="limpiarHistorialClientesEliminados()">
+                    <i class="fas fa-broom"></i> Limpiar Historial
+                </button>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:12px;">
+                Aquí se conserva quién fue eliminado, cuándo, el motivo y el comentario. Las ventas y pagos históricos no se borran.
+            </p>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FECHA</th>
+                            <th>ID</th>
+                            <th>CLIENTE</th>
+                            <th class="num">DEUDA AL ELIMINAR ($)</th>
+                            <th class="num">PÉRDIDA ($)</th>
+                            <th>MOTIVO</th>
+                            <th>COMENTARIO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-eliminados-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Panel 360° Cliente -->
+        <div id="cliente-detalle-card" class="card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="det-cliente-nombre">Detalle del Cliente</h3>
+                <button class="btn btn-warning" onclick="abrirModalAbono()">+ Registrar Abono / Pago</button>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">TOTAL COMPRADO</div>
+                    <div class="kpi-value-usd" id="det-kpi-comprado-usd">$0.00</div>
+                    <div class="kpi-value-ves" id="det-kpi-comprado-ves">Bs. 0.00</div>
+                </div>
+                <div class="kpi-card danger">
+                    <div class="kpi-title">DEUDA ACTUAL</div>
+                    <div class="kpi-value-usd" id="det-kpi-deuda-usd" style="color: var(--danger);">$0.00</div>
+                    <div class="kpi-value-ves" id="det-kpi-deuda-ves">Bs. 0.00</div>
+                </div>
+            </div>
+
+            <h4 style="margin: 15px 0;">Historial de Transacciones y Abonos Multimoneda</h4>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Concepto</th>
+                            <th>Método / Detalle</th>
+                            <th class="num">Cargo ($)</th>
+                            <th class="num">Abono ($)</th>
+                            <th class="num">Monto Pagado (Bs)</th>
+                            <th class="num">Saldo ($)</th>
+                            <th class="num">Saldo (Bs)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="det-historial-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 4: TIPOS DE TRANSACCIONES -->
+    <div id="transacciones" class="view-content">
+        <div class="card transaction-module-card">
+            <div class="transaction-module-header">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-money-check-dollar"></i> Tipos de Transacciones</h3>
+                    <p style="color:var(--text-muted); margin:6px 0 0;">Registra transferencias y pagos móviles por referencia y controla su conciliación antes de afectar la deuda.</p>
+                </div>
+                <div class="transaction-status-legend">
+                    <span class="transaction-badge transaction-pending">Confirmando</span>
+                    <span class="transaction-badge transaction-failed">Fallido</span>
+                    <span class="transaction-badge transaction-approved">Pago agregado</span>
+                </div>
+            </div>
+
+            <form id="form-transaccion" class="transaction-form" onsubmit="registrarTransaccion(event)">
+                <input type="hidden" id="transaccion-edit-id" value="">
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select id="transaccion-cliente" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Transacción</label>
+                    <select id="transaccion-tipo" required>
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Pago Móvil">Pago Móvil</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Número de Referencia</label>
+                    <input type="text" id="transaccion-referencia" maxlength="40" placeholder="Ej. 123456789012" autocomplete="off" required>
+                </div>
+                <div class="form-group">
+                    <label>Monto (Bs)</label>
+                    <input type="text" id="transaccion-monto" inputmode="decimal" autocomplete="off" placeholder="0.00" required onblur="formatearMontoTransaccion(true)" oninput="normalizarEntradaMontoTransaccion()">
+                </div>
+                <div class="form-group transaction-submit">
+                    <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Registrar</button>
+                </div>
+            </form>
+
+            <div class="transaction-batch-card">
+                <div class="transaction-batch-header">
+                    <div>
+                        <h4><i class="fas fa-layer-group"></i> Carga múltiple de referencias</h4>
+                        <p>Pega decenas o cientos de transferencias/pagos móviles, o carga un archivo. Una transacción por línea.</p>
+                    </div>
+                    <span class="transaction-batch-hint">Formato: Cliente (ID o Nombre) | Referencia | Monto Bs &nbsp;(Tipo opcional)</span>
+                </div>
+
+                <div class="transaction-batch-upload-row">
+                    <input type="file" id="transaccion-lote-archivo" accept=".csv,.xlsx,.xls" style="display:none;" onchange="manejarArchivoLote(event)">
+                    <button type="button" class="btn btn-outline" onclick="document.getElementById('transaccion-lote-archivo').click()">
+                        <i class="fas fa-file-arrow-up"></i> Cargar archivo (CSV / Excel)
+                    </button>
+                    <small id="transaccion-lote-archivo-nombre">Ningún archivo cargado. También puedes pegar directamente el texto abajo.</small>
+                </div>
+
+                <textarea id="transaccion-lote-input" rows="4" placeholder="30544641 | Pago Móvil | 1010 | 2000
+30544641 | Transferencia Bancaria | 1011 | 1500.00
+OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></textarea>
+
+                <div class="transaction-batch-actions">
+                    <small>Acepta <b>|</b>, tabulaciones (pegado desde Excel) o <b>;</b> como separador. Identifica al cliente por su <b>ID/Cédula</b> o por su <b>Nombre y Apellido</b> (no distingue mayúsculas ni acentos). El tipo (Pago Móvil / Transferencia) es opcional: si no lo indicas, se asume Transferencia Bancaria.</small>
+                    <div class="transaction-batch-actions-buttons">
+                        <button type="button" class="btn btn-outline" onclick="limpiarLoteTransacciones()"><i class="fas fa-broom"></i> Limpiar</button>
+                        <button type="button" class="btn btn-warning" onclick="agregarTransaccionesAlLote()"><i class="fas fa-plus"></i> Agregar al lote</button>
+                    </div>
+                </div>
+
+                <div id="transaccion-lote-preview" class="transaction-batch-preview" style="display:none;">
+                    <div class="transaction-batch-preview-header">
+                        <strong><i class="fas fa-table-list"></i> Vista previa de lo detectado</strong>
+                        <span id="transaccion-lote-preview-resumen"></span>
+                    </div>
+                    <div class="table-responsive transaction-batch-preview-table-wrap">
+                        <table class="transaction-batch-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo</th>
+                                    <th>Referencia</th>
+                                    <th class="num">Monto (Bs)</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transaccion-lote-preview-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="transaction-batch-process">
+                <div>
+                    <strong><i class="fas fa-shield-halved"></i> Verificación por lote</strong>
+                    <p id="transaccion-lote-progreso">Las transacciones en <b>Confirmando</b> esperan aquí hasta que ejecutes la verificación.</p>
+                </div>
+                <button type="button" id="btn-verificar-todas" class="btn btn-success" onclick="verificarTodasLasTransacciones()">
+                    <i class="fas fa-check-double"></i> Verificar todas las pendientes
+                </button>
+            </div>
+
+            <div id="transaccion-lote-resultado" class="transaction-batch-result" style="display:none;"></div>
+
+            <div class="transaction-search-row">
+                <div class="form-group" style="flex:1; min-width:240px;">
+                    <label><i class="fas fa-magnifying-glass"></i> Buscar por Referencia</label>
+                    <input type="search" id="transaccion-busqueda" placeholder="Escribe la referencia bancaria..." oninput="filtrarTransacciones()">
+                </div>
+                <div id="transaccion-resumen" class="transaction-summary">0 pendientes · 0 pagos agregados</div>
+                <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar vista</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Tipo</th>
+                            <th>Referencia</th>
+                            <th class="num">Monto (Bs)</th>
+                            <th class="num">Equiv. ($)</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transacciones-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card transaction-info-card">
+            <div class="transaction-info-icon"><i class="fas fa-shield-check"></i></div>
+            <div>
+                <strong>Conciliación segura</strong>
+                <p>Mientras una transferencia o pago móvil esté en <b>Confirmando</b>, su monto no modifica la deuda del cliente. Solo una transacción validada pasa a <b>Pago agregado</b> y se incorpora al historial financiero.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 4: AUDITORÍA E INVENTARIO FÍSICO -->
+    <div id="auditoria" class="view-content">
+        <div class="card">
+            <h3><i class="fas fa-clipboard-check"></i> Auditoría e Inventario Físico (Conteo)</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">
+                Registra el conteo físico de cada producto y compáralo en tiempo real contra el Stock Digital (teórico) guardado en el sistema.
+            </p>
+
+            <div class="kpi-grid" style="margin-top: 15px;">
+                <div class="kpi-card">
+                    <div class="kpi-title">PRODUCTOS CONTADOS</div>
+                    <div class="kpi-value-usd" id="auditoria-kpi-contados">0</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: var(--success);">
+                    <div class="kpi-title">SOBRANTES</div>
+                    <div class="kpi-value-usd" id="auditoria-kpi-sobrantes" style="color: var(--success);">0</div>
+                </div>
+                <div class="kpi-card danger">
+                    <div class="kpi-title">FALTANTES</div>
+                    <div class="kpi-value-usd" id="auditoria-kpi-faltantes" style="color: var(--danger);">0</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: var(--text-muted);">
+                    <div class="kpi-title">CONFORMES</div>
+                    <div class="kpi-value-usd" id="auditoria-kpi-conformes">0</div>
+                </div>
+            </div>
+
+            <div class="form-grid" style="margin-top: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Escanear / Buscar por Código</label>
+                    <input type="text" id="auditoria-scan" placeholder="Escanea o escribe el código y presiona Enter" onkeyup="escanearProductoAuditoria(event)">
+                </div>
+                <div class="form-group">
+                    <label>Filtrar Listado</label>
+                    <input type="text" id="auditoria-search" placeholder="Buscar por código o nombre..." oninput="filtrarAuditoria()">
+                </div>
+                <button class="btn btn-success" onclick="aplicarTodosLosAjustes()">Aplicar Todos los Ajustes Pendientes</button>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="num">Stock Digital</th>
+                            <th class="num">Stock Físico (Conteo)</th>
+                            <th class="num">Diferencia</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditoria-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+            <h3>Resumen de Pérdidas y Recuperación</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin:8px 0 15px;">Las pérdidas por productos dañados/vencidos, deudas de clientes eliminados y faltantes de inventario se van compensando con la ganancia generada por las ventas.</p>
+            <div class="kpi-grid">
+                <div class="kpi-card danger">
+                    <div class="kpi-title">PÉRDIDA POR PRODUCTOS DAÑADOS / VENCIDOS</div>
+                    <div class="kpi-value-usd" id="perdidas-productos-usd" style="color:var(--danger);">$0.00</div>
+                </div>
+                <div class="kpi-card danger">
+                    <div class="kpi-title">DEUDAS DE CLIENTES ELIMINADOS</div>
+                    <div class="kpi-value-usd" id="perdidas-clientes-usd" style="color:var(--danger);">$0.00</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">FALTANTES DE INVENTARIO PENDIENTES</div>
+                    <div class="kpi-value-usd" id="perdidas-faltantes-usd">$0.00</div>
+                </div>
+                <div class="kpi-card" style="border-left-color:var(--success);">
+                    <div class="kpi-title">GANANCIA GENERADA POR VENTAS</div>
+                    <div class="kpi-value-usd" id="ganancia-generada-usd" style="color:var(--success);">$0.00</div>
+                </div>
+                <div id="perdida-pendiente-global-card" class="kpi-card" style="border-left-color:var(--danger); background:#fff1f2;">
+                    <div class="kpi-title">PÉRDIDA PENDIENTE A RECUPERAR CON GANANCIAS</div>
+                    <div class="kpi-value-usd" id="perdida-pendiente-global-usd" style="color:var(--danger);">$0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:12px;">
+                <h3 style="margin:0;">Historial de Ajustes de Inventario</h3>
+                <div id="auditoria-perdida-total" style="font-weight:700; padding:10px 14px; border-radius:8px; background:#fff1f2; color:var(--danger);">Pérdida pendiente por faltantes: $0.00</div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="num">Stock Anterior (Digital)</th>
+                            <th class="num">Stock Ajustado (Físico)</th>
+                            <th class="num">Diferencia Aplicada</th>
+                            <th class="num">Pérdida ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditoria-historial-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal para eliminar productos del inventario -->
+<div id="modal-eliminar-producto" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-trash-alt"></i> Retirar producto del inventario</h3>
+        <p style="color: var(--text-muted); margin-top: 6px; font-size: 0.9rem;">
+            Puedes retirar una cantidad parcial o todo el stock. Si retiras todo el stock, el producto se eliminará y los códigos posteriores se correrán automáticamente hacia atrás.
+        </p>
+        <form style="margin-top: 15px;" onsubmit="confirmarEliminacionProducto(event)">
+            <input type="hidden" id="eliminar-producto-id">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Código</label>
+                <input type="text" id="eliminar-producto-codigo" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Producto</label>
+                <input type="text" id="eliminar-producto-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Stock actual</label>
+                <input type="number" id="eliminar-stock-actual" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Cantidad a retirar del inventario <span style="color:var(--danger)">*</span></label>
+                <input type="number" id="eliminar-cantidad" min="1" step="1" required placeholder="Ej. 5">
+                <small style="display:block; margin-top:5px; color:var(--text-muted);">Si retiras todo el stock, el producto será eliminado y los códigos posteriores se renumerarán.</small>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>¿Por qué se está eliminando? <span style="color:var(--danger)">*</span></label>
+                <select id="eliminar-motivo" required>
+                    <option value="">Selecciona un motivo</option>
+                    <option value="Producto descontinuado">Producto descontinuado</option>
+                    <option value="Producto dañado">Producto dañado</option>
+                    <option value="Producto vencido">Producto vencido</option>
+                    <option value="Pérdida / merma">Pérdida / merma</option>
+                    <option value="Error de registro">Error de registro</option>
+                    <option value="Devolución al proveedor">Devolución al proveedor</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Comentario sobre el producto <span style="color:var(--danger)">*</span></label>
+                <textarea id="eliminar-comentario" rows="4" required placeholder="Escribe qué ocurrió, condición del producto, observaciones, etc."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn" onclick="cerrarModalEliminarProducto()">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Confirmar Eliminación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Eliminar Cliente -->
+<div id="modal-eliminar-cliente" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-user-times"></i> Eliminar Cliente</h3>
+        <p style="color:var(--text-muted); margin-top:6px; font-size:0.9rem;">
+            El cliente se quitará del directorio activo, pero sus ventas y pagos permanecerán en el sistema para conservar la auditoría.
+        </p>
+        <form style="margin-top:15px;" onsubmit="confirmarEliminacionCliente(event)">
+            <input type="hidden" id="eliminar-cliente-id">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>ID / Cédula / RIF</label>
+                <input type="text" id="eliminar-cliente-identificador" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Cliente</label>
+                <input type="text" id="eliminar-cliente-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Teléfono</label>
+                <input type="text" id="eliminar-cliente-telefono" readonly style="background:#f1f5f9;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Deuda al momento de eliminar</label>
+                <input type="text" id="eliminar-cliente-deuda" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>¿Por qué se está eliminando? <span style="color:var(--danger)">*</span></label>
+                <select id="eliminar-cliente-motivo" required>
+                    <option value="">Selecciona un motivo</option>
+                    <option value="Cliente inactivo">Cliente inactivo / sin compras</option>
+                    <option value="Solicitud del cliente">Solicitud del cliente</option>
+                    <option value="Datos duplicados">Datos duplicados / registro incorrecto</option>
+                    <option value="Relación comercial terminada">Relación comercial terminada</option>
+                    <option value="Cuenta incobrable">Cuenta incobrable</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Comentario <span style="color:var(--danger)">*</span></label>
+                <textarea id="eliminar-cliente-comentario" rows="4" required placeholder="Explica el motivo y cualquier observación relevante."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn" onclick="cerrarModalEliminarCliente()">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-user-times"></i> Confirmar Eliminación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Registrar Abonos Multimoneda -->
+<div id="modal-abono" class="modal">
+    <div class="modal-content">
+        <h3>Registrar Abono / Pago</h3>
+        <form style="margin-top: 15px;" onsubmit="guardarAbono(event)">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Método de Pago</label>
+                <select id="abono-metodo" onchange="actualizarMonedaAbono()">
+                    <option value="Efectivo USD">Efectivo ($)</option>
+                    <option value="Efectivo VES">Efectivo (Bs)</option>
+                    <option value="Transferencia VES">Transferencia Bancaria (Bs)</option>
+                    <option value="Pago Móvil VES">Pago Móvil (Bs)</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label id="lbl-abono-monto">Monto a Abonar ($)</label>
+                <input type="number" id="abono-monto" step="0.01" min="0.01" oninput="calcularEquivalenteAbono()" required>
+            </div>
+            <div class="form-group transaction-reference-field" id="abono-referencia-group" style="margin-bottom: 12px; display:none;">
+                <label>Número de Referencia</label>
+                <input type="text" id="abono-referencia" maxlength="40" placeholder="Referencia bancaria / pago móvil" autocomplete="off">
+                <small style="color:var(--text-muted);">Quedará en estado <b>Confirmando</b> y no reducirá la deuda hasta ser validado.</small>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Equivalente Convertido</label>
+                <input type="text" id="abono-equivalente" readonly style="background: #f1f5f9; font-weight: bold;">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-danger" onclick="cerrarModalAbono()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Procesar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="core/app-state.js"></script>
+<script src="core/helpers.js"></script>
+<script src="core/persistence.js"></script>
+<script src="core/bcv.js"></script>
+<script src="modules/productos.js"></script>
+<script src="modules/pos.js"></script>
+<script src="modules/clientes.js"></script>
+<script src="modules/pagos-transacciones.js"></script>
+<script src="modules/auditoria.js"></script>
+<script src="modules/perdidas.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
