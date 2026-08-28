@@ -2,8 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema POS Multimoneda BCV</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
     <!-- Font Awesome para los íconos del BCV -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
@@ -58,12 +62,12 @@
         </div>
     </header>
 
-    <div class="nav-tabs">
-        <button class="nav-btn active" onclick="switchTab('pos')">Punto de Venta</button>
-        <button class="nav-btn" onclick="switchTab('inventario')">Inventario & Precios</button>
-        <button class="nav-btn" onclick="switchTab('clientes')">Clientes & Cuentas x Cobrar</button>
-        <button class="nav-btn" onclick="switchTab('transacciones')">Tipos de Transacciones</button>
-        <button class="nav-btn" onclick="switchTab('auditoria')">Auditoría de Inventario</button>
+    <div class="nav-tabs" id="main-nav-tabs">
+        <button class="nav-btn active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
+        <button class="nav-btn" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
+        <button class="nav-btn" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
+        <button class="nav-btn" data-tab="transacciones" onclick="switchTab('transacciones')"><i class="fas fa-receipt"></i> Tipos de Transacciones</button>
+        <button class="nav-btn" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
     </div>
 
     <!-- VISTA 1: POS -->
@@ -1024,6 +1028,30 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         </div>
     </div>
 </div>
+
+<!-- Barra de Navegación Inferior Móvil (Mobile Bottom Navigation Bar) -->
+<nav class="bottom-nav-bar" id="mobile-bottom-nav" aria-label="Navegación Móvil">
+    <button type="button" class="bottom-nav-item active" data-tab="pos" onclick="switchTab('pos')" aria-label="Punto de Venta">
+        <i class="fas fa-cash-register"></i>
+        <span>Venta</span>
+    </button>
+    <button type="button" class="bottom-nav-item" data-tab="inventario" onclick="switchTab('inventario')" aria-label="Inventario y Precios">
+        <i class="fas fa-boxes-stacked"></i>
+        <span>Inventario</span>
+    </button>
+    <button type="button" class="bottom-nav-item" data-tab="clientes" onclick="switchTab('clientes')" aria-label="Clientes y Fiados">
+        <i class="fas fa-users"></i>
+        <span>Clientes</span>
+    </button>
+    <button type="button" class="bottom-nav-item" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones">
+        <i class="fas fa-receipt"></i>
+        <span>Transac.</span>
+    </button>
+    <button type="button" class="bottom-nav-item" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
+        <i class="fas fa-clipboard-check"></i>
+        <span>Auditoría</span>
+    </button>
+</nav>
 
 <!-- Firebase SDK Compat (Firestore + Auth) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>

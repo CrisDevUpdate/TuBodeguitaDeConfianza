@@ -275,14 +275,25 @@ function seleccionarMonedaBCV(moneda) {
 }
 
 function switchTab(tabId) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-btn, .bottom-nav-item').forEach(b => {
+        const onclickAttr = b.getAttribute('onclick') || '';
+        const dataTab = b.getAttribute('data-tab');
+        if (dataTab === tabId || onclickAttr.includes(`'${tabId}'`) || onclickAttr.includes(`"${tabId}"`)) {
+            b.classList.add('active');
+        } else {
+            b.classList.remove('active');
+        }
+    });
     
-    if (window.event && window.event.target) {
-        window.event.target.classList.add('active');
-    }
+    document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
     const targetView = document.getElementById(tabId);
-    if (targetView) targetView.classList.add('active');
+    if (targetView) {
+        targetView.classList.add('active');
+        // Scroll suave al inicio de la vista en móvil
+        if (window.innerWidth <= 768) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
 }
 
 // Modal de configuración manual
