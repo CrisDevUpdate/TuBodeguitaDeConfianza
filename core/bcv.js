@@ -127,6 +127,12 @@ function guardarTasasLocales() {
 // Consulta de tasas oficiales en línea
 async function obtenerTasaOficialBCV(forzar = false) {
     const status = document.getElementById('bcv-sync-status');
+    const btnHeaderRefresh = document.getElementById('btn-refresh-tasa');
+    
+    if (btnHeaderRefresh) {
+        btnHeaderRefresh.classList.add('rotating');
+    }
+
     const setStatus = (tipo, texto, icono) => {
         if (!status) return;
         status.className = `bcv-sync-status ${tipo || ''}`;
@@ -141,7 +147,8 @@ async function obtenerTasaOficialBCV(forzar = false) {
 
     // 1. Consultar endpoint local seguro del servidor
     try {
-        const res = await fetch('/api/bcv/all?ts=' + Date.now(), { signal: AbortSignal.timeout(3500) });
+        const url = `/api/bcv/all?ts=${Date.now()}${forzar ? '&force=true' : ''}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(4500) });
         if (res.ok) {
             const data = await res.json();
             if (data?.usd?.tasa && parseFloat(data.usd.tasa) > 0) {
@@ -151,36 +158,58 @@ async function obtenerTasaOficialBCV(forzar = false) {
                 bcvEsManual = false;
             }
         }
-    } catch {
-        // Fallback silencioso
+    } catch (e) {
+        console.warn('[BCV] Backend sync fallback:', e.message);
     }
 
-    // 2. Intentar fuente directa en cliente si el backend no pudo
+    // 2. Intentar fuente directa en cliente (DolarApi)
     if (!usd || usd <= 0) {
         try {
-            const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(3000) });
+            const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(3500) });
             if (res.ok) {
                 const data = await res.json();
                 const val = data.promedio || data.price || data.tasa;
-                if (val && !isNaN(val)) {
+                if (val && !isNaN(val) && parseFloat(val) > 0) {
                     usd = parseFloat(val);
                     fecha = data.fechaActualizacion ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE') : fecha;
                     bcvEsManual = false;
                 }
             }
-        } catch {
-            // Fallback silencioso
+        } catch (e) {
+            console.warn('[BCV] DolarApi client fallback:', e.message);
         }
     }
 
-    // 3. Evaluar resultado
+    // 3. Intentar fuente directa en cliente (BCV API Tech)
+    if (!usd || usd <= 0) {
+        try {
+            const res = await fetch('https://bcvapi.tech/api/v1/dolar/public', { signal: AbortSignal.timeout(3500) });
+            if (res.ok) {
+                const data = await res.json();
+                const val = data.tasa || data.promedio;
+                if (val && !isNaN(val) && parseFloat(val) > 0) {
+                    usd = parseFloat(val);
+                    fecha = data.fecha || fecha;
+                    bcvEsManual = false;
+                }
+            }
+        } catch (e) {
+            console.warn('[BCV] BCVApi client fallback:', e.message);
+        }
+    }
+
+    if (btnHeaderRefresh) {
+        setTimeout(() => btnHeaderRefresh.classList.remove('rotating'), 500);
+    }
+
+    // 4. Evaluar resultado
     if (usd > 0) {
         tasaUSD_BCV = usd;
         tasaEUR_BCV = (eur > 0) ? eur : (usd * 1.08);
         fechaTasaBCV = fecha;
         guardarTasasLocales();
         actualizarVistaTasaBCV();
-        setStatus('success', 'Tasas sincronizadas', 'fa-check-circle');
+        setStatus('success', 'Tasas sincronizadas en vivo', 'fa-check-circle');
         return true;
     }
 
@@ -194,9 +223,9 @@ async function obtenerTasaOficialBCV(forzar = false) {
         }
     } else {
         // Valor referencial por defecto para que el POS funcione de inmediato
-        tasaUSD_BCV = 75.25;
-        tasaEUR_BCV = 81.40;
-        fechaTasaBCV = new Date().toLocaleDateString('es-VE') + ' (Referencial)';
+        tasaUSD_BCV = 791.32;
+        tasaEUR_BCV = 921.81;
+        fechaTasaBCV = new Date().toLocaleDateString('es-VE');
         actualizarVistaTasaBCV();
         setStatus('manual', 'Sin conexión (Configurar Manual)', 'fa-sliders');
     }

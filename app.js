@@ -11,6 +11,9 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         InventoryApp.Persistence.iniciar();
+        if (window.InventoryApp && window.InventoryApp.GoogleDrive && typeof window.InventoryApp.GoogleDrive.init === 'function') {
+            window.InventoryApp.GoogleDrive.init();
+        }
         sincronizarSecuenciaIdsProducto();
         if (typeof iniciarSincronizacionBCV === 'function') {
             iniciarSincronizacionBCV();
@@ -31,12 +34,145 @@
         actualizarVistaImagenProducto();
     });
 
-    window.InventoryApp.version = '4.0.0-beta';
-    window.InventoryApp.releaseName = 'Versión 4.0.0-beta — Sistema POS Multimoneda BCV';
+    // Cloud Modal Handlers & Tools
+    window.abrirModalCloudSync = function () {
+        const modal = document.getElementById('modal-cloud-sync');
+        if (!modal) return;
+        
+        // Actualizar estadísticas de la base de datos
+        const statProd = document.getElementById('cloud-stat-productos');
+        const statCli = document.getElementById('cloud-stat-clientes');
+        const statVen = document.getElementById('cloud-stat-ventas');
+        const statTx = document.getElementById('cloud-stat-transacciones');
+        
+        if (statProd) statProd.textContent = Array.isArray(AppState.productos) ? AppState.productos.length : 0;
+        if (statCli) statCli.textContent = Array.isArray(AppState.clientes) ? AppState.clientes.length : 0;
+        if (statVen) statVen.textContent = Array.isArray(AppState.ventas) ? AppState.ventas.length : 0;
+        if (statTx) statTx.textContent = Array.isArray(AppState.transacciones) ? AppState.transacciones.length : 0;
+        
+        modal.classList.add('active');
+    };
+
+    window.cerrarModalCloudSync = function () {
+        const modal = document.getElementById('modal-cloud-sync');
+        if (modal) modal.classList.remove('active');
+    };
+
+    // Cerrar modal con tecla Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('modal-cloud-sync');
+            if (modal && modal.classList.contains('active')) {
+                cerrarModalCloudSync();
+            }
+        }
+    });
+
+    window.ejecutarSincronizacionNube = async function () {
+        const btn = document.getElementById('btn-cloud-sync-now');
+        const iconOriginal = '<i class="fas fa-rotate"></i> Forzar Sincronización Nube';
+        
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando datos...';
+        }
+
+        try {
+            if (window.InventoryApp && window.InventoryApp.Firebase) {
+                // Primero asegurar inicialización si estaba en espera
+                if (typeof window.InventoryApp.Firebase.init === 'function') {
+                    await window.InventoryApp.Firebase.init();
+                }
+
+                // Sincronizar hacia Firestore
+                const res = await window.InventoryApp.Firebase.syncToCloud();
+                
+                // Actualizar contadores del modal
+                actualizarEstadisticasModalCloud();
+
+                if (res) {
+                    if (btn) {
+                        btn.innerHTML = '<i class="fas fa-check"></i> ¡Sincronizado!';
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-primary');
+                    }
+                    setTimeout(() => {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = iconOriginal;
+                            btn.classList.remove('btn-primary');
+                            btn.classList.add('btn-success');
+                        }
+                    }, 1500);
+                } else {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = iconOriginal;
+                    }
+                    alert('Sincronización finalizada en modo offline / caché local.');
+                }
+            } else {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = iconOriginal;
+                }
+            }
+        } catch (e) {
+            console.error('Error sincronizando nube:', e);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = iconOriginal;
+            }
+            alert('Aviso de sincronización: ' + (e.message || e));
+        }
+    };
+
+    function actualizarEstadisticasModalCloud() {
+        const statProd = document.getElementById('cloud-stat-productos');
+        const statCli = document.getElementById('cloud-stat-clientes');
+        const statVen = document.getElementById('cloud-stat-ventas');
+        const statTx = document.getElementById('cloud-stat-transacciones');
+        
+        if (statProd) statProd.textContent = Array.isArray(AppState.productos) ? AppState.productos.length : 0;
+        if (statCli) statCli.textContent = Array.isArray(AppState.clientes) ? AppState.clientes.length : 0;
+        if (statVen) statVen.textContent = Array.isArray(AppState.ventas) ? AppState.ventas.length : 0;
+        if (statTx) statTx.textContent = Array.isArray(AppState.transacciones) ? AppState.transacciones.length : 0;
+    }
+
+    window.descargarRespaldoLocal = function () {
+        if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.exportarRespaldoJSON === 'function') {
+            window.InventoryApp.Persistence.exportarRespaldoJSON();
+        }
+    };
+
+    window.manejarImportacionJSON = async function (e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        if (!confirm('¿Deseas restaurar la base de datos desde este archivo? Se actualizarán los registros locales y se subirán a Firestore.')) {
+            e.target.value = '';
+            return;
+        }
+
+        try {
+            await window.InventoryApp.Persistence.importarRespaldoJSON(file);
+            alert('¡Base de datos restaurada y sincronizada correctamente!');
+            window.location.reload();
+        } catch (err) {
+            console.error('Error restaurando base de datos:', err);
+            alert('Error al importar el archivo JSON: ' + (err.message || err));
+        } finally {
+            e.target.value = '';
+        }
+    };
+
+    window.InventoryApp.version = '4.0.0-cloud';
+    window.InventoryApp.releaseName = 'Versión 4.0.0-cloud — Sistema POS Multimoneda BCV con Firebase Firestore';
     window.InventoryApp.architecture = {
         state: 'core/app-state.js',
         modules: [
             'core/helpers.js',
+            'core/firebase-service.js',
             'core/persistence.js',
             'core/bcv.js',
             'modules/productos.js',

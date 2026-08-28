@@ -85,17 +85,28 @@ function procesarVenta() {
         InventoryApp.StockService.sale(item.productoId, item.cantidad);
     }
 
-    ventas.push({
-        id: "V" + (ventas.length + 1),
+    const itemsVendidos = carrito.map(item => {
+        const producto = productos.find(p => p.id === item.productoId);
+        return { ...item, costo: Number(producto?.costo || item.costo || 0) };
+    });
+
+    const nuevaVenta = {
+        id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
         clienteId: clienteId,
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        items: carrito.map(item => {
-            const producto = productos.find(p => p.id === item.productoId);
-            return { ...item, costo: Number(producto?.costo || item.costo || 0) };
-        }),
+        items: itemsVendidos,
         total: total,
         tipo: tipoPago
-    });
+    };
+
+    ventas.push(nuevaVenta);
+
+    // Sincronizar venta y actualización de stock en Firebase Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
+        window.InventoryApp.Firebase.registrarVenta(nuevaVenta, itemsVendidos).catch(err => {
+            console.warn('[POS] Error al registrar venta en Firestore:', err);
+        });
+    }
 
     carrito = [];
     renderizarCarrito();

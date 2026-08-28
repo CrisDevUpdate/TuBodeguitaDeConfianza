@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reglas para el Sistema POS TuBodeguitaDeConfianza
+    match /productos/{productoId} {
+      allow read, write: if true;
+    }
+    match /clientes/{clienteId} {
+      allow read, write: if true;
+    }
+    match /ventas/{ventaId} {
+      allow read, write: if true;
+    }
+    match /abonos/{abonoId} {
+      allow read, write: if true;
+    }
+    match /transacciones/{txId} {
+      allow read, write: if true;
+    }
+    match /auditorias/{auditoriaId} {
+      allow read, write: if true;
+    }
+    match /eliminaciones/{eliminacionId} {
+      allow read, write: if true;
+    }
+    match /clientesEliminados/{cliEliminadoId} {
+      allow read, write: if true;
+    }
+    match /config/{configId} {
+      allow read, write: if true;
+    }
+    match /app_state/{stateId} {
+      allow read, write: if true;
+    }
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

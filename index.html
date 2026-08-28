@@ -27,18 +27,33 @@
                 </button>
             </div>
 
-            <div class="persistence-status" id="persistencia-status"><i class="fas fa-cloud-arrow-up"></i> Guardado automático</div>
+            <div class="persistence-status" id="persistencia-status" onclick="abrirModalCloudSync()" title="Ver estado y opciones de sincronización en la nube">
+                <i class="fas fa-cloud"></i> <span id="persistencia-texto">Conectando nube...</span>
+            </div>
 
             <div class="rate-box">
-                <small class="rate-text">
-                    <i class="fas fa-chart-line"></i>
-                    <strong>Tasa oficial:</strong>
-                    <span id="tasaActual" style="color: #fde047; font-weight: bold;">Consultando BCV...</span>
-                </small>
-                <small class="rate-date">
-                    <i class="far fa-clock"></i>
-                    <span id="fechaActualizacion">Actualizando...</span>
-                </small>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <small class="rate-text" style="margin:0;">
+                        <i class="fas fa-chart-line"></i>
+                        <strong>Tasa oficial:</strong>
+                        <span id="tasaActual" style="color: #fde047; font-weight: bold;">Consultando BCV...</span>
+                    </small>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <button type="button" id="btn-refresh-tasa" class="btn-icon-tasa" onclick="obtenerTasaOficialBCV(true)" title="Actualizar precio del dólar BCV en vivo">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                        <button type="button" id="btn-editar-tasa-manual" class="btn-icon-tasa" onclick="abrirModalTasaManual()" title="Ajustar o fijar tasa manualmente">
+                            <i class="fas fa-sliders"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <small class="rate-date" style="margin:0;">
+                        <i class="far fa-clock"></i>
+                        <span id="fechaActualizacion">Actualizando...</span>
+                    </small>
+                    <span id="tasa-badge-tipo" class="tasa-badge" style="display:none;"></span>
+                </div>
             </div>
         </div>
     </header>
@@ -168,6 +183,15 @@
                     Consulta:
                     <strong id="inventario-hora-consulta">--</strong>
                 </span>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:#fff; border:1px solid rgba(255,255,255,0.25);" onclick="obtenerTasaOficialBCV(true)">
+                    <i class="fas fa-rotate"></i> Actualizar en Vivo (BCV)
+                </button>
+                <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:#fff; border:1px solid rgba(255,255,255,0.25);" onclick="abrirModalTasaManual()">
+                    <i class="fas fa-sliders"></i> Fijar Tasa Manual
+                </button>
             </div>
         </div>
 
@@ -799,6 +823,42 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
     </div>
 </div>
 
+<!-- Modal para Configuración de Tasa Manual / Personalizada -->
+<div id="modal-tasa-manual" class="modal" onclick="if(event.target === this) cerrarModalTasaManual();">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:15px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-sliders" style="color:var(--primary-accent);"></i> Configuración de Tasa de Cambio
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalTasaManual()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <p id="modal-tasa-actual-info" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></p>
+
+        <form onsubmit="guardarTasaManualDesdeModal(event)">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Tasa Dólar USD (Bs. por 1 USD) <span style="color:var(--danger);">*</span></label>
+                <input type="number" id="manual-tasa-usd" step="0.01" min="0.01" required placeholder="Ej: 791.32" style="font-size:1.1rem; font-weight:700;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Tasa Euro EUR (Bs. por 1 EUR) <small style="color:var(--text-muted);">(Opcional)</small></label>
+                <input type="number" id="manual-tasa-eur" step="0.01" min="0.01" placeholder="Ej: 921.81" style="font-size:1.1rem; font-weight:700;">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <button type="button" id="btn-restaurar-auto-bcv" class="btn btn-outline btn-sm" onclick="restaurarAutoSincronizacionBCV()" style="color:var(--primary-accent); border-color:var(--primary-accent);">
+                    <i class="fas fa-cloud-arrow-down"></i> Sincronizar en Vivo (Internet)
+                </button>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn" onclick="cerrarModalTasaManual()">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Aplicar Tasa</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal para Registrar Abonos Multimoneda -->
 <div id="modal-abono" class="modal">
     <div class="modal-content">
@@ -834,8 +894,147 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
     </div>
 </div>
 
+<!-- Modal de Estado y Control de la Nube (Firebase Firestore) -->
+<div id="modal-cloud-sync" class="modal" onclick="if(event.target === this) cerrarModalCloudSync();">
+    <div class="modal-content" style="max-width: 620px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:15px; position:sticky; top:0; background:#ffffff; z-index:10;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-cloud-arrow-up" style="color:var(--primary-accent);"></i> Base de Datos en la Nube
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalCloudSync()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <div class="cloud-info-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                    <strong>Motor de Nube:</strong> Google Cloud Firebase Firestore (Gratuito)
+                </div>
+                <span id="modal-cloud-status-badge" class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">Conectado</span>
+            </div>
+            <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.4;">
+                Tus datos de productos, clientes, ventas, abonos y auditoría se sincronizan en tiempo real con Firestore y se respaldan localmente en tu navegador para acceso sin interrupciones.
+            </div>
+
+            <div class="cloud-info-grid">
+                <div class="cloud-stat-card">
+                    <strong id="cloud-stat-productos">0</strong>
+                    <span>Productos</span>
+                </div>
+                <div class="cloud-stat-card">
+                    <strong id="cloud-stat-clientes">0</strong>
+                    <span>Clientes</span>
+                </div>
+                <div class="cloud-stat-card">
+                    <strong id="cloud-stat-ventas">0</strong>
+                    <span>Ventas</span>
+                </div>
+                <div class="cloud-stat-card">
+                    <strong id="cloud-stat-transacciones">0</strong>
+                    <span>Transacciones</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-success" id="btn-cloud-sync-now" onclick="ejecutarSincronizacionNube()" style="flex:1;">
+                    <i class="fas fa-rotate"></i> Forzar Sincronización Nube
+                </button>
+                <button type="button" class="btn btn-primary" onclick="descargarRespaldoLocal()" style="flex:1;">
+                    <i class="fas fa-download"></i> Descargar Datos JSON
+                </button>
+            </div>
+
+            <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:12px; text-align:center;">
+                <label style="cursor:pointer; display:block; font-size:0.85rem; color:var(--text-main); font-weight:600;">
+                    <i class="fas fa-upload"></i> Restaurar / Importar desde archivo JSON
+                    <input type="file" id="input-restaurar-json" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
+                </label>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Sube un respaldo previo para recuperar todos los datos y sincronizarlos a la nube.</small>
+            </div>
+        </div>
+
+        <div class="drive-box" id="google-drive-integration-box">
+            <div class="drive-box-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fab fa-google-drive" style="font-size:1.4rem; color:#16a34a;"></i>
+                    <div>
+                        <strong style="color:#15803d; font-size:0.92rem;">Integración con Google Drive</strong>
+                        <div style="font-size:0.75rem; color:#166534;">Respaldos automáticos, restauración y exportación de hojas de cálculo</div>
+                    </div>
+                </div>
+                <button type="button" id="btn-google-drive-logout" class="btn btn-sm btn-outline" style="display:none;" onclick="InventoryApp.GoogleDrive.logout()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Desconectar
+                </button>
+            </div>
+
+            <div id="drive-user-status" style="margin-bottom:12px;"></div>
+
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                <!-- Official Sign in with Google Button -->
+                <button type="button" id="btn-google-drive-login" class="gsi-material-button" onclick="InventoryApp.GoogleDrive.login()">
+                    <div class="gsi-material-button-state"></div>
+                    <div class="gsi-material-button-content-wrapper">
+                        <div class="gsi-material-button-icon">
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="display: block;">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                                <path fill="none" d="M0 0h48v48H0z"></path>
+                            </svg>
+                        </div>
+                        <span class="gsi-material-button-contents">Conectar con Google Drive</span>
+                    </div>
+                </button>
+            </div>
+
+            <div id="drive-actions-section" style="display:none;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                    <button type="button" class="btn btn-sm btn-success" id="btn-drive-backup-now" onclick="InventoryApp.GoogleDrive.guardarRespaldo()" style="flex:1;">
+                        <i class="fab fa-google-drive"></i> Crear Respaldo en Drive
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="InventoryApp.GoogleDrive.exportarCSVADrive('productos')" title="Exportar catálogo a Google Drive">
+                        <i class="fas fa-file-csv"></i> Exportar Inventario CSV
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="InventoryApp.GoogleDrive.exportarCSVADrive('ventas')" title="Exportar historial de ventas a Google Drive">
+                        <i class="fas fa-file-invoice-dollar"></i> Exportar Ventas CSV
+                    </button>
+                </div>
+
+                <div style="border-top:1px solid #dcfce7; padding-top:10px;">
+                    <div style="font-weight:600; font-size:0.8rem; color:#15803d; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <span><i class="fas fa-clock-rotate-left"></i> Respaldos en tu Google Drive</span>
+                        <button type="button" class="btn btn-sm" onclick="InventoryApp.GoogleDrive.listarRespaldos()" style="background:none; border:none; color:#15803d; cursor:pointer; font-size:0.75rem;">
+                            <i class="fas fa-rotate"></i> Actualizar lista
+                        </button>
+                    </div>
+                    <div id="drive-backups-list">
+                        <!-- Lista dinámica de archivos en Google Drive -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; position:sticky; bottom:0; background:#ffffff; z-index:10;">
+            <span style="font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-shield-halved"></i> Datos protegidos y cifrados</span>
+            <button type="button" class="btn btn-primary" onclick="cerrarModalCloudSync()" style="min-width:110px; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                <i class="fas fa-times"></i> Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDK Compat (Firestore + Auth) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+
+<!-- Scripts de Arquitectura y Módulos -->
 <script src="core/app-state.js"></script>
 <script src="core/helpers.js"></script>
+<script src="core/firebase-service.js"></script>
+<script src="core/google-drive-service.js"></script>
 <script src="core/persistence.js"></script>
 <script src="core/bcv.js"></script>
 <script src="modules/productos.js"></script>
@@ -847,3 +1046,4 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="app.js"></script>
 </body>
 </html>
+

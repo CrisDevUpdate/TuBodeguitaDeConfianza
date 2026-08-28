@@ -90,19 +90,65 @@ header h1 { font-size: 1.4rem; }
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
     padding: 10px;
-    text-align: center;
+    text-align: left;
 }
 
 .rate-text {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     display: block;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
 }
 
 .rate-date {
     font-size: 0.75rem;
-    opacity: 0.75;
+    opacity: 0.8;
     display: block;
+}
+
+.btn-icon-tasa {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.2s;
+}
+
+.btn-icon-tasa:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.btn-icon-tasa.rotating i {
+    animation: fa-spin 0.8s linear infinite;
+}
+
+.tasa-badge {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tasa-badge.auto {
+    background: rgba(34, 197, 94, 0.25);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.tasa-badge.manual {
+    background: rgba(245, 158, 11, 0.25);
+    color: #fde047;
+    border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 /* Tarjeta BCV dentro del Inventario */
@@ -371,17 +417,25 @@ th {
     background: rgba(0,0,0,0.5);
     justify-content: center;
     align-items: center;
-    z-index: 100;
+    z-index: 1000;
+    padding: 16px;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .modal.active { display: flex; }
 
 .modal-content {
     background: white;
-    padding: 25px;
-    border-radius: 10px;
+    padding: 24px;
+    border-radius: 12px;
     width: 100%;
     max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    position: relative;
+    box-sizing: border-box;
 }
 
 .kpi-grid {
@@ -1177,18 +1231,134 @@ th {
     .transaction-batch-actions-buttons .btn { flex: 1; }
 }
 
-/* --- Beta: persistencia y controles de conciliación --- */
+/* --- Persistencia en la Nube (Firebase Firestore) --- */
 .persistence-status {
-    margin-top: 10px;
+    margin-top: 8px;
+    margin-bottom: 8px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: .72rem;
-    color: rgba(255,255,255,.72);
+    font-size: .78rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: fit-content;
 }
-.persistence-status.success { color: #bbf7d0; }
-.persistence-status.error { color: #fecaca; }
-.transaction-reset-view { white-space: nowrap; }
-@media (max-width: 700px) {
-    .transaction-reset-view { width: 100%; }
+.persistence-status:hover {
+    background: rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
 }
+.persistence-status.cloud-online { color: #86efac; border: 1px solid rgba(134, 239, 172, 0.3); }
+.persistence-status.cloud-syncing { color: #93c5fd; border: 1px solid rgba(147, 197, 253, 0.3); }
+.persistence-status.cloud-offline { color: #fde047; border: 1px solid rgba(253, 224, 71, 0.3); }
+.persistence-status.cloud-error { color: #fca5a5; border: 1px solid rgba(252, 165, 165, 0.3); }
+
+.cloud-badge-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.cloud-badge-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.cloud-info-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+}
+.cloud-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+.cloud-stat-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+.cloud-stat-card strong {
+    display: block;
+    font-size: 1.2rem;
+    color: var(--primary-accent);
+}
+.cloud-stat-card span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* --- Google Sign-in & Google Drive Integration Styles --- */
+.gsi-material-button {
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  appearance: none;
+  background-color: #ffffff;
+  background-image: none;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  height: 38px;
+  letter-spacing: 0.2px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 12px;
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.gsi-material-button:hover {
+  box-shadow: 0 1px 3px rgba(60,64,67,0.3);
+  background-color: #f8fafc;
+}
+.gsi-material-button-icon {
+  height: 18px;
+  width: 18px;
+  min-width: 18px;
+}
+.gsi-material-button-contents {
+  font-size: 13px;
+}
+
+.drive-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 14px;
+}
+.drive-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+

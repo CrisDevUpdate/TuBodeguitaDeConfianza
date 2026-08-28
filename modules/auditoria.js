@@ -232,8 +232,8 @@ function aplicarAjusteInventario(productoId) {
     }
 
     // Deja registro en el historial de auditoría.
-    auditorias.push({
-        id: "AJ" + (auditorias.length + 1),
+    const registroAuditoria = {
+        id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
         productoId: p.id,
         codigo: p.codigo,
@@ -246,7 +246,15 @@ function aplicarAjusteInventario(productoId) {
         // Si el conteo físico es menor que el digital, esas unidades no están disponibles
         // y representan una pérdida económica mientras no sean repuestas.
         perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0
-    });
+    };
+    auditorias.push(registroAuditoria);
+
+    // Sincronizar ajuste en Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
+        window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(err => {
+            console.warn('[Auditoria] Error sincronizando ajuste en Firestore:', err);
+        });
+    }
 
     delete conteosFisicos[productoId];
 

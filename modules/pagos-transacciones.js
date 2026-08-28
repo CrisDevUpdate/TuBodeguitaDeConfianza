@@ -785,8 +785,8 @@ function guardarAbono(e) {
         montoUSD = calcularMontoUSDDesdeBs(montoIngresado);
     }
 
-    abonos.push({
-        id: 'A' + (abonos.length + 1),
+    const nuevoAbono = {
+        id: 'A' + (abonos.length + 1) + '_' + Date.now().toString().slice(-4),
         clienteId: clienteSeleccionadoId,
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
         montoUSD,
@@ -794,7 +794,15 @@ function guardarAbono(e) {
         metodo,
         tasaMomento: tasaActiva,
         estado: 'Pago agregado'
-    });
+    };
+    abonos.push(nuevoAbono);
+
+    // Guardar abono en Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
+        window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
+            console.warn('[Abonos] Error al guardar abono en Firestore:', err);
+        });
+    }
 
     document.getElementById('abono-monto').value = '';
     cerrarModalAbono();

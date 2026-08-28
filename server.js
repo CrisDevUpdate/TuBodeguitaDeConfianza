@@ -15,14 +15,14 @@ app.use(express.json());
 
 // In-memory cache for BCV exchange rates with resilient defaults
 let bcvCache = {
-  usd: { tasa: '75.25', fecha: new Date().toLocaleDateString('es-VE'), fuente: 'BCV Oficial', lastUpdated: Date.now(), manual: false },
-  eur: { tasa: '81.40', fecha: new Date().toLocaleDateString('es-VE'), fuente: 'BCV Oficial', lastUpdated: Date.now(), manual: false }
+  usd: { tasa: null, fecha: new Date().toLocaleDateString('es-VE'), fuente: 'BCV Oficial', lastUpdated: 0, manual: false },
+  eur: { tasa: null, fecha: new Date().toLocaleDateString('es-VE'), fuente: 'BCV Oficial', lastUpdated: 0, manual: false }
 };
 
 // Safe fetch helper with multiple sources and silent failure handling
-async function fetchBCVRate(type) {
-  // If cache was updated in the last 5 minutes and is valid, return it
-  if (Date.now() - bcvCache[type].lastUpdated < 300000 && parseFloat(bcvCache[type].tasa) > 0) {
+async function fetchBCVRate(type, force = false) {
+  // If cache was updated in the last 60 seconds and is valid and not forced, return it
+  if (!force && bcvCache[type].tasa && Date.now() - bcvCache[type].lastUpdated < 60000 && parseFloat(bcvCache[type].tasa) > 0) {
     return bcvCache[type];
   }
 
@@ -30,13 +30,13 @@ async function fetchBCVRate(type) {
     async () => {
       const url = type === 'usd' ? 'https://ve.dolarapi.com/v1/dolares/oficial' : 'https://ve.dolarapi.com/v1/euros/oficial';
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+      const id = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' } });
       clearTimeout(id);
       if (!res.ok) return null;
       const data = await res.json();
       const val = data.promedio || data.price || data.tasa;
-      if (val && !isNaN(val)) {
+      if (val && !isNaN(val) && parseFloat(val) > 0) {
         return {
           tasa: String(val),
           fecha: data.fechaActualizacion ? new Date(data.fechaActualizacion).toLocaleDateString('es-VE') : new Date().toLocaleDateString('es-VE'),
@@ -48,14 +48,15 @@ async function fetchBCVRate(type) {
     async () => {
       const url = type === 'usd' ? 'https://bcvapi.tech/api/v1/dolar/public' : 'https://bcvapi.tech/api/v1/euro/public';
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+      const id = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' } });
       clearTimeout(id);
       if (!res.ok) return null;
       const data = await res.json();
-      if (data && data.tasa && !isNaN(data.tasa)) {
+      const val = data.tasa || data.promedio;
+      if (val && !isNaN(val) && parseFloat(val) > 0) {
         return {
-          tasa: String(data.tasa),
+          tasa: String(val),
           fecha: data.fecha || new Date().toLocaleDateString('es-VE'),
           fuente: 'BCV Api Tech'
         };
@@ -82,24 +83,42 @@ async function fetchBCVRate(type) {
     }
   }
 
-  // Update lastUpdated timestamp so we don't spam failed requests constantly
-  bcvCache[type].lastUpdated = Date.now();
+  // If no provider responded and we don't have a rate yet, provide resilient fallback
+  if (!bcvCache[type].tasa || parseFloat(bcvCache[type].tasa) <= 0) {
+    bcvCache[type] = {
+      tasa: type === 'usd' ? '791.32' : '921.81',
+      fecha: new Date().toLocaleDateString('es-VE'),
+      fuente: 'BCV Referencial',
+      lastUpdated: Date.now(),
+      manual: false
+    };
+  } else {
+    bcvCache[type].lastUpdated = Date.now();
+  }
+
   return bcvCache[type];
 }
 
+// Initial fetch in background on start
+fetchBCVRate('usd', true).catch(() => {});
+fetchBCVRate('eur', true).catch(() => {});
+
 // BCV API endpoints
 app.get('/api/bcv/usd', async (req, res) => {
-  const rate = await fetchBCVRate('usd');
+  const force = req.query.force === 'true';
+  const rate = await fetchBCVRate('usd', force);
   res.json(rate);
 });
 
 app.get('/api/bcv/euro', async (req, res) => {
-  const rate = await fetchBCVRate('eur');
+  const force = req.query.force === 'true';
+  const rate = await fetchBCVRate('eur', force);
   res.json(rate);
 });
 
 app.get('/api/bcv/all', async (req, res) => {
-  const [usd, eur] = await Promise.all([fetchBCVRate('usd'), fetchBCVRate('eur')]);
+  const force = req.query.force === 'true';
+  const [usd, eur] = await Promise.all([fetchBCVRate('usd', force), fetchBCVRate('eur', force)]);
   res.json({ usd, eur });
 });
 

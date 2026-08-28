@@ -1,10 +1,29 @@
 function guardarCliente(e) {
     e.preventDefault();
-    clientes.push({
-        id: document.getElementById('cli-id').value,
-        nombre: document.getElementById('cli-nombre').value,
-        telefono: document.getElementById('cli-telefono').value
-    });
+    const nuevoCliente = {
+        id: document.getElementById('cli-id').value.trim(),
+        nombre: document.getElementById('cli-nombre').value.trim(),
+        telefono: document.getElementById('cli-telefono').value.trim()
+    };
+
+    if (!nuevoCliente.id || !nuevoCliente.nombre) {
+        alert('Por favor completa el ID y nombre del cliente.');
+        return;
+    }
+
+    const idx = clientes.findIndex(c => c.id === nuevoCliente.id);
+    if (idx !== -1) {
+        clientes[idx] = nuevoCliente;
+    } else {
+        clientes.push(nuevoCliente);
+    }
+
+    // Guardar en Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(nuevoCliente).catch(err => {
+            console.warn('[Clientes] Error al guardar cliente en Firestore:', err);
+        });
+    }
 
     document.getElementById('form-cliente').reset();
     actualizarSelectClientes();
@@ -106,7 +125,7 @@ function confirmarEliminacionCliente(event) {
     const estado = calcularEstadoFinancieroCliente(clienteId);
     const fecha = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
-    clientesEliminados.push({
+    const registroEliminado = {
         id: cliente.id,
         nombre: cliente.nombre,
         telefono: cliente.telefono,
@@ -116,10 +135,18 @@ function confirmarEliminacionCliente(event) {
         perdidaUSD: Math.max(0, estado.saldoDeudaUSD),
         motivo,
         comentario
-    });
+    };
+    clientesEliminados.push(registroEliminado);
 
     // No se borran ventas ni abonos: se conservan para auditoría y el historial financiero.
     clientes.splice(indice, 1);
+
+    // Sincronizar eliminación en Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
+        window.InventoryApp.Firebase.eliminarCliente(clienteId, registroEliminado).catch(err => {
+            console.warn('[Clientes] Error al eliminar cliente en Firestore:', err);
+        });
+    }
 
     if (clienteSeleccionadoId === clienteId) {
         clienteSeleccionadoId = null;

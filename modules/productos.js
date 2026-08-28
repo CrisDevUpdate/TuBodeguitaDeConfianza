@@ -187,23 +187,33 @@ function guardarProducto(e) {
         imagen: productoImagenTemporal || ''
     };
 
+    let productoGuardado = null;
     if (id) {
         const idx = productos.findIndex(p => p.id === id);
         if (idx !== -1) {
             // Conservamos cualquier dato adicional del producto que ya exista.
             // Esto evita que editar Contenido/Medida borre la Descripción u otros campos.
             // Regla arquitectónica: editar un producto NO puede modificar stock.
-        // El stock solo cambia mediante venta, retiro o auditoría.
-        const stockActual = productos[idx].stock;
-        productos[idx] = { ...productos[idx], ...datosProducto, stock: stockActual, id: productos[idx].id };
+            // El stock solo cambia mediante venta, retiro o auditoría.
+            const stockActual = productos[idx].stock;
+            productoGuardado = { ...productos[idx], ...datosProducto, stock: stockActual, id: productos[idx].id };
+            productos[idx] = productoGuardado;
         }
     } else {
         // El ID interno nunca depende de la longitud del arreglo: no se reutiliza
         // aunque se eliminen productos durante la sesión.
         const nuevoId = `P${AppState.nextProductSequence++}`;
-        productos.push({
+        productoGuardado = {
             id: nuevoId,
             ...datosProducto
+        };
+        productos.push(productoGuardado);
+    }
+
+    // Persistir asíncronamente en Firebase Firestore
+    if (productoGuardado && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
+        window.InventoryApp.Firebase.guardarProducto(productoGuardado).catch(err => {
+            console.warn('[Productos] Error en guardado cloud:', err);
         });
     }
 
@@ -401,7 +411,7 @@ function confirmarEliminacionProducto(event) {
         return;
     }
 
-    eliminaciones.push({
+    const registroEliminacion = {
         id: 'EL' + Date.now(),
         fecha: new Date().toLocaleString('es-VE'),
         productoId: p.id,
@@ -417,7 +427,8 @@ function confirmarEliminacionProducto(event) {
         comentario,
         perdidaUSD: calcularPerdidaBajaProducto(motivo, cantidad, p.costo),
         tipo: eliminaProductoCompleto ? 'Eliminación completa' : 'Retiro parcial'
-    });
+    };
+    eliminaciones.push(registroEliminacion);
 
     if (eliminaProductoCompleto) {
         productos.splice(indiceEliminado, 1);
@@ -441,6 +452,13 @@ function confirmarEliminacionProducto(event) {
             if (item.productoId !== productoId) return item;
             return { ...item, cantidad: Math.min(item.cantidad, stockDespues) };
         }).filter(item => item.cantidad > 0);
+    }
+
+    // Sincronizar retiro en Firebase Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarEliminacion === 'function') {
+        window.InventoryApp.Firebase.registrarEliminacion(registroEliminacion, productoId, stockDespues).catch(err => {
+            console.warn('[Productos] Error sincronizando eliminación en Firestore:', err);
+        });
     }
 
     resetearFormularioProducto();
