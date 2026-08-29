@@ -29,8 +29,8 @@ const AppState = window.InventoryApp.state = {
             nombre: 'SuperAdmin',
             telefono: '0412-0000000',
             email: 'superadmin@tubodeguita.com',
-            // Hash SHA-256 de la contraseña (irreversible)
-            password: '93f0b2f672322da5b12852eb3ea6718d7f7fa0c7e2b10a266395b23d9061fcff',
+            // Hash SHA-256 criptográfico (irreversible)
+            password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
             rol: 'admin',
             estado: 'ACTIVO',
             puntosAcumulados: 0,

@@ -157,19 +157,20 @@ function calcularHashSha256(texto) {
  * Valida si la contraseña introducida coincide con el Hash o texto almacenado.
  */
 function verificarPasswordHash(inputPassword, storedPasswordOrHash) {
-    if (!storedPasswordOrHash) return false;
-    const cleanInput = String(inputPassword || '').trim();
+    if (!inputPassword && inputPassword !== 0) return false;
+    const cleanInput = String(inputPassword).trim();
+    const cleanStored = String(storedPasswordOrHash || '').trim();
+
     if (!cleanInput) return false;
 
+    // 1. Coincidencia directa por Hash SHA-256
     const inputHash = calcularHashSha256(cleanInput);
-    
-    // Comparación directa de hash criptográfico
-    if (String(storedPasswordOrHash).toLowerCase() === inputHash.toLowerCase()) {
+    if (cleanStored && inputHash && cleanStored.toLowerCase() === inputHash.toLowerCase()) {
         return true;
     }
 
-    // Compatibilidad en caso de contraseña previa sin hashear
-    if (storedPasswordOrHash === cleanInput) {
+    // 2. Coincidencia para migración de contraseñas previas sin hashear
+    if (cleanStored && cleanStored === cleanInput) {
         return true;
     }
 

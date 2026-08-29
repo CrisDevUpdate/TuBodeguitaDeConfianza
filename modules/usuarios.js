@@ -191,8 +191,8 @@ function procesarLoginGatewall(e) {
         (u.email || '').trim().toLowerCase() === id.toLowerCase()
     );
 
-    // Fallback de contingencia directa para SuperAdmin (Hash SHA-256 de "1810")
-    const HASH_SUPERADMIN = '93f0b2f672322da5b12852eb3ea6718d7f7fa0c7e2b10a266395b23d9061fcff';
+    // Fallback de contingencia directa para SuperAdmin (Hash SHA-256)
+    const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
     if (!usuario && (cleanId === 'SUPERADMIN' || id.toLowerCase() === 'superadmin@tubodeguita.com')) {
         usuario = {
             id: 'SuperAdmin',
@@ -217,7 +217,7 @@ function procesarLoginGatewall(e) {
         return false;
     }
 
-    // Validación criptográfica de contraseña
+    // Validación criptográfica de contraseña mediante Hash SHA-256
     let esPasswordValido = false;
     if (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.verificarPasswordHash === 'function') {
         esPasswordValido = window.InventoryApp.Helpers.verificarPasswordHash(pass, usuario.password);
