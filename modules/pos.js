@@ -66,6 +66,14 @@ function eliminarDelCarrito(idx) {
 }
 
 function procesarVenta() {
+    // Guardia de Control de Acceso y Aprobación de Usuarios
+    if (typeof verificarAccesoPOS === 'function') {
+        const acceso = verificarAccesoPOS(true);
+        if (!acceso.permitido) {
+            return; // Bloqueado: PENDIENTE_APROBACION, RECHAZADO o SIN_SESION
+        }
+    }
+
     if (carrito.length === 0) return alert("El carrito está vacío");
 
     const clienteId = document.getElementById('pos-cliente-select').value;
@@ -90,9 +98,13 @@ function procesarVenta() {
         return { ...item, costo: Number(producto?.costo || item.costo || 0) };
     });
 
+    const vendedor = AppState.usuarioActual || { cedula: 'V-00000001', nombre: 'Administrador' };
+
     const nuevaVenta = {
         id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
         clienteId: clienteId,
+        vendedorId: vendedor.cedula || vendedor.id || '',
+        vendedorNombre: vendedor.nombre || '',
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
         items: itemsVendidos,
         total: total,
@@ -100,6 +112,12 @@ function procesarVenta() {
     };
 
     ventas.push(nuevaVenta);
+
+    // Fidelización y Gamificación: Otorgar puntos si la venta es de contado
+    let puntosGanados = 0;
+    if (tipoPago === 'Contado' && typeof otorgarPuntosPorCompra === 'function') {
+        puntosGanados = otorgarPuntosPorCompra(clienteId, total, 'Venta POS Contado');
+    }
 
     // Sincronizar venta y actualización de stock en Firebase Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
@@ -115,7 +133,12 @@ function procesarVenta() {
     renderizarClientes();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarResumenPerdidasEconomicas();
-    alert("Transacción procesada correctamente");
+    
+    if (puntosGanados > 0) {
+        alert(`Transacción procesada correctamente.\n⭐ ¡El cliente acumuló +${puntosGanados} puntos para el Premio del Mes!`);
+    } else {
+        alert("Transacción procesada correctamente");
+    }
 }
 
 // --- CLIENTES Y DEUDAS MULTIMONEDA ---

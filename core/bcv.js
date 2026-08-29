@@ -289,10 +289,26 @@ function switchTab(tabId) {
     const targetView = document.getElementById(tabId);
     if (targetView) {
         targetView.classList.add('active');
-        // Scroll suave al inicio de la vista en móvil
         if (window.innerWidth <= 768) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+    }
+
+    // Disparadores de renderizado según la vista
+    if (tabId === 'cliente-catalogo' && typeof renderizarCatalogoCliente === 'function') {
+        renderizarCatalogoCliente();
+        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+    } else if (tabId === 'cliente-cuenta' && typeof renderizarEstadoCuentaCliente === 'function') {
+        renderizarEstadoCuentaCliente();
+    } else if (tabId === 'cliente-premio' && typeof renderizarPremioMesCliente === 'function') {
+        renderizarPremioMesCliente();
+    } else if (tabId === 'premio-mes-admin' && typeof renderizarConfiguradorPremioAdmin === 'function') {
+        renderizarConfiguradorPremioAdmin();
+    } else if (tabId === 'usuarios' && typeof renderizarUsuarios === 'function') {
+        renderizarUsuarios();
+    } else if (tabId === 'pos' && typeof renderizarPosProductos === 'function') {
+        renderizarPosProductos();
+        if (typeof renderizarCarrito === 'function') renderizarCarrito();
     }
 }
 

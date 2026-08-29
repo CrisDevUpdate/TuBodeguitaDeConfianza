@@ -16,6 +16,159 @@
 </head>
 <body>
 
+<!-- BARRERA DE AUTENTICACIÓN ABSOLUTA (AUTH GATEWALL CERO-ACCESO) -->
+<div id="auth-gatewall">
+    <div class="gatewall-wrapper">
+        <div class="gatewall-brand">
+            <div class="gatewall-logo-icon">
+                <i class="fas fa-store"></i>
+            </div>
+            <h2>Tu Bodeguita de Confianza</h2>
+            <p>Sistema Integral de Gestión, POS y Fidelización</p>
+        </div>
+
+        <!-- 1. Tarjeta de Entrada: Login / Registro -->
+        <div class="gatewall-card" id="gatewall-card-auth">
+            <div class="gatewall-nav-tabs">
+                <button type="button" class="gw-tab-btn active" id="gw-tab-login" onclick="cambiarTabGatewall('login')">
+                    <i class="fas fa-key"></i> Iniciar Sesión
+                </button>
+                <button type="button" class="gw-tab-btn" id="gw-tab-register" onclick="cambiarTabGatewall('register')">
+                    <i class="fas fa-user-plus"></i> Registrarse
+                </button>
+            </div>
+
+            <!-- Subvista: Iniciar Sesión -->
+            <div id="gw-view-login">
+                <form onsubmit="procesarLoginGatewall(event)">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="gw-login-id">Cédula, RIF o Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-login-id" required placeholder="Ej: V-12345678 o tu-correo@ejemplo.com" autocomplete="username">
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label for="gw-login-pass">Contraseña de Acceso <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="gw-login-pass" required placeholder="••••••••" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700;">
+                        <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                    </button>
+                </form>
+            </div>
+
+            <!-- Subvista: Formulario de Registro -->
+            <div id="gw-view-register" style="display:none;">
+                <form onsubmit="registrarUsuarioDesdeGatewall(event)">
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-reg-nombre" required placeholder="Ej: Juan Pérez / Inversiones JP" autocomplete="name">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-telefono">Número de Teléfono (WhatsApp) <span style="color:var(--danger);">*</span></label>
+                        <input type="tel" id="gw-reg-telefono" required placeholder="Ej: 0414-1234567" autocomplete="tel">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-email">Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="email" id="gw-reg-email" required placeholder="tu-correo@ejemplo.com" autocomplete="email">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="gw-reg-password">Contraseña <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="gw-reg-password" required placeholder="••••••••" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label for="gw-reg-rol">Rol Solicitado</label>
+                        <select id="gw-reg-rol">
+                            <option value="cliente">Cliente (Catálogo y Estado de Cuenta)</option>
+                            <option value="vendedor">Vendedor / Operador de Caja</option>
+                            <option value="admin">Administrador General</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700;">
+                        <i class="fas fa-user-plus"></i> Enviar Solicitud de Registro
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Tarjeta: Solicitud Pendiente de Aprobación -->
+        <div class="gatewall-card" id="gatewall-card-pending" style="display:none; text-align:center;">
+            <div class="gatewall-status-icon-box pending">
+                <i class="fas fa-clock fa-spin"></i>
+            </div>
+            <h3 style="color:var(--text-main); margin-bottom:6px;">Solicitud en Revisión</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.5;">
+                Tu cuenta ha sido creada exitosamente y se encuentra en estado <strong>PENDIENTE DE APROBACIÓN</strong> por el Administrador.
+            </p>
+
+            <div class="gatewall-info-summary">
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Cédula / RIF:</span>
+                    <strong id="gw-pending-cedula">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Solicitante:</span>
+                    <strong id="gw-pending-nombre">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Teléfono:</span>
+                    <strong id="gw-pending-telefono">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Correo:</span>
+                    <strong id="gw-pending-email">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Rol solicitado:</span>
+                    <strong id="gw-pending-rol">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Fecha de registro:</span>
+                    <strong id="gw-pending-fecha">-</strong>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+                <a id="gatewall-pending-btn-wa" href="#" target="_blank" class="btn btn-success" style="padding:12px; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> Notificar al Administrador por WhatsApp
+                </a>
+                <button type="button" class="btn btn-outline" onclick="verificarEstadoAprobacionGatewall()">
+                    <i class="fas fa-rotate"></i> Comprobar Estado de Aprobación
+                </button>
+                <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:#fecaca;" onclick="cerrarSesionUsuario()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Salir / Iniciar con otra cuenta
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. Tarjeta: Solicitud Rechazada -->
+        <div class="gatewall-card" id="gatewall-card-rejected" style="display:none; text-align:center;">
+            <div class="gatewall-status-icon-box rejected">
+                <i class="fas fa-ban"></i>
+            </div>
+            <h3 style="color:var(--danger); margin-bottom:6px;">Acceso No Autorizado</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.5;">
+                Tu solicitud de acceso ha sido rechazada por la administración del sistema.
+            </p>
+
+            <div style="background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin:16px 0; text-align:left;">
+                <strong style="color:#991b1b; font-size:0.85rem; display:block; margin-bottom:4px;"><i class="fas fa-circle-exclamation"></i> Motivo del Rechazo:</strong>
+                <span id="gatewall-rejected-motivo" style="color:#991b1b; font-size:0.88rem;"></span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" class="btn btn-primary" onclick="cerrarSesionUsuario()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Volver a Iniciar Sesión
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONTENEDOR PRINCIPAL DE LA APLICACIÓN (OCULTO HASTA AUTENTICACIÓN ACTIVA) -->
+<div id="app-main-container" style="display:none;">
 <div class="container">
     <header>
         <h1>TuBodeguitaDeConfianza Josnairit Salazar</h1>
@@ -33,6 +186,23 @@
 
             <div class="persistence-status" id="persistencia-status" onclick="abrirModalCloudSync()" title="Ver estado y opciones de sincronización en la nube">
                 <i class="fas fa-cloud"></i> <span id="persistencia-texto">Conectando nube...</span>
+            </div>
+
+            <!-- Sesión de Usuario Activa con Rol, Puntos y Salir -->
+            <div class="user-session-badge" id="btn-user-session-header" title="Gestionar sesión de usuario, permisos o cambiar operador">
+                <div class="user-avatar-mini"><i class="fas fa-user"></i></div>
+                <div class="user-info-mini">
+                    <span id="header-user-name" class="user-name-txt">Administrador Principal</span>
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                        <span id="header-user-status" class="badge-status-pill badge-success">ADMIN</span>
+                        <span id="header-user-pts-pill" style="display:none; font-size:0.72rem; font-weight:700; color:#fde047; background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:10px;">
+                            <i class="fas fa-star" style="color:#fde047;"></i> <span id="header-user-pts-val">0</span> pts
+                        </span>
+                    </div>
+                </div>
+                <button type="button" class="btn-icon-tasa" onclick="event.stopPropagation(); cerrarSesionUsuario();" title="Cerrar sesión" style="margin-left:6px; color:#f87171;">
+                    <i class="fas fa-power-off"></i>
+                </button>
             </div>
 
             <div class="rate-box">
@@ -62,16 +232,39 @@
         </div>
     </header>
 
+    <!-- NAVEGACIÓN PRINCIPAL DINÁMICA POR ROL (ADMIN VS CLIENTE) -->
     <div class="nav-tabs" id="main-nav-tabs">
-        <button class="nav-btn active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
-        <button class="nav-btn" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
-        <button class="nav-btn" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
-        <button class="nav-btn" data-tab="transacciones" onclick="switchTab('transacciones')"><i class="fas fa-receipt"></i> Tipos de Transacciones</button>
-        <button class="nav-btn" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
+        <!-- Pestañas EXCLUSIVAS de Administrador -->
+        <button class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
+        <button class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
+        <button class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
+        <button class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')"><i class="fas fa-receipt"></i> Tipos de Transacciones</button>
+        <button class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
+        <button class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
+            <i class="fas fa-user-shield"></i> Usuarios & Aprobación
+            <span id="badge-pendientes-desktop" class="badge-pill-counter" style="display:none;">0</span>
+        </button>
+        <button class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
+            <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
+        </button>
+
+        <!-- Pestañas EXCLUSIVAS de Cliente -->
+        <button class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
+            <i class="fas fa-store"></i> Catálogo de Productos
+        </button>
+        <button class="nav-btn nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')">
+            <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
+        </button>
+        <button class="nav-btn nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')">
+            <i class="fas fa-trophy" style="color:#f59e0b;"></i> Mis Puntos & Premios
+        </button>
     </div>
 
     <!-- VISTA 1: POS -->
     <div id="pos" class="view-content active">
+        <!-- Banner de Guardia de Seguridad POS -->
+        <div id="pos-user-security-banner" class="security-guard-banner banner-warning" style="display:none;"></div>
+
         <div class="pos-grid">
             <div class="card">
                 <h3>Catálogo de Productos</h3>
@@ -724,6 +917,337 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
             </div>
         </div>
     </div>
+
+    <!-- VISTA 6: USUARIOS, CONTROL DE ACCESO & APROBACIONES -->
+    <div id="usuarios" class="view-content">
+        <!-- 1. FORMULARIO DE AUTOREGISTRO DE USUARIOS -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:15px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-user-plus" style="color:var(--primary-accent);"></i> Formulario de Registro de Usuarios</h3>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
+                        Captura de datos obligatoria para clientes, vendedores y administradores. Estado inicial por defecto: <strong style="color:#d97706;">PENDIENTE_APROBACION</strong>.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalAuth()">
+                    <i class="fas fa-arrow-right-to-bracket"></i> Iniciar Sesión / Cambiar Usuario
+                </button>
+            </div>
+
+            <!-- Feedback de Registro -->
+            <div id="reg-feedback" style="display:none; padding:12px 16px; border-radius:8px; margin-bottom:16px; border:1px solid transparent; align-items:flex-start; gap:10px; font-size:0.9rem;"></div>
+
+            <form onsubmit="registrarUsuario(event)" style="margin-top:10px;">
+                <div class="register-form-grid">
+                    <div class="form-group">
+                        <label for="reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Identificación única obligatoria.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="reg-nombre" required placeholder="Ej: María Pérez / Inversiones Salazar" autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-telefono">Número de Teléfono (Contacto) <span style="color:var(--danger);">*</span></label>
+                        <input type="tel" id="reg-telefono" required placeholder="Ej: 0412-1234567" autocomplete="tel">
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Contacto directo para validación de cuenta.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-email">Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="email" id="reg-email" required placeholder="usuario@correo.com" autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-password">Contraseña de Acceso <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="reg-password" required placeholder="••••••••" autocomplete="new-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-rol">Rol Solicitado</label>
+                        <select id="reg-rol">
+                            <option value="cliente">Cliente (Compras y Cuentas x Cobrar)</option>
+                            <option value="vendedor">Vendedor / Operador de Caja</option>
+                            <option value="admin">Administrador General</option>
+                        </select>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Sujeto a validación del Administrador.</small>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                    <div style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i>
+                        <span>El usuario quedará en espera de validación administrativa antes de operar en el POS.</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding:10px 24px; font-weight:700;">
+                        <i class="fas fa-user-plus"></i> Enviar Solicitud de Registro
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 2. PANEL DE CONTROL Y FLUJO DE APROBACIÓN ADMINISTRATIVA -->
+        <div class="card" style="margin-top:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-shield-halved" style="color:#f59e0b;"></i> Panel de Control & Flujo de Aprobación</h3>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
+                        Exclusivo Administrador: Aprueba, rechaza o administra permisos de usuarios en tiempo real.
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPIs de Usuarios -->
+            <div class="users-kpi-grid">
+                <div class="user-kpi-card">
+                    <div class="user-kpi-icon" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-users"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-total">0</span>
+                        <span class="user-kpi-lbl">Total Registrados</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#fde68a;">
+                    <div class="user-kpi-icon" style="background:#fef3c7; color:#d97706;"><i class="fas fa-clock fa-spin"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-pendientes" style="color:#d97706;">0</span>
+                        <span class="user-kpi-lbl">Pendientes Aprobación</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#bbf7d0;">
+                    <div class="user-kpi-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-user-check"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-activos" style="color:#16a34a;">0</span>
+                        <span class="user-kpi-lbl">Usuarios Activos</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#fecaca;">
+                    <div class="user-kpi-icon" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-user-xmark"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-rechazados" style="color:#dc2626;">0</span>
+                        <span class="user-kpi-lbl">Rechazados / Inactivos</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Búsqueda y Pestañas de Filtro -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0 12px 0;">
+                <div style="flex:1; min-width:240px;">
+                    <input type="text" id="usuarios-search" placeholder="Buscar por Cédula, Nombre, Correo o Teléfono..." oninput="renderizarUsuarios(this.value)" style="width:100%;">
+                </div>
+                <div class="user-filter-tabs">
+                    <button type="button" class="filter-btn-user active" data-status="TODOS" onclick="filtrarUsuariosPorEstado('TODOS')">
+                        <i class="fas fa-list"></i> Todos
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="PENDIENTE_APROBACION" onclick="filtrarUsuariosPorEstado('PENDIENTE_APROBACION')">
+                        <i class="fas fa-clock"></i> Pendientes
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="ACTIVO" onclick="filtrarUsuariosPorEstado('ACTIVO')">
+                        <i class="fas fa-check-circle"></i> Activos
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="RECHAZADO" onclick="filtrarUsuariosPorEstado('RECHAZADO')">
+                        <i class="fas fa-ban"></i> Rechazados
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de Usuarios -->
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cédula / RIF</th>
+                            <th>Nombre & Correo</th>
+                            <th>Teléfono (WhatsApp)</th>
+                            <th>Rol Asignado</th>
+                            <th>Estado</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones de Aprobación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usuarios-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. PERSISTENCIA PORTÁTIL & EXPORTACIÓN MÁSTER EXCEL (.XLSX) / JSON -->
+        <div class="card" style="margin-top:18px;">
+            <h3><i class="fas fa-file-excel" style="color:#16a34a;"></i> Persistencia Portátil & Base de Datos Máster</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">
+                Estructura máster multihajas (.xlsx) y JSON que almacena la tabla de <strong>Usuarios</strong> junto con <strong>Inventario de Productos</strong>, <strong>Clientes</strong>, <strong>Ventas</strong> y <strong>Auditorías</strong> para funcionamiento 100% offline o respaldo físico.
+            </p>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px;">
+                <!-- Máster Excel -->
+                <div style="border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; padding:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-excel" style="font-size:1.4rem; color:#16a34a;"></i>
+                        <strong style="color:#166534;">Archivo Máster Excel (.xlsx)</strong>
+                    </div>
+                    <p style="font-size:0.8rem; color:#166534; margin-bottom:12px;">
+                        Descarga o sincroniza todas las hojas de cálculo del sistema en formato nativo Excel (.xlsx).
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="width:100%;">
+                            <i class="fas fa-download"></i> Descargar Máster Excel (.xlsx)
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fas fa-upload"></i> Importar Máster Excel (.xlsx)
+                            <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Respaldo JSON -->
+                <div style="border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-code" style="font-size:1.4rem; color:#2563eb;"></i>
+                        <strong style="color:#1e40af;">Copia de Seguridad JSON</strong>
+                    </div>
+                    <p style="font-size:0.8rem; color:#1e40af; margin-bottom:12px;">
+                        Respaldo liviano para migración rápida de estado de datos y sincronización de base local.
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" class="btn btn-primary" onclick="descargarRespaldoLocal()" style="width:100%;">
+                            <i class="fas fa-download"></i> Descargar Respaldo JSON
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fas fa-upload"></i> Importar Respaldo JSON
+                            <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 7 (ADMIN): CONFIGURADOR DE PREMIO DEL MES & FIDELIZACIÓN -->
+    <div id="premio-mes-admin" class="view-content">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Configuración del Premio del Mes & Sistema de Puntos</h3>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
+                        Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y revisa el registro de canjes.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('usuarios')">
+                    <i class="fas fa-users-gear"></i> Ir a Panel de Usuarios
+                </button>
+            </div>
+
+            <form onsubmit="guardarConfiguracionPremio(event)">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+                    <div class="form-group">
+                        <label for="premio-admin-titulo">Nombre del Premio del Mes <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="premio-admin-titulo" required placeholder="Ej: Combo Familiar Premium / Freidora de Aire">
+                    </div>
+                    <div class="form-group">
+                        <label for="premio-admin-puntos">Puntos Requeridos para Canjear <span style="color:var(--danger);">*</span></label>
+                        <input type="number" id="premio-admin-puntos" min="1" step="1" required placeholder="Ej: 500">
+                    </div>
+                    <div class="form-group">
+                        <label for="premio-admin-pts-dolar">Puntos Otorgados por cada $1.00 <span style="color:var(--danger);">*</span></label>
+                        <input type="number" id="premio-admin-pts-dolar" min="0.1" step="0.1" required placeholder="Ej: 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="premio-admin-mes">Mes de Vigencia</label>
+                        <input type="text" id="premio-admin-mes" placeholder="Ej: Octubre 2026">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                    <label for="premio-admin-desc">Descripción Detallada del Premio <span style="color:var(--danger);">*</span></label>
+                    <textarea id="premio-admin-desc" rows="2" required placeholder="Describe qué incluye el premio y condiciones de canje..."></textarea>
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                    <label for="premio-admin-img">URL de Imagen del Premio</label>
+                    <input type="url" id="premio-admin-img" placeholder="https://images.unsplash.com/...">
+                </div>
+
+                <!-- Presets Rápidos -->
+                <div style="margin-top:14px;">
+                    <label style="font-size:0.85rem; font-weight:700; color:var(--text-main);">Plantillas Rápidas Preconfiguradas:</label>
+                    <div class="premio-presets-grid" id="premio-admin-presets"></div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                    <button type="submit" class="btn btn-success" style="padding:10px 24px; font-weight:700;">
+                        <i class="fas fa-floppy-disk"></i> Guardar y Activar Premio del Mes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Historial de Canjes Realizados -->
+        <div class="card" style="margin-top:18px;">
+            <h3 style="margin-bottom:12px;"><i class="fas fa-clock-rotate-left"></i> Historial de Canjes de Clientes</h3>
+            <div id="premio-admin-historial-canjes">
+                <p style="color:var(--text-muted); font-size:0.88rem;">No hay canjes registrados aún.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 8 (CLIENTE): CATÁLOGO DE PRODUCTOS & CARRITO -->
+    <div id="cliente-catalogo" class="view-content">
+        <!-- Banner de Bienvenida y Resumen de Puntos -->
+        <div class="card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:16px; border:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <h2 style="margin:0; font-size:1.4rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Bienvenido a Tu Bodeguita de Confianza!</h2>
+                    <p style="margin:4px 0 0 0; font-size:0.88rem; color:#94a3b8;">
+                        Explora nuestro catálogo en tiempo real con precios actualizados al dólar BCV oficial.
+                    </p>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:8px 14px; text-align:center;">
+                        <span style="font-size:0.75rem; text-transform:uppercase; color:#94a3b8; display:block;">Mis Puntos</span>
+                        <strong style="font-size:1.25rem; color:#fde047;" id="cliente-banner-puntos-val">0 pts</strong>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="switchTab('cliente-cuenta')" style="font-weight:700;">
+                        <i class="fas fa-file-invoice-dollar"></i> Ver Mi Cuenta
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+            <!-- Catálogo y Filtros -->
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                    <div style="flex:1; min-width:240px;">
+                        <input type="text" id="cliente-search" placeholder="Buscar productos por nombre, marca o categoría..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%;">
+                    </div>
+                </div>
+
+                <!-- Chips de Categorías -->
+                <div id="cliente-categorias-chips" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px;">
+                    <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
+                </div>
+
+                <!-- Grid de Productos -->
+                <div class="cliente-catalogo-grid" id="cliente-catalogo-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 9 (CLIENTE): ESTADO DE CUENTA, DEUDAS & HISTORIAL -->
+    <div id="cliente-cuenta" class="view-content">
+        <div id="cliente-estado-cuenta-container">
+            <!-- Se renderiza reactivamente por renderizarEstadoCuentaCliente() -->
+        </div>
+    </div>
+
+    <!-- VISTA 10 (CLIENTE): PREMIO DEL MES & FIDELIZACIÓN -->
+    <div id="cliente-premio" class="view-content">
+        <div id="cliente-premio-mes-container">
+            <!-- Se renderiza reactivamente por renderizarPremioMesCliente() -->
+        </div>
+    </div>
+</div>
 </div>
 
 
@@ -1029,27 +1553,162 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
     </div>
 </div>
 
-<!-- Barra de Navegación Inferior Móvil (Mobile Bottom Navigation Bar) -->
+<!-- Modal para Rechazar Usuario con Motivo Obligatorio -->
+<div id="modal-rechazar-usuario" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; color:var(--danger); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-ban"></i> Rechazar Solicitud de Usuario
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalRechazarUsuario()"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:14px;">
+            Ingresa el motivo detallado del rechazo. Este motivo quedará registrado en el expediente del usuario y se notificará para aclaratorias.
+        </p>
+
+        <input type="hidden" id="rechazo-user-id">
+
+        <div class="form-group" style="margin-bottom:12px;">
+            <label>Usuario / Solicitante</label>
+            <input type="text" id="rechazo-user-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+            <label for="rechazo-motivo">Motivo del Rechazo <span style="color:var(--danger);">*</span></label>
+            <textarea id="rechazo-motivo" rows="3" required placeholder="Ej: Cédula o RIF no coincide con el registro oficial, o teléfono no verificado." style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; font-size:0.9rem;"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn btn-outline" onclick="cerrarModalRechazarUsuario()">Cancelar</button>
+            <button type="button" class="btn btn-danger" onclick="confirmarRechazoUsuario()">
+                <i class="fas fa-ban"></i> Confirmar Rechazo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Alerta POS Bloqueado (Guardia de Acceso) -->
+<div id="modal-alerta-pos-bloqueado" class="modal">
+    <div class="modal-content" style="max-width: 500px; text-align:center; padding:24px;">
+        <div style="width:64px; height:64px; border-radius:50%; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 16px auto;">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h3 id="modal-pos-bloqueado-titulo" style="margin-bottom:8px; color:var(--text-main);">Acceso al Punto de Venta Restringido</h3>
+        <p id="modal-pos-bloqueado-mensaje" style="color:var(--text-muted); font-size:0.95rem; line-height:1.5; margin-bottom:16px;">
+            Tu cuenta se encuentra en estado <strong>PENDIENTE DE APROBACIÓN</strong>. No puedes procesar ventas ni modificar inventario hasta que el Administrador active tu cuenta.
+        </p>
+        <div id="modal-pos-bloqueado-motivo-box" style="display:none; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin-bottom:16px; text-align:left;">
+            <strong style="color:#991b1b; font-size:0.85rem; display:block; margin-bottom:4px;"><i class="fas fa-circle-exclamation"></i> Motivo de Rechazo:</strong>
+            <span id="modal-pos-bloqueado-motivo-txt" style="color:#991b1b; font-size:0.85rem;"></span>
+        </div>
+        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="cerrarModalPosBloqueado(); switchTab('usuarios');">
+                <i class="fas fa-user-shield"></i> Ver Panel de Usuarios
+            </button>
+            <button type="button" class="btn btn-outline" onclick="cerrarModalPosBloqueado(); abrirModalAuth();">
+                <i class="fas fa-arrow-right-to-bracket"></i> Iniciar con Otra Cuenta
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Autenticación y Cambio Rápido de Usuario -->
+<div id="modal-auth" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-users-gear" style="color:var(--primary-accent);"></i> Control de Acceso & Sesión
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalAuth()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="auth-modal-tabs">
+            <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="cambiarSubTabAuth('login')">
+                <i class="fas fa-key"></i> Iniciar Sesión
+            </button>
+            <button type="button" class="auth-tab-btn" id="tab-auth-switch" onclick="cambiarSubTabAuth('switch')">
+                <i class="fas fa-user-group"></i> Cambiar Operador
+            </button>
+        </div>
+
+        <!-- Subtab 1: Login -->
+        <div id="auth-subview-login">
+            <form onsubmit="procesarLoginUsuario(event)">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label for="login-identificador">Cédula, RIF o Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="login-identificador" required placeholder="Ej: V-12345678 o admin@sistema.com" autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="login-password">Contraseña <span style="color:var(--danger);">*</span></label>
+                    <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalAuth()">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Subtab 2: Cambio Rápido de Usuario -->
+        <div id="auth-subview-switch" style="display:none;">
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+                Selecciona uno de los perfiles autorizados para operar la caja en esta sesión:
+            </p>
+            <div id="auth-usuarios-list" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+            <div style="margin-top:14px; text-align:right;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModalAuth()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de Navegación Inferior Móvil (Mobile Bottom Navigation Bar) Adaptativa por Rol -->
 <nav class="bottom-nav-bar" id="mobile-bottom-nav" aria-label="Navegación Móvil">
-    <button type="button" class="bottom-nav-item active" data-tab="pos" onclick="switchTab('pos')" aria-label="Punto de Venta">
+    <!-- Botones Admin Móvil -->
+    <button type="button" class="bottom-nav-item nav-admin-only active" data-tab="pos" onclick="switchTab('pos')" aria-label="Punto de Venta">
         <i class="fas fa-cash-register"></i>
         <span>Venta</span>
     </button>
-    <button type="button" class="bottom-nav-item" data-tab="inventario" onclick="switchTab('inventario')" aria-label="Inventario y Precios">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')" aria-label="Inventario y Precios">
         <i class="fas fa-boxes-stacked"></i>
         <span>Inventario</span>
     </button>
-    <button type="button" class="bottom-nav-item" data-tab="clientes" onclick="switchTab('clientes')" aria-label="Clientes y Fiados">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')" aria-label="Clientes y Fiados">
         <i class="fas fa-users"></i>
         <span>Clientes</span>
     </button>
-    <button type="button" class="bottom-nav-item" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones">
         <i class="fas fa-receipt"></i>
         <span>Transac.</span>
     </button>
-    <button type="button" class="bottom-nav-item" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
         <i class="fas fa-clipboard-check"></i>
         <span>Auditoría</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')" aria-label="Usuarios y Aprobaciones" style="position:relative;">
+        <i class="fas fa-user-shield"></i>
+        <span>Usuarios</span>
+        <span id="badge-pendientes-mobile" class="badge-dot" style="display:none;"></span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')" aria-label="Premio del Mes Config">
+        <i class="fas fa-gift"></i>
+        <span>Premio</span>
+    </button>
+
+    <!-- Botones Cliente Móvil -->
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')" aria-label="Catálogo">
+        <i class="fas fa-store"></i>
+        <span>Catálogo</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')" aria-label="Mi Estado de Cuenta">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <span>Mi Cuenta</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')" aria-label="Mis Premios">
+        <i class="fas fa-trophy"></i>
+        <span>Premios</span>
     </button>
 </nav>
 
@@ -1071,6 +1730,9 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="modules/pagos-transacciones.js"></script>
 <script src="modules/auditoria.js"></script>
 <script src="modules/perdidas.js"></script>
+<script src="modules/premio-mes.js"></script>
+<script src="modules/cliente-view.js"></script>
+<script src="modules/usuarios.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

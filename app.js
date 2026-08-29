@@ -20,6 +20,8 @@
         } else {
             obtenerTasaOficialBCV();
         }
+
+        // Renderizado inicial de vistas del sistema
         renderizarPosProductos();
         renderizarInventario();
         renderizarClientes();
@@ -32,6 +34,23 @@
         renderizarTransacciones();
         prepararCodigoNuevoProducto();
         actualizarVistaImagenProducto();
+
+        // Módulo de Usuarios, Control de Acceso y Aprobaciones
+        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+        if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
+
+        // Módulos de Gamificación, Premio del Mes y Experiencia Cliente
+        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+        if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+
+        // Barrera de Acceso y Segregación de Roles (Gatewall)
+        if (typeof verificarGatewall === 'function') {
+            verificarGatewall();
+        }
     });
 
     // Cloud Modal Handlers & Tools
@@ -145,6 +164,33 @@
         }
     };
 
+    window.descargarMasterExcel = function () {
+        if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.exportarMasterExcel === 'function') {
+            window.InventoryApp.Persistence.exportarMasterExcel();
+        }
+    };
+
+    window.manejarImportacionExcel = async function (e) {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        if (!confirm('¿Deseas sincronizar la base de datos desde este archivo Máster Excel (.xlsx)? Se actualizarán las tablas de Usuarios, Productos y Clientes.')) {
+            e.target.value = '';
+            return;
+        }
+
+        try {
+            await window.InventoryApp.Persistence.importarMasterExcel(file);
+            alert('¡Archivo Máster Excel importado y sincronizado exitosamente!');
+            window.location.reload();
+        } catch (err) {
+            console.error('Error restaurando base de datos Excel:', err);
+            alert('Error al importar el archivo Excel: ' + (err.message || err));
+        } finally {
+            e.target.value = '';
+        }
+    };
+
     window.manejarImportacionJSON = async function (e) {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
@@ -166,8 +212,8 @@
         }
     };
 
-    window.InventoryApp.version = '4.0.0-cloud';
-    window.InventoryApp.releaseName = 'Versión 4.0.0-cloud — Sistema POS Multimoneda BCV con Firebase Firestore';
+    window.InventoryApp.version = '4.1.0-users-pos';
+    window.InventoryApp.releaseName = 'Versión 4.1.0 — Sistema POS Multimoneda BCV con Control de Acceso y Aprobación de Usuarios';
     window.InventoryApp.architecture = {
         state: 'core/app-state.js',
         modules: [
@@ -180,7 +226,8 @@
             'modules/clientes.js',
             'modules/pagos-transacciones.js',
             'modules/auditoria.js',
-            'modules/perdidas.js'
+            'modules/perdidas.js',
+            'modules/usuarios.js'
         ],
         stockPolicy: 'Solo Venta, Retiro y Auditoría modifican stock.'
     };

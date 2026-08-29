@@ -1720,3 +1720,797 @@ th {
     margin-bottom: 10px;
 }
 
+/* ==========================================================================
+   MÓDULO DE USUARIOS, CONTROL DE ACCESO Y APROBACIÓN ADMINISTRATIVA
+   ========================================================================== */
+
+/* Badge de Sesión en Header */
+.user-session-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.user-session-badge:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.user-avatar-mini {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+.user-info-mini {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+.user-name-txt {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Status Pill */
+.badge-status-pill {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    display: inline-block;
+    width: fit-content;
+}
+.badge-status-pill.badge-success { background: #22c55e; color: #ffffff; }
+.badge-status-pill.badge-warning { background: #f59e0b; color: #ffffff; }
+.badge-status-pill.badge-danger { background: #ef4444; color: #ffffff; }
+.badge-status-pill.badge-neutral { background: #64748b; color: #ffffff; }
+
+/* Contadores Badge en Navegación */
+.badge-pill-counter {
+    background: #f59e0b;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    margin-left: 4px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+}
+.badge-dot {
+    position: absolute;
+    top: 4px;
+    right: 22%;
+    width: 8px;
+    height: 8px;
+    background: #f59e0b;
+    border-radius: 50%;
+    border: 2px solid #0f172a;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+/* Banner de Seguridad POS (Guardia de Acceso) */
+.security-guard-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 1px solid transparent;
+}
+.security-guard-banner.banner-warning {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    color: #92400e;
+}
+.security-guard-banner.banner-danger {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+/* Badges de Estado en Tablas */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.badge-pending {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+.badge-active {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+.badge-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Botón WhatsApp */
+.btn-wa-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #25d366;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: transform 0.2s ease;
+}
+.btn-wa-icon:hover {
+    transform: scale(1.15);
+}
+
+/* KPI Cards Usuarios */
+.users-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+@media (min-width: 768px) {
+    .users-kpi-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+    }
+}
+.user-kpi-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.user-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+.user-kpi-info {
+    display: flex;
+    flex-direction: column;
+}
+.user-kpi-val {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.1;
+}
+.user-kpi-lbl {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Filtros de Pestaña de Usuarios */
+.user-filter-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+.filter-btn-user {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+.filter-btn-user:hover {
+    background: #f8fafc;
+    color: var(--text-main);
+}
+.filter-btn-user.active {
+    background: var(--primary-accent);
+    color: #ffffff;
+    border-color: var(--primary-accent);
+}
+
+/* Formulario Grid de Registro */
+.register-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+@media (min-width: 640px) {
+    .register-form-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+@media (min-width: 1024px) {
+    .register-form-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+.auth-modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 16px;
+}
+.auth-tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+.auth-tab-btn.active {
+    color: var(--primary-accent);
+    border-bottom-color: var(--primary-accent);
+}
+
+/* ==========================================================================
+   AUTH GATEWALL (BARRERA DE AISLAMIENTO TOTAL CERO-ACCESO)
+   ========================================================================== */
+#auth-gatewall {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.gatewall-wrapper {
+    width: 100%;
+    max-width: 520px;
+    margin: auto;
+}
+
+.gatewall-brand {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.gatewall-logo-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.75rem;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+    margin-bottom: 12px;
+}
+
+.gatewall-brand h2 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+}
+
+.gatewall-brand p {
+    color: #94a3b8;
+    font-size: 0.88rem;
+}
+
+.gatewall-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gatewall-nav-tabs {
+    display: flex;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+
+.gw-tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gw-tab-btn.active {
+    background: #ffffff;
+    color: var(--primary-accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.gatewall-demo-shortcuts {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gatewall-demo-shortcuts span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.gatewall-demo-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-demo-pill {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    color: var(--text-main);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-demo-pill:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+/* Status Cards inside Gatewall (Pending & Rejected) */
+.gatewall-status-icon-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin: 0 auto 16px auto;
+}
+
+.gatewall-status-icon-box.pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.gatewall-status-icon-box.rejected {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.gatewall-info-summary {
+    background: #f8fafc;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 16px 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.gatewall-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--border-light);
+}
+
+.gatewall-info-row:last-child {
+    border-bottom: none;
+}
+
+/* ==========================================================================
+   VISTA CLIENTE: CATÁLOGO, CARRITO Y ESTADO DE CUENTA
+   ========================================================================== */
+.cliente-catalogo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}
+
+@media (min-width: 768px) {
+    .cliente-catalogo-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+    }
+}
+
+.cliente-prod-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cliente-prod-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+.cliente-prod-card.card-agotado {
+    opacity: 0.65;
+    filter: grayscale(0.4);
+}
+
+.cliente-prod-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 170px;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+.cliente-prod-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.cliente-prod-card:hover .cliente-prod-img {
+    transform: scale(1.05);
+}
+
+.cliente-prod-badge-cat {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(4px);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
+.badge-stock-pill {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #bbf7d0;
+}
+
+.badge-agotado-pill {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #fecaca;
+}
+
+.cliente-prod-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.cliente-prod-code {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.cliente-prod-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.3;
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.5em;
+}
+
+.cliente-prod-prices {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-light);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.cliente-prod-prices .price-usd {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--primary-accent);
+}
+
+.cliente-prod-prices .price-ves {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.chip-filter {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text-main);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.chip-filter.active {
+    background: var(--primary-accent);
+    color: #ffffff;
+    border-color: var(--primary-accent);
+}
+
+.btn-qty {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   GAMIFICACIÓN & PREMIO DEL MES (CLIENTE & ADMIN)
+   ========================================================================== */
+.premio-hero-card {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 16px;
+    padding: 24px;
+    color: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+    margin-bottom: 20px;
+}
+
+.premio-hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: center;
+}
+
+@media (min-width: 768px) {
+    .premio-hero-grid {
+        grid-template-columns: 240px 1fr;
+        gap: 30px;
+    }
+}
+
+.premio-img-container {
+    width: 100%;
+    height: 200px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.premio-img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.premio-progress-bar-container {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    height: 24px;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    margin: 12px 0 8px 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.premio-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f59e0b, #eab308, #22c55e);
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-canjear-glow {
+    animation: glowPulse 2s infinite;
+}
+
+@keyframes glowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(22, 163, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+
+/* Reputación Badges */
+.reputacion-stars-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.badge-reputacion-excelente {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+.badge-reputacion-bueno {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+}
+
+.badge-reputacion-regular {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.badge-reputacion-nuevo {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+/* Presets de Premio Admin */
+.premio-presets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.premio-preset-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.premio-preset-card:hover {
+    border-color: var(--primary-accent);
+    background: #f8fafc;
+    transform: translateY(-2px);
+}
+
+.premio-preset-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.premio-preset-info strong {
+    font-size: 0.8rem;
+    display: block;
+    line-height: 1.2;
+    color: var(--text-main);
+}
+
+.canje-item-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #ffffff;
+}
+
+.canje-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #dcfce7;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+
+

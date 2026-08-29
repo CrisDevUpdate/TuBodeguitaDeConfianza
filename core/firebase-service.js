@@ -40,6 +40,7 @@ window.InventoryApp = window.InventoryApp || {};
         AUDITORIAS: 'auditorias',
         ELIMINACIONES: 'eliminaciones',
         CLIENTES_ELIMINADOS: 'clientesEliminados',
+        USUARIOS: 'usuarios',
         CONFIG: 'config'
     };
 
@@ -273,6 +274,7 @@ window.InventoryApp = window.InventoryApp || {};
                 snapAud,
                 snapElim,
                 snapCliElim,
+                snapUsuarios,
                 snapConfig
             ] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
@@ -283,18 +285,19 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.AUDITORIAS),
                 obtenerColeccionSegura(COLLECTIONS.ELIMINACIONES),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES_ELIMINADOS),
+                obtenerColeccionSegura(COLLECTIONS.USUARIOS),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global')
             ]);
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
-            const algunoRespondio = snapProds || snapCli || snapVentas || snapAbonos || snapTx;
+            const algunoRespondio = snapProds || snapCli || snapVentas || snapAbonos || snapTx || snapUsuarios;
             if (!algunoRespondio) {
                 console.info('[Firebase] Firestore en modo sin conexión o conectando en segundo plano. Utilizando datos locales.');
                 actualizarUIEstadoNube('offline', 'Modo Offline (Caché local activa)');
                 return true;
             }
 
-            const tieneDatosEnNube = (snapProds && !snapProds.empty) || (snapCli && !snapCli.empty) || (snapVentas && !snapVentas.empty);
+            const tieneDatosEnNube = (snapProds && !snapProds.empty) || (snapCli && !snapCli.empty) || (snapVentas && !snapVentas.empty) || (snapUsuarios && !snapUsuarios.empty);
 
             // Si hay datos en la nube, los aplicamos al estado local
             if (tieneDatosEnNube) {
@@ -321,6 +324,13 @@ window.InventoryApp = window.InventoryApp || {};
                 }
                 if (snapCliElim && !snapCliElim.empty) {
                     AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapUsuarios && !snapUsuarios.empty) {
+                    AppState.usuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+
+                if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                    window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                 }
 
                 if (snapConfig && snapConfig.exists) {
@@ -444,6 +454,15 @@ window.InventoryApp = window.InventoryApp || {};
                 batch.set(ref, { ...c }, { merge: true });
             });
 
+            // Usuarios
+            (AppState.usuarios || []).forEach(u => {
+                const id = u.id || u.cedula;
+                if (id) {
+                    const ref = db.collection(COLLECTIONS.USUARIOS).doc(String(id));
+                    batch.set(ref, { ...u, id }, { merge: true });
+                }
+            });
+
             // Configuración
             const configRef = db.collection(COLLECTIONS.CONFIG).doc('global');
             batch.set(configRef, {
@@ -524,7 +543,32 @@ window.InventoryApp = window.InventoryApp || {};
                     }
                 }
             }, err => console.warn('[Firebase] Listener de clientes aviso:', err.message));
-            syncListeners.push(unsubCli);
+            // Listener de usuarios
+            const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    let huboCambios = false;
+                    snapshot.docChanges().forEach(change => {
+                        const data = { id: change.doc.id, ...change.doc.data() };
+                        if (change.type === 'added' || change.type === 'modified') {
+                            const idx = (AppState.usuarios || []).findIndex(u => (u.id || u.cedula) === (data.id || data.cedula));
+                            if (idx !== -1) {
+                                AppState.usuarios[idx] = data;
+                            } else {
+                                if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+                                AppState.usuarios.push(data);
+                            }
+                            huboCambios = true;
+                        } else if (change.type === 'removed') {
+                            AppState.usuarios = (AppState.usuarios || []).filter(u => (u.id || u.cedula) !== (data.id || data.cedula));
+                            huboCambios = true;
+                        }
+                    });
+                    if (huboCambios) {
+                        refrescarTodasLasVistas();
+                    }
+                }
+            }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
+            syncListeners.push(unsubUsu);
 
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
@@ -546,6 +590,8 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
         if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
         if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
+        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
     }
 
     // =========================================================================
@@ -857,6 +903,55 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * CRUD: Guardar / Actualizar Usuario en Firestore
+     */
+    async function guardarUsuarioCloud(usuario) {
+        if (!usuario || (!usuario.id && !usuario.cedula)) return false;
+        const id = usuario.id || usuario.cedula;
+
+        actualizarUIEstadoNube('sincronizando', 'Guardando usuario en Firestore...');
+
+        try {
+            if (db) {
+                await db.collection(COLLECTIONS.USUARIOS).doc(String(id)).set({
+                    ...usuario,
+                    id,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+
+            actualizarUIEstadoNube('conectado', 'Usuario guardado en Firestore');
+            return true;
+        } catch (error) {
+            console.error('[Firebase] Error al guardar usuario en Firestore:', error);
+            actualizarUIEstadoNube('error', 'Error al guardar usuario');
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Usuario de Firestore
+     */
+    async function eliminarUsuarioCloud(usuarioId) {
+        if (!usuarioId) return false;
+
+        actualizarUIEstadoNube('sincronizando', 'Eliminando usuario de Firestore...');
+
+        try {
+            if (db) {
+                await db.collection(COLLECTIONS.USUARIOS).doc(String(usuarioId)).delete();
+            }
+
+            actualizarUIEstadoNube('conectado', 'Usuario eliminado de Firestore');
+            return true;
+        } catch (error) {
+            console.error('[Firebase] Error al eliminar usuario en Firestore:', error);
+            actualizarUIEstadoNube('error', 'Error al eliminar usuario');
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -871,6 +966,8 @@ window.InventoryApp = window.InventoryApp || {};
         guardarTransaccion: guardarTransaccionCloud,
         registrarAuditoria: registrarAuditoriaCloud,
         registrarEliminacion: registrarEliminacionCloud,
+        guardarUsuario: guardarUsuarioCloud,
+        eliminarUsuario: eliminarUsuarioCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
     };

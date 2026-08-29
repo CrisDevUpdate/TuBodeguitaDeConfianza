@@ -22,6 +22,16 @@ const AppState = window.InventoryApp.state = {
     auditorias: [],
     eliminaciones: [],
     clientesEliminados: [],
+    usuarios: [],
+    usuarioActual: null,
+    premioMes: {
+        nombre: 'Cafetera Espresso Digital 1.5L',
+        imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
+        puntosRequeridos: 200,
+        puntosPorDolar: 1,
+        descripcion: 'Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
+    },
+    canjesPremios: [],
     nextProductSequence: 1
 };
 
@@ -29,7 +39,7 @@ const legacyGlobals = [
     'tasaActiva','tasaUSD_BCV','tasaEUR_BCV','fechaTasaBCV','monedaSeleccionada',
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
-    'eliminaciones','clientesEliminados'
+    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {

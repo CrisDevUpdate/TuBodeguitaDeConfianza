@@ -797,6 +797,11 @@ function guardarAbono(e) {
     };
     abonos.push(nuevoAbono);
 
+    // Fidelización y Gamificación: Otorgar puntos por el monto abonado
+    if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
+        otorgarPuntosPorCompra(clienteSeleccionadoId, montoUSD, 'Abono a Cuenta');
+    }
+
     // Guardar abono en Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
         window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
