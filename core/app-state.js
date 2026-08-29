@@ -22,7 +22,36 @@ const AppState = window.InventoryApp.state = {
     auditorias: [],
     eliminaciones: [],
     clientesEliminados: [],
-    usuarios: [],
+    usuarios: [
+        {
+            id: 'SuperAdmin',
+            cedula: 'SuperAdmin',
+            nombre: 'SuperAdmin',
+            telefono: '0412-0000000',
+            email: 'superadmin@tubodeguita.com',
+            // Hash SHA-256 de la contraseña (irreversible)
+            password: '93f0b2f672322da5b12852eb3ea6718d7f7fa0c7e2b10a266395b23d9061fcff',
+            rol: 'admin',
+            estado: 'ACTIVO',
+            puntosAcumulados: 0,
+            puntosCanjeados: 0,
+            fechaRegistro: '2026-08-28 12:00'
+        },
+        {
+            id: 'V-00000001',
+            cedula: 'V-00000001',
+            nombre: 'Administrador Principal',
+            telefono: '0412-0000000',
+            email: 'admin@tubodeguita.com',
+            // Hash SHA-256 de la contraseña
+            password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+            rol: 'admin',
+            estado: 'ACTIVO',
+            puntosAcumulados: 0,
+            puntosCanjeados: 0,
+            fechaRegistro: '2026-08-28 12:00'
+        }
+    ],
     usuarioActual: null,
     premioMes: {
         nombre: 'Cafetera Espresso Digital 1.5L',

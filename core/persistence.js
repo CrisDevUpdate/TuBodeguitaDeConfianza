@@ -39,6 +39,9 @@ window.InventoryApp = window.InventoryApp || {};
             (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com'
         );
 
+        // Hash SHA-256 de "1810"
+        const HASH_SUPERADMIN = '93f0b2f672322da5b12852eb3ea6718d7f7fa0c7e2b10a266395b23d9061fcff';
+
         if (!superAdmin) {
             superAdmin = {
                 id: 'SuperAdmin',
@@ -46,7 +49,7 @@ window.InventoryApp = window.InventoryApp || {};
                 nombre: 'SuperAdmin',
                 telefono: '0412-0000000',
                 email: 'superadmin@tubodeguita.com',
-                password: '1810',
+                password: HASH_SUPERADMIN,
                 rol: 'admin',
                 estado: 'ACTIVO',
                 puntosAcumulados: 0,
@@ -55,8 +58,8 @@ window.InventoryApp = window.InventoryApp || {};
             };
             AppState.usuarios.unshift(superAdmin);
         } else {
-            // Asegurar que mantenga su contraseña 1810, rol admin y estado ACTIVO para control total
-            superAdmin.password = '1810';
+            // Asegurar que mantenga su contraseña hasheada, rol admin y estado ACTIVO para control total
+            superAdmin.password = HASH_SUPERADMIN;
             superAdmin.rol = 'admin';
             superAdmin.estado = 'ACTIVO';
         }
@@ -69,7 +72,7 @@ window.InventoryApp = window.InventoryApp || {};
                 nombre: 'Administrador Principal',
                 telefono: '0412-0000000',
                 email: 'admin@tubodeguita.com',
-                password: 'admin',
+                password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', // SHA-256 de "admin"
                 rol: 'admin',
                 estado: 'ACTIVO',
                 puntosAcumulados: 0,
@@ -83,7 +86,7 @@ window.InventoryApp = window.InventoryApp || {};
                 nombre: 'Carlos Mendoza',
                 telefono: '0414-5551234',
                 email: 'carlos.cliente@correo.com',
-                password: '123',
+                password: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // SHA-256 de "123"
                 rol: 'cliente',
                 estado: 'ACTIVO',
                 puntosAcumulados: 145,
@@ -97,7 +100,7 @@ window.InventoryApp = window.InventoryApp || {};
                 nombre: 'Elena Rivas',
                 telefono: '0424-9988776',
                 email: 'elena.solicitud@correo.com',
-                password: '123',
+                password: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // SHA-256 de "123"
                 rol: 'cliente',
                 estado: 'PENDIENTE_APROBACION',
                 puntosAcumulados: 0,
