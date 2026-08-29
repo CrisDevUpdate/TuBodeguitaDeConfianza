@@ -179,7 +179,9 @@ function procesarLoginGatewall(e) {
 
     const cleanId = id.toUpperCase();
     const usuario = (AppState.usuarios || []).find(u => 
-        (u.cedula || u.id || '').toUpperCase() === cleanId || 
+        (u.id || '').toUpperCase() === cleanId ||
+        (u.cedula || '').toUpperCase() === cleanId || 
+        (u.nombre || '').toUpperCase() === cleanId ||
         (u.email || '').toLowerCase() === id.toLowerCase()
     );
 

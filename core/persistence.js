@@ -27,7 +27,42 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.canjesPremios = [];
         }
 
-        if (!Array.isArray(AppState.usuarios) || AppState.usuarios.length === 0) {
+        if (!Array.isArray(AppState.usuarios)) {
+            AppState.usuarios = [];
+        }
+
+        // 1. Garantizar existencia y permisos totales del SuperAdmin
+        let superAdmin = AppState.usuarios.find(u => 
+            (u.id || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.cedula || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.nombre || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com'
+        );
+
+        if (!superAdmin) {
+            superAdmin = {
+                id: 'SuperAdmin',
+                cedula: 'SuperAdmin',
+                nombre: 'SuperAdmin',
+                telefono: '0412-0000000',
+                email: 'superadmin@tubodeguita.com',
+                password: '1810',
+                rol: 'admin',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            AppState.usuarios.unshift(superAdmin);
+        } else {
+            // Asegurar que mantenga su contraseña 1810, rol admin y estado ACTIVO para control total
+            superAdmin.password = '1810';
+            superAdmin.rol = 'admin';
+            superAdmin.estado = 'ACTIVO';
+        }
+
+        // 2. Si la lista está vacía aparte del superAdmin, agregar perfiles iniciales de referencia
+        if (AppState.usuarios.length <= 1) {
             const adminDefault = {
                 id: 'V-00000001',
                 cedula: 'V-00000001',
@@ -70,7 +105,7 @@ window.InventoryApp = window.InventoryApp || {};
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
 
-            AppState.usuarios = [adminDefault, clienteDefault, pendienteDefault];
+            AppState.usuarios.push(adminDefault, clienteDefault, pendienteDefault);
             
             // Asegurar que el cliente de prueba exista en la lista de clientes
             if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === clienteDefault.id)) {
