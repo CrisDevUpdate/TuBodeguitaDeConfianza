@@ -56,68 +56,12 @@ window.InventoryApp = window.InventoryApp || {};
                 puntosCanjeados: 0,
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
-            AppState.usuarios.unshift(superAdmin);
+            AppState.usuarios = [superAdmin];
         } else {
             // Asegurar que mantenga su contraseña hasheada, rol admin y estado ACTIVO para control total
             superAdmin.password = HASH_SUPERADMIN;
             superAdmin.rol = 'admin';
             superAdmin.estado = 'ACTIVO';
-        }
-
-        // 2. Si la lista está vacía aparte del superAdmin, agregar perfiles iniciales de referencia
-        if (AppState.usuarios.length <= 1) {
-            const adminDefault = {
-                id: 'V-00000001',
-                cedula: 'V-00000001',
-                nombre: 'Administrador Principal',
-                telefono: '0412-0000000',
-                email: 'admin@tubodeguita.com',
-                password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', // SHA-256 de "admin"
-                rol: 'admin',
-                estado: 'ACTIVO',
-                puntosAcumulados: 0,
-                puntosCanjeados: 0,
-                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
-            };
-
-            const clienteDefault = {
-                id: 'V-28111222',
-                cedula: 'V-28111222',
-                nombre: 'Carlos Mendoza',
-                telefono: '0414-5551234',
-                email: 'carlos.cliente@correo.com',
-                password: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // SHA-256 de "123"
-                rol: 'cliente',
-                estado: 'ACTIVO',
-                puntosAcumulados: 145,
-                puntosCanjeados: 0,
-                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
-            };
-
-            const pendienteDefault = {
-                id: 'V-19888777',
-                cedula: 'V-19888777',
-                nombre: 'Elena Rivas',
-                telefono: '0424-9988776',
-                email: 'elena.solicitud@correo.com',
-                password: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // SHA-256 de "123"
-                rol: 'cliente',
-                estado: 'PENDIENTE_APROBACION',
-                puntosAcumulados: 0,
-                puntosCanjeados: 0,
-                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
-            };
-
-            AppState.usuarios.push(adminDefault, clienteDefault, pendienteDefault);
-            
-            // Asegurar que el cliente de prueba exista en la lista de clientes
-            if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === clienteDefault.id)) {
-                AppState.clientes.push({
-                    id: clienteDefault.id,
-                    nombre: clienteDefault.nombre,
-                    telefono: clienteDefault.telefono
-                });
-            }
         }
     }
 

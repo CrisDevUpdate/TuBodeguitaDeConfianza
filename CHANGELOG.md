@@ -1,10 +1,3 @@
-## 4.3.9-beta
-- Reinicio por espacios de trabajo: los datos anteriores se conservan intactos y se archivan como JSON por registro.
-- Cada reinicio crea un namespace nuevo de Firestore para empezar con una base operativa limpia.
-- Se crea automáticamente el único usuario inicial SuperAdmin en el nuevo espacio.
-- El acceso al reinicio está en Configuraciones y exige la contraseña especial de confirmación.
-- Se genera además un respaldo JSON descargable en cada reinicio.
-
 # CHANGELOG
 
 ## 4.0.0-beta — Ayuda contextual del Stock

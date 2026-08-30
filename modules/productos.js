@@ -371,8 +371,8 @@ function cerrarModalEliminarProducto() {
 
 // Retira una cantidad de unidades. Si se retira todo el stock, el producto se elimina
 // y los códigos posteriores se corren hacia atrás.
-function confirmarEliminacionProducto(event) {
-    event.preventDefault();
+async function confirmarEliminacionProducto(event) {
+    if (event && event.preventDefault) event.preventDefault();
 
     const productoId = document.getElementById('eliminar-producto-id').value;
     const motivo = document.getElementById('eliminar-motivo').value.trim();
@@ -388,12 +388,20 @@ function confirmarEliminacionProducto(event) {
     const stockAntes = Number(p.stock) || 0;
 
     if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > stockAntes) {
-        alert(`La cantidad a retirar debe ser un número entero entre 1 y ${stockAntes}.`);
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Cantidad Inválida', `La cantidad a retirar debe ser un número entero entre 1 y ${stockAntes}.`, 'warning');
+        } else {
+            alert(`La cantidad a retirar debe ser un número entero entre 1 y ${stockAntes}.`);
+        }
         return;
     }
 
     if (!motivo || !comentario) {
-        alert('Debes indicar el motivo de retiro y un comentario sobre el producto.');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Campos Requeridos', 'Debes indicar el motivo de retiro y un comentario explicativo.', 'warning');
+        } else {
+            alert('Debes indicar el motivo de retiro y un comentario sobre el producto.');
+        }
         return;
     }
 
@@ -404,12 +412,22 @@ function confirmarEliminacionProducto(event) {
     const eliminaProductoCompleto = stockDespues === 0;
 
     const accionTexto = eliminaProductoCompleto
-        ? 'Se retirará todo el stock y el producto será retirado del listado. Los códigos de los demás productos permanecerán intactos y estáticos.'
-        : `Se retirarán ${cantidad} unidades y quedarán ${stockDespues} unidades en inventario. El código del producto se conservará.`;
+        ? 'Se retirará todo el stock y el producto será retirado del catálogo activo.'
+        : `Se retirarán ${cantidad} unidades y quedarán ${stockDespues} unidades en inventario.`;
 
-    if (!confirm(`¿Confirmar retiro de ${cantidad} unidad(es) de "${nombre}" (${codigoAnterior})?\n\nMotivo: ${motivo}\n\n${accionTexto}`)) {
-        return;
+    const detalleHtml = `¿Confirmar retiro de <b>${cantidad} und(s)</b> de "${nombre}" (${codigoAnterior})?<br><br>` +
+        `• <b>Motivo:</b> ${motivo}<br>` +
+        `• <b>Comentario:</b> ${comentario}<br>` +
+        `• <b>Resultado:</b> ${accionTexto}`;
+
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Confirmar Retiro / Baja de Producto', detalleHtml, 'warning');
+    } else {
+        confirmado = confirm(`¿Confirmar retiro de ${cantidad} und(s) de "${nombre}" (${codigoAnterior})?\nMotivo: ${motivo}`);
     }
+
+    if (!confirmado) return;
 
     const registroEliminacion = {
         id: 'EL' + Date.now(),
@@ -434,17 +452,17 @@ function confirmarEliminacionProducto(event) {
         productos.splice(indiceEliminado, 1);
         delete conteosFisicos[productoId];
         carrito = carrito.filter(item => item.productoId !== productoId);
-
-        // Los códigos de los demás productos permanecen estrictamente estáticos e inmutables (sin renumeración)
     } else {
         if (!InventoryApp.StockService.retiro(productoId, cantidad)) {
-            alert('No fue posible aplicar el retiro de stock.');
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Error', 'No fue posible aplicar el retiro de stock.', 'error');
+            } else {
+                alert('No fue posible aplicar el retiro de stock.');
+            }
             return;
         }
-        // El conteo físico pendiente se limpia porque el stock digital acaba de cambiar.
         delete conteosFisicos[productoId];
 
-        // Si el producto está en el carrito y supera el stock disponible, se limita al nuevo stock.
         carrito = carrito.map(item => {
             if (item.productoId !== productoId) return item;
             return { ...item, cantidad: Math.min(item.cantidad, stockDespues) };
@@ -458,21 +476,14 @@ function confirmarEliminacionProducto(event) {
         });
     }
 
-    resetearFormularioProducto();
-    prepararCodigoNuevoProducto();
-
     cerrarModalEliminarProducto();
     renderizarInventario();
     renderizarPosProductos();
-    renderizarCarrito();
-    renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : '');
-    renderizarHistorialAuditoria();
+    renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarHistorialEliminaciones();
 
-    if (eliminaProductoCompleto) {
-        alert(`Se retiraron las ${cantidad} unidades y el producto fue eliminado. Los códigos posteriores fueron corridos hacia atrás.`);
-    } else {
-        alert(`Se retiraron ${cantidad} unidades de ${nombre}. Stock restante: ${stockDespues}.`);
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Retiro de ${cantidad} unds registrado para ${nombre}`, 'success');
     }
 }
 
@@ -501,19 +512,30 @@ function renderizarHistorialEliminaciones() {
     `).join('');
 }
 
-function limpiarHistorialEliminaciones() {
+async function limpiarHistorialEliminaciones() {
     if (eliminaciones.length === 0) {
-        alert('El historial ya está vacío.');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Historial Vacío', 'El historial ya está vacío.', 'info');
+        } else {
+            alert('El historial ya está vacío.');
+        }
         return;
     }
 
-    if (!confirm('¿Seguro que deseas limpiar todo el historial de productos retirados? Esta acción no cambia el inventario; solo borra los registros del historial.')) {
-        return;
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Limpiar Historial', '¿Seguro que deseas limpiar todo el historial de productos retirados? Esta acción no altera el stock digital.', 'warning');
+    } else {
+        confirmado = confirm('¿Seguro que deseas limpiar todo el historial de productos retirados?');
     }
+
+    if (!confirmado) return;
 
     eliminaciones = [];
     renderizarHistorialEliminaciones();
     renderizarResumenPerdidasEconomicas();
-    alert('Historial de retiros limpiado correctamente.');
+    if (typeof showCustomToast === 'function') {
+        showCustomToast('Historial de retiros limpiado', 'info');
+    }
 }
 

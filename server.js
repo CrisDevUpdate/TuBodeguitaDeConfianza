@@ -148,10 +148,129 @@ app.post('/api/bcv/manual', (req, res) => {
 });
 
 // In-memory data store for server-side state persistence
-let serverUsers = [];
+let serverUsers = [
+  {
+    id: 'SuperAdmin',
+    cedula: 'SuperAdmin',
+    nombre: 'SuperAdmin',
+    telefono: '0412-0000000',
+    email: 'superadmin@tubodeguita.com',
+    password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
+    rol: 'admin',
+    estado: 'ACTIVO',
+    puntosAcumulados: 0,
+    puntosCanjeados: 0,
+    fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+  }
+];
 let serverSales = [];
 let serverPayments = [];
 let serverLoyaltyClaims = [];
+let serverInventoryAdjustments = [];
+
+// API Database Reset (100% Virgin State): POST /api/database/reset
+app.post('/api/database/reset', (req, res) => {
+  serverSales = [];
+  serverPayments = [];
+  serverLoyaltyClaims = [];
+  serverInventoryAdjustments = [];
+  serverUsers = [
+    {
+      id: 'SuperAdmin',
+      cedula: 'SuperAdmin',
+      nombre: 'SuperAdmin',
+      telefono: '0412-0000000',
+      email: 'superadmin@tubodeguita.com',
+      password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
+      rol: 'admin',
+      estado: 'ACTIVO',
+      puntosAcumulados: 0,
+      puntosCanjeados: 0,
+      fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    }
+  ];
+  console.log('[Database Reset] Base de datos reseteada a estado 100% virgen. Solo SuperAdmin activo.');
+  res.json({ success: true, message: 'Base de datos restaurada al estado virgen con solo SuperAdmin activo.' });
+});
+
+// API Inventory Adjustment: POST /api/inventory/adjust
+app.post('/api/inventory/adjust', (req, res) => {
+  const { productoId, codigo, nombre, stockAnterior, nuevoStock, diferencia, motivo, usuario, timestamp } = req.body;
+  if (!productoId && !codigo) {
+    return res.status(400).json({ success: false, error: 'productoId o codigo es requerido' });
+  }
+
+  const ajuste = {
+    id: `ADJ_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    productoId: productoId || codigo,
+    codigo: codigo || '',
+    nombre: nombre || 'Producto',
+    stockAnterior: Number(stockAnterior || 0),
+    nuevoStock: Number(nuevoStock || 0),
+    diferencia: Number(diferencia !== undefined ? diferencia : (Number(nuevoStock || 0) - Number(stockAnterior || 0))),
+    motivo: motivo || 'Ajuste de Auditoría Física',
+    usuario: usuario || 'SuperAdmin',
+    fecha: timestamp || new Date().toISOString().replace('T', ' ').substring(0, 16),
+    estado: 'CONFIRMADO'
+  };
+
+  serverInventoryAdjustments.unshift(ajuste);
+  console.log(`[Inventory Adjust] Producto ${ajuste.codigo} (${ajuste.nombre}): ${ajuste.stockAnterior} -> ${ajuste.nuevoStock} (Dif: ${ajuste.diferencia}). Motivo: ${ajuste.motivo}`);
+
+  res.json({
+    success: true,
+    message: 'Ajuste de inventario registrado y auditado exitosamente.',
+    ajuste
+  });
+});
+
+app.get('/api/inventory/adjustments', (req, res) => {
+  res.json({ success: true, count: serverInventoryAdjustments.length, adjustments: serverInventoryAdjustments });
+});
+
+// API Wisdom / Quotes: GET /api/quotes/wisdom
+const WISDOM_QUOTES = [
+  { frase: "El secreto del éxito en los negocios es saber algo que nadie más sabe.", autor: "Aristóteles Onassis" },
+  { frase: "La perseverancia es la base de todas las acciones.", autor: "Lao Tsé" },
+  { frase: "No busques el momento perfecto, toma el momento y hazlo perfecto.", autor: "Proverbio de Sabiduría" },
+  { frase: "La disciplina es el puente entre las metas y los logros.", autor: "Jim Rohn" },
+  { frase: "La confianza en uno mismo es el primer secreto del éxito.", autor: "Ralph Waldo Emerson" },
+  { frase: "El verdadero progreso es el que pone la tecnología al alcance de todos.", autor: "Henry Ford" },
+  { frase: "Siembra un pensamiento y cosecharás una acción; siembra una acción y cosecharás un hábito.", autor: "Stephen Covey" },
+  { frase: "El cliente no compra productos, compra confianza, rapidez y sonrisas.", autor: "Tu Bodeguita de Confianza" },
+  { frase: "La excelencia no es un acto aislado, sino un hábito constante.", autor: "Aristóteles" },
+  { frase: "Cada pequeño esfuerzo diario suma para alcanzar grandes triunfos.", autor: "Filosofía Kaizen" }
+];
+
+app.get('/api/quotes/wisdom', async (req, res) => {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 2500);
+    const apiRes = await fetch('https://dummyjson.com/quotes/random', { signal: controller.signal });
+    clearTimeout(id);
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data && data.quote) {
+        return res.json({
+          success: true,
+          frase: data.quote,
+          autor: data.author || 'Inspiración Diaria',
+          fuente: 'DummyJSON Quotes API'
+        });
+      }
+    }
+  } catch {
+    // Graceful fallback to rich local quote bank
+  }
+
+  const randomQuote = WISDOM_QUOTES[Math.floor(Math.random() * WISDOM_QUOTES.length)];
+  res.json({
+    success: true,
+    frase: randomQuote.frase,
+    autor: randomQuote.autor,
+    fuente: 'Sabiduría Local'
+  });
+});
 
 // API Users: Delete User (DELETE /api/users/:id or DELETE /api/users?id=...)
 app.delete('/api/users/:id?', (req, res) => {
@@ -315,6 +434,54 @@ app.post('/api/notificar-compra', (req, res) => {
 
 app.get('/api/notificaciones-compras', (req, res) => {
   res.json({ success: true, count: adminPurchasesLog.length, compras: adminPurchasesLog });
+});
+
+// API Quotes & Wisdom Engine: GET /api/quotes/random
+const localWisdomQuotes = [
+  { quote: "La confianza es el fruto de una relación en la que se actúa con integridad y constancia.", author: "Proverbio de Bodega" },
+  { quote: "El éxito en el comercio no es vender una vez, sino ganar un cliente para siempre.", author: "Sabiduría Comercial" },
+  { quote: "Cada grano cuenta para hacer la montaña; cada ahorro construye tu futuro.", author: "Filosofía Financiera" },
+  { quote: "La calidad permanece mucho después de que el precio se haya olvidado.", author: "Henry Royce" },
+  { quote: "Sembrar lealtad hoy es cosechar abundancia mañana.", author: "Proverbio del Árbol" },
+  { quote: "La paciencia y la perseverancia tienen un efecto mágico ante el cual las dificultades desaparecen.", author: "John Quincy Adams" },
+  { quote: "Tu fidelidad tiene recompensa: cada compra te acerca a tu meta.", author: "Tu Bodeguita de Confianza" }
+];
+
+app.get('/api/quotes/random', async (req, res) => {
+  try {
+    const fetchController = new AbortController();
+    const timeout = setTimeout(() => fetchController.abort(), 2000);
+    
+    // Intento con ZenQuotes
+    const externalResponse = await fetch('https://zenquotes.io/api/random', {
+      signal: fetchController.signal
+    }).catch(() => null);
+    
+    clearTimeout(timeout);
+
+    if (externalResponse && externalResponse.ok) {
+      const data = await externalResponse.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].q) {
+        return res.json({
+          success: true,
+          quote: data[0].q,
+          author: data[0].a || 'Anónimo',
+          source: 'ZenQuotes API'
+        });
+      }
+    }
+  } catch (err) {
+    // Fallback continuo
+  }
+
+  const randomIdx = Math.floor(Math.random() * localWisdomQuotes.length);
+  const selected = localWisdomQuotes[randomIdx];
+  res.json({
+    success: true,
+    quote: selected.quote,
+    author: selected.author,
+    source: 'Local Wisdom Engine'
+  });
 });
 
 // Serve static files from root directory

@@ -100,9 +100,85 @@ class TreeGamificationWidget {
     }
 
     /**
-     * Genera el contenido SVG del Árbol según la etapa
+     * Genera el contenido SVG del Árbol según la etapa o temporada de invierno
      */
     generarSVGArbol(pct) {
+        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+
+        const CHISTES_INVIERNO = [
+            "❄️ <b>Humor de Invierno:</b> ¿Por qué el bodeguero no tiene frío en invierno? ¡Porque siempre está cerca del calor de los clientes y las buenas ofertas!",
+            "❄️ <b>Humor de Invierno:</b> Un cliente entra temblando y pide café: —¿Tiene café caliente? El bodeguero dice: —¡Tan caliente como las sorpresas que vienen en la próxima temporada!",
+            "❄️ <b>Humor de Invierno:</b> El árbol está tomando su siesta invernal con bufanda. ¡Descansa y prepárate para la cosecha de la nueva temporada!",
+            "❄️ <b>Humor de Invierno:</b> ¿Qué le dice un refresco a otro en el congelador? —¡Hermano, tápate que nos vamos a resfriar!"
+        ];
+        const chisteAleatorio = CHISTES_INVIERNO[Math.floor(Math.random() * CHISTES_INVIERNO.length)];
+
+        // Modo Invierno (Temporada Inactiva)
+        if (!temporadaActiva) {
+            return `
+                <svg viewBox="0 0 400 320" width="100%" height="100%" class="tree-growth-svg" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="winterSkyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#e0f2fe" />
+                            <stop offset="50%" stop-color="#bae6fd" />
+                            <stop offset="100%" stop-color="#7dd3fc" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Cielo invernal -->
+                    <rect x="0" y="0" width="400" height="320" rx="16" fill="url(#winterSkyGradient)" />
+
+                    <!-- Montículos de nieve -->
+                    <ellipse cx="200" cy="295" rx="190" ry="35" fill="#f8fafc" opacity="0.95" />
+                    <ellipse cx="120" cy="290" rx="120" ry="25" fill="#ffffff" />
+                    <ellipse cx="280" cy="290" rx="120" ry="25" fill="#ffffff" />
+
+                    <!-- Tronco y ramas dormidas en reposo -->
+                    <path d="M 188 275 Q 192 200 196 140 Q 150 110 115 95 M 196 140 Q 200 100 200 70 M 196 140 Q 240 105 285 95 M 212 275 Q 208 200 204 140" 
+                        stroke="#475569" stroke-width="16" stroke-linecap="round" fill="none" />
+                    <path d="M 184 275 L 216 275 L 206 140 L 194 140 Z" fill="#475569" />
+
+                    <!-- Bufanda tejida cálida en el tronco -->
+                    <path d="M 182 170 Q 200 178 218 170 Q 220 182 200 190 Q 180 182 182 170 Z" fill="#ef4444" />
+                    <path d="M 210 180 L 216 215 L 206 215 L 202 185 Z" fill="#dc2626" />
+                    <!-- Flecos de la bufanda -->
+                    <line x1="206" y1="215" x2="206" y2="222" stroke="#fde047" stroke-width="2" />
+                    <line x1="211" y1="215" x2="211" y2="222" stroke="#fde047" stroke-width="2" />
+                    <line x1="216" y1="215" x2="216" y2="222" stroke="#fde047" stroke-width="2" />
+
+                    <!-- Copos de nieve en las ramas -->
+                    <ellipse cx="125" cy="94" rx="20" ry="8" fill="#ffffff" />
+                    <ellipse cx="275" cy="94" rx="20" ry="8" fill="#ffffff" />
+                    <ellipse cx="200" cy="68" rx="16" ry="7" fill="#ffffff" />
+
+                    <!-- Copos de nieve cayendo animados -->
+                    <g class="falling-snow">
+                        <circle cx="60" cy="40" r="3" fill="#ffffff" opacity="0.8" />
+                        <circle cx="100" cy="120" r="2.5" fill="#ffffff" opacity="0.9" />
+                        <circle cx="150" cy="60" r="4" fill="#ffffff" opacity="0.7" />
+                        <circle cx="230" cy="30" r="3" fill="#ffffff" opacity="0.85" />
+                        <circle cx="310" cy="80" r="3.5" fill="#ffffff" opacity="0.8" />
+                        <circle cx="350" cy="150" r="2.5" fill="#ffffff" opacity="0.9" />
+                        <circle cx="180" cy="110" r="3" fill="#ffffff" opacity="0.75" />
+                        <circle cx="270" cy="130" r="4" fill="#ffffff" opacity="0.8" />
+                    </g>
+
+                    <!-- Icono de siesta Zzz -->
+                    <text x="235" y="65" fill="#38bdf8" font-size="18" font-weight="bold" font-family="sans-serif" opacity="0.85">Z</text>
+                    <text x="250" y="50" fill="#38bdf8" font-size="14" font-weight="bold" font-family="sans-serif" opacity="0.75">z</text>
+                    <text x="262" y="38" fill="#38bdf8" font-size="11" font-weight="bold" font-family="sans-serif" opacity="0.65">z</text>
+
+                    <!-- Taza de chocolate caliente humeante -->
+                    <rect x="85" y="260" width="22" height="18" rx="3" fill="#b91c1c" />
+                    <path d="M 107 264 Q 114 269 107 274" stroke="#b91c1c" stroke-width="2.5" fill="none" />
+                    <ellipse cx="96" cy="260" rx="10" ry="3" fill="#78350f" />
+                    <!-- Vapor sutil -->
+                    <path d="M 93 255 Q 91 248 95 242" stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.6" />
+                    <path d="M 98 255 Q 100 248 97 242" stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.6" />
+                </svg>
+            `;
+        }
+
         const etapa = this.obtenerEtapa(pct);
         const p = Math.max(0, Math.min(100, Math.round(pct)));
 
@@ -474,6 +550,8 @@ class TreeGamificationWidget {
         this.premioActual = premio || AppState.premioMes || { nombre: 'Premio del Mes', puntosRequeridos: meta };
         this.nivelCiclo = ciclo || 1;
 
+        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+
         this.porcentaje = Math.min(100, Math.round((this.puntosActuales / this.puntosMeta) * 100));
 
         const container = document.getElementById(this.containerId) || document.getElementById('tree-gamification-root') || document.getElementById('tree-gamification-container');
@@ -481,98 +559,124 @@ class TreeGamificationWidget {
 
         const etapa = this.obtenerEtapa(this.porcentaje);
         const puntosFaltantes = Math.max(0, this.puntosMeta - this.puntosActuales);
-        const metaAlcanzada = this.porcentaje >= 100;
+        const metaAlcanzada = this.porcentaje >= 100 && temporadaActiva;
+
+        // Comprobar si ya tiene un canje pendiente de confirmación
+        const cedulaUsuario = AppState.usuarioActual?.cedula || AppState.usuarioActual?.id;
+        const canjePendiente = (AppState.canjesPremios || []).find(c => 
+            (c.clienteCedula === cedulaUsuario) && (c.estado === 'PENDIENTE_CONFIRMACION')
+        );
 
         container.innerHTML = `
             <div class="tree-gamification-card" style="background:#ffffff; border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 10px 25px -5px rgba(0,0,0,0.06);">
                 <!-- Encabezado del Widget -->
-                <div style="background:linear-gradient(135deg, #064e3b, #047857); color:#ffffff; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="background:${temporadaActiva ? 'linear-gradient(135deg, #064e3b, #047857)' : 'linear-gradient(135deg, #1e3a8a, #0369a1)'}; color:#ffffff; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                     <div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:1.4rem;">${etapa.icono}</span>
-                            <h3 style="margin:0; font-size:1.2rem; color:#ffffff; font-weight:700;">Árbol de Crecimiento y Fidelidad</h3>
-                            <span class="badge-pill" style="background:#fef08a; color:#854d0e; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px;">
+                            <span style="font-size:1.4rem;">${temporadaActiva ? etapa.icono : '❄️'}</span>
+                            <h3 style="margin:0; font-size:1.2rem; color:#ffffff; font-weight:700;">
+                                ${temporadaActiva ? 'Árbol de Crecimiento y Fidelidad' : 'Árbol de Fidelidad · Temporada de Invierno'}
+                            </h3>
+                            <span class="badge-pill" style="background:${temporadaActiva ? '#fef08a' : '#e0f2fe'}; color:${temporadaActiva ? '#854d0e' : '#0369a1'}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px;">
                                 Ciclo #${this.nivelCiclo}
                             </span>
                         </div>
-                        <p style="margin:4px 0 0 0; font-size:0.85rem; color:#d1fae5;">
-                            ${etapa.titulo} · <span style="color:#fde047; font-weight:600;">${etapa.rango}</span>
+                        <p style="margin:4px 0 0 0; font-size:0.85rem; color:${temporadaActiva ? '#d1fae5' : '#bae6fd'};">
+                            ${temporadaActiva ? `${etapa.titulo} · <span style="color:#fde047; font-weight:600;">${etapa.rango}</span>` : '<span style="color:#ffffff; font-weight:600;">Modo Hibernación & Reposo Invernal</span>'}
                         </p>
                     </div>
 
                     <!-- Píldora de Puntos -->
                     <div style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:12px; padding:6px 14px; text-align:right;">
-                        <div style="font-size:0.75rem; color:#a7f3d0; text-transform:uppercase;">Puntos del Mes</div>
-                        <strong style="font-size:1.2rem; color:#fde047;">${this.puntosActuales} <span style="font-size:0.85rem; color:#ffffff;">/ ${this.puntosMeta} pts</span></strong>
+                        <div style="font-size:0.75rem; color:${temporadaActiva ? '#a7f3d0' : '#bae6fd'}; text-transform:uppercase;">Puntos del Mes</div>
+                        <strong style="font-size:1.2rem; color:${temporadaActiva ? '#fde047' : '#ffffff'};">${this.puntosActuales} <span style="font-size:0.85rem; color:#ffffff;">/ ${this.puntosMeta} pts</span></strong>
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns: 1fr; gap:0;">
                     <!-- Canvas SVG del Árbol -->
-                    <div style="position:relative; width:100%; height:320px; background:#f0fdf4; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                    <div style="position:relative; width:100%; height:320px; background:${temporadaActiva ? '#f0fdf4' : '#f0f9ff'}; display:flex; align-items:center; justify-content:center; overflow:hidden;">
                         ${this.generarSVGArbol(this.porcentaje)}
                         
                         <!-- Badge flotante de estado en el árbol -->
                         <div style="position:absolute; top:12px; left:14px; background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); border:1px solid #cbd5e1; border-radius:20px; padding:4px 12px; font-size:0.78rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${etapa.color};"></span>
-                            <span>${etapa.titulo}</span>
+                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${temporadaActiva ? etapa.color : '#38bdf8'};"></span>
+                            <span>${temporadaActiva ? etapa.titulo : 'Hibernación Invernal'}</span>
                         </div>
 
                         <!-- Indicador porcentual flotante -->
                         <div style="position:absolute; top:12px; right:14px; background:rgba(15, 23, 42, 0.85); color:#ffffff; border-radius:20px; padding:4px 12px; font-size:0.82rem; font-weight:800; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
-                            <i class="fas fa-chart-line" style="color:#fde047; font-size:0.75rem;"></i>
-                            <span>${this.porcentaje}%</span>
+                            <i class="fas fa-chart-line" style="color:${temporadaActiva ? '#fde047' : '#7dd3fc'}; font-size:0.75rem;"></i>
+                            <span>${temporadaActiva ? `${this.porcentaje}%` : 'Pausado'}</span>
                         </div>
 
                         ${metaAlcanzada ? `
                             <div class="meta-alcanzada-banner" style="position:absolute; bottom:16px; background:linear-gradient(135deg, #eab308, #ca8a04); color:#ffffff; padding:8px 18px; border-radius:30px; font-weight:800; font-size:0.9rem; display:flex; align-items:center; gap:8px; box-shadow:0 6px 20px rgba(202, 138, 4, 0.4); animation: pulseBanner 1.5s infinite;">
                                 <i class="fas fa-crown" style="font-size:1.1rem; color:#ffffff;"></i>
-                                <span>¡Cosecha Dorada Lista! Reclama tu premio</span>
+                                <span>${canjePendiente ? '¡Solicitud en Revisión por la Bodega!' : '¡Cosecha Dorada Lista! Reclama tu premio'}</span>
                             </div>
                         ` : ''}
                     </div>
 
                     <!-- Panel de Control y Progreso de Etapas -->
                     <div style="padding:20px 22px;">
-                        <!-- Barra de Progreso Multi-Hito -->
-                        <div style="margin-bottom:18px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.86rem;">
-                                <span style="font-weight:600; color:var(--text-main);">Progreso hacia el Premio: <strong>${this.premioActual.nombre}</strong></span>
-                                <strong style="color:${etapa.color};">${this.porcentaje}%</strong>
+                        ${!temporadaActiva ? `
+                            <!-- Mensaje humorístico de Temporada de Invierno -->
+                            <div style="background:#f0f9ff; border:1px solid #bae6fd; border-left:4px solid #0284c7; border-radius:0 10px 10px 0; padding:14px 16px; margin-bottom:16px; font-size:0.88rem; color:#0369a1; line-height:1.45;">
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; font-weight:700; color:#0369a1;">
+                                    <span style="font-size:1.2rem;">☕🧣</span>
+                                    <span>¡Shhh! Nuestro árbol de fidelidad está hibernando</span>
+                                </div>
+                                <p style="margin:0; color:#0c4a6e;">
+                                    La temporada de premios actual está en receso invernal. El árbol está tomando chocolate caliente bajo una bufanda de lana y recargando energías. Los puntos de compra están en pausa. ¡Muy pronto anunciaremos la nueva temporada con increíbles sorpresas!
+                                </p>
+                            </div>
+                        ` : `
+                            <!-- Barra de Progreso Multi-Hito -->
+                            <div style="margin-bottom:18px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.86rem;">
+                                    <span style="font-weight:600; color:var(--text-main);">Progreso hacia el Premio: <strong>${this.premioActual.nombre}</strong></span>
+                                    <strong style="color:${etapa.color};">${this.porcentaje}%</strong>
+                                </div>
+
+                                <div style="position:relative; width:100%; height:12px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
+                                    <div style="width:${this.porcentaje}%; height:100%; background:linear-gradient(90deg, #16a34a, #eab308); border-radius:10px; transition:width 0.6s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                </div>
+
+                                <!-- Marcadores de Hitos (20%, 40%, 60%, 80%, 100%) -->
+                                <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.72rem; color:var(--text-muted); font-weight:600;">
+                                    <span style="color:${this.porcentaje >= 0 ? '#16a34a' : 'inherit'};">🌱 0%</span>
+                                    <span style="color:${this.porcentaje >= 20 ? '#65a30d' : 'inherit'};">🐛 20%</span>
+                                    <span style="color:${this.porcentaje >= 40 ? '#059669' : 'inherit'};">🦋 40%</span>
+                                    <span style="color:${this.porcentaje >= 60 ? '#047857' : 'inherit'};">🐿️ 60%</span>
+                                    <span style="color:${this.porcentaje >= 80 ? '#d97706' : 'inherit'};">🍎 80%</span>
+                                    <span style="color:${this.porcentaje >= 100 ? '#eab308' : 'inherit'};">🌟 100%</span>
+                                </div>
                             </div>
 
-                            <div style="position:relative; width:100%; height:12px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
-                                <div style="width:${this.porcentaje}%; height:100%; background:linear-gradient(90deg, #16a34a, #eab308); border-radius:10px; transition:width 0.6s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                            <!-- Tarjeta Explicativa de la Etapa -->
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid ${etapa.color}; border-radius:0 10px 10px 0; padding:12px 14px; margin-bottom:16px; font-size:0.86rem; color:var(--text-main); line-height:1.4;">
+                                <strong style="color:${etapa.color}; display:block; margin-bottom:2px;">${etapa.subtitulo}</strong>
+                                ${etapa.descripcion}
                             </div>
-
-                            <!-- Marcadores de Hitos (20%, 40%, 60%, 80%, 100%) -->
-                            <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.72rem; color:var(--text-muted); font-weight:600;">
-                                <span style="color:${this.porcentaje >= 0 ? '#16a34a' : 'inherit'};">🌱 0%</span>
-                                <span style="color:${this.porcentaje >= 20 ? '#65a30d' : 'inherit'};">🐛 20%</span>
-                                <span style="color:${this.porcentaje >= 40 ? '#059669' : 'inherit'};">🦋 40%</span>
-                                <span style="color:${this.porcentaje >= 60 ? '#047857' : 'inherit'};">🐿️ 60%</span>
-                                <span style="color:${this.porcentaje >= 80 ? '#d97706' : 'inherit'};">🍎 80%</span>
-                                <span style="color:${this.porcentaje >= 100 ? '#eab308' : 'inherit'};">🌟 100%</span>
-                            </div>
-                        </div>
-
-                        <!-- Tarjeta Explicativa de la Etapa -->
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid ${etapa.color}; border-radius:0 10px 10px 0; padding:12px 14px; margin-bottom:16px; font-size:0.86rem; color:var(--text-main); line-height:1.4;">
-                            <strong style="color:${etapa.color}; display:block; margin-bottom:2px;">${etapa.subtitulo}</strong>
-                            ${etapa.descripcion}
-                        </div>
+                        `}
 
                         <!-- Acciones y Botón de Reclamar / Ciclo -->
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                            ${metaAlcanzada ? `
+                            ${canjePendiente ? `
+                                <div style="flex:2; min-width:220px; background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px; font-size:0.85rem; color:#92400e; display:flex; align-items:center; gap:8px;">
+                                    <i class="fas fa-clock-rotate-left fa-spin"></i>
+                                    <span><strong>Solicitud enviada (#${canjePendiente.id})</strong>. Esperando confirmación del Administrador para entregar el premio y reiniciar el árbol.</span>
+                                </div>
+                            ` : (metaAlcanzada ? `
                                 <button type="button" class="btn btn-block btn-success btn-canjear-glow" onclick="InventoryApp.TreeGamification.reclamarPremioYCiclo()" style="flex:2; min-width:220px; font-weight:800; font-size:0.95rem; padding:12px; background:linear-gradient(135deg, #16a34a, #15803d); box-shadow:0 4px 15px rgba(22, 163, 74, 0.35);">
-                                    <i class="fas fa-gift"></i> ¡Reclamar ${this.premioActual.nombre} & Iniciar Ciclo #${this.nivelCiclo + 1}!
+                                    <i class="fab fa-whatsapp"></i> ¡Reclamar ${this.premioActual.nombre} por WhatsApp!
                                 </button>
                             ` : `
                                 <button type="button" class="btn btn-block btn-secondary" disabled style="flex:2; min-width:220px; font-weight:600; padding:10px;">
-                                    <i class="fas fa-lock"></i> Faltan ${puntosFaltantes} puntos para la Cosecha Dorada
+                                    <i class="fas fa-lock"></i> ${temporadaActiva ? `Faltan ${puntosFaltantes} puntos para la Cosecha Dorada` : 'Temporada en Pausa'}
                                 </button>
-                            `}
+                            `)}
 
                             <button type="button" class="btn btn-outline btn-sm" onclick="InventoryApp.TreeGamification.toggleSimulador()" style="flex:1; min-width:140px; font-size:0.78rem;">
                                 <i class="fas fa-flask"></i> Probar Etapas
@@ -621,7 +725,8 @@ class TreeGamificationWidget {
     }
 
     /**
-     * Reclama el premio del mes, libera la recompensa y reinicia automáticamente un nuevo ciclo
+     * Reclama el premio del mes: genera solicitud WhatsApp dirigida a la Bodega (04125363849).
+     * El árbol NO se reinicia aquí; permanece al 100% hasta que el Administrador confirme al ganador.
      */
     async reclamarPremioYCiclo() {
         const usuario = AppState.usuarioActual;
@@ -630,52 +735,69 @@ class TreeGamificationWidget {
         const pm = AppState.premioMes || { nombre: 'Premio del Mes', puntosRequeridos: 200 };
         const puntosRequeridos = Number(pm.puntosRequeridos || 200);
 
-        if (!confirm(`🎉 ¡Felicidades, ${usuario.nombre}!\n\n¿Deseas canjear tus ${puntosRequeridos} puntos y reclamar el premio:\n"${pm.nombre}"?\n\nAl reclamarlo, se descontarán los puntos de la meta y tu Árbol de Crecimiento germinará una nueva Semilla Dorada para el siguiente ciclo de premios.`)) {
-            return;
-        }
+        const confirmar = await (window.InventoryApp.Modal?.confirm 
+            ? window.InventoryApp.Modal.confirm(
+                'Solicitar Canje de Premio',
+                `¡Felicidades, ${usuario.nombre}! Has alcanzado el 100% de tu meta. ¿Deseas solicitar el canje de tus ${puntosRequeridos} puntos por "${pm.nombre}" y notificar a la bodega por WhatsApp?`
+              )
+            : confirm(`¡Felicidades, ${usuario.nombre}!\n\n¿Deseas solicitar el canje de tus ${puntosRequeridos} puntos por "${pm.nombre}" y notificar a la bodega por WhatsApp?`));
 
-        // Registrar canje
+        if (!confirmar) return;
+
+        // Registrar canje en estado PENDIENTE_CONFIRMACION (el árbol NO se reinicia aún)
         if (!Array.isArray(AppState.canjesPremios)) AppState.canjesPremios = [];
-        const nuevoCanje = {
-            id: 'CANJE_' + Date.now().toString().slice(-6),
-            clienteCedula: usuario.cedula || usuario.id,
-            clienteNombre: usuario.nombre,
-            premioNombre: pm.nombre,
-            puntos: puntosRequeridos,
-            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            estado: 'ENTREGADO',
-            cicloCompletado: this.nivelCiclo
-        };
+        
+        const canjeExistente = AppState.canjesPremios.find(c => 
+            (c.clienteCedula === (usuario.cedula || usuario.id)) && (c.estado === 'PENDIENTE_CONFIRMACION')
+        );
 
-        AppState.canjesPremios.push(nuevoCanje);
+        const canjeId = canjeExistente?.id || ('CANJE_' + Date.now().toString().slice(-6));
 
-        // Descontar puntos canjeados
-        usuario.puntosCanjeados = Number(usuario.puntosCanjeados || 0) + puntosRequeridos;
-        usuario.cicloGamificacion = (Number(usuario.cicloGamificacion) || 1) + 1;
-        this.nivelCiclo = usuario.cicloGamificacion;
+        if (!canjeExistente) {
+            const nuevoCanje = {
+                id: canjeId,
+                clienteCedula: usuario.cedula || usuario.id,
+                clienteNombre: usuario.nombre,
+                clienteTelefono: usuario.telefono || '',
+                premioNombre: pm.nombre,
+                puntos: puntosRequeridos,
+                fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                estado: 'PENDIENTE_CONFIRMACION',
+                cicloCompletado: this.nivelCiclo
+            };
+            AppState.canjesPremios.unshift(nuevoCanje);
+        }
 
         // Persistir en servidor y local
         if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
-        if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-            window.InventoryApp.Firebase.guardarUsuario(usuario);
-        }
 
-        // Llamar API de lealtad si está disponible
-        try {
-            await fetch('/api/loyalty/claim', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: usuario.cedula || usuario.id, premioId: pm.nombre, puntos: puntosRequeridos })
-            });
-        } catch {
-            // Continuar con persistencia local garantizada
-        }
+        // Disparar WhatsApp Trigger dirigido a la Bodega (04125363849)
+        const telefonoBodega = '584125363849';
+        const msgWhatsApp = encodeURIComponent(
+            `🎉 *SOLICITUD DE CANJE DE PREMIO - TU BODEGUITA DE CONFIANZA*\n\n` +
+            `👤 *Ganador:* ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id})\n` +
+            `📱 *Teléfono:* ${usuario.telefono || 'No registrado'}\n` +
+            `🎁 *Premio Solicitado:* ${pm.nombre}\n` +
+            `⭐ *Puntos Requeridos:* ${puntosRequeridos} pts\n` +
+            `🌳 *Árbol de Fidelidad:* 100% Cosecha Dorada Alcanzada (Ciclo #${this.nivelCiclo})\n` +
+            `🎫 *Comprobante:* #${canjeId}\n\n` +
+            `_Por favor confirmar la entrega en el panel administrativo para entregar el premio e iniciar el nuevo ciclo del cliente._`
+        );
 
-        alert(`🏆 ¡PREMIO RECLAMADO CON ÉXITO!\n\nHas obtenido: "${pm.nombre}".\nTu comprobante es #${nuevoCanje.id}.\n\nTu Árbol de Crecimiento ha liberado su semilla y comienza el Ciclo #${this.nivelCiclo}. ¡Sigue acumulando puntos!`);
+        const urlWhatsApp = `https://wa.me/${telefonoBodega}?text=${msgWhatsApp}`;
+        window.open(urlWhatsApp, '_blank');
+
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert(
+                'Solicitud Enviada a la Bodega',
+                `¡Tu solicitud de canje #${canjeId} para "${pm.nombre}" ha sido enviada!\n\nTu Árbol permanece al 100% hasta que el Administrador confirme la entrega del premio en el local y active tu nuevo ciclo.`
+            );
+        } else {
+            alert(`¡Solicitud enviada! Comprobante #${canjeId}.\nTu Árbol permanece en 100% hasta que el Administrador confirme la entrega.`);
+        }
 
         // Re-renderizar
         if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
-        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
     }
 }
 

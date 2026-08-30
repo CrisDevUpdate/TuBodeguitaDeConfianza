@@ -183,19 +183,22 @@ class CatalogManager {
         const productosAVisualizar = productosOrdenados.slice(0, this.displayedCount);
         const tasa = AppState.tasaActiva || 0;
 
+        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+
         container.innerHTML = productosAVisualizar.map(p => {
             const stock = Number(p.stock || 0);
             const ventas = metricasVentas[p.id] || 0;
             const precioUSD = Number(p.precio || 0);
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
-            const puntosGanados = Math.max(1, Math.round(precioUSD));
+            const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
+            const puntosGanados = Math.max(1, Math.floor(precioUSD * ptsPorDolar));
             const esMasVendido = ventas >= 3;
             const esAgotado = stock <= 0;
 
             const imagenSrc = p.imagen || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
 
             return `
-                <div class="cliente-prod-card ${esAgotado ? 'agotado' : ''}" id="prod-card-${p.id}">
+                <div class="cliente-prod-card reveal-on-scroll ${esAgotado ? 'agotado' : ''}" id="prod-card-${p.id}">
                     <!-- Thumbnail con Badges Flotantes -->
                     <div class="cliente-prod-thumb-wrapper">
                         <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-thumb" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/300x200?text=Producto';">
@@ -212,10 +215,12 @@ class CatalogManager {
                             ` : ''}
                         </div>
 
-                        <!-- Indicador de Puntos -->
+                        <!-- Indicador de Puntos (Solo si la temporada de incentivos está activa) -->
+                        ${temporadaActiva ? `
                         <div class="cliente-prod-points-badge">
                             <i class="fas fa-star"></i> +${puntosGanados} pts
                         </div>
+                        ` : ''}
 
                         ${esAgotado ? `
                             <div class="cliente-prod-agotado-overlay">
@@ -244,8 +249,8 @@ class CatalogManager {
                                 <div class="cliente-prod-price-usd">$${precioUSD.toFixed(2)}</div>
                                 <div class="cliente-prod-price-ves">Bs. ${tasa > 0 ? precioVES.toFixed(2) : '—'}</div>
                             </div>
-                            <div class="cliente-prod-stock-badge ${stock <= 3 && stock > 0 ? 'low-stock' : ''}">
-                                ${stock > 0 ? `<i class="fas fa-check-circle"></i> ${stock} disp.` : '<i class="fas fa-times-circle"></i> Sin stock'}
+                            <div class="cliente-prod-stock-badge ${esAgotado ? 'sin-stock' : 'disponible'}">
+                                ${!esAgotado ? '<i class="fas fa-check-circle" style="color:#16a34a;"></i> Disponible' : '<i class="fas fa-times-circle" style="color:#ef4444;"></i> Agotado'}
                             </div>
                         </div>
 

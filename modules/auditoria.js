@@ -208,33 +208,57 @@ function escanearProductoAuditoria(event) {
 
 // Aplica el ajuste de UN producto: actualiza el Stock Digital para que coincida
 // con el Stock Físico contado y deja el registro correspondiente en el historial.
-function aplicarAjusteInventario(productoId) {
+async function aplicarAjusteInventario(productoId) {
     const p = productos.find(prod => prod.id === productoId);
     if (!p) return;
 
     const diferencia = calcularDiferenciaAuditoria(productoId);
     if (diferencia === null) {
-        alert('Ingresa el conteo físico antes de aplicar el ajuste.');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Conteo Requerido', 'Ingresa el conteo físico antes de aplicar el ajuste.', 'warning');
+        } else {
+            alert('Ingresa el conteo físico antes de aplicar el ajuste.');
+        }
         return;
     }
 
-    const stockFisico = conteosFisicos[productoId];
-    const stockAnterior = p.stock;
+    const stockFisico = Number(conteosFisicos[productoId] || 0);
+    const stockAnterior = Number(p.stock || 0);
 
-    if (diferencia !== 0 && !confirm(`¿Aplicar ajuste de inventario para "${p.nombre}"?\n\nStock Digital actual: ${stockAnterior}\nStock Físico contado: ${stockFisico}\nDiferencia: ${diferencia > 0 ? '+' : ''}${diferencia}\n\nEl Stock Digital se actualizará para coincidir con el Stock Físico.`)) {
-        return;
+    // Confirmación mediante Modal Personalizado
+    const difTexto = (diferencia > 0 ? `+${diferencia}` : `${diferencia}`);
+    const mensajeHtml = `¿Confirmar ajuste de inventario para <b>"${p.nombre}"</b>?<br><br>` +
+        `• <b>Stock Anterior:</b> ${stockAnterior} unds<br>` +
+        `• <b>Nuevo Stock Físico:</b> ${stockFisico} unds<br>` +
+        `• <b>Diferencia:</b> <span style="color:${diferencia >= 0 ? '#16a34a' : '#ef4444'}; font-weight:700;">${difTexto} unds</span><br>` +
+        `• <b>Motivo:</b> Auditoría Física de Inventario`;
+
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Auditoría de Inventario', mensajeHtml, 'warning');
+    } else {
+        confirmado = confirm(`¿Confirmar ajuste para ${p.nombre}?\nAnterior: ${stockAnterior}\nNuevo: ${stockFisico}\nDiferencia: ${difTexto}`);
     }
+
+    if (!confirmado) return;
 
     // Actualiza el stock exclusivamente mediante el servicio formal de auditoría.
     if (!InventoryApp.StockService.ajuste(productoId, stockFisico)) {
-        alert('No fue posible aplicar el ajuste de inventario.');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Error', 'No fue posible aplicar el ajuste de inventario.', 'error');
+        } else {
+            alert('No fue posible aplicar el ajuste de inventario.');
+        }
         return;
     }
+
+    const usuarioNombre = AppState.usuarioActual?.nombre || AppState.usuarioActual?.id || 'SuperAdmin';
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     // Deja registro en el historial de auditoría.
     const registroAuditoria = {
         id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
-        fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        fecha: timestamp,
         productoId: p.id,
         codigo: p.codigo,
         nombre: p.nombre,
@@ -242,12 +266,29 @@ function aplicarAjusteInventario(productoId) {
         stockFisico: stockFisico,
         diferencia: diferencia,
         costo: Number(p.costo || 0),
-        // La pérdida real por faltante se calcula al costo, no al precio de venta.
-        // Si el conteo físico es menor que el digital, esas unidades no están disponibles
-        // y representan una pérdida económica mientras no sean repuestas.
-        perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0
+        perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0,
+        usuario: usuarioNombre
     };
     auditorias.push(registroAuditoria);
+
+    // Enviar payload de auditoría al backend centralizado /api/inventory/adjust
+    try {
+        fetch('/api/inventory/adjust', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productoId: p.id,
+                codigo: p.codigo,
+                nombre: p.nombre,
+                stockAnterior: stockAnterior,
+                nuevoStock: stockFisico,
+                diferencia: diferencia,
+                motivo: 'Auditoría Física de Inventario',
+                usuario: usuarioNombre,
+                timestamp: timestamp
+            })
+        }).catch(err => console.warn('[API Adjust] Fallback local:', err));
+    } catch {}
 
     // Sincronizar ajuste en Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
@@ -262,51 +303,93 @@ function aplicarAjusteInventario(productoId) {
     renderizarPosProductos();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarHistorialAuditoria();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Ajuste aplicado para ${p.nombre} (Stock: ${stockFisico})`, 'success');
+    }
 }
 
 // Aplica en bloque todos los ajustes pendientes (todos los productos con conteo físico capturado).
-function aplicarTodosLosAjustes() {
+async function aplicarTodosLosAjustes() {
     const pendientes = Object.keys(conteosFisicos);
     if (pendientes.length === 0) {
-        alert('No hay conteos físicos pendientes de aplicar.');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Sin Conteos', 'No hay conteos físicos pendientes de aplicar.', 'warning');
+        } else {
+            alert('No hay conteos físicos pendientes de aplicar.');
+        }
         return;
     }
 
-    if (!confirm(`¿Aplicar ${pendientes.length} ajuste(s) de inventario pendiente(s)? El Stock Digital de cada producto se actualizará para coincidir con su Stock Físico contado.`)) {
-        return;
+    let confirmado = false;
+    const msg = `¿Confirmar <b>${pendientes.length} ajuste(s)</b> de inventario?<br>El Stock Digital de cada producto se actualizará para coincidir con el conteo físico.`;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Ajuste Masivo de Inventario', msg, 'warning');
+    } else {
+        confirmado = confirm(`¿Confirmar ${pendientes.length} ajuste(s) de inventario?`);
     }
 
-    pendientes.forEach(productoId => {
+    if (!confirmado) return;
+
+    for (const productoId of pendientes) {
         const p = productos.find(prod => prod.id === productoId);
-        if (!p) return;
+        if (!p) continue;
 
         const diferencia = calcularDiferenciaAuditoria(productoId);
-        const stockFisico = conteosFisicos[productoId];
-        const stockAnterior = p.stock;
+        if (diferencia === null) continue;
 
-        if (!InventoryApp.StockService.ajuste(productoId, stockFisico)) return;
+        const stockFisico = Number(conteosFisicos[productoId] || 0);
+        const stockAnterior = Number(p.stock || 0);
 
-        auditorias.push({
-            id: "AJ" + (auditorias.length + 1),
-            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            productoId: p.id,
-            codigo: p.codigo,
-            nombre: p.nombre,
-            stockAnterior: stockAnterior,
-            stockFisico: stockFisico,
-            diferencia: diferencia,
-            costo: Number(p.costo || 0),
-            perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0
-        });
-    });
+        if (InventoryApp.StockService.ajuste(productoId, stockFisico)) {
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            const registroAuditoria = {
+                id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
+                fecha: timestamp,
+                productoId: p.id,
+                codigo: p.codigo,
+                nombre: p.nombre,
+                stockAnterior: stockAnterior,
+                stockFisico: stockFisico,
+                diferencia: diferencia,
+                costo: Number(p.costo || 0),
+                perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0
+            };
+            auditorias.push(registroAuditoria);
 
-    conteosFisicos = {};
+            try {
+                fetch('/api/inventory/adjust', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productoId: p.id,
+                        codigo: p.codigo,
+                        nombre: p.nombre,
+                        stockAnterior: stockAnterior,
+                        nuevoStock: stockFisico,
+                        diferencia: diferencia,
+                        motivo: 'Ajuste Masivo de Auditoría',
+                        timestamp: timestamp
+                    })
+                }).catch(() => {});
+            } catch {}
+
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
+                window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(() => {});
+            }
+        }
+        delete conteosFisicos[productoId];
+    }
 
     renderizarInventario();
     renderizarPosProductos();
     renderizarAuditoria();
     renderizarHistorialAuditoria();
     renderizarResumenPerdidasEconomicas();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Se aplicaron exitosamente los ajustes de inventario`, 'success');
+    }
 }
 
 // Calcula la pérdida pendiente real, compensando faltantes con sobrantes/reposiciones

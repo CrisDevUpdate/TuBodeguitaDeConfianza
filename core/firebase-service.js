@@ -30,10 +30,8 @@ window.InventoryApp = window.InventoryApp || {};
     let cloudStatus = 'iniciando'; // 'conectado', 'sincronizando', 'offline', 'error'
     let lastCloudSync = null;
 
-    // Colecciones de Firestore. Los datos históricos nunca se borran:
-    // después de un reinicio se cambia el namespace activo y las nuevas operaciones
-    // se escriben en colecciones nuevas. El namespace legacy conserva los datos previos.
-    const BASE_COLLECTIONS = {
+    // Colecciones de Firestore
+    const COLLECTIONS = {
         PRODUCTOS: 'productos',
         CLIENTES: 'clientes',
         VENTAS: 'ventas',
@@ -45,21 +43,6 @@ window.InventoryApp = window.InventoryApp || {};
         USUARIOS: 'usuarios',
         CONFIG: 'config'
     };
-
-    function getActiveDatasetId() {
-        try { return localStorage.getItem('bodeguita_active_dataset') || 'legacy'; }
-        catch (_) { return 'legacy'; }
-    }
-
-    const COLLECTIONS = new Proxy(BASE_COLLECTIONS, {
-        get(target, prop) {
-            const base = target[prop];
-            if (!base) return undefined;
-            if (prop === 'CONFIG') return base;
-            const dataset = getActiveDatasetId();
-            return dataset === 'legacy' ? base : `${dataset}__${base}`;
-        }
-    });
 
     /**
      * Obtiene la configuración activa de Firebase (de localStorage o predeterminada)
@@ -986,9 +969,6 @@ window.InventoryApp = window.InventoryApp || {};
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
         actualizarUIEstadoNube,
-        getConfig: obtenerConfiguracion,
-        getFirestore: () => db,
-        getActiveDatasetId,
-        getCollectionName: (key) => COLLECTIONS[key]
+        getConfig: obtenerConfiguracion
     };
 })();

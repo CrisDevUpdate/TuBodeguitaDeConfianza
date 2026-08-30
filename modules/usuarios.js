@@ -662,17 +662,36 @@ function cambiarRolUsuario(cedula, nuevoRol) {
  */
 async function eliminarUsuario(cedula) {
     if (!cedula) return;
-    if (cedula === 'V-00000001' || cedula.toUpperCase() === 'SUPERADMIN') {
-        alert('El Administrador Principal del sistema no puede ser eliminado por seguridad.');
+    if (cedula === 'V-00000001' || String(cedula).toUpperCase() === 'SUPERADMIN') {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Acción Denegada', 'El Administrador Principal (SuperAdmin) del sistema no puede ser eliminado por seguridad.', 'error');
+        } else {
+            alert('El Administrador Principal del sistema no puede ser eliminado por seguridad.');
+        }
         return;
     }
 
     const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
     if (!usuario) return;
 
-    if (!confirm(`¿Estás seguro de eliminar permanentemente al usuario ${usuario.nombre} (${cedula})?\n\nEsta acción actualizará la base de datos en tiempo real y eliminará la fila de la interfaz.`)) {
-        return;
+    const rolBadge = (usuario.rol || 'cliente').toUpperCase();
+    const puntos = Number(usuario.puntosAcumulados || 0);
+
+    const detalleHtml = `¿Estás seguro de eliminar permanentemente a este usuario?<br><br>` +
+        `• <b>Nombre:</b> ${usuario.nombre}<br>` +
+        `• <b>Cédula/ID:</b> ${usuario.cedula || usuario.id}<br>` +
+        `• <b>Rol:</b> ${rolBadge}<br>` +
+        `• <b>Puntos Acumulados:</b> ${puntos} pts<br><br>` +
+        `<span style="color:#ef4444; font-size:0.85rem;">Esta acción eliminará la cuenta y registros de acceso de la base de datos.</span>`;
+
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Eliminar Usuario', detalleHtml, 'danger');
+    } else {
+        confirmado = confirm(`¿Estás seguro de eliminar a ${usuario.nombre} (${cedula})?`);
     }
+
+    if (!confirmado) return;
 
     // 1. Llamar al endpoint backend de Vercel/Node para eliminación en BD
     try {
@@ -680,9 +699,9 @@ async function eliminarUsuario(cedula) {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         });
-        console.log(`[API Delete] Usuario ${cedula} eliminado en backend Vercel.`);
+        console.log(`[API Delete] Usuario ${cedula} eliminado en backend.`);
     } catch (err) {
-        console.warn(`[API Delete] Backend offline o Vercel Serverless en local:`, err);
+        console.warn(`[API Delete] Backend offline:`, err);
     }
 
     // 2. Eliminar del estado global local
@@ -693,7 +712,9 @@ async function eliminarUsuario(cedula) {
 
     // 3. Si era la sesión activa, cerrar sesión
     if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === cedula) {
-        alert(`La cuenta activa (${usuario.nombre}) fue eliminada. Cerrando sesión.`);
+        if (typeof showCustomAlert === 'function') {
+            await showCustomAlert('Sesión Finalizada', `La cuenta activa (${usuario.nombre}) fue eliminada. Cerrando sesión.`, 'info');
+        }
         cerrarSesionUsuario();
         return;
     }
@@ -707,6 +728,10 @@ async function eliminarUsuario(cedula) {
     // 5. Re-renderizar la tabla de usuarios inmediatamente sin recarga
     renderizarUsuarios();
     actualizarBadgesUsuarios();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Usuario ${usuario.nombre} eliminado correctamente`, 'success');
+    }
 }
 
 // --- AVATARES DE USUARIO (PRESETS + SUBIDA CON RESIZE 150x150) ---

@@ -36,20 +36,6 @@ const AppState = window.InventoryApp.state = {
             puntosAcumulados: 0,
             puntosCanjeados: 0,
             fechaRegistro: '2026-08-28 12:00'
-        },
-        {
-            id: 'V-00000001',
-            cedula: 'V-00000001',
-            nombre: 'Administrador Principal',
-            telefono: '0412-0000000',
-            email: 'admin@tubodeguita.com',
-            // Hash SHA-256 de la contraseña
-            password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
-            rol: 'admin',
-            estado: 'ACTIVO',
-            puntosAcumulados: 0,
-            puntosCanjeados: 0,
-            fechaRegistro: '2026-08-28 12:00'
         }
     ],
     usuarioActual: null,
@@ -58,6 +44,7 @@ const AppState = window.InventoryApp.state = {
         imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
         puntosRequeridos: 200,
         puntosPorDolar: 1,
+        temporadaActiva: true,
         descripcion: 'Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
     },
     canjesPremios: [],

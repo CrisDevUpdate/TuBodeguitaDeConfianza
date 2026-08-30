@@ -81,7 +81,7 @@ function obtenerFraseSabiduriaAleatoria() {
 /**
  * Actualiza el encabezado dinámico del cliente (saludo por hora + frase de sabiduría)
  */
-function actualizarEncabezadoClienteDinamico() {
+async function actualizarEncabezadoClienteDinamico() {
     const usuario = AppState.usuarioActual;
     const nombreUsuario = usuario ? (usuario.nombre || usuario.cedula || 'Cliente') : 'Cliente';
     
@@ -97,9 +97,26 @@ function actualizarEncabezadoClienteDinamico() {
         elemIcono.innerHTML = saludoInfo.icono;
     }
 
-    // 2. Frase de Sabiduría
+    // 2. Frase de Sabiduría con API externa o fallback local
     if (!fraseActualSeleccionada) {
-        fraseActualSeleccionada = obtenerFraseSabiduriaAleatoria();
+        try {
+            const res = await fetch('/api/quotes/wisdom');
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.frase) {
+                    fraseActualSeleccionada = {
+                        frase: data.frase,
+                        autor: data.autor || 'Sabiduría',
+                        categoria: 'Inspiración & Finanzas'
+                    };
+                }
+            }
+        } catch {
+            // Fallback a banco de frases local
+        }
+        if (!fraseActualSeleccionada) {
+            fraseActualSeleccionada = obtenerFraseSabiduriaAleatoria();
+        }
     }
 
     const elemTexto = document.getElementById('cliente-frase-texto');
@@ -226,7 +243,7 @@ function renderizarCatalogoCliente() {
                     <div class="cliente-prod-img-wrapper">
                         <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
                         <span class="cliente-prod-badge-cat">${p.categoria || 'General'}</span>
-                        ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : `<span class="badge-stock-pill">${stock} Disp.</span>`}
+                        ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
                     </div>
                     <div class="cliente-prod-body">
                         <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>

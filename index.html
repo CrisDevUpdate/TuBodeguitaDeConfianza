@@ -1175,13 +1175,23 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
                     <input type="url" id="premio-admin-img" placeholder="https://images.unsplash.com/...">
                 </div>
 
+                <div class="form-group" style="margin-top:12px; background:#f8fafc; padding:12px 16px; border-radius:10px; border:1px solid var(--border);">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; font-weight:700; color:var(--text-main);">
+                        <input type="checkbox" id="premio-temporada-activa" checked style="width:18px; height:18px; cursor:pointer;">
+                        <span>Temporada de Gamificación & Acumulación de Puntos Activa (Desmarca para activar Modo Invierno / Hibernación)</span>
+                    </label>
+                </div>
+
                 <!-- Presets Rápidos -->
                 <div style="margin-top:14px;">
                     <label style="font-size:0.85rem; font-weight:700; color:var(--text-main);">Plantillas Rápidas Preconfiguradas:</label>
                     <div class="premio-presets-grid" id="premio-admin-presets"></div>
                 </div>
 
-                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                    <button type="button" class="btn btn-outline" onclick="anunciarTemporadaWhatsApp()" style="color:#16a34a; border-color:#16a34a; font-weight:700;">
+                        <i class="fab fa-whatsapp"></i> Anunciar Nueva Temporada por WhatsApp
+                    </button>
                     <button type="submit" class="btn btn-success" style="padding:10px 24px; font-weight:700;">
                         <i class="fas fa-floppy-disk"></i> Guardar y Activar Premio del Mes
                     </button>
@@ -1994,6 +2004,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 
 <!-- Scripts de Arquitectura y Módulos -->
 <script src="core/app-state.js"></script>
+<script src="core/modal.js"></script>
 <script src="core/helpers.js"></script>
 <script src="core/firebase-service.js"></script>
 <script src="core/google-drive-service.js"></script>
@@ -2012,7 +2023,6 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="modules/historial-ventas.js"></script>
 <script src="modules/usuarios.js"></script>
 <script src="app.js"></script>
-    <script src="core/dataset-manager.js"></script>
 </body>
 </html>
 

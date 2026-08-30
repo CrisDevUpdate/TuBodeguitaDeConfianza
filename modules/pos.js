@@ -74,21 +74,176 @@ function procesarVenta() {
         }
     }
 
-    if (carrito.length === 0) return alert("El carrito está vacío");
+    if (carrito.length === 0) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Carrito Vacío', 'Agrega al menos un producto al carrito para procesar la venta.', 'warning');
+        } else {
+            alert('El carrito está vacío');
+        }
+        return;
+    }
 
-    const clienteId = document.getElementById('pos-cliente-select').value;
-    const tipoPago = document.getElementById('pos-tipo-pago').value;
-    const total = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
-
-    // Prevalidamos todo el carrito antes de tocar stock: la venta es atómica.
+    // Prevalidamos todo el carrito antes de abrir el checkout
     for (const item of carrito) {
         const producto = productos.find(p => p.id === item.productoId);
         if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
-            alert(`Stock insuficiente para ${item.nombre}. La venta fue cancelada sin modificar inventario.`);
+            const msg = `Stock insuficiente para ${item.nombre}. Stock disponible: ${producto ? producto.stock : 0}.`;
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Stock Insuficiente', msg, 'warning');
+            } else {
+                alert(msg);
+            }
             return;
         }
     }
 
+    abrirModalCheckoutPOS();
+}
+
+/**
+ * Abre el Modal Unificado de Checkout para POS (Admin / Vendedor)
+ */
+function abrirModalCheckoutPOS() {
+    let modal = document.getElementById('modal-pos-checkout-unificado');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-pos-checkout-unificado';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+
+    const clienteIdSelect = document.getElementById('pos-cliente-select');
+    const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
+    const clienteObj = clientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+
+    const totalUSD = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+    const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
+    const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+    const ptsEstimados = temporadaActiva ? Math.floor(totalUSD * ptsPorDolar) : 0;
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 520px; animation: modalPop 0.25s ease-out;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:1.25rem; display:flex; align-items:center; gap:8px; color:var(--text-main);">
+                    <i class="fas fa-cash-register" style="color:var(--primary-accent);"></i> Confirmación de Checkout POS
+                </h3>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalCheckoutPOS()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Resumen de Cliente y Montos -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="color:var(--text-muted); font-size:0.88rem;">Cliente Asignado:</span>
+                    <strong>${clienteObj.nombre} (${clienteObj.id})</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="color:var(--text-muted); font-size:0.88rem;">Total Artículos:</span>
+                    <strong>${carrito.reduce((s, i) => s + i.cantidad, 0)} unidades</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="color:var(--text-muted); font-size:0.88rem;">Total a Cobrar (USD):</span>
+                    <strong style="color:var(--primary-accent); font-size:1.2rem;">$${totalUSD.toFixed(2)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-top:1px dashed #cbd5e1; padding-top:6px;">
+                    <span style="color:var(--text-muted); font-size:0.88rem;">Total en Bolívares (VES):</span>
+                    <strong style="color:#16a34a; font-size:1.1rem;">Bs. ${totalVES > 0 ? totalVES.toFixed(2) : '—'}</strong>
+                </div>
+                ${temporadaActiva ? `
+                <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:0.82rem; color:#d97706;">
+                    <span><i class="fas fa-star"></i> Puntos Premio del Mes:</span>
+                    <strong>+${ptsEstimados} Pts</strong>
+                </div>` : ''}
+            </div>
+
+            <!-- Formulario de Checkout Unificado -->
+            <form onsubmit="event.preventDefault(); ejecutarFinalizacionCheckoutPOS();">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label for="pos-checkout-metodo">Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <select id="pos-checkout-metodo" required onchange="manejarCambioMetodoPOS(this.value)">
+                        <option value="Efectivo USD">Efectivo ($ Dólares)</option>
+                        <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
+                        <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
+                        <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
+                        <option value="Crédito">Crédito / Fiado (Cuenta Corriente)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="pos-checkout-grupo-ref" style="margin-bottom:12px;">
+                    <label for="pos-checkout-referencia" id="pos-checkout-label-ref">
+                        Referencia Bancaria <span id="pos-ref-required-mark" style="display:none; color:var(--danger);">*</span>
+                    </label>
+                    <input type="text" id="pos-checkout-referencia" placeholder="Ej: 894521 (Últimos 4-6 dígitos)">
+                </div>
+
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="pos-checkout-estado">Estado de la Transacción</label>
+                    <select id="pos-checkout-estado">
+                        <option value="CONFIRMADO" selected>CONFIRMADO / PAGADO</option>
+                        <option value="PENDIENTE">PENDIENTE DE REVISIÓN</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCheckoutPOS()">Cancelar</button>
+                    <button type="submit" class="btn btn-success" style="font-weight:700; padding:10px 20px;">
+                        <i class="fas fa-check"></i> Asentar Venta & Débito
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function manejarCambioMetodoPOS(metodo) {
+    const mark = document.getElementById('pos-ref-required-mark');
+    const inputRef = document.getElementById('pos-checkout-referencia');
+    const requiereRef = (metodo === 'Pago Móvil VES' || metodo === 'Transferencia Bancaria VES');
+
+    if (mark) mark.style.display = requiereRef ? 'inline' : 'none';
+    if (inputRef) inputRef.required = requiereRef;
+}
+
+function cerrarModalCheckoutPOS() {
+    const modal = document.getElementById('modal-pos-checkout-unificado');
+    if (modal) modal.classList.remove('active');
+}
+
+async function ejecutarFinalizacionCheckoutPOS() {
+    const clienteIdSelect = document.getElementById('pos-cliente-select');
+    const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
+    const metodoPago = document.getElementById('pos-checkout-metodo')?.value || 'Efectivo USD';
+    const referencia = (document.getElementById('pos-checkout-referencia')?.value || '').trim();
+    const estadoTransaccion = document.getElementById('pos-checkout-estado')?.value || 'CONFIRMADO';
+
+    const requiereRef = (metodoPago === 'Pago Móvil VES' || metodoPago === 'Transferencia Bancaria VES');
+    if (requiereRef && !referencia) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Referencia Obligatoria', 'Debes ingresar el número de referencia para transacciones bancarias.', 'warning');
+        } else {
+            alert('Debes ingresar la referencia bancaria.');
+        }
+        return;
+    }
+
+    const total = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
+
+    // Prevalidación de stock atómica
+    for (const item of carrito) {
+        const producto = productos.find(p => p.id === item.productoId);
+        if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${item.nombre}. Operación cancelada.`, 'warning');
+            }
+            cerrarModalCheckoutPOS();
+            return;
+        }
+    }
+
+    // Débito atómico de inventario
     for (const item of carrito) {
         InventoryApp.StockService.sale(item.productoId, item.cantidad);
     }
@@ -98,7 +253,7 @@ function procesarVenta() {
         return { ...item, costo: Number(producto?.costo || item.costo || 0) };
     });
 
-    const vendedor = AppState.usuarioActual || { cedula: 'V-00000001', nombre: 'Administrador' };
+    const vendedor = AppState.usuarioActual || { cedula: 'SuperAdmin', nombre: 'SuperAdmin' };
 
     const nuevaVenta = {
         id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
@@ -108,36 +263,64 @@ function procesarVenta() {
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
         items: itemsVendidos,
         total: total,
-        tipo: tipoPago
+        tipo: metodoPago === 'Crédito' ? 'Crédito' : 'Contado',
+        metodoDetalle: metodoPago,
+        referencia: referencia || 'N/A',
+        estado: estadoTransaccion
     };
 
     ventas.push(nuevaVenta);
 
-    // Fidelización y Gamificación: Otorgar puntos si la venta es de contado
+    // Si la venta es a Crédito, asegurar registro en estado de cuenta de cliente
+    if (metodoPago === 'Crédito') {
+        const clienteExistente = clientes.find(c => c.id === clienteId);
+        if (clienteExistente) {
+            clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+        }
+    }
+
+    // Fidelización y Gamificación: Otorgar puntos si aplica
     let puntosGanados = 0;
-    if (tipoPago === 'Contado' && typeof otorgarPuntosPorCompra === 'function') {
+    const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+    if (temporadaActiva && (metodoPago !== 'Crédito') && typeof otorgarPuntosPorCompra === 'function') {
         puntosGanados = otorgarPuntosPorCompra(clienteId, total, 'Venta POS Contado');
     }
 
-    // Sincronizar venta y actualización de stock en Firebase Firestore
+    // Sincronizar con Firebase Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
         window.InventoryApp.Firebase.registrarVenta(nuevaVenta, itemsVendidos).catch(err => {
             console.warn('[POS] Error al registrar venta en Firestore:', err);
         });
     }
 
+    // Sincronizar con backend local si está disponible
+    try {
+        fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clienteId,
+                totalUSD: total,
+                nuevaVentaId: nuevaVenta.id
+            })
+        }).catch(() => {});
+    } catch {}
+
     carrito = [];
+    cerrarModalCheckoutPOS();
     renderizarCarrito();
     renderizarPosProductos();
     renderizarInventario();
     renderizarClientes();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarResumenPerdidasEconomicas();
-    
-    if (puntosGanados > 0) {
-        alert(`Transacción procesada correctamente.\n⭐ ¡El cliente acumuló +${puntosGanados} puntos para el Premio del Mes!`);
-    } else {
-        alert("Transacción procesada correctamente");
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Venta #${nuevaVenta.id} completada exitosamente ($${total.toFixed(2)})`, 'success');
+    }
+
+    if (puntosGanados > 0 && typeof showCustomAlert === 'function') {
+        showCustomAlert('¡Transacción Asentada!', `La venta fue procesada con éxito.\n⭐ ¡El cliente acumuló +${puntosGanados} puntos para el Premio del Mes!`, 'success');
     }
 }
 
