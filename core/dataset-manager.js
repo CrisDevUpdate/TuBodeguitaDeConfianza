@@ -36,8 +36,12 @@ window.InventoryApp = window.InventoryApp || {};
         setTimeout(() => el.remove(), 4500);
     }
 
+    function getCurrentUser() {
+        return window.AppState?.usuarioActual || window.InventoryApp?.Session?.usuarioActual || null;
+    }
+
     function isAdmin() {
-        const u = AppState.usuarioActual;
+        const u = getCurrentUser();
         return !!u && String(u.rol || '').toLowerCase() === 'admin';
     }
 
@@ -48,13 +52,30 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     function activeDatasetId() {
-        return localStorage.getItem('bodeguita_active_dataset') || 'legacy';
+        try { return localStorage.getItem('bodeguita_active_dataset') || 'legacy'; }
+        catch (_) { return 'legacy'; }
     }
 
     function nextDatasetId() {
         const now = new Date();
         const stamp = now.toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
         return `dataset_${stamp}`;
+    }
+
+    async function waitForFirebase(timeoutMs = 15000) {
+        const started = Date.now();
+        while (Date.now() - started < timeoutMs) {
+            const service = window.InventoryApp?.Firebase;
+            const db = service?.getFirestore?.();
+            if (db) return db;
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        return null;
+    }
+
+    function firebaseReady() {
+        const service = window.InventoryApp?.Firebase;
+        return !!(service && typeof service.getFirestore === 'function' && service.getFirestore());
     }
 
     async function askPassword() {
@@ -96,25 +117,27 @@ window.InventoryApp = window.InventoryApp || {};
                 modal.remove();
                 resolve(true);
             };
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') modal.querySelector('#dataset-reset-confirm').click();
+                if (event.key === 'Escape') modal.querySelector('#dataset-reset-cancel').click();
+            });
             input.focus();
         });
     }
 
     async function readCollection(db, collectionName) {
         const result = [];
+        let lastDoc = null;
         while (true) {
-            const snap = await db.collection(collectionName).limit(400).get();
+            let query = db.collection(collectionName)
+                .orderBy(firebase.firestore.FieldPath.documentId())
+                .limit(400);
+            if (lastDoc) query = query.startAfter(lastDoc);
+            const snap = await query.get();
             if (snap.empty) break;
             snap.docs.forEach(doc => result.push({ id: doc.id, ...doc.data() }));
+            lastDoc = snap.docs[snap.docs.length - 1].id;
             if (snap.size < 400) break;
-            // This is a read-only archive pass. Pagination by document id avoids
-            // relying on client-side ordering and keeps each request small.
-            const lastId = snap.docs[snap.docs.length - 1].id;
-            const next = await db.collection(collectionName).orderBy(firebase.firestore.FieldPath.documentId()).startAfter(lastId).limit(400).get();
-            if (next.empty) break;
-            next.docs.forEach(doc => result.push({ id: doc.id, ...doc.data() }));
-            if (next.size < 400) break;
-            break;
         }
         return result;
     }
@@ -127,7 +150,7 @@ window.InventoryApp = window.InventoryApp || {};
         }));
     }
 
-    async function archiveCurrentDataset(db, datasetId, newDatasetId) {
+    async function archiveCurrentDataset(db, datasetId, newDatasetId, snapshot) {
         const archiveId = `${datasetId}__${newDatasetId}`;
         const manifestRef = db.collection('data_archives').doc(archiveId);
         const manifest = {
@@ -143,7 +166,7 @@ window.InventoryApp = window.InventoryApp || {};
             const collectionName = typeof window.InventoryApp.Firebase.getCollectionName === 'function'
                 ? window.InventoryApp.Firebase.getCollectionName(key)
                 : key.toLowerCase();
-            const records = await readCollection(db, collectionName);
+            const records = snapshot[key] || [];
             manifest.collections[key] = records.length;
             for (const record of records) {
                 const safe = toJsonSafe(record);
@@ -158,10 +181,10 @@ window.InventoryApp = window.InventoryApp || {};
         return { archiveId, manifest };
     }
 
-    function downloadJsonArchive(archiveId, manifest, snapshot) {
+    function downloadJsonArchive(archiveId, snapshot) {
         try {
             const payload = {
-                version: '4.3.9-beta',
+                version: '4.3.10-beta',
                 archiveId,
                 exportedAt: new Date().toISOString(),
                 ...snapshot
@@ -174,7 +197,7 @@ window.InventoryApp = window.InventoryApp || {};
             document.body.appendChild(a);
             a.click();
             a.remove();
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch (e) {
             console.warn('[DatasetManager] No se pudo descargar el respaldo JSON:', e);
         }
@@ -187,12 +210,13 @@ window.InventoryApp = window.InventoryApp || {};
         }
         if (!(await askPassword())) return false;
 
-        const db = window.InventoryApp.Firebase?.getFirestore?.();
+        const db = await waitForFirebase();
         if (!db) {
-            toast('Firestore no está disponible. Intenta nuevamente cuando la nube esté conectada.', 'error');
+            toast('Firebase todavía no terminó de conectarse. Espera unos segundos y vuelve a intentarlo.', 'error');
             return false;
         }
 
+        const firebaseService = window.InventoryApp.Firebase;
         const current = activeDatasetId();
         const next = nextDatasetId();
         const archiveId = `${current}__${next}`;
@@ -202,11 +226,11 @@ window.InventoryApp = window.InventoryApp || {};
             toast('Guardando la base actual como respaldo…');
 
             for (const key of DATA_COLLECTION_KEYS) {
-                const collectionName = window.InventoryApp.Firebase.getCollectionName(key);
+                const collectionName = firebaseService.getCollectionName(key);
                 snapshot[key] = await readCollection(db, collectionName);
             }
 
-            await archiveCurrentDataset(db, current, next);
+            await archiveCurrentDataset(db, current, next, snapshot);
 
             // No se borra ningún documento. El cambio de namespace hace que
             // las nuevas operaciones se escriban en colecciones completamente nuevas.
@@ -225,30 +249,35 @@ window.InventoryApp = window.InventoryApp || {};
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            // Respaldo descargable adicional en JSON.
-            downloadJsonArchive(archiveId, { sourceDataset: current, newDataset: next }, snapshot);
+            downloadJsonArchive(archiveId, snapshot);
 
             toast(`Nuevo espacio ${next} creado. Los datos anteriores siguen intactos.`);
             setTimeout(() => window.location.reload(), 900);
             return true;
         } catch (error) {
             console.error('[DatasetManager]', error);
-            toast(`No se pudo crear el nuevo espacio: ${error.message}`, 'error');
+            toast(`No se pudo crear el nuevo espacio: ${error.message || error}`, 'error');
             return false;
         }
     }
 
     function installSettingsButton() {
-        if (!isAdmin() || document.getElementById('btn-dataset-reset')) return;
         const nav = document.querySelector('#main-nav-tabs');
-        if (!nav) return;
+        if (!nav || document.getElementById('btn-dataset-reset')) return;
+        if (!isAdmin()) return;
+
         const btn = document.createElement('button');
         btn.id = 'btn-dataset-reset';
         btn.type = 'button';
         btn.className = 'nav-btn nav-admin-only';
         btn.innerHTML = '<i class="fas fa-database"></i> Configuraciones';
+        btn.title = 'Crear un nuevo espacio sin borrar los datos históricos';
         btn.onclick = () => createNewWorkspace();
         nav.appendChild(btn);
+    }
+
+    function scheduleButtonInstall() {
+        [500, 1500, 3000, 5000].forEach(delay => setTimeout(installSettingsButton, delay));
     }
 
     window.InventoryApp.DatasetManager = {
@@ -257,8 +286,8 @@ window.InventoryApp = window.InventoryApp || {};
         getActiveDatasetId: activeDatasetId
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(installSettingsButton, 800);
-        setTimeout(installSettingsButton, 1800);
-    });
+    document.addEventListener('DOMContentLoaded', scheduleButtonInstall);
+    window.addEventListener('inventoryapp:firebase-ready', scheduleButtonInstall);
+    window.addEventListener('inventoryapp:session-ready', scheduleButtonInstall);
+    window.addEventListener('inventoryapp:user-changed', scheduleButtonInstall);
 })();
