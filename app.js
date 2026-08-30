@@ -22,6 +22,10 @@
         }
 
         // Renderizado inicial de vistas del sistema
+        if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.inicializarTema === 'function') {
+            window.InventoryApp.Theme.inicializarTema();
+        }
+
         renderizarPosProductos();
         renderizarInventario();
         renderizarClientes();
@@ -32,6 +36,8 @@
         renderizarResumenPerdidasEconomicas();
         actualizarSelectTransacciones();
         renderizarTransacciones();
+        if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+        if (typeof verificarPenalizacionesPorMoraGlobal === 'function') verificarPenalizacionesPorMoraGlobal();
         prepararCodigoNuevoProducto();
         actualizarVistaImagenProducto();
 
@@ -213,6 +219,29 @@
             alert('Error al importar el archivo JSON: ' + (err.message || err));
         } finally {
             e.target.value = '';
+        }
+    };
+
+    window.limpiarBaseDeDatosVirgen = async function () {
+        if (!confirm('⚠️ ATENCIÓN: ¿Estás seguro de que deseas REINICIAR Y PURGAR completamente la base de datos a estado virgen?\n\n- Se eliminarán todos los productos, clientes, ventas, abonos y transacciones tanto en este navegador como en Firebase Firestore.\n- El usuario SuperAdmin quedará activo con su clave predeterminada (1810).\n\nEsta acción no se puede deshacer.')) {
+            return;
+        }
+
+        const confirmacion2 = prompt('Para confirmar el reseteo a estado virgen, escribe "BORRAR" en mayúsculas:');
+        if (confirmacion2 !== 'BORRAR') {
+            alert('Operación cancelada. No se modificó ningún dato.');
+            return;
+        }
+
+        try {
+            if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen === 'function') {
+                await window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen();
+                alert('✅ Base de datos reiniciada a estado virgen con éxito. Se recargará la aplicación.');
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error('Error purgando base de datos:', err);
+            alert('Error al purgar la base de datos: ' + (err.message || err));
         }
     };
 

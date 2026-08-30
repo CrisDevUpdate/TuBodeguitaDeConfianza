@@ -1081,12 +1081,22 @@ async function renderizarEstadoCuentaCliente() {
         </div>
 
         <!-- Tabla: Historial de Abonos y Pagos -->
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-money-check-dollar" style="color:#16a34a;"></i> Mis Pagos y Abonos Registrados
-                </h3>
-                <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${abonosCliente.length} abonos</span>
+        <div class="card" style="margin-bottom:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-money-check-dollar" style="color:#16a34a;"></i> Mis Pagos y Abonos Registrados
+                    </h3>
+                    <p style="margin:2px 0 0 0; font-size:0.82rem; color:var(--text-muted);">
+                        Reporta tus abonos o transferencias para que el Administrador los concilie y libere tus puntos.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${abonosCliente.length} abonos</span>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="abrirModalReportarPagoCliente()" style="display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 14px;">
+                        <i class="fas fa-plus-circle"></i> Reportar Nuevo Abono
+                    </button>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -1102,21 +1112,182 @@ async function renderizarEstadoCuentaCliente() {
                     </thead>
                     <tbody id="cli-historial-abonos-body">
                         ${abonosCliente.length === 0 ? `
-                            <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Sin abonos de pago registrados todavía.</td></tr>
-                        ` : abonosCliente.slice().reverse().map(a => `
-                            <tr>
-                                <td>${a.fecha}</td>
-                                <td>${a.formaPago || a.metodo || 'Transferencia / Pago Móvil'}</td>
-                                <td><code>${a.referencia || 'N/A'}</code></td>
-                                <td class="num font-bold" style="color:var(--success);">$${Number(a.montoUSD || 0).toFixed(2)}</td>
-                                <td style="text-align:center;"><span class="badge-status badge-active"><i class="fas fa-check"></i> Aprobado</span></td>
-                            </tr>
-                        `).join('')}
+                            <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Sin abonos de pago registrados todavía. Puedes hacer clic en "Reportar Nuevo Abono" para registrar tu pago.</td></tr>
+                        ` : abonosCliente.slice().reverse().map(a => {
+                            const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
+                            return `
+                                <tr>
+                                    <td>${a.fecha}</td>
+                                    <td>${a.formaPago || a.metodo || 'Transferencia / Pago Móvil'}</td>
+                                    <td><code>${a.referencia || 'N/A'}</code></td>
+                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : 'var(--success)'};">$${Number(a.montoUSD || 0).toFixed(2)}</td>
+                                    <td style="text-align:center;">
+                                        ${esPendiente 
+                                            ? '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> En Verificación</span>' 
+                                            : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Aprobado</span>'}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- MÓDULO 3: Motor de Temas y Personalización de Estilo en Vista Cliente -->
+        <div id="cliente-theme-selector-container"></div>
     `;
+
+    // Renderizar Selector de Temas del Cliente
+    if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarSelectorCliente === 'function') {
+        window.InventoryApp.Theme.renderizarSelectorCliente('cliente-theme-selector-container');
+    }
+}
+
+/**
+ * Abre el Modal para que el Cliente reporte un Abono / Pago
+ */
+function abrirModalReportarPagoCliente() {
+    let modal = document.getElementById('modal-cliente-reportar-pago');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-cliente-reportar-pago';
+        modal.className = 'modal';
+        modal.onclick = function(e) { if (e.target === this) cerrarModalReportarPagoCliente(); };
+        document.body.appendChild(modal);
+    }
+
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 480px; padding: 24px; animation: modalPop 0.25s ease-out;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-money-bill-transfer" style="color:var(--primary-accent);"></i> Reportar Abono a Cuenta
+                </h3>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalReportarPagoCliente()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem; font-weight:600;">Monto a Abonar en Dólares ($ USD) <span style="color:var(--danger);">*</span></label>
+                    <input type="number" id="abono-cli-monto-usd" step="0.01" min="0.5" class="form-control" placeholder="0.00" required oninput="calcularEquivalenteAbonoCliente(this.value)">
+                    <small style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:3px;">
+                        Equivalente BCV: <strong id="abono-cli-monto-ves-preview" style="color:#16a34a;">Bs. 0.00</strong> (Tasa: ${tasa > 0 ? tasa.toFixed(2) : '—'})
+                    </small>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <select id="abono-cli-metodo" class="form-control" required>
+                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (VES)</option>
+                        <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
+                        <option value="Efectivo USD">💵 Efectivo ($ USD)</option>
+                        <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.85rem; font-weight:600;">Número de Referencia Bancaria <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="abono-cli-referencia" class="form-control" placeholder="Últimos 6 u 8 dígitos del comprobante" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label style="font-size:0.85rem; font-weight:600;">Nota u Observación (Opcional)</label>
+                    <input type="text" id="abono-cli-nota" class="form-control" placeholder="Ej: Pago de abono semanal">
+                </div>
+
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px; font-size:0.82rem; color:#1e40af; margin-bottom:16px;">
+                    <i class="fas fa-info-circle"></i> Tu pago quedará registrado en estado <b>PENDIENTE DE CONFIRMACIÓN</b>. Al ser aprobado por el Administrador, se descontará de tu deuda y sumará a tu récord de pagos puntuales.
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalReportarPagoCliente()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="font-weight:700; padding:10px 18px;">
+                        <i class="fas fa-paper-plane"></i> Enviar Reporte de Pago
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function calcularEquivalenteAbonoCliente(usdVal) {
+    const previewEl = document.getElementById('abono-cli-monto-ves-preview');
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const montoUSD = parseFloat(usdVal) || 0;
+    const montoVES = tasa > 0 ? (montoUSD * tasa) : 0;
+    if (previewEl) {
+        previewEl.textContent = `Bs. ${montoVES.toFixed(2)}`;
+    }
+}
+
+function cerrarModalReportarPagoCliente() {
+    const modal = document.getElementById('modal-cliente-reportar-pago');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Procesa el formulario del reporte de pago del cliente
+ */
+async function procesarReportePagoCliente() {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    const montoUSD = parseFloat(document.getElementById('abono-cli-monto-usd')?.value);
+    const metodo = document.getElementById('abono-cli-metodo')?.value;
+    const referencia = document.getElementById('abono-cli-referencia')?.value.trim();
+    const nota = document.getElementById('abono-cli-nota')?.value.trim() || '';
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    if (isNaN(montoUSD) || montoUSD <= 0) {
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Monto Inválido', 'Por favor ingresa un monto válido a abonar.', 'warning');
+        }
+        return;
+    }
+
+    if (!referencia) {
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Referencia Requerida', 'Debes ingresar el número de referencia del comprobante.', 'warning');
+        }
+        return;
+    }
+
+    const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const nuevoAbono = {
+        id: `ABN_${Date.now()}`,
+        clienteId: usuario.cedula || usuario.id,
+        clienteNombre: usuario.nombre,
+        montoUSD: montoUSD,
+        montoVES: tasa > 0 ? (montoUSD * tasa) : 0,
+        tasaMomento: tasa,
+        formaPago: metodo,
+        metodo: metodo,
+        referencia: referencia,
+        nota: nota,
+        fecha: fechaHora,
+        estado: 'PENDIENTE_CONFIRMACION',
+        registradoPor: 'CLIENTE'
+    };
+
+    AppState.abonos = AppState.abonos || [];
+    AppState.abonos.push(nuevoAbono);
+
+    cerrarModalReportarPagoCliente();
+
+    // Persistir
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarEstadoCuentaCliente();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`✅ Tu abono de $${montoUSD.toFixed(2)} fue reportado con éxito (Ref: ${referencia}) y está pendiente de verificación.`, 'success');
+    }
 }
 
 // Exportar a la ventana global
@@ -1146,3 +1317,7 @@ window.ejecutarCompraConfirmadaCliente = ejecutarCompraConfirmadaCliente;
 window.cerrarModalConfirmacionPedido = cerrarModalConfirmacionPedido;
 window.procesarCompraCliente = procesarCompraCliente;
 window.renderizarEstadoCuentaCliente = renderizarEstadoCuentaCliente;
+window.abrirModalReportarPagoCliente = abrirModalReportarPagoCliente;
+window.cerrarModalReportarPagoCliente = cerrarModalReportarPagoCliente;
+window.procesarReportePagoCliente = procesarReportePagoCliente;
+window.calcularEquivalenteAbonoCliente = calcularEquivalenteAbonoCliente;

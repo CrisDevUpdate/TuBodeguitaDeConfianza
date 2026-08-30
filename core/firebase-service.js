@@ -952,6 +952,73 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * Purgar / Reiniciar base de datos a estado virgen tanto en Firestore como localmente
+     */
+    async function purgarBaseDeDatosCompletaCloud() {
+        actualizarUIEstadoNube('sincronizando', 'Purgando colecciones de la nube...');
+        try {
+            if (db) {
+                // Eliminar documentos de todas las colecciones principales
+                const coleccionesAPurgar = [
+                    COLLECTIONS.PRODUCTOS,
+                    COLLECTIONS.CLIENTES,
+                    COLLECTIONS.VENTAS,
+                    COLLECTIONS.ABONOS,
+                    COLLECTIONS.TRANSACCIONES,
+                    COLLECTIONS.AUDITORIAS,
+                    COLLECTIONS.ELIMINACIONES,
+                    COLLECTIONS.CLIENTES_ELIMINADOS,
+                    COLLECTIONS.USUARIOS
+                ];
+
+                for (const colName of coleccionesAPurgar) {
+                    try {
+                        const snap = await db.collection(colName).get();
+                        if (snap && !snap.empty) {
+                            const batch = db.batch();
+                            snap.docs.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+                            await batch.commit();
+                        }
+                    } catch (colErr) {
+                        console.warn(`[Firebase] Aviso al limpiar colección ${colName}:`, colErr.message);
+                    }
+                }
+
+                // Restablecer config y SuperAdmin en la nube
+                const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+                const superAdminDoc = {
+                    id: 'SuperAdmin',
+                    cedula: 'SuperAdmin',
+                    nombre: 'SuperAdmin',
+                    telefono: '0412-0000000',
+                    email: 'superadmin@tubodeguita.com',
+                    password: HASH_SUPERADMIN,
+                    rol: 'admin',
+                    estado: 'ACTIVO',
+                    puntosAcumulados: 0,
+                    puntosCanjeados: 0,
+                    fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                };
+                await db.collection(COLLECTIONS.USUARIOS).doc('SuperAdmin').set(superAdminDoc);
+
+                await db.collection(COLLECTIONS.CONFIG).doc('global').set({
+                    nextProductSequence: 1,
+                    lastPurge: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            actualizarUIEstadoNube('conectado', 'Base de datos en estado virgen');
+            return true;
+        } catch (error) {
+            console.error('[Firebase] Error al purgar Firestore:', error);
+            actualizarUIEstadoNube('error', 'Error al purgar la nube');
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -968,6 +1035,7 @@ window.InventoryApp = window.InventoryApp || {};
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
+        purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
     };

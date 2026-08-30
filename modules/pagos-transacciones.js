@@ -821,6 +821,12 @@ function guardarAbono(e) {
     };
     abonos.push(nuevoAbono);
 
+    // Actualizar fecha de último abono en cliente para pausar penalización por mora
+    const clienteObj = clientes.find(c => c.id === clienteSeleccionadoId);
+    if (clienteObj) {
+        clienteObj.ultimoAbonoFecha = new Date().toISOString();
+    }
+
     // Fidelización y Gamificación: Otorgar puntos por el monto abonado
     if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
         otorgarPuntosPorCompra(clienteSeleccionadoId, montoUSD, 'Abono a Cuenta');
@@ -838,4 +844,224 @@ function guardarAbono(e) {
     verDetalleCliente(clienteSeleccionadoId);
     renderizarClientes();
 }
+
+/**
+ * MÓDULO 4: Consenso y Aprobación Atómica de Abonos Reportados por Clientes
+ */
+async function aprobarAbonoReportadoAdmin(abonoId) {
+    const abono = (AppState.abonos || []).find(a => a.id === abonoId);
+    if (!abono) return;
+
+    const confirmado = await (window.InventoryApp.Modal?.confirm 
+        ? window.InventoryApp.Modal.confirm(
+            'Aprobar Abono de Cliente',
+            `¿Deseas validar el abono de <b>$${Number(abono.montoUSD || 0).toFixed(2)}</b> (Ref: <code>${abono.referencia || 'N/A'}</code>) del cliente <b>${abono.clienteNombre || abono.clienteId}</b>?<br><br>Esto descontará la deuda, liberará sus puntos acumulables y actualizará su fecha de solvencia.`,
+            { confirmText: 'Sí, Validar Abono', cancelText: 'Cancelar' }
+        )
+        : confirm(`¿Validar abono de $${abono.montoUSD} para ${abono.clienteNombre}?`));
+
+    if (!confirmado) return;
+
+    // 1. Marcar abono como confirmado
+    abono.estado = 'Pago agregado';
+    abono.fechaAprobacion = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+    // 2. Actualizar último abono y pausar mora
+    const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
+    if (cliente) {
+        cliente.ultimoAbonoFecha = new Date().toISOString();
+    }
+
+    // 3. Liberar y acreditar puntos de lealtad
+    if (typeof otorgarPuntosPorCompra === 'function' && Number(abono.montoUSD || 0) > 0) {
+        otorgarPuntosPorCompra(abono.clienteId, Number(abono.montoUSD), 'Abono Conciliado por Admin');
+    }
+
+    // 4. Persistir
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // 5. Refrescar vistas
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`✅ Abono de $${Number(abono.montoUSD).toFixed(2)} aprobado y conciliado exitosamente.`, 'success');
+    }
+}
+
+/**
+ * Rechaza un reporte de abono incorrecto o no verificado
+ */
+async function rechazarAbonoReportadoAdmin(abonoId) {
+    const abono = (AppState.abonos || []).find(a => a.id === abonoId);
+    if (!abono) return;
+
+    const confirmado = await (window.InventoryApp.Modal?.confirm 
+        ? window.InventoryApp.Modal.confirm(
+            'Rechazar Reporte de Abono',
+            `¿Estás seguro de rechazar el reporte de abono #${abono.id} por $${Number(abono.montoUSD || 0).toFixed(2)}?`,
+            { confirmText: 'Rechazar Pago', isDanger: true }
+        )
+        : confirm(`¿Rechazar abono #${abono.id}?`));
+
+    if (!confirmado) return;
+
+    abono.estado = 'RECHAZADO';
+    abono.fechaRechazo = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`Reporte de abono #${abono.id} marcado como rechazado.`, 'warning');
+    }
+}
+
+/**
+ * Renderiza la sección de pagos reportados pendientes en el Panel de Transacciones Admin
+ */
+function renderizarAbonosPendientesReportados() {
+    const container = document.getElementById('abonos-pendientes-admin-container');
+    if (!container) return;
+
+    const abonosPendientes = (AppState.abonos || []).filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
+
+    if (abonosPendientes.length === 0) {
+        container.innerHTML = `
+            <div style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:16px; text-align:center; color:var(--text-muted); font-size:0.88rem;">
+                <i class="fas fa-check-double" style="color:#16a34a; margin-right:6px;"></i> Todos los reportes de abonos se encuentran al día. Sin pagos pendientes por verificar.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:16px; margin-bottom:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0; font-size:1rem; color:#92400e; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-bell" style="color:#d97706;"></i> Abonos de Clientes Pendientes por Conciliar (${abonosPendientes.length})
+                </h4>
+            </div>
+            <div class="table-responsive">
+                <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#fef3c7; border-bottom:1px solid #fde68a;">
+                            <th style="padding:8px; text-align:left;">Fecha</th>
+                            <th style="padding:8px; text-align:left;">Cliente</th>
+                            <th style="padding:8px; text-align:left;">Método / Ref</th>
+                            <th style="padding:8px; text-align:right;">Monto ($)</th>
+                            <th style="padding:8px; text-align:right;">Monto (Bs)</th>
+                            <th style="padding:8px; text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${abonosPendientes.map(a => `
+                            <tr style="border-bottom:1px solid #fef3c7;">
+                                <td style="padding:8px;">${a.fecha}</td>
+                                <td style="padding:8px;"><strong>${a.clienteNombre || a.clienteId}</strong><br><small style="color:var(--text-muted);">${a.clienteId}</small></td>
+                                <td style="padding:8px;">${a.formaPago || a.metodo}<br><code>${a.referencia || 'Sin Ref'}</code></td>
+                                <td style="padding:8px; text-align:right; font-weight:700; color:var(--primary-accent);">$${Number(a.montoUSD || 0).toFixed(2)}</td>
+                                <td style="padding:8px; text-align:right; font-weight:600; color:#16a34a;">Bs. ${Number(a.montoVES || 0).toFixed(2)}</td>
+                                <td style="padding:8px; text-align:center; white-space:nowrap;">
+                                    <button type="button" class="btn btn-sm btn-success" onclick="aprobarAbonoReportadoAdmin('${a.id}')" style="padding:5px 10px; margin-right:4px;">
+                                        <i class="fas fa-check"></i> Aprobar
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="rechazarAbonoReportadoAdmin('${a.id}')" style="padding:5px 10px;">
+                                        <i class="fas fa-times"></i> Rechazar
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Regla de Negocio (Mora): Descuento automático de 2 puntos semanales si el cliente
+ * pasa 7 días consecutivos sin realizar un abono mínimo de 1 USD (o equivalente en Bs).
+ */
+function verificarPenalizacionesPorMoraGlobal() {
+    const clientes = AppState.clientes || [];
+    const ventas = AppState.ventas || [];
+    const abonos = AppState.abonos || [];
+    const usuarios = AppState.usuarios || [];
+    const ahora = Date.now();
+    let penalizacionesAplicadas = 0;
+
+    clientes.forEach(c => {
+        // Calcular si tiene deuda pendiente
+        const ventasCli = ventas.filter(v => v.clienteId === c.id);
+        const abonosCli = abonos.filter(a => a.clienteId === c.id && (a.estado === 'Pago agregado' || !a.estado));
+        const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+        const totalAbonadoUSD = abonosCli.reduce((sum, a) => sum + Number(a.montoUSD || 0), 0);
+        const saldoDeuda = totalCreditoUSD - totalAbonadoUSD;
+
+        if (saldoDeuda > 1.0) {
+            // Determinar fecha base para el conteo de mora
+            let fechaBaseMs = c.ultimoAbonoFecha ? new Date(c.ultimoAbonoFecha).getTime() : null;
+            if (!fechaBaseMs) {
+                // Tomar la fecha de la última venta a crédito
+                const ultimaVentaCredito = ventasCli.filter(v => v.tipo === 'Crédito').slice(-1)[0];
+                if (ultimaVentaCredito?.fecha) {
+                    fechaBaseMs = new Date(ultimaVentaCredito.fecha).getTime();
+                }
+            }
+
+            if (fechaBaseMs && !isNaN(fechaBaseMs)) {
+                const diasTranscurridos = Math.floor((ahora - fechaBaseMs) / (1000 * 60 * 60 * 24));
+                const semanasMora = Math.floor(diasTranscurridos / 7);
+
+                if (semanasMora > 0) {
+                    const usuarioObj = usuarios.find(u => u.id === c.id || u.cedula === c.id);
+                    if (usuarioObj && (usuarioObj.puntosAcumulados || 0) > 0) {
+                        const semanasYaPenalizadas = c.semanasPenalizadasMora || 0;
+                        const semanasNuevas = semanasMora - semanasYaPenalizadas;
+
+                        if (semanasNuevas > 0) {
+                            const puntosADescontar = semanasNuevas * 2;
+                            usuarioObj.puntosAcumulados = Math.max(0, (usuarioObj.puntosAcumulados || 0) - puntosADescontar);
+                            c.semanasPenalizadasMora = semanasMora;
+                            penalizacionesAplicadas++;
+
+                            console.log(`[Regla Mora] Cliente ${c.nombre} (${c.id}): -${puntosADescontar} pts aplicados por ${semanasMora} semanas en mora.`);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Solvente: reiniciar contador de penalizaciones
+            c.semanasPenalizadasMora = 0;
+        }
+    });
+
+    if (penalizacionesAplicadas > 0 && window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+}
+
+// Ejecutar verificación de mora periódicamente
+setTimeout(verificarPenalizacionesPorMoraGlobal, 2000);
+
+// Exportar funciones en el namespace global
+window.aprobarAbonoReportadoAdmin = aprobarAbonoReportadoAdmin;
+window.rechazarAbonoReportadoAdmin = rechazarAbonoReportadoAdmin;
+window.renderizarAbonosPendientesReportados = renderizarAbonosPendientesReportados;
+window.verificarPenalizacionesPorMoraGlobal = verificarPenalizacionesPorMoraGlobal;
+window.renderizarTransacciones = renderizarTransacciones;
+window.procesarVerificacionTransaccion = procesarVerificacionTransaccion;
+window.guardarAbono = guardarAbono;
+window.abrirModalAbono = abrirModalAbono;
+window.cerrarModalAbono = cerrarModalAbono;
+window.actualizarMonedaAbono = actualizarMonedaAbono;
+window.calcularEquivalenteAbono = calcularEquivalenteAbono;
+
 

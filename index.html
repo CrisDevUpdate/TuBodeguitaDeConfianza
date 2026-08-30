@@ -13,6 +13,7 @@
     <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/fluid-scroll.css">
 </head>
 <body>
 
@@ -677,6 +678,9 @@
 
     <!-- VISTA 4: TIPOS DE TRANSACCIONES -->
     <div id="transacciones" class="view-content">
+        <!-- MÓDULO 4: Contenedor de Abonos Pendientes Reportados por Clientes -->
+        <div id="abonos-pendientes-admin-container" style="margin-bottom:18px;"></div>
+
         <div class="card transaction-module-card">
             <div class="transaction-module-header">
                 <div>
@@ -1726,6 +1730,18 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
             </div>
         </div>
 
+        <div style="margin-top:15px; border-top:1px dashed #fca5a5; padding-top:12px; background:#fff5f5; border-radius:8px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <strong style="color:#b91c1c; font-size:0.85rem;"><i class="fas fa-trash-can"></i> Reiniciar Base de Datos (Estado Virgen)</strong>
+                    <div style="font-size:0.75rem; color:#7f1d1d;">Vacía todos los productos, ventas y clientes en la nube y localmente, dejando solo a SuperAdmin (1810).</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger" onclick="limpiarBaseDeDatosVirgen()" style="font-size:0.78rem;">
+                    <i class="fas fa-arrows-rotate"></i> Purgar Todo a Virgen
+                </button>
+            </div>
+        </div>
+
         <div style="margin-top:20px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; position:sticky; bottom:0; background:#ffffff; z-index:10;">
             <span style="font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-shield-halved"></i> Datos protegidos y cifrados</span>
             <button type="button" class="btn btn-primary" onclick="cerrarModalCloudSync()" style="min-width:110px; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
@@ -2010,6 +2026,8 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="core/google-drive-service.js"></script>
 <script src="core/persistence.js"></script>
 <script src="core/bcv.js"></script>
+<script src="components/ThemeSelector.js"></script>
+<script src="components/Checkout.js"></script>
 <script src="components/Catalog.js"></script>
 <script src="components/TreeGamification.js"></script>
 <script src="modules/productos.js"></script>

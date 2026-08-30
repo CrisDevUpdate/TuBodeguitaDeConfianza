@@ -200,15 +200,94 @@ window.InventoryApp = window.InventoryApp || {};
         });
     }
 
+    /**
+     * Muestra un Modal de Entrada personalizado (sustituto de window.prompt)
+     */
+    function showPrompt(titulo, mensaje, valorInicial = '', opciones = {}) {
+        const {
+            placeholder = 'Escribe aquí...',
+            inputType = 'text',
+            confirmText = 'Aceptar',
+            cancelText = 'Cancelar',
+            isPassword = false
+        } = opciones;
+
+        return new Promise((resolve) => {
+            inicializarDOMModales();
+            const backdrop = document.getElementById('custom-modal-backdrop');
+            const card = document.getElementById('custom-modal-card');
+            const titleEl = document.getElementById('custom-modal-title');
+            const bodyEl = document.getElementById('custom-modal-body');
+            const iconWrapper = document.getElementById('custom-modal-icon-wrapper');
+            const iconEl = document.getElementById('custom-modal-icon');
+            const actionsEl = document.getElementById('custom-modal-actions');
+
+            if (!backdrop) {
+                resolve(null);
+                return;
+            }
+
+            iconWrapper.className = 'custom-modal-icon-wrapper icon-info';
+            iconEl.className = 'fas fa-pen-to-square';
+
+            titleEl.textContent = titulo || 'Ingreso de Información';
+            
+            const sanitizedMsg = typeof mensaje === 'string' ? mensaje.replace(/\n/g, '<br>') : mensaje;
+            bodyEl.innerHTML = `
+                <div style="margin-bottom:12px;">${sanitizedMsg}</div>
+                <input type="${isPassword ? 'password' : inputType}" id="custom-modal-prompt-input" class="form-control" value="${valorInicial}" placeholder="${placeholder}" style="width:100%; padding:10px 14px; font-size:1rem; border:1px solid var(--border); border-radius:8px; outline:none;" autocomplete="off" />
+            `;
+
+            actionsEl.innerHTML = `
+                <button type="button" class="btn btn-outline" id="custom-modal-prompt-cancel" style="min-width: 110px;">
+                    ${cancelText}
+                </button>
+                <button type="button" class="btn btn-primary" id="custom-modal-prompt-confirm" style="min-width: 130px;">
+                    ${confirmText}
+                </button>
+            `;
+
+            const inputEl = document.getElementById('custom-modal-prompt-input');
+            const btnCancel = document.getElementById('custom-modal-prompt-cancel');
+            const btnConfirm = document.getElementById('custom-modal-prompt-confirm');
+
+            const handleCancel = () => {
+                backdrop.classList.remove('active');
+                card.classList.remove('active');
+                resolve(null);
+            };
+
+            const handleConfirm = () => {
+                const val = inputEl ? inputEl.value : '';
+                backdrop.classList.remove('active');
+                card.classList.remove('active');
+                resolve(val);
+            };
+
+            btnCancel.onclick = handleCancel;
+            btnConfirm.onclick = handleConfirm;
+            inputEl.onkeydown = (e) => {
+                if (e.key === 'Enter') handleConfirm();
+                if (e.key === 'Escape') handleCancel();
+            };
+
+            backdrop.classList.add('active');
+            card.classList.add('active');
+            setTimeout(() => inputEl && inputEl.focus(), 50);
+        });
+    }
+
     // Exponer API en namespace global y de aplicación
     window.InventoryApp.Modal = {
         alert: showAlert,
         confirm: showConfirm,
+        prompt: showPrompt,
         toast: showToast
     };
 
     window.showCustomAlert = showAlert;
     window.showCustomConfirm = showConfirm;
+    window.showCustomPrompt = showPrompt;
     window.showCustomToast = showToast;
 
     // Graceful overrides de primitivas nativas del navegador para evitar popups nativos
@@ -219,11 +298,21 @@ window.InventoryApp = window.InventoryApp || {};
         if (strMsg.includes('correctamente') || strMsg.includes('éxito') || strMsg.includes('exitosamente') || strMsg.includes('🎉') || strMsg.includes('🏆') || strMsg.includes('✅')) {
             tipo = 'success';
             title = '¡Operación Exitosa!';
-        } else if (strMsg.includes('insuficiente') || strMsg.includes('error') || strMsg.includes('Error') || strMsg.includes('cancelad') || strMsg.includes('⚠️')) {
+        } else if (strMsg.includes('insuficiente') || strMsg.includes('error') || strMsg.includes('Error') || strMsg.includes('cancelad') || strMsg.includes('⚠️') || strMsg.includes('ATENCIÓN')) {
             tipo = 'warning';
             title = 'Atención Requerida';
         }
         showAlert(title, strMsg, tipo);
+    };
+
+    window.confirm = function(msg) {
+        console.warn('[Zero-Alert Protocol] Interceptada llamada nativa a window.confirm. Usa window.showCustomConfirm().');
+        return false;
+    };
+
+    window.prompt = function(msg, def) {
+        console.warn('[Zero-Alert Protocol] Interceptada llamada nativa a window.prompt. Usa window.showCustomPrompt().');
+        return def || null;
     };
 
 })();

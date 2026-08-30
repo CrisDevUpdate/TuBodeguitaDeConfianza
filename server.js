@@ -437,6 +437,7 @@ app.get('/api/notificaciones-compras', (req, res) => {
 });
 
 // API Quotes & Wisdom Engine: GET /api/quotes/random
+// Fallback wisdom quotes
 const localWisdomQuotes = [
   { quote: "La confianza es el fruto de una relación en la que se actúa con integridad y constancia.", author: "Proverbio de Bodega" },
   { quote: "El éxito en el comercio no es vender una vez, sino ganar un cliente para siempre.", author: "Sabiduría Comercial" },
@@ -446,6 +447,113 @@ const localWisdomQuotes = [
   { quote: "La paciencia y la perseverancia tienen un efecto mágico ante el cual las dificultades desaparecen.", author: "John Quincy Adams" },
   { quote: "Tu fidelidad tiene recompensa: cada compra te acerca a tu meta.", author: "Tu Bodeguita de Confianza" }
 ];
+
+// In-memory theme configurations for server state
+let serverGlobalTheme = {
+  themeId: 'indigo_classic',
+  nombre: 'Índigo Corporativo Clásico',
+  primary: '#1e293b',
+  primaryAccent: '#2563eb',
+  primaryHover: '#1d4ed8',
+  bgColor: '#f1f5f9',
+  cardBg: '#ffffff',
+  textMain: '#0f172a',
+  textMuted: '#64748b',
+  border: '#cbd5e1',
+  borderLight: '#e2e8f0',
+  mode: 'light',
+  updatedAt: new Date().toISOString()
+};
+let serverUserThemeOverrides = {};
+let serverResetArchives = [];
+
+// API Theme Preferences: GET & POST /api/theme/preferences
+app.get('/api/theme/preferences', (req, res) => {
+  const userId = req.query.userId || req.query.cedula;
+  const userTheme = userId ? serverUserThemeOverrides[userId] : null;
+  res.json({
+    success: true,
+    globalTheme: serverGlobalTheme,
+    userTheme: userTheme || null,
+    effectiveTheme: userTheme || serverGlobalTheme
+  });
+});
+
+app.post('/api/theme/preferences', (req, res) => {
+  try {
+    const { scope = 'user', userId, theme } = req.body || {};
+    if (!theme || typeof theme !== 'object') {
+      return res.status(400).json({ success: false, error: 'theme object is required' });
+    }
+    if (scope === 'global') {
+      serverGlobalTheme = { ...serverGlobalTheme, ...theme, updatedAt: new Date().toISOString() };
+      return res.json({ success: true, scope: 'global', globalTheme: serverGlobalTheme });
+    } else {
+      if (!userId) return res.status(400).json({ success: false, error: 'userId is required' });
+      serverUserThemeOverrides[userId] = { ...theme, userId, updatedAt: new Date().toISOString() };
+      return res.json({ success: true, scope: 'user', userId, userTheme: serverUserThemeOverrides[userId] });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API Hard Reset (SuperAdmin Exclusive): POST /api/admin/reset
+app.post('/api/admin/reset', (req, res) => {
+  try {
+    const { adminPassword, confirmationKeyword, previousData } = req.body || {};
+
+    if (!confirmationKeyword || String(confirmationKeyword).trim().toUpperCase() !== 'CONFIRMAR') {
+      return res.status(400).json({
+        success: false,
+        error: 'Palabra de seguridad incorrecta. Debe ser "CONFIRMAR".'
+      });
+    }
+
+    if (adminPassword !== '1810') {
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas. Contraseña de SuperAdmin incorrecta.'
+      });
+    }
+
+    const archiveRecord = {
+      archiveId: `ARCHIVE_${Date.now()}`,
+      archivedAt: new Date().toISOString(),
+      snapshot: previousData || null
+    };
+    serverResetArchives.push(archiveRecord);
+
+    serverSales = [];
+    serverPayments = [];
+    serverLoyaltyClaims = [];
+    serverInventoryAdjustments = [];
+    serverUsers = [
+      {
+        id: 'SuperAdmin',
+        cedula: 'SuperAdmin',
+        nombre: 'SuperAdmin',
+        telefono: '0412-0000000',
+        email: 'superadmin@tubodeguita.com',
+        password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
+        rol: 'admin',
+        estado: 'ACTIVO',
+        puntosAcumulados: 0,
+        puntosCanjeados: 0,
+        fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+      }
+    ];
+
+    console.log(`[Factory Reset] Reinicio de fábrica completado. Archivo: ${archiveRecord.archiveId}`);
+    res.json({
+      success: true,
+      message: 'Reinicio General de Fábrica ejecutado exitosamente.',
+      archiveInfo: { archiveId: archiveRecord.archiveId, archivedAt: archiveRecord.archivedAt }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.get('/api/quotes/random', async (req, res) => {
   try {

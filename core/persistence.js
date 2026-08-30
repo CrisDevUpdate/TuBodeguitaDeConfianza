@@ -139,6 +139,39 @@ window.InventoryApp = window.InventoryApp || {};
         return cargado;
     }
 
+    async function limpiarBaseDeDatosVirgen() {
+        // 1. Limpiar estado en memoria
+        AppState.productos = [];
+        AppState.clientes = [];
+        AppState.ventas = [];
+        AppState.abonos = [];
+        AppState.transacciones = [];
+        AppState.carrito = [];
+        AppState.clienteSeleccionadoId = null;
+        AppState.productoImagenTemporal = '';
+        AppState.conteosFisicos = {};
+        AppState.auditorias = [];
+        AppState.eliminaciones = [];
+        AppState.clientesEliminados = [];
+        AppState.nextProductSequence = 1;
+        AppState.canjesPremios = [];
+        
+        // 2. SuperAdmin intacto con clave 1810
+        asegurarUsuarioAdminInicial();
+        AppState.usuarioActual = AppState.usuarios[0] || null;
+
+        // 3. Limpiar localStorage
+        localStorage.removeItem(STORAGE_KEY);
+        guardar(true);
+
+        // 4. Limpiar en Firestore si está conectado
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.purgarBaseDeDatosCompleta === 'function') {
+            await window.InventoryApp.Firebase.purgarBaseDeDatosCompleta();
+        }
+
+        return true;
+    }
+
     function limpiarTodo() {
         localStorage.removeItem(STORAGE_KEY);
         ultimoSnapshot = '';
@@ -450,6 +483,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardar,
         iniciar,
         limpiarTodo,
+        limpiarBaseDeDatosVirgen,
         exportarRespaldoJSON,
         importarRespaldoJSON,
         exportarMasterExcel,
