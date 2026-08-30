@@ -2512,5 +2512,103 @@ th {
     font-size: 1.2rem;
 }
 
+/* --- Barra Flotante de Carrito del Cliente --- */
+.cliente-floating-cart-bar {
+    position: fixed;
+    bottom: 74px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 600px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: #ffffff;
+    padding: 12px 18px;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    z-index: 99;
+    cursor: pointer;
+    animation: slideUpFloating 0.3s ease-out;
+}
+
+@keyframes slideUpFloating {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.cliente-floating-cart-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cliente-floating-cart-icon {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #fde047;
+}
+
+.cliente-floating-cart-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cliente-floating-cart-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.cliente-floating-cart-lbl {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+}
+
+.cliente-floating-cart-val {
+    font-size: 1.15rem;
+    color: #ffffff;
+    line-height: 1.1;
+}
+
+.cliente-floating-cart-sub {
+    font-size: 0.78rem;
+    color: #86efac;
+}
+
+@media (min-width: 768px) {
+    .cliente-floating-cart-bar {
+        bottom: 24px;
+    }
+}
+
+
 
 

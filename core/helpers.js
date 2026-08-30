@@ -177,6 +177,81 @@ function verificarPasswordHash(inputPassword, storedPasswordOrHash) {
     return false;
 }
 
+function switchTab(tabId) {
+    if (!tabId) return;
+    
+    // Ocultar todas las vistas
+    const allViews = document.querySelectorAll('.view-content');
+    allViews.forEach(v => {
+        v.classList.remove('active');
+        v.style.display = 'none';
+    });
+
+    // Mostrar la vista seleccionada
+    const targetView = document.getElementById(tabId);
+    if (targetView) {
+        targetView.classList.add('active');
+        targetView.style.display = 'block';
+    }
+
+    // Actualizar botones de navegación desktop
+    const allNavButtons = document.querySelectorAll('#main-nav-tabs .nav-btn');
+    allNavButtons.forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabId) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Actualizar botones de navegación móvil
+    const allMobileNavButtons = document.querySelectorAll('#mobile-bottom-nav .bottom-nav-item');
+    allMobileNavButtons.forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabId) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Re-renderizado seguro según la pestaña activa
+    try {
+        if (tabId === 'pos') {
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+            if (typeof renderizarCarrito === 'function') renderizarCarrito();
+        } else if (tabId === 'inventario') {
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+            if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
+        } else if (tabId === 'clientes') {
+            if (typeof renderizarClientes === 'function') renderizarClientes();
+            if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
+        } else if (tabId === 'transacciones') {
+            if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+            if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+        } else if (tabId === 'auditoria') {
+            if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
+            if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
+            if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
+        } else if (tabId === 'usuarios') {
+            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        } else if (tabId === 'historial-ventas') {
+            if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        } else if (tabId === 'premio-mes-admin') {
+            if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+        } else if (tabId === 'cliente-catalogo') {
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+            if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+        } else if (tabId === 'cliente-cuenta') {
+            if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+        } else if (tabId === 'cliente-premio') {
+            if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        }
+    } catch (err) {
+        console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
+    }
+}
+window.switchTab = switchTab;
+
 window.InventoryApp.Helpers = Object.freeze({
     escaparHtmlInventario,
     normalizarTextoBusqueda,
@@ -184,5 +259,6 @@ window.InventoryApp.Helpers = Object.freeze({
     normalizarMontoTransaccion,
     fechaHoraActual,
     calcularHashSha256,
-    verificarPasswordHash
+    verificarPasswordHash,
+    switchTab
 });

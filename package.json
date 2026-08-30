@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "echo 'Static build ready'"
+    "build": "echo 'Static build ready'",
+    "lint": "node -c server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

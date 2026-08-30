@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "frase": "La perseverancia convierte los pequeños esfuerzos diarios en grandes victorias.",
+    "autor": "Sabiduría Universal",
+    "categoria": "Motivación"
+  },
+  {
+    "id": 2,
+    "frase": "El secreto de salir adelante es simplemente comenzar con entusiasmo y determinación.",
+    "autor": "Mark Twain",
+    "categoria": "Inspiración"
+  },
+  {
+    "id": 3,
+    "frase": "No cuentes los días, haz que cada uno de tus días cuente.",
+    "autor": "Muhammad Ali",
+    "categoria": "Superación"
+  },
+  {
+    "id": 4,
+    "frase": "La gratitud en silencio no le sirve a nadie; agradece hoy la vida y a quienes te rodean.",
+    "autor": "Gladys Stern",
+    "categoria": "Filosofía"
+  },
+  {
+    "id": 5,
+    "frase": "El conocimiento es el tesoro más valioso, pero la práctica es la llave que abre todas sus puertas.",
+    "autor": "Thomas Fuller",
+    "categoria": "Sabiduría"
+  },
+  {
+    "id": 6,
+    "frase": "Tu actitud positiva ante los retos determina la altitud a la que llegarás.",
+    "autor": "Zig Ziglar",
+    "categoria": "Actitud"
+  },
+  {
+    "id": 7,
+    "frase": "La excelencia no es un acto aislado, sino un hábito que se cultiva día a día.",
+    "autor": "Aristóteles",
+    "categoria": "Filosofía"
+  },
+  {
+    "id": 8,
+    "frase": "La vida es como montar en bicicleta: para mantener el equilibrio, debes seguir pedaleando.",
+    "autor": "Albert Einstein",
+    "categoria": "Reflexión"
+  },
+  {
+    "id": 9,
+    "frase": "Siembra un pensamiento y cosecharás una acción; siembra un hábito y cosecharás un gran destino.",
+    "autor": "Proverbio Oriental",
+    "categoria": "Sabiduría"
+  },
+  {
+    "id": 10,
+    "frase": "El optimismo es la fe que conduce al logro; nada puede hacerse sin esperanza y confianza.",
+    "autor": "Helen Keller",
+    "categoria": "Esperanza"
+  },
+  {
+    "id": 11,
+    "frase": "El éxito no es la clave de la felicidad. La felicidad es la clave del éxito. Si amas lo que haces, triunfarás.",
+    "autor": "Albert Schweitzer",
+    "categoria": "Éxito"
+  },
+  {
+    "id": 12,
+    "frase": "Cada nuevo amanecer nos brinda una página en blanco para escribir nuestra mejor historia.",
+    "autor": "Pensamiento Positivo",
+    "categoria": "Motivación"
+  },
+  {
+    "id": 13,
+    "frase": "La confianza en uno mismo es el primer secreto del éxito.",
+    "autor": "Ralph Waldo Emerson",
+    "categoria": "Confianza"
+  },
+  {
+    "id": 14,
+    "frase": "La bondad es el único lenguaje que los sordos pueden oír y los ciegos pueden ver.",
+    "autor": "Mark Twain",
+    "categoria": "Humanidad"
+  },
+  {
+    "id": 15,
+    "frase": "El mejor momento para plantar un árbol fue hace veinte años. El segundo mejor momento es hoy.",
+    "autor": "Proverbio Chino",
+    "categoria": "Sabiduría"
+  },
+  {
+    "id": 16,
+    "frase": "No mires hacia atrás con ira ni hacia adelante con miedo, sino a tu alrededor con atención plena.",
+    "autor": "James Thurber",
+    "categoria": "Paz Mental"
+  },
+  {
+    "id": 17,
+    "frase": "La riqueza no consiste en tener muchas posesiones, sino en tener pocos deseos innecesarios.",
+    "autor": "Epicteto",
+    "categoria": "Estoicismo"
+  },
+  {
+    "id": 18,
+    "frase": "Haz de cada día tu obra maestra con dedicación, honestidad y amor.",
+    "autor": "John Wooden",
+    "categoria": "Superación"
+  },
+  {
+    "id": 19,
+    "frase": "El único límite a nuestros logros de mañana serán nuestras dudas de hoy.",
+    "autor": "Franklin D. Roosevelt",
+    "categoria": "Inspiración"
+  },
+  {
+    "id": 20,
+    "frase": "La alegría compartida es doble alegría; el apoyo mutuo construye comunidades fuertes y prósperas.",
+    "autor": "Proverbio Sueco",
+    "categoria": "Unión"
+  },
+  {
+    "id": 21,
+    "frase": "El árbol más fuerte no es el que crece sin viento, sino el que resiste todas las tormentas con raíces profundas.",
+    "autor": "Sabiduría Milenaria",
+    "categoria": "Resiliencia"
+  },
+  {
+    "id": 22,
+    "frase": "La paciencia y el buen trato abren puertas que la prisa y la soberbia cierran.",
+    "autor": "Reflexión Popular",
+    "categoria": "Convivencia"
+  },
+  {
+    "id": 23,
+    "frase": "El trabajo honesto y constante siempre da frutos dulces y bendiciones duraderas.",
+    "autor": "Sabiduría de Hogar",
+    "categoria": "Valores"
+  },
+  {
+    "id": 24,
+    "frase": "Que tu sonrisa sea la luz que inspire a otros a seguir adelante hoy.",
+    "autor": "Frase de Vida",
+    "categoria": "Alegría"
+  },
+  {
+    "id": 25,
+    "frase": "Todo logro grande comienza con la sencilla decisión de intentarlo.",
+    "autor": "Gail Devers",
+    "categoria": "Motivación"
+  }
+]

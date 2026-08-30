@@ -40,6 +40,10 @@
         if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
         if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
 
+        // Módulo de Historial de Ventas
+        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+
         // Módulos de Gamificación, Premio del Mes y Experiencia Cliente
         if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
         if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();

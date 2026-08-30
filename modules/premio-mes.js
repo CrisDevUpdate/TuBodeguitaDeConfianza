@@ -287,9 +287,23 @@ function renderizarTablaCanjesAdmin() {
 /**
  * Renderiza la tarjeta de Gamificación y Premio del Mes para el Cliente
  */
-function renderizarPremioMesCliente() {
+async function renderizarPremioMesCliente() {
+    const container = document.getElementById('cliente-premio-mes-container');
     const usuario = AppState.usuarioActual;
-    if (!usuario) return;
+    if (!container || !usuario) return;
+
+    const cedula = usuario.cedula || usuario.id;
+
+    // Sincronización asíncrona con el endpoint de fidelidad backend
+    try {
+        const resp = await fetch(`/api/loyalty/points?userId=${encodeURIComponent(cedula)}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            console.log('[API Loyalty Points] Sincronizado:', data);
+        }
+    } catch (e) {
+        // Fallback local
+    }
 
     const pm = AppState.premioMes || {
         nombre: 'Cafetera Espresso Digital 1.5L',
@@ -299,74 +313,128 @@ function renderizarPremioMesCliente() {
         descripcion: 'Premio exclusivo del mes para nuestros clientes más fieles.'
     };
 
-    const cedula = usuario.cedula || usuario.id;
     const puntosDisponibles = obtenerPuntosUsuario(cedula);
     const puntosRequeridos = Number(pm.puntosRequeridos || 200);
     const porcentaje = Math.min(100, Math.round((puntosDisponibles / puntosRequeridos) * 100));
     const puntosFaltantes = Math.max(0, puntosRequeridos - puntosDisponibles);
     const puedeCanjear = puntosDisponibles >= puntosRequeridos;
-
-    // Reputación
     const reputacion = calcularReputacionCliente(cedula);
+    const ciclo = usuario.cicloGamificacion || 1;
 
-    // Actualizar elementos en DOM
-    const userPuntosEl = document.getElementById('cli-puntos-disponibles');
-    const userPtsTotalEl = document.getElementById('cli-puntos-acumulados-total');
-    const userPtsCanjeadosEl = document.getElementById('cli-puntos-canjeados-total');
-    const repNivelEl = document.getElementById('cli-rep-nivel');
-    const repDescEl = document.getElementById('cli-rep-desc');
-    const repBadgeEl = document.getElementById('cli-rep-badge');
+    container.innerHTML = `
+        <!-- Widget Árbol de la Fidelización (Gamificación Reactiva) -->
+        <div id="tree-gamification-root" style="margin-bottom:24px;"></div>
 
-    if (userPuntosEl) userPuntosEl.textContent = puntosDisponibles;
-    if (userPtsTotalEl) userPtsTotalEl.textContent = Number(usuario.puntosAcumulados || 0);
-    if (userPtsCanjeadosEl) userPtsCanjeadosEl.textContent = Number(usuario.puntosCanjeados || 0);
+        <!-- Grid de Información de Fidelidad y Premio del Mes -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:24px;">
+            <!-- Tarjeta de Puntos & Reputación -->
+            <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-star" style="color:#f59e0b;"></i> Mi Saldo de Puntos
+                        </h3>
+                        <span class="reputacion-stars-pill ${reputacion.badgeClass}">
+                            ⭐ ${reputacion.nivel}
+                        </span>
+                    </div>
 
-    if (repNivelEl) repNivelEl.textContent = reputacion.nivel;
-    if (repDescEl) repDescEl.textContent = reputacion.descripcion;
-    if (repBadgeEl) {
-        repBadgeEl.className = `reputacion-stars-pill ${reputacion.badgeClass}`;
-        repBadgeEl.innerHTML = `⭐`.repeat(reputacion.estrellas) + ` <span>${reputacion.nivel}</span>`;
-    }
+                    <div style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; border-radius:14px; padding:20px; text-align:center; margin-bottom:16px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <span style="font-size:0.8rem; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px; display:block;">Puntos Disponibles para Canje</span>
+                        <div style="font-size:2.6rem; font-weight:800; color:#fde047; margin:6px 0;" id="cli-puntos-disponibles">${puntosDisponibles}</div>
+                        <span style="font-size:0.85rem; color:#cbd5e1;">Puntos Acumulados</span>
+                    </div>
 
-    // Premio del mes
-    const cardPremioImg = document.getElementById('cli-premio-img');
-    const cardPremioTitulo = document.getElementById('cli-premio-titulo');
-    const cardPremioDesc = document.getElementById('cli-premio-desc');
-    const cardPremioReq = document.getElementById('cli-premio-pts-req');
-    const cardProgresoBar = document.getElementById('cli-premio-progress-fill');
-    const cardProgresoTxt = document.getElementById('cli-premio-progress-txt');
-    const cardFaltanTxt = document.getElementById('cli-premio-faltan-txt');
-    const btnCanjear = document.getElementById('btn-canjear-premio');
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">Total Histórico</span>
+                            <strong style="font-size:1.1rem; color:var(--text-main);" id="cli-puntos-acumulados-total">${Number(usuario.puntosAcumulados || 0)}</strong>
+                        </div>
+                        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center;">
+                            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">Puntos Canjeados</span>
+                            <strong style="font-size:1.1rem; color:var(--text-main);" id="cli-puntos-canjeados-total">${Number(usuario.puntosCanjeados || 0)}</strong>
+                        </div>
+                    </div>
+                </div>
 
-    if (cardPremioImg) cardPremioImg.src = pm.imagen;
-    if (cardPremioTitulo) cardPremioTitulo.textContent = pm.nombre;
-    if (cardPremioDesc) cardPremioDesc.textContent = pm.descripcion;
-    if (cardPremioReq) cardPremioReq.textContent = `${puntosRequeridos} Pts`;
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px; font-size:0.85rem; color:#166534;">
+                    <i class="fas fa-circle-info"></i> <strong>¿Cómo ganar más puntos?</strong><br>
+                    Por cada $1.00 en compras acumulas 1 punto. Los productos en oferta pueden otorgarte hasta +5 puntos adicionales.
+                </div>
+            </div>
 
-    if (cardProgresoBar) {
-        cardProgresoBar.style.width = `${porcentaje}%`;
-    }
-    if (cardProgresoTxt) {
-        cardProgresoTxt.textContent = `${puntosDisponibles} / ${puntosRequeridos} Pts (${porcentaje}%)`;
-    }
-    if (cardFaltanTxt) {
-        if (puedeCanjear) {
-            cardFaltanTxt.innerHTML = `<span style="color:#16a34a; font-weight:700;"><i class="fas fa-circle-check"></i> ¡Felicidades! Has alcanzado los puntos para canjear tu premio.</span>`;
-        } else {
-            cardFaltanTxt.innerHTML = `<span>Te faltan <strong>${puntosFaltantes} puntos</strong> para alcanzar este premio. ¡Continúa acumulando con tus compras!</span>`;
-        }
-    }
+            <!-- Tarjeta Premio del Mes -->
+            <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-gift" style="color:var(--primary-accent);"></i> Premio del Mes
+                        </h3>
+                        <span class="badge" style="background:#fef3c7; color:#d97706; font-weight:700;">Meta: ${puntosRequeridos} pts</span>
+                    </div>
 
-    if (btnCanjear) {
-        if (puedeCanjear) {
-            btnCanjear.removeAttribute('disabled');
-            btnCanjear.className = 'btn btn-success btn-canjear-glow';
-            btnCanjear.innerHTML = `<i class="fas fa-gift"></i> ¡Canjear ${pm.nombre}!`;
-        } else {
-            btnCanjear.setAttribute('disabled', 'true');
-            btnCanjear.className = 'btn btn-secondary';
-            btnCanjear.innerHTML = `<i class="fas fa-lock"></i> Faltan ${puntosFaltantes} pts para canjear`;
-        }
+                    <div style="position:relative; border-radius:12px; overflow:hidden; height:170px; margin-bottom:14px; background:#f1f5f9;">
+                        <img src="${pm.imagen}" alt="${pm.nombre}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80'">
+                        <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding:10px 14px; color:#ffffff;">
+                            <h4 style="margin:0; font-size:1.05rem; color:#ffffff;">${pm.nombre}</h4>
+                        </div>
+                    </div>
+
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px; line-height:1.4;">${pm.descripcion}</p>
+
+                    <!-- Barra de Progreso -->
+                    <div style="margin-bottom:16px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
+                            <span>Progreso hacia el premio</span>
+                            <span style="color:var(--primary-accent);">${puntosDisponibles} / ${puntosRequeridos} Pts (${porcentaje}%)</span>
+                        </div>
+                        <div style="height:10px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
+                            <div style="height:100%; width:${porcentaje}%; background:linear-gradient(90deg, #10b981, #059669); border-radius:10px; transition:width 0.5s ease;"></div>
+                        </div>
+                        <small style="display:block; margin-top:6px; font-size:0.78rem; color:${puedeCanjear ? '#16a34a' : 'var(--text-muted)'}; font-weight:${puedeCanjear ? '700' : 'normal'};">
+                            ${puedeCanjear ? '🎉 ¡Felicidades! Tienes puntos suficientes para canjear este premio.' : `Te faltan ${puntosFaltantes} puntos para desbloquear este premio.`}
+                        </small>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="button" id="btn-canjear-premio" class="btn btn-block ${puedeCanjear ? 'btn-success btn-canjear-glow' : 'btn-secondary'}" 
+                        onclick="canjearPremioMesCliente()" ${puedeCanjear ? '' : 'disabled'}
+                        style="padding:12px; font-weight:700; font-size:0.95rem;">
+                        <i class="fas ${puedeCanjear ? 'fa-gift' : 'fa-lock'}"></i> ${puedeCanjear ? `¡Canjear ${pm.nombre}!` : `Faltan ${puntosFaltantes} pts para canjear`}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de Canjes de Premios -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-clock-rotate-left" style="color:var(--primary-accent);"></i> Mis Premios Canjeados
+                </h3>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Canje</th>
+                            <th>Premio</th>
+                            <th class="num">Puntos Usados</th>
+                            <th>Fecha</th>
+                            <th style="text-align:center;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cli-historial-canjes-body"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    // Renderizar widget de árbol
+    if (window.InventoryApp && window.InventoryApp.TreeGamification && typeof window.InventoryApp.TreeGamification.render === 'function') {
+        window.InventoryApp.TreeGamification.render(puntosDisponibles, puntosRequeridos, pm, ciclo, 'tree-gamification-root');
     }
 
     // Historial de canjes del cliente

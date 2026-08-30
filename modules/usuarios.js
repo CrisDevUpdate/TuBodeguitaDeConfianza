@@ -64,26 +64,53 @@ function verificarGatewall() {
 
 /**
  * Configura la navegación y pantallas según el rol del usuario autenticado
+ * Soporta los 3 roles segregados: 'admin', 'vendedor' y 'cliente'
  */
 function configurarVistasPorRol(usuario) {
-    const esAdmin = usuario.rol === 'admin';
+    const rol = (usuario.rol || 'cliente').toLowerCase();
+    const esAdmin = rol === 'admin' || rol === 'superadmin';
+    const esVendedor = rol === 'vendedor';
+    const esCliente = !esAdmin && !esVendedor;
 
-    // Elementos de navegación exclusiva de Administrador
-    const adminNavItems = document.querySelectorAll('.nav-admin-only');
-    adminNavItems.forEach(el => {
-        el.style.display = esAdmin ? '' : 'none';
+    // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio)
+    const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin'];
+    // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
+    const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+
+    // Configurar visibilidad en barra de navegación superior de escritorio
+    document.querySelectorAll('#main-nav-tabs .nav-btn').forEach(btn => {
+        const tab = btn.getAttribute('data-tab');
+        if (!tab) return;
+
+        if (esAdmin) {
+            btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
+        } else if (esVendedor) {
+            btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
+        } else {
+            // Cliente
+            btn.style.display = tab.startsWith('cliente-') ? '' : 'none';
+        }
     });
 
-    // Elementos de navegación exclusiva de Cliente
-    const clienteNavItems = document.querySelectorAll('.nav-cliente-only');
-    clienteNavItems.forEach(el => {
-        el.style.display = esAdmin ? 'none' : '';
+    // Configurar visibilidad en barra de navegación inferior móvil
+    document.querySelectorAll('#mobile-bottom-nav .bottom-nav-item').forEach(btn => {
+        const tab = btn.getAttribute('data-tab');
+        if (!tab) return;
+
+        if (esAdmin) {
+            btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
+        } else if (esVendedor) {
+            btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
+        } else {
+            // Cliente
+            btn.style.display = tab.startsWith('cliente-') ? '' : 'none';
+        }
     });
 
     // Encabezado y badges
     actualizarUIUsuarioActual();
 
-    // Redirección inicial según rol si la pestaña activa no corresponde
+    // Redirección segura según el rol actual si la pestaña activa está restringida
     const activeTab = document.querySelector('.nav-btn.active')?.getAttribute('data-tab');
     
     if (esAdmin) {
@@ -92,7 +119,14 @@ function configurarVistasPorRol(usuario) {
         }
         if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+    } else if (esVendedor) {
+        if (!activeTab || !vendedorAllowedTabs.includes(activeTab)) {
+            switchTab('pos');
+        }
+        if (typeof renderizarPos === 'function') renderizarPos();
+        if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
+        // Cliente
         if (!activeTab || !activeTab.startsWith('cliente-')) {
             switchTab('cliente-catalogo');
         }
@@ -294,6 +328,15 @@ function registrarUsuarioDesdeGatewall(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password) 
         : password;
 
+    // Comprobar si es el primer usuario real en registrarse en el sistema
+    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
+    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
+    const esPrimerUsuarioAdmin = !hayAdminReal;
+
+    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
+    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
+    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
+
     const nuevoUsuario = {
         id: cedula,
         cedula: cedula,
@@ -301,18 +344,18 @@ function registrarUsuarioDesdeGatewall(e) {
         telefono: telefono,
         email: email,
         password: passwordHash,
-        rol: rol,
-        estado: 'PENDIENTE_APROBACION',
+        rol: rolAsignado,
+        estado: estadoAsignado,
         puntosAcumulados: 0,
         puntosCanjeados: 0,
         fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        fechaAprobacion: null,
+        fechaAprobacion: fechaAprobacion,
         motivoRechazo: null
     };
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente, registrarlo también en la colección de clientes
+    // Si es cliente o admin, registrarlo también en la colección de clientes
     if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
@@ -328,6 +371,10 @@ function registrarUsuarioDesdeGatewall(e) {
     }
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
+    }
+
+    if (esPrimerUsuarioAdmin) {
+        alert(`👑 ¡Bienvenido, ${nombre}!\n\nAl ser el primer usuario registrado en la plataforma, tu cuenta ha sido configurada automáticamente como ADMINISTRADOR PRINCIPAL con acceso completo a todo el sistema (Inventario, POS, Clientes, Reportes y Usuarios).\n\nEsta función inicial ya ha quedado sellada para futuros registros.`);
     }
 
     verificarGatewall();
@@ -412,6 +459,15 @@ async function registrarUsuario(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password)
         : password;
 
+    // Comprobar si es el primer usuario real en registrarse en el sistema
+    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
+    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
+    const esPrimerUsuarioAdmin = !hayAdminReal;
+
+    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
+    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
+    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
+
     const nuevoUsuario = {
         id: cedula,
         cedula: cedula,
@@ -419,18 +475,18 @@ async function registrarUsuario(e) {
         telefono: telefono,
         email: email,
         password: passwordHash,
-        rol: rol,
-        estado: 'PENDIENTE_APROBACION',
+        rol: rolAsignado,
+        estado: estadoAsignado,
         puntosAcumulados: 0,
         puntosCanjeados: 0,
         fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        fechaAprobacion: null,
+        fechaAprobacion: fechaAprobacion,
         motivoRechazo: null
     };
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente, registrarlo también en la colección de clientes
+    // Si es cliente o admin, registrarlo también en la colección de clientes
     if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
@@ -439,7 +495,7 @@ async function registrarUsuario(e) {
         });
     }
 
-    // Establecemos como usuario actual para mostrar pantalla de aprobación pendiente
+    // Establecemos como usuario actual
     AppState.usuarioActual = nuevoUsuario;
 
     // Guardar en almacenamiento local y Firebase
@@ -458,6 +514,12 @@ async function registrarUsuario(e) {
     if (telefonoInput) telefonoInput.value = '';
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
+
+    if (esPrimerUsuarioAdmin) {
+        mostrarNotificacionRegistro(`👑 ¡Registro exitoso como Administrador Principal! Tienes acceso total e ilimitado a todo el sistema.`, 'success');
+    } else {
+        mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
+    }
 
     verificarGatewall();
 }
@@ -596,36 +658,221 @@ function cambiarRolUsuario(cedula, nuevoRol) {
 }
 
 /**
- * Elimina un usuario del sistema
+ * Elimina un usuario del sistema (Soft/Hard delete en Vercel DB y Firestore en tiempo real)
  */
-function eliminarUsuario(cedula) {
+async function eliminarUsuario(cedula) {
     if (!cedula) return;
-    if (cedula === 'V-00000001') {
-        alert('El Administrador Principal del sistema no puede ser eliminado.');
+    if (cedula === 'V-00000001' || cedula.toUpperCase() === 'SUPERADMIN') {
+        alert('El Administrador Principal del sistema no puede ser eliminado por seguridad.');
         return;
     }
 
     const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
     if (!usuario) return;
 
-    if (!confirm(`¿Estás seguro de eliminar permanentemente al usuario ${usuario.nombre} (${cedula})?`)) {
+    if (!confirm(`¿Estás seguro de eliminar permanentemente al usuario ${usuario.nombre} (${cedula})?\n\nEsta acción actualizará la base de datos en tiempo real y eliminará la fila de la interfaz.`)) {
         return;
     }
 
-    AppState.usuarios = AppState.usuarios.filter(u => (u.cedula || u.id) !== cedula);
+    // 1. Llamar al endpoint backend de Vercel/Node para eliminación en BD
+    try {
+        await fetch(`/api/users/${encodeURIComponent(cedula)}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        console.log(`[API Delete] Usuario ${cedula} eliminado en backend Vercel.`);
+    } catch (err) {
+        console.warn(`[API Delete] Backend offline o Vercel Serverless en local:`, err);
+    }
 
+    // 2. Eliminar del estado global local
+    AppState.usuarios = (AppState.usuarios || []).filter(u => (u.cedula || u.id) !== cedula);
+    if (Array.isArray(AppState.clientes)) {
+        AppState.clientes = AppState.clientes.filter(c => (c.id || c.cedula) !== cedula);
+    }
+
+    // 3. Si era la sesión activa, cerrar sesión
     if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === cedula) {
+        alert(`La cuenta activa (${usuario.nombre}) fue eliminada. Cerrando sesión.`);
         cerrarSesionUsuario();
         return;
     }
 
+    // 4. Sincronizar persistencia local y Firestore
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarUsuario === 'function') {
         window.InventoryApp.Firebase.eliminarUsuario(cedula);
     }
 
+    // 5. Re-renderizar la tabla de usuarios inmediatamente sin recarga
     renderizarUsuarios();
     actualizarBadgesUsuarios();
+}
+
+// --- AVATARES DE USUARIO (PRESETS + SUBIDA CON RESIZE 150x150) ---
+const PRESETS_AVATARES = [
+    { id: 'av-1', icon: '👨‍💼', label: 'Admin Elegante' },
+    { id: 'av-2', icon: '👩‍💼', label: 'Ejecutiva' },
+    { id: 'av-3', icon: '🧑‍💻', label: 'Especialista' },
+    { id: 'av-4', icon: '🛒', label: 'Comprador VIP' },
+    { id: 'av-5', icon: '🥑', label: 'Bodeguero' },
+    { id: 'av-6', icon: '⭐', label: 'Estrella' },
+    { id: 'av-7', icon: '👑', label: 'Corona VIP' },
+    { id: 'av-8', icon: '🎯', label: 'Fidelidad' },
+    { id: 'av-9', icon: '☕', label: 'Café Matutino' },
+    { id: 'av-10', icon: '🌻', label: 'Girasol' },
+    { id: 'av-11', icon: '🌴', label: 'Palmera' },
+    { id: 'av-12', icon: '🚀', label: 'Emprendedor' }
+];
+
+function abrirModalSelectorAvatar() {
+    let modal = document.getElementById('modal-selector-avatar');
+    if (!modal) {
+        crearModalSelectorAvatarDOM();
+        modal = document.getElementById('modal-selector-avatar');
+    }
+    if (modal) {
+        modal.classList.add('active');
+        renderizarGridAvataresPresets();
+    }
+}
+
+function cerrarModalSelectorAvatar() {
+    const modal = document.getElementById('modal-selector-avatar');
+    if (modal) modal.classList.remove('active');
+}
+
+function crearModalSelectorAvatarDOM() {
+    const modalDiv = document.createElement('div');
+    modalDiv.id = 'modal-selector-avatar';
+    modalDiv.className = 'modal';
+    modalDiv.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="margin:0; font-size:1.2rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-user-circle" style="color:var(--primary-accent);"></i> Personalizar mi Avatar
+                </h3>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalSelectorAvatar()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
+                Elige uno de nuestros avatares prediseñados o sube tu propia foto de perfil (se adaptará automáticamente a 150×150 px).
+            </p>
+
+            <!-- Grid de Presets -->
+            <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Avatares Prediseñados:</div>
+            <div id="avatar-presets-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:20px;"></div>
+
+            <!-- Subida Personalizada -->
+            <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">O sube una foto personalizada:</div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="file" id="avatar-custom-file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="procesarSubidaAvatar(event)">
+                    <button type="button" class="btn btn-outline" onclick="document.getElementById('avatar-custom-file').click()" style="flex:1;">
+                        <i class="fas fa-upload"></i> Subir Foto (JPG / PNG / WEBP)
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="restablecerAvatarPorDefecto()">
+                        <i class="fas fa-rotate-left"></i> Por defecto
+                    </button>
+                </div>
+                <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:6px;">
+                    * Tu imagen se recortará y optimizará automáticamente en tu navegador a 150x150 píxeles.
+                </small>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modalDiv);
+}
+
+function renderizarGridAvataresPresets() {
+    const grid = document.getElementById('avatar-presets-grid');
+    if (!grid) return;
+    const actual = AppState.usuarioActual?.avatar || '';
+
+    grid.innerHTML = PRESETS_AVATARES.map(p => `
+        <button type="button" onclick="seleccionarAvatarPreset('${p.icon}')" 
+            title="${p.label}"
+            style="font-size:1.8rem; height:52px; border-radius:12px; border:2px solid ${actual === p.icon ? 'var(--primary-accent)' : '#e2e8f0'}; background:${actual === p.icon ? '#eff6ff' : '#ffffff'}; cursor:pointer; transition:all 0.15s ease;"
+            onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+            ${p.icon}
+        </button>
+    `).join('');
+}
+
+function seleccionarAvatarPreset(icono) {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    usuario.avatar = icono;
+    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+
+    actualizarUIUsuarioActual();
+    cerrarModalSelectorAvatar();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+    if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+}
+
+function restablecerAvatarPorDefecto() {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    usuario.avatar = null;
+    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+
+    actualizarUIUsuarioActual();
+    cerrarModalSelectorAvatar();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+}
+
+function procesarSubidaAvatar(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen válido (.jpg, .png o .webp).');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // Resize to exact 150x150 square center-crop
+            const canvas = document.createElement('canvas');
+            canvas.width = 150;
+            canvas.height = 150;
+            const ctx = canvas.getContext('2d');
+
+            const minDim = Math.min(img.width, img.height);
+            const startX = (img.width - minDim) / 2;
+            const startY = (img.height - minDim) / 2;
+
+            ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 150, 150);
+
+            const dataUrl = canvas.toDataURL('image/webp', 0.85);
+            
+            const usuario = AppState.usuarioActual;
+            if (usuario) {
+                usuario.avatar = dataUrl;
+                if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+                if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+                    window.InventoryApp.Firebase.guardarUsuario(usuario);
+                }
+                actualizarUIUsuarioActual();
+                cerrarModalSelectorAvatar();
+                if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+                if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+            }
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 /**
@@ -836,13 +1083,36 @@ function actualizarUIUsuarioActual() {
 
     if (headerName) headerName.textContent = usuario.nombre || usuario.cedula;
     if (headerStatus) {
-        if (usuario.rol === 'admin') {
+        const r = (usuario.rol || 'cliente').toLowerCase();
+        if (r === 'admin' || r === 'superadmin') {
             headerStatus.className = 'badge-status-pill badge-success';
             headerStatus.textContent = 'ADMIN';
+        } else if (r === 'vendedor') {
+            headerStatus.className = 'badge-status-pill badge-primary';
+            headerStatus.textContent = 'VENDEDOR';
         } else {
             headerStatus.className = 'badge-status-pill badge-warning';
             headerStatus.textContent = 'CLIENTE VIP';
         }
+    }
+
+    // Avatar en encabezado
+    const avatarMini = document.querySelector('#btn-user-session-header .user-avatar-mini');
+    if (avatarMini) {
+        if (usuario.avatar) {
+            if (usuario.avatar.startsWith('data:image') || usuario.avatar.startsWith('http')) {
+                avatarMini.innerHTML = `<img src="${usuario.avatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+            } else {
+                avatarMini.innerHTML = `<span style="font-size:1.15rem;">${usuario.avatar}</span>`;
+            }
+        } else {
+            avatarMini.innerHTML = `<i class="fas fa-user"></i>`;
+        }
+        avatarMini.title = 'Haz clic para cambiar tu foto o avatar';
+        avatarMini.onclick = (e) => {
+            e.stopPropagation();
+            abrirModalSelectorAvatar();
+        };
     }
 
     // Puntos en Header para cliente
@@ -867,7 +1137,8 @@ function verificarAccesoPOS(mostrarAlerta = true) {
         return { permitido: false, razon: 'NO_SESION' };
     }
 
-    if (usuario.rol === 'admin') {
+    const rol = (usuario.rol || '').toLowerCase();
+    if (rol === 'admin' || rol === 'superadmin' || rol === 'vendedor') {
         return { permitido: true, usuario };
     }
 
@@ -958,3 +1229,8 @@ window.renderizarUsuarios = renderizarUsuarios;
 window.actualizarBadgesUsuarios = actualizarBadgesUsuarios;
 window.actualizarUIUsuarioActual = actualizarUIUsuarioActual;
 window.verificarAccesoPOS = verificarAccesoPOS;
+window.abrirModalSelectorAvatar = abrirModalSelectorAvatar;
+window.cerrarModalSelectorAvatar = cerrarModalSelectorAvatar;
+window.seleccionarAvatarPreset = seleccionarAvatarPreset;
+window.restablecerAvatarPorDefecto = restablecerAvatarPorDefecto;
+window.procesarSubidaAvatar = procesarSubidaAvatar;

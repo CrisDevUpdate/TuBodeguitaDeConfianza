@@ -169,6 +169,30 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
             });
         }
 
+        // Si la transacción proviene de un pedido web de cliente pendiente, descontar el inventario ahora que el Admin validó
+        const ventaAsociada = (AppState.ventas || []).find(v => (tx.pedidoId && v.id === tx.pedidoId) || (v.referencia && v.referencia === tx.referencia));
+        if (ventaAsociada && !ventaAsociada.descontadoInventario) {
+            (ventaAsociada.items || []).forEach(item => {
+                if (window.InventoryApp.StockService) {
+                    window.InventoryApp.StockService.sale(item.productoId, item.cantidad);
+                } else if (typeof descontarStockProducto === 'function') {
+                    descontarStockProducto(item.productoId, item.cantidad);
+                }
+            });
+            ventaAsociada.descontadoInventario = true;
+            ventaAsociada.estado = 'APROBADO';
+            if (typeof otorgarPuntosPorCompra === 'function') {
+                otorgarPuntosPorCompra(ventaAsociada.clienteId, ventaAsociada.total, 'Pedido Web Validado');
+            }
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+        }
+
+        if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
         renderizarTransacciones();
         renderizarClientes();
         if (clienteSeleccionadoId === tx.clienteId) verDetalleCliente(tx.clienteId);

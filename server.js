@@ -147,6 +147,176 @@ app.post('/api/bcv/manual', (req, res) => {
   res.json({ success: true, cache: bcvCache });
 });
 
+// In-memory data store for server-side state persistence
+let serverUsers = [];
+let serverSales = [];
+let serverPayments = [];
+let serverLoyaltyClaims = [];
+
+// API Users: Delete User (DELETE /api/users/:id or DELETE /api/users?id=...)
+app.delete('/api/users/:id?', (req, res) => {
+  const userId = req.params.id || req.query.id || req.body.id || req.body.cedula;
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'User ID or cédula is required' });
+  }
+
+  const initialCount = serverUsers.length;
+  serverUsers = serverUsers.filter(u => (u.cedula !== userId && u.id !== userId));
+
+  console.log(`[API Users] User deleted: ${userId}. Active users remaining: ${serverUsers.length}`);
+
+  res.json({
+    success: true,
+    message: `Usuario ${userId} eliminado correctamente`,
+    deletedId: userId,
+    count: serverUsers.length
+  });
+});
+
+// API Users: Get and Post Users
+app.get('/api/users', (req, res) => {
+  const userId = req.query.userId || req.query.id || req.query.cedula;
+  if (userId) {
+    const user = serverUsers.find(u => u.cedula === userId || u.id === userId);
+    return res.json({ success: true, user: user || null });
+  }
+  res.json({ success: true, users: serverUsers, count: serverUsers.length });
+});
+
+app.post('/api/users', (req, res) => {
+  const user = req.body;
+  if (!user || (!user.cedula && !user.id)) {
+    return res.status(400).json({ success: false, error: 'Invalid user payload' });
+  }
+  const idx = serverUsers.findIndex(u => (u.cedula && u.cedula === user.cedula) || (u.id && u.id === user.id));
+  if (idx !== -1) {
+    serverUsers[idx] = { ...serverUsers[idx], ...user };
+  } else {
+    serverUsers.push(user);
+  }
+  res.json({ success: true, user, count: serverUsers.length });
+});
+
+// API Account Status: GET /api/account/status?userId=ID
+app.get('/api/account/status', (req, res) => {
+  const userId = req.query.userId || req.query.id || req.query.cedula;
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'userId query parameter is required' });
+  }
+
+  const userSales = serverSales.filter(s => s.clienteId === userId || s.clienteCedula === userId);
+  const userPayments = serverPayments.filter(p => (p.clienteId === userId || p.clienteCedula === userId) && (p.estado === 'Pago agregado' || p.estado === 'APROBADO' || !p.estado));
+
+  const totalCompradoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const totalCreditoUSD = userSales.filter(s => s.tipo === 'Crédito' || s.tipoPago === 'Crédito').reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const totalAbonadoUSD = userPayments.reduce((acc, p) => acc + Number(p.montoUSD || 0), 0);
+  const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
+
+  const facturasPendientes = userSales.filter(s => (s.tipo === 'Crédito' || s.tipoPago === 'Crédito') && (s.estadoPago !== 'CANCELADO'));
+
+  res.json({
+    success: true,
+    userId,
+    totalCompradoUSD,
+    totalCreditoUSD,
+    totalAbonadoUSD,
+    saldoDeudaUSD,
+    facturasPendientesCount: facturasPendientes.length,
+    ventas: userSales,
+    abonos: userPayments
+  });
+});
+
+// API Loyalty Points: GET /api/loyalty/points?userId=ID
+app.get('/api/loyalty/points', (req, res) => {
+  const userId = req.query.userId || req.query.id || req.query.cedula;
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'userId query parameter is required' });
+  }
+
+  const user = serverUsers.find(u => u.cedula === userId || u.id === userId) || {};
+  const metaPuntos = Number(user.metaPuntos || 200);
+  const puntosAcumulados = Number(user.puntosAcumulados || 0);
+  const puntosCanjeados = Number(user.puntosCanjeados || 0);
+  const puntosDisponibles = Math.max(0, puntosAcumulados - puntosCanjeados);
+  const porcentajeMeta = Math.min(100, Math.round((puntosDisponibles / metaPuntos) * 100));
+
+  res.json({
+    success: true,
+    userId,
+    puntosDisponibles,
+    puntosAcumulados,
+    puntosCanjeados,
+    metaPuntos,
+    porcentajeMeta,
+    ciclo: user.cicloGamificacion || 1,
+    reputacion: user.reputacion || 'CLIENTE_DESTACADO'
+  });
+});
+
+// API Loyalty Claim: POST /api/loyalty/claim
+app.post('/api/loyalty/claim', (req, res) => {
+  const { userId, premioId, puntos } = req.body;
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'userId is required' });
+  }
+
+  const claim = {
+    id: `CLAIM_${Date.now()}`,
+    userId,
+    premioId: premioId || 'Premio del Mes',
+    puntos: Number(puntos || 200),
+    fecha: new Date().toISOString(),
+    estado: 'ENTREGADO'
+  };
+
+  serverLoyaltyClaims.push(claim);
+
+  // Update user in server memory if present
+  const user = serverUsers.find(u => u.cedula === userId || u.id === userId);
+  if (user) {
+    user.puntosCanjeados = Number(user.puntosCanjeados || 0) + claim.puntos;
+    user.cicloGamificacion = (Number(user.cicloGamificacion) || 1) + 1;
+  }
+
+  res.json({ success: true, claim, message: 'Premio canjeado exitosamente' });
+});
+
+// Endpoint para notificación automática de compra por correo al Administrador (cris.dev.update@gmail.com)
+const adminPurchasesLog = [];
+app.post('/api/notificar-compra', (req, res) => {
+  const { pedidoId, cliente, items, totalUSD, totalVES, metodoPago, referencia, fecha, notas } = req.body;
+  const adminEmail = 'cris.dev.update@gmail.com';
+  
+  const notificacion = {
+    pedidoId: pedidoId || `PED_${Date.now()}`,
+    destinatario: adminEmail,
+    cliente: cliente || {},
+    items: items || [],
+    totalUSD: totalUSD || 0,
+    totalVES: totalVES || 0,
+    metodoPago: metodoPago || 'No especificado',
+    referencia: referencia || 'N/A',
+    fecha: fecha || new Date().toISOString(),
+    notas: notas || '',
+    estado: 'NOTIFICADO_ADMIN',
+    timestamp: Date.now()
+  };
+
+  adminPurchasesLog.unshift(notificacion);
+  console.log(`[Compra Notificada] Pedido ${notificacion.pedidoId} enviado al correo admin: ${adminEmail}. Total: $${notificacion.totalUSD} / Bs. ${notificacion.totalVES}. Ref: ${notificacion.referencia}`);
+
+  res.json({
+    success: true,
+    message: `Notificación de compra enviada exitosamente a ${adminEmail}`,
+    notificacion
+  });
+});
+
+app.get('/api/notificaciones-compras', (req, res) => {
+  res.json({ success: true, count: adminPurchasesLog.length, compras: adminPurchasesLog });
+});
+
 // Serve static files from root directory
 app.use(express.static(__dirname));
 

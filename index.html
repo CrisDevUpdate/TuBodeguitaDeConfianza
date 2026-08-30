@@ -244,6 +244,10 @@
             <i class="fas fa-user-shield"></i> Usuarios & Aprobación
             <span id="badge-pendientes-desktop" class="badge-pill-counter" style="display:none;">0</span>
         </button>
+        <button class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
+            <i class="fas fa-chart-line"></i> Historial de Ventas
+            <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff;">0</span>
+        </button>
         <button class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
             <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
         </button>
@@ -251,6 +255,9 @@
         <!-- Pestañas EXCLUSIVAS de Cliente -->
         <button class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
             <i class="fas fa-store"></i> Catálogo de Productos
+        </button>
+        <button class="nav-btn nav-cliente-only" id="btn-cliente-nav-cart" onclick="abrirModalCarritoCliente()">
+            <i class="fas fa-shopping-cart"></i> Mi Carrito (<span id="cliente-carrito-count">0</span>)
         </button>
         <button class="nav-btn nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')">
             <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
@@ -1191,16 +1198,163 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         </div>
     </div>
 
+    <!-- VISTA 7B (ADMIN): HISTORIAL DE VENTAS DIARIO Y ACUMULADO -->
+    <div id="historial-ventas" class="view-content">
+        <!-- KPIs de Ventas -->
+        <div class="kpi-grid" style="margin-bottom:18px;">
+            <div class="kpi-card" style="border-left-color:#16a34a;">
+                <div class="kpi-title"><i class="fas fa-calendar-day"></i> VENTAS DE HOY (USD)</div>
+                <div class="kpi-value-usd" id="kpi-ventas-hoy-usd" style="color:#16a34a;">$0.00</div>
+                <div class="kpi-value-ves" id="kpi-ventas-hoy-ves">Bs. 0.00</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title"><i class="fas fa-receipt"></i> PEDIDOS PROCESADOS HOY</div>
+                <div class="kpi-value-usd" id="kpi-ventas-hoy-cant" style="color:var(--primary-accent);">0</div>
+                <div class="kpi-value-ves">Transacciones de hoy</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#2563eb;">
+                <div class="kpi-title"><i class="fas fa-chart-line"></i> TOTAL HISTÓRICO ACUMULADO</div>
+                <div class="kpi-value-usd" id="kpi-ventas-historico-usd">$0.00</div>
+                <div class="kpi-value-ves">Ventas totales registradas</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#d97706;">
+                <div class="kpi-title"><i class="fas fa-hand-holding-dollar"></i> TOTAL VENTAS A CRÉDITO</div>
+                <div class="kpi-value-usd" id="kpi-ventas-credito-usd" style="color:#d97706;">$0.00</div>
+                <div class="kpi-value-ves">Acumulado crédito en cuenta</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <!-- Pestañas del Módulo de Historial -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:18px;">
+                <div style="display:flex; gap:10px;">
+                    <button type="button" id="tab-historial-hoy" class="btn btn-outline active" onclick="cambiarSubTabHistorialVentas('hoy')" style="display:flex; align-items:center; gap:8px; font-weight:700;">
+                        <i class="fas fa-calendar-day"></i> Ventas de Hoy
+                    </button>
+                    <button type="button" id="tab-historial-general" class="btn btn-outline" onclick="cambiarSubTabHistorialVentas('general')" style="display:flex; align-items:center; gap:8px; font-weight:700;">
+                        <i class="fas fa-list-check"></i> Historial General (Filtros)
+                    </button>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
+                    <i class="fas fa-rotate"></i> Actualizar
+                </button>
+            </div>
+
+            <!-- Subview 1: Ventas de Hoy -->
+            <div id="subview-historial-hoy">
+                <div style="margin-bottom:12px; color:var(--text-muted); font-size:0.88rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-info-circle" style="color:var(--primary-accent);"></i>
+                    <span>Mostrando únicamente las compras y pedidos procesados durante la jornada de hoy con descuento automático de inventario.</span>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Venta</th>
+                                <th>Hora</th>
+                                <th>Cliente</th>
+                                <th>Productos</th>
+                                <th>Método de Pago</th>
+                                <th class="num">Total ($ / Bs)</th>
+                                <th style="text-align:center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventas-hoy-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Subview 2: Historial General Acumulado con Filtros -->
+            <div id="subview-historial-general" style="display:none;">
+                <!-- Barra de Filtros Interactivos -->
+                <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:18px;">
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; align-items:end;">
+                        <div class="form-group">
+                            <label for="historial-filtro-cliente"><i class="fas fa-search"></i> Buscar Cliente / ID</label>
+                            <input type="text" id="historial-filtro-cliente" placeholder="Nombre, Cédula o #ID..." oninput="filtrarHistorialGeneralPorCliente(this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-desde"><i class="far fa-calendar"></i> Desde</label>
+                            <input type="date" id="historial-filtro-desde" onchange="filtrarHistorialGeneralPorFechas(document.getElementById('historial-filtro-desde').value, document.getElementById('historial-filtro-hasta').value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-hasta"><i class="far fa-calendar-check"></i> Hasta</label>
+                            <input type="date" id="historial-filtro-hasta" onchange="filtrarHistorialGeneralPorFechas(document.getElementById('historial-filtro-desde').value, document.getElementById('historial-filtro-hasta').value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-metodo"><i class="fas fa-wallet"></i> Método de Pago</label>
+                            <select id="historial-filtro-metodo" onchange="filtrarHistorialGeneralPorMetodo(this.value)">
+                                <option value="TODOS">Todos los Métodos</option>
+                                <option value="Crédito">Crédito / Fiado</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Transferencia">Transferencia Bancaria</option>
+                                <option value="Efectivo">Efectivo (USD / VES)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-estado"><i class="fas fa-tag"></i> Estado</label>
+                            <select id="historial-filtro-estado" onchange="filtrarHistorialGeneralPorEstado(this.value)">
+                                <option value="TODOS">Todos los Estados</option>
+                                <option value="CONFIRMADO">Confirmado</option>
+                                <option value="PENDIENTE_CONFIRMACION">Pendiente de Confirmación</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-outline" onclick="limpiarFiltrosHistorialVentas()" style="width:100%;">
+                                <i class="fas fa-broom"></i> Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span id="ventas-general-count" style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">0 registros</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Venta</th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Cant. Artículos</th>
+                                <th>Método</th>
+                                <th class="num">Total ($)</th>
+                                <th class="num">Total (Bs)</th>
+                                <th style="text-align:center;">Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventas-general-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VISTA 8 (CLIENTE): CATÁLOGO DE PRODUCTOS & CARRITO -->
     <div id="cliente-catalogo" class="view-content">
-        <!-- Banner de Bienvenida y Resumen de Puntos -->
-        <div class="card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:16px; border:none;">
+        <!-- Banner de Bienvenida Dinámico y Resumen de Puntos -->
+        <div class="card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:16px; border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
-                <div>
-                    <h2 style="margin:0; font-size:1.4rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Bienvenido a Tu Bodeguita de Confianza!</h2>
-                    <p style="margin:4px 0 0 0; font-size:0.88rem; color:#94a3b8;">
-                        Explora nuestro catálogo en tiempo real con precios actualizados al dólar BCV oficial.
-                    </p>
+                <div style="flex:1; min-width:260px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span id="cliente-saludo-icono" style="font-size:1.3rem; color:#fde047;"><i class="fas fa-sun"></i></span>
+                        <h2 style="margin:0; font-size:1.35rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
+                    </div>
+                    <!-- Frase de Sabiduría Dinámica Local -->
+                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:8px; display:flex; align-items:flex-start; gap:8px;">
+                        <i class="fas fa-quote-left" style="color:#fde047; font-size:0.85rem; margin-top:2px; flex-shrink:0;"></i>
+                        <div>
+                            <p id="cliente-frase-texto" style="margin:0; font-size:0.86rem; color:#f1f5f9; font-style:italic; line-height:1.35;">
+                                "La perseverancia convierte los pequeños esfuerzos diarios en grandes victorias."
+                            </p>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px;">
+                                <small id="cliente-frase-autor" style="font-size:0.75rem; color:#cbd5e1; font-weight:600;">— Sabiduría Universal</small>
+                                <span id="cliente-frase-categoria" style="font-size:0.68rem; background:rgba(253,224,71,0.2); color:#fde047; padding:1px 6px; border-radius:4px;">Motivación</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                     <div style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:8px 14px; text-align:center;">
@@ -1231,6 +1385,24 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
                 <!-- Grid de Productos -->
                 <div class="cliente-catalogo-grid" id="cliente-catalogo-grid"></div>
             </div>
+        </div>
+
+        <!-- Barra Flotante de Carrito del Cliente -->
+        <div id="cliente-floating-cart-bar" class="cliente-floating-cart-bar" style="display:none;" onclick="abrirModalCarritoCliente()">
+            <div class="cliente-floating-cart-info">
+                <div class="cliente-floating-cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span id="cliente-floating-cart-count" class="cliente-floating-cart-badge">0</span>
+                </div>
+                <div class="cliente-floating-cart-text">
+                    <span class="cliente-floating-cart-lbl">Total Carrito:</span>
+                    <strong id="cliente-floating-total-usd" class="cliente-floating-cart-val">$0.00</strong>
+                    <small id="cliente-floating-total-ves" class="cliente-floating-cart-sub">Bs. —</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-warning" onclick="event.stopPropagation(); abrirModalCarritoCliente();" style="font-weight:700; padding:10px 20px; border-radius:8px;">
+                <i class="fas fa-arrow-right"></i> Ver Carrito / Pagar
+            </button>
         </div>
     </div>
 
@@ -1612,6 +1784,105 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
     </div>
 </div>
 
+<!-- Modal Carrito & Checkout del Cliente -->
+<div id="modal-cliente-carrito" class="modal" onclick="if(event.target === this) cerrarModalCarritoCliente();">
+    <div class="modal-content" style="max-width: 620px; max-height: 90vh; overflow-y: auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:14px; position:sticky; top:0; background:#ffffff; z-index:10;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-cart-shopping" style="color:var(--primary-accent);"></i> Mi Carrito de Compras
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalCarritoCliente()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <!-- Tabla de Productos en el Carrito -->
+        <div class="table-responsive" style="margin-bottom: 15px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="num">Cant.</th>
+                        <th class="num">Subtotal</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="cliente-carrito-body"></tbody>
+            </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="vaciarCarritoCliente()" style="color:var(--danger); border-color:#fecaca;">
+                <i class="fas fa-trash"></i> Vaciar Carrito
+            </button>
+            <span style="font-size:0.85rem; color:var(--text-muted);">Precios sincronizados al Dólar BCV</span>
+        </div>
+
+        <!-- Resumen de Totales y Puntos -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="color:var(--text-muted); font-size:0.95rem;">Total a Pagar (USD):</span>
+                <strong id="cliente-carrito-total-usd" style="font-size:1.3rem; color:var(--primary-accent);">$0.00</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="color:var(--text-muted); font-size:0.95rem;">Total en Bolívares (VES):</span>
+                <strong id="cliente-carrito-total-ves" style="font-size:1.2rem; color:#16a34a;">Bs. 0.00</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #cbd5e1; padding-top:8px;">
+                <span style="color:#d97706; font-size:0.88rem; font-weight:600;"><i class="fas fa-trophy"></i> Puntos para el Premio del Mes:</span>
+                <strong id="cliente-carrito-puntos-preview" style="color:#d97706; font-size:1rem;">+0 Pts</strong>
+            </div>
+        </div>
+
+        <!-- Información de Cuentas Bancarias para Pago -->
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px; margin-bottom:16px; font-size:0.84rem; line-height:1.4;">
+            <strong style="color:#1e40af; display:block; margin-bottom:4px;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
+            <div style="color:#1e40af;">
+                • <strong>Pago Móvil:</strong> Banco Banesco / Banco de Venezuela (0102 / 0134)<br>
+                • <strong>Teléfono WhatsApp:</strong> 0412-5363849 &nbsp;|&nbsp; <strong>C.I / RIF:</strong> V-28.123.456<br>
+                • <strong>Titular:</strong> Tu Bodeguita de Confianza C.A.
+            </div>
+        </div>
+
+        <!-- Formulario de Pago con Crédito como Primer Método -->
+        <form onsubmit="event.preventDefault(); procesarCompraCliente();">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label for="cliente-tipo-pago">Método de Pago <span style="color:var(--danger);">*</span></label>
+                <select id="cliente-tipo-pago" required style="font-weight:600;" onchange="manejarCambioMetodoPagoCliente(this.value)">
+                    <option value="Crédito" selected>⭐ Crédito / Fiado (Confirmación Directa x WhatsApp)</option>
+                    <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
+                    <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
+                    <option value="Efectivo USD">Efectivo ($ Dólares)</option>
+                    <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="cliente-grupo-referencia" style="margin-bottom:16px;">
+                <label for="cliente-pago-referencia" id="cliente-label-referencia">
+                    Número de Referencia de Pago <span id="cliente-ref-asterisco" style="display:none; color:var(--danger);">*</span>
+                </label>
+                <input type="text" id="cliente-pago-referencia" maxlength="40" placeholder="Opcional para Crédito (Obligatorio en Pago Móvil / Transferencia)" style="font-weight:700; letter-spacing:0.5px; background:#f8fafc;">
+                <small id="cliente-pago-ayuda-texto" style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px;">
+                    * Al comprar a <b>Crédito</b> se procesará y descontará el inventario inmediatamente, enviando los detalles y registro de deuda al WhatsApp de la tienda.
+                </small>
+            </div>
+
+            <!-- Botones de Acción: WhatsApp directo y Confirmar Compra -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" class="btn btn-block" onclick="abrirWhatsAppComprobante()" 
+                    style="background:#25d366; color:#ffffff; font-weight:700; font-size:0.95rem; padding:12px; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fab fa-whatsapp" style="font-size:1.3rem;"></i> Consultar / Enviar a WhatsApp (0412-5363849)
+                </button>
+                
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()">Continuar Comprando</button>
+                    <button type="submit" id="btn-cliente-confirmar-pedido" class="btn btn-success" style="font-weight:700; padding:10px 20px;">
+                        <i class="fas fa-check-circle"></i> Confirmar Pedido a Crédito
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal Autenticación y Cambio Rápido de Usuario -->
 <div id="modal-auth" class="modal">
     <div class="modal-content" style="max-width: 480px;">
@@ -1692,6 +1963,10 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         <span>Usuarios</span>
         <span id="badge-pendientes-mobile" class="badge-dot" style="display:none;"></span>
     </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')" aria-label="Historial de Ventas">
+        <i class="fas fa-chart-line"></i>
+        <span>Ventas</span>
+    </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')" aria-label="Premio del Mes Config">
         <i class="fas fa-gift"></i>
         <span>Premio</span>
@@ -1724,6 +1999,8 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="core/google-drive-service.js"></script>
 <script src="core/persistence.js"></script>
 <script src="core/bcv.js"></script>
+<script src="components/Catalog.js"></script>
+<script src="components/TreeGamification.js"></script>
 <script src="modules/productos.js"></script>
 <script src="modules/pos.js"></script>
 <script src="modules/clientes.js"></script>
@@ -1732,6 +2009,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="modules/perdidas.js"></script>
 <script src="modules/premio-mes.js"></script>
 <script src="modules/cliente-view.js"></script>
+<script src="modules/historial-ventas.js"></script>
 <script src="modules/usuarios.js"></script>
 <script src="app.js"></script>
 </body>

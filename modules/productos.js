@@ -404,7 +404,7 @@ function confirmarEliminacionProducto(event) {
     const eliminaProductoCompleto = stockDespues === 0;
 
     const accionTexto = eliminaProductoCompleto
-        ? 'Se retirará todo el stock y el producto será eliminado del listado. Los códigos posteriores se correrán hacia atrás.'
+        ? 'Se retirará todo el stock y el producto será retirado del listado. Los códigos de los demás productos permanecerán intactos y estáticos.'
         : `Se retirarán ${cantidad} unidades y quedarán ${stockDespues} unidades en inventario. El código del producto se conservará.`;
 
     if (!confirm(`¿Confirmar retiro de ${cantidad} unidad(es) de "${nombre}" (${codigoAnterior})?\n\nMotivo: ${motivo}\n\n${accionTexto}`)) {
@@ -435,10 +435,7 @@ function confirmarEliminacionProducto(event) {
         delete conteosFisicos[productoId];
         carrito = carrito.filter(item => item.productoId !== productoId);
 
-        // Renumeración completa, conservando el orden actual del inventario.
-        productos.forEach((producto, index) => {
-            producto.codigo = `PROD-${String(index + 1).padStart(3, '0')}`;
-        });
+        // Los códigos de los demás productos permanecen estrictamente estáticos e inmutables (sin renumeración)
     } else {
         if (!InventoryApp.StockService.retiro(productoId, cantidad)) {
             alert('No fue posible aplicar el retiro de stock.');
