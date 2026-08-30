@@ -238,6 +238,8 @@ function switchTab(tabId) {
             if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
         } else if (tabId === 'premio-mes-admin') {
             if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+        } else if (tabId === 'configuracion') {
+            if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
         } else if (tabId === 'cliente-catalogo') {
             if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
             if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();

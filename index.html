@@ -252,6 +252,9 @@
         <button class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
             <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
         </button>
+        <button class="nav-btn nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')">
+            <i class="fas fa-gear"></i> Configuración
+        </button>
 
         <!-- Pestañas EXCLUSIVAS de Cliente -->
         <button class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
@@ -1346,6 +1349,11 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         </div>
     </div>
 
+    <!-- VISTA 7C (ADMIN): CONFIGURACIÓN GENERAL DEL SISTEMA & REINICIO DE FÁBRICA -->
+    <div id="configuracion" class="view-content">
+        <!-- Renderizado dinámicamente por renderizarConfiguracionAdmin() en modules/configuracion.js -->
+    </div>
+
     <!-- VISTA 8 (CLIENTE): CATÁLOGO DE PRODUCTOS & CARRITO -->
     <div id="cliente-catalogo" class="view-content">
         <!-- Banner de Bienvenida Dinámico y Resumen de Puntos -->
@@ -1997,6 +2005,10 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         <i class="fas fa-gift"></i>
         <span>Premio</span>
     </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')" aria-label="Configuración">
+        <i class="fas fa-gear"></i>
+        <span>Config</span>
+    </button>
 
     <!-- Botones Cliente Móvil -->
     <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')" aria-label="Catálogo">
@@ -2040,6 +2052,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="modules/cliente-view.js"></script>
 <script src="modules/historial-ventas.js"></script>
 <script src="modules/usuarios.js"></script>
+<script src="modules/configuracion.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

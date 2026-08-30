@@ -72,8 +72,8 @@ function configurarVistasPorRol(usuario) {
     const esVendedor = rol === 'vendedor';
     const esCliente = !esAdmin && !esVendedor;
 
-    // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio)
-    const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin'];
+    // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio, Configuración)
+    const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin', 'configuracion'];
     // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
 

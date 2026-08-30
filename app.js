@@ -52,6 +52,7 @@
 
         // Módulos de Gamificación, Premio del Mes y Experiencia Cliente
         if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+        if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
         if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
         if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
