@@ -160,13 +160,22 @@ window.InventoryApp = window.InventoryApp || {};
         asegurarUsuarioAdminInicial();
         AppState.usuarioActual = AppState.usuarios[0] || null;
 
-        // 3. Limpiar localStorage
+        // 3. Limpiar localStorage de manera definitiva
         localStorage.removeItem(STORAGE_KEY);
+        ultimoSnapshot = '';
         guardar(true);
 
-        // 4. Limpiar en Firestore si está conectado
+        // 4. Limpiar en Firestore con protección de Timeout (máx 3s)
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.purgarBaseDeDatosCompleta === 'function') {
-            await window.InventoryApp.Firebase.purgarBaseDeDatosCompleta();
+            try {
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud purge timeout')), 3000));
+                await Promise.race([
+                    window.InventoryApp.Firebase.purgarBaseDeDatosCompleta(),
+                    timeoutPromise
+                ]);
+            } catch (cloudErr) {
+                console.warn('[Persistence] Purga en la nube finalizada o en background:', cloudErr.message || cloudErr);
+            }
         }
 
         return true;

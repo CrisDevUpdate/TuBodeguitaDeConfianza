@@ -297,64 +297,36 @@ window.InventoryApp = window.InventoryApp || {};
                 return true;
             }
 
-            const tieneDatosEnNube = (snapProds && !snapProds.empty) || (snapCli && !snapCli.empty) || (snapVentas && !snapVentas.empty) || (snapUsuarios && !snapUsuarios.empty);
+            // Sincronizar colecciones autoritativas desde Firestore
+            AppState.productos = (snapProds && !snapProds.empty) ? snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.clientes = (snapCli && !snapCli.empty) ? snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.ventas = (snapVentas && !snapVentas.empty) ? snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.abonos = (snapAbonos && !snapAbonos.empty) ? snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.transacciones = (snapTx && !snapTx.empty) ? snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.auditorias = (snapAud && !snapAud.empty) ? snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.eliminaciones = (snapElim && !snapElim.empty) ? snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.clientesEliminados = (snapCliElim && !snapCliElim.empty) ? snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            AppState.usuarios = (snapUsuarios && !snapUsuarios.empty) ? snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
 
-            // Si hay datos en la nube, los aplicamos al estado local
-            if (tieneDatosEnNube) {
-                if (snapProds && !snapProds.empty) {
-                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapCli && !snapCli.empty) {
-                    AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapVentas && !snapVentas.empty) {
-                    AppState.ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapAbonos && !snapAbonos.empty) {
-                    AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapTx && !snapTx.empty) {
-                    AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapAud && !snapAud.empty) {
-                    AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapElim && !snapElim.empty) {
-                    AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapCliElim && !snapCliElim.empty) {
-                    AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapUsuarios && !snapUsuarios.empty) {
-                    AppState.usuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-
-                if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
-                    window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
-                }
-
-                if (snapConfig && snapConfig.exists) {
-                    const cfg = snapConfig.data();
-                    if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
-                }
-
-                // Guardar respaldo en localStorage
-                if (window.InventoryApp && window.InventoryApp.Persistence) {
-                    window.InventoryApp.Persistence.guardar(true);
-                }
-
-                refrescarTodasLasVistas();
-                lastCloudSync = new Date();
-                actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
-            } else {
-                // La base de datos en la nube está vacía: si tenemos datos locales en memoria, los migramos a la nube
-                if (AppState.productos.length > 0 || AppState.clientes.length > 0) {
-                    console.log('[Firebase] Colecciones en la nube vacías. Subiendo estado inicial...');
-                    await subirTodoALaNube();
-                } else {
-                    actualizarUIEstadoNube('conectado', 'Nube lista (Base vacía)');
-                }
+            if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
             }
+
+            if (snapConfig && snapConfig.exists) {
+                const cfg = snapConfig.data();
+                if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+            } else {
+                AppState.nextProductSequence = 1;
+            }
+
+            // Guardar sincronización en caché local
+            if (window.InventoryApp && window.InventoryApp.Persistence) {
+                window.InventoryApp.Persistence.guardar(true);
+            }
+
+            refrescarTodasLasVistas();
+            lastCloudSync = new Date();
+            actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
 
             return true;
         } catch (error) {
@@ -959,7 +931,10 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Purgando colecciones de la nube...');
         try {
             if (db) {
-                // Eliminar documentos de todas las colecciones principales
+                // Desacoplar temporalmente los listeners para evitar cascadas de re-renderizados
+                syncListeners.forEach(unsub => typeof unsub === 'function' && unsub());
+                syncListeners = [];
+
                 const coleccionesAPurgar = [
                     COLLECTIONS.PRODUCTOS,
                     COLLECTIONS.CLIENTES,
@@ -972,7 +947,8 @@ window.InventoryApp = window.InventoryApp || {};
                     COLLECTIONS.USUARIOS
                 ];
 
-                for (const colName of coleccionesAPurgar) {
+                // Limpieza paralela con límite de tiempo
+                await Promise.all(coleccionesAPurgar.map(async (colName) => {
                     try {
                         const snap = await db.collection(colName).get();
                         if (snap && !snap.empty) {
@@ -985,7 +961,7 @@ window.InventoryApp = window.InventoryApp || {};
                     } catch (colErr) {
                         console.warn(`[Firebase] Aviso al limpiar colección ${colName}:`, colErr.message);
                     }
-                }
+                }));
 
                 // Restablecer config y SuperAdmin en la nube
                 const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
@@ -1008,6 +984,9 @@ window.InventoryApp = window.InventoryApp || {};
                     nextProductSequence: 1,
                     lastPurge: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                // Reiniciar listeners en tiempo real limpios
+                iniciarListenersTiempoReal();
             }
 
             actualizarUIEstadoNube('conectado', 'Base de datos en estado virgen');
@@ -1015,6 +994,8 @@ window.InventoryApp = window.InventoryApp || {};
         } catch (error) {
             console.error('[Firebase] Error al purgar Firestore:', error);
             actualizarUIEstadoNube('error', 'Error al purgar la nube');
+            // Asegurar que los listeners se reanuden
+            try { iniciarListenersTiempoReal(); } catch (_) {}
             return false;
         }
     }
