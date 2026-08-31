@@ -306,7 +306,19 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.auditorias = (snapAud && !snapAud.empty) ? snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
             AppState.eliminaciones = (snapElim && !snapElim.empty) ? snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
             AppState.clientesEliminados = (snapCliElim && !snapCliElim.empty) ? snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.usuarios = (snapUsuarios && !snapUsuarios.empty) ? snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+
+            // Fusión segura de usuarios: Preservar usuarios locales y fusionar con los de la nube sin pérdidas
+            const cloudUsers = (snapUsuarios && !snapUsuarios.empty) ? snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            const userMap = new Map();
+            (AppState.usuarios || []).forEach(u => {
+                const uid = u?.id || u?.cedula;
+                if (uid) userMap.set(String(uid), u);
+            });
+            cloudUsers.forEach(u => {
+                const uid = u?.id || u?.cedula;
+                if (uid) userMap.set(String(uid), { ...(userMap.get(String(uid)) || {}), ...u });
+            });
+            AppState.usuarios = Array.from(userMap.values());
 
             if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
                 window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
@@ -541,6 +553,66 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
             syncListeners.push(unsubUsu);
+
+            // Listener de Abonos en Tiempo Real (Requerimiento 3: Pagos reportados por clientes)
+            const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    let huboCambios = false;
+                    snapshot.docChanges().forEach(change => {
+                        const data = { id: change.doc.id, ...change.doc.data() };
+                        if (change.type === 'added' || change.type === 'modified') {
+                            const idx = (AppState.abonos || []).findIndex(a => a.id === data.id);
+                            if (idx !== -1) {
+                                AppState.abonos[idx] = data;
+                            } else {
+                                if (!Array.isArray(AppState.abonos)) AppState.abonos = [];
+                                AppState.abonos.unshift(data);
+                            }
+                            huboCambios = true;
+                        } else if (change.type === 'removed') {
+                            AppState.abonos = (AppState.abonos || []).filter(a => a.id !== data.id);
+                            huboCambios = true;
+                        }
+                    });
+                    if (huboCambios) {
+                        refrescarTodasLasVistas();
+                        if (window.InventoryApp?.PaymentVerification?.verificarNuevosPagos) {
+                            window.InventoryApp.PaymentVerification.verificarNuevosPagos();
+                        }
+                        if (typeof renderizarAbonosPendientesReportados === 'function') {
+                            renderizarAbonosPendientesReportados();
+                        }
+                    }
+                }
+            }, err => console.warn('[Firebase] Listener de abonos aviso:', err.message));
+            syncListeners.push(unsubAbonos);
+
+            // Listener de Transacciones Bancarias
+            const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    let huboCambios = false;
+                    snapshot.docChanges().forEach(change => {
+                        const data = { id: change.doc.id, ...change.doc.data() };
+                        if (change.type === 'added' || change.type === 'modified') {
+                            const idx = (AppState.transacciones || []).findIndex(t => t.id === data.id);
+                            if (idx !== -1) {
+                                AppState.transacciones[idx] = data;
+                            } else {
+                                if (!Array.isArray(AppState.transacciones)) AppState.transacciones = [];
+                                AppState.transacciones.unshift(data);
+                            }
+                            huboCambios = true;
+                        } else if (change.type === 'removed') {
+                            AppState.transacciones = (AppState.transacciones || []).filter(t => t.id !== data.id);
+                            huboCambios = true;
+                        }
+                    });
+                    if (huboCambios) {
+                        refrescarTodasLasVistas();
+                    }
+                }
+            }, err => console.warn('[Firebase] Listener de transacciones aviso:', err.message));
+            syncListeners.push(unsubTx);
 
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
@@ -1000,6 +1072,26 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * CRUD: Guardar Archivo Histórico de Auditoría en Firestore
+     */
+    async function guardarArchivoHistoricoCloud(registroArchivo) {
+        if (!registroArchivo || !registroArchivo.archiveId) return false;
+        try {
+            if (db) {
+                const archiveRef = db.collection('archivos_historicos').doc(String(registroArchivo.archiveId));
+                await archiveRef.set({
+                    ...registroArchivo,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error guardando archivo histórico:', e);
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -1016,6 +1108,7 @@ window.InventoryApp = window.InventoryApp || {};
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
+        guardarArchivoHistorico: guardarArchivoHistoricoCloud,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
