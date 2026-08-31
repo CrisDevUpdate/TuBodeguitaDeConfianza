@@ -10,7 +10,7 @@ window.InventoryApp = window.InventoryApp || {};
     const claves = [
         'productos', 'clientes', 'ventas', 'abonos', 'transacciones', 'carrito',
         'conteosFisicos', 'auditorias', 'eliminaciones', 'clientesEliminados',
-        'clienteSeleccionadoId', 'nextProductSequence', 'usuarios', 'usuarioActual',
+        'clienteSeleccionadoId', 'nextProductSequence', 'usuarios',
         'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
     ];
 
@@ -122,11 +122,13 @@ window.InventoryApp = window.InventoryApp || {};
             });
 
             asegurarUsuarioAdminInicial();
+            AppState.usuarioActual = null;
             ultimoSnapshot = construirSnapshot();
             return true;
         } catch (error) {
             console.warn('No fue posible cargar el respaldo local. Se iniciará con el estado actual.', error);
             asegurarUsuarioAdminInicial();
+            AppState.usuarioActual = null;
             return false;
         }
     }
@@ -134,6 +136,7 @@ window.InventoryApp = window.InventoryApp || {};
     function iniciar() {
         // 1. Carga inmediata de caché local para arranque instantáneo (0ms)
         const cargado = cargar();
+        AppState.usuarioActual = null;
         
         if (temporizador) clearInterval(temporizador);
         temporizador = setInterval(() => guardar(false), 2000);
@@ -171,7 +174,7 @@ window.InventoryApp = window.InventoryApp || {};
         
         // 2. SuperAdmin intacto con clave 1810
         asegurarUsuarioAdminInicial();
-        AppState.usuarioActual = AppState.usuarios[0] || null;
+        AppState.usuarioActual = null;
 
         // 3. Limpiar localStorage
         localStorage.removeItem(STORAGE_KEY);

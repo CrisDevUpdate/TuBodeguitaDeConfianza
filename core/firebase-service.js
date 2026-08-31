@@ -301,78 +301,73 @@ window.InventoryApp = window.InventoryApp || {};
             ]);
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
-            const algunoRespondio = snapProds || snapCli || snapVentas || snapAbonos || snapTx || snapUsuarios;
+            const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
             if (!algunoRespondio) {
                 console.info('[Firebase] Firestore en modo sin conexión o conectando en segundo plano. Utilizando datos locales.');
                 actualizarUIEstadoNube('offline', 'Modo Offline (Caché local activa)');
                 return true;
             }
 
-            const tieneDatosEnNube = (snapProds && !snapProds.empty) || (snapCli && !snapCli.empty) || (snapVentas && !snapVentas.empty) || (snapUsuarios && !snapUsuarios.empty);
+            // Aplicar de forma fiel y directa los datos de la nube
+            if (snapProds) {
+                AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapCli) {
+                AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapVentas) {
+                AppState.ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapAbonos) {
+                AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapTx) {
+                AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapAud) {
+                AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapElim) {
+                AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapCliElim) {
+                AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapUsuarios) {
+                AppState.usuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            if (snapCanjes) {
+                AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
 
-            // Si hay datos en la nube, los aplicamos al estado local
-            if (tieneDatosEnNube) {
-                if (snapProds && !snapProds.empty) {
-                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapCli && !snapCli.empty) {
-                    AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapVentas && !snapVentas.empty) {
-                    AppState.ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapAbonos && !snapAbonos.empty) {
-                    AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapTx && !snapTx.empty) {
-                    AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapAud && !snapAud.empty) {
-                    AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapElim && !snapElim.empty) {
-                    AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapCliElim && !snapCliElim.empty) {
-                    AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapUsuarios && !snapUsuarios.empty) {
-                    AppState.usuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-                if (snapCanjes && !snapCanjes.empty) {
-                    AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
+            if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+            }
 
+            if (snapConfig && snapConfig.exists) {
+                const cfg = snapConfig.data();
+                if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+            }
+
+            // Si la nube estaba totalmente vacía de usuarios, subir SuperAdmin y configuración base
+            if (!snapUsuarios || snapUsuarios.empty) {
                 if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
                     window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                 }
-
-                if (snapConfig && snapConfig.exists) {
-                    const cfg = snapConfig.data();
-                    if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
-                    if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
-                    if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
-                    if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
-                }
-
-                // Guardar respaldo en localStorage
-                if (window.InventoryApp && window.InventoryApp.Persistence) {
-                    window.InventoryApp.Persistence.guardar(true);
-                }
-
-                refrescarTodasLasVistas();
-                lastCloudSync = new Date();
-                actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
-            } else {
-                // La base de datos en la nube está vacía: si tenemos datos locales en memoria, los migramos a la nube
-                if (AppState.productos.length > 0 || AppState.clientes.length > 0 || (AppState.usuarios && AppState.usuarios.length > 1)) {
-                    console.log('[Firebase] Colecciones en la nube vacías. Subiendo estado inicial...');
-                    await subirTodoALaNube();
-                } else {
-                    actualizarUIEstadoNube('conectado', 'Nube lista (Base vacía)');
-                }
+                await subirTodoALaNube();
             }
 
+            // Guardar respaldo en localStorage
+            if (window.InventoryApp && window.InventoryApp.Persistence) {
+                window.InventoryApp.Persistence.guardar(true);
+            }
+
+            refrescarTodasLasVistas();
+            lastCloudSync = new Date();
+            actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
             return true;
         } catch (error) {
             const esOffline = error && error.message && error.message.includes('offline');
@@ -509,29 +504,19 @@ window.InventoryApp = window.InventoryApp || {};
         syncListeners = [];
 
         try {
+            // Helper para persistir caché tras actualización en tiempo real
+            const guardarCacheLocal = () => {
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(false);
+                }
+            };
+
             // Listener de productos
             const unsubProds = db.collection(COLLECTIONS.PRODUCTOS).onSnapshot(snapshot => {
-                // Solo si el cambio proviene del servidor y no de una mutación local inmediata
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = AppState.productos.findIndex(p => p.id === data.id);
-                            if (idx !== -1) {
-                                AppState.productos[idx] = data;
-                            } else {
-                                AppState.productos.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.productos = AppState.productos.filter(p => p.id !== data.id);
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
-                    }
+                    AppState.productos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de productos aviso:', err.message));
             syncListeners.push(unsubProds);
@@ -539,50 +524,22 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de clientes
             const unsubCli = db.collection(COLLECTIONS.CLIENTES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = AppState.clientes.findIndex(c => c.id === data.id);
-                            if (idx !== -1) {
-                                AppState.clientes[idx] = data;
-                            } else {
-                                AppState.clientes.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.clientes = AppState.clientes.filter(c => c.id !== data.id);
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
-                    }
+                    AppState.clientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de clientes aviso:', err.message));
+            syncListeners.push(unsubCli);
+
             // Listener de usuarios
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = (AppState.usuarios || []).findIndex(u => (u.id || u.cedula) === (data.id || data.cedula));
-                            if (idx !== -1) {
-                                AppState.usuarios[idx] = data;
-                            } else {
-                                if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
-                                AppState.usuarios.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.usuarios = (AppState.usuarios || []).filter(u => (u.id || u.cedula) !== (data.id || data.cedula));
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
+                    AppState.usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                        window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                     }
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
             syncListeners.push(unsubUsu);
@@ -590,26 +547,9 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = (AppState.ventas || []).findIndex(v => v.id === data.id);
-                            if (idx !== -1) {
-                                AppState.ventas[idx] = data;
-                            } else {
-                                if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
-                                AppState.ventas.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.ventas = (AppState.ventas || []).filter(v => v.id !== data.id);
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
-                    }
+                    AppState.ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de ventas aviso:', err.message));
             syncListeners.push(unsubVentas);
@@ -617,26 +557,9 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de abonos
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = (AppState.abonos || []).findIndex(a => a.id === data.id);
-                            if (idx !== -1) {
-                                AppState.abonos[idx] = data;
-                            } else {
-                                if (!Array.isArray(AppState.abonos)) AppState.abonos = [];
-                                AppState.abonos.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.abonos = (AppState.abonos || []).filter(a => a.id !== data.id);
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
-                    }
+                    AppState.abonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de abonos aviso:', err.message));
             syncListeners.push(unsubAbonos);
@@ -644,29 +567,52 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de transacciones
             const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    let huboCambios = false;
-                    snapshot.docChanges().forEach(change => {
-                        const data = { id: change.doc.id, ...change.doc.data() };
-                        if (change.type === 'added' || change.type === 'modified') {
-                            const idx = (AppState.transacciones || []).findIndex(t => t.id === data.id);
-                            if (idx !== -1) {
-                                AppState.transacciones[idx] = data;
-                            } else {
-                                if (!Array.isArray(AppState.transacciones)) AppState.transacciones = [];
-                                AppState.transacciones.push(data);
-                            }
-                            huboCambios = true;
-                        } else if (change.type === 'removed') {
-                            AppState.transacciones = (AppState.transacciones || []).filter(t => t.id !== data.id);
-                            huboCambios = true;
-                        }
-                    });
-                    if (huboCambios) {
-                        refrescarTodasLasVistas();
-                    }
+                    AppState.transacciones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de transacciones aviso:', err.message));
             syncListeners.push(unsubTx);
+
+            // Listener de auditorias
+            const unsubAud = db.collection(COLLECTIONS.AUDITORIAS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    AppState.auditorias = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
+                }
+            }, err => console.warn('[Firebase] Listener de auditorias aviso:', err.message));
+            syncListeners.push(unsubAud);
+
+            // Listener de eliminaciones
+            const unsubElim = db.collection(COLLECTIONS.ELIMINACIONES).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    AppState.eliminaciones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
+                }
+            }, err => console.warn('[Firebase] Listener de eliminaciones aviso:', err.message));
+            syncListeners.push(unsubElim);
+
+            // Listener de clientes eliminados
+            const unsubCliElim = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    AppState.clientesEliminados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
+                }
+            }, err => console.warn('[Firebase] Listener de clientes eliminados aviso:', err.message));
+            syncListeners.push(unsubCliElim);
+
+            // Listener de canjes de premios
+            const unsubCanjes = db.collection(COLLECTIONS.CANJES).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    AppState.canjesPremios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    guardarCacheLocal();
+                    refrescarTodasLasVistas();
+                }
+            }, err => console.warn('[Firebase] Listener de canjes aviso:', err.message));
+            syncListeners.push(unsubCanjes);
 
             // Listener de configuración
             const unsubConfig = db.collection(COLLECTIONS.CONFIG).doc('global').onSnapshot(doc => {
@@ -676,6 +622,7 @@ window.InventoryApp = window.InventoryApp || {};
                     if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
                     if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                     if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                    guardarCacheLocal();
                     refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de config aviso:', err.message));

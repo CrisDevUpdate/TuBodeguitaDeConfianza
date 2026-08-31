@@ -413,7 +413,7 @@ async function procesarEjecucionHardReset() {
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
             AppState.usuarios = [superAdminUser];
-            AppState.usuarioActual = superAdminUser;
+            AppState.usuarioActual = null;
 
             if (window.InventoryApp.Persistence?.guardar) {
                 window.InventoryApp.Persistence.guardar(true);
