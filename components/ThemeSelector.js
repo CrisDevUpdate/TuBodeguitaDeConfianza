@@ -145,21 +145,44 @@ class ThemeManager {
         if (!theme) return;
         this.currentAppliedTheme = theme;
 
+        const isDark = theme.mode === 'dark' || theme.id === 'dark_oled';
         const root = document.documentElement;
+        
+        // Colores de texto con contraste garantizado en dark y light mode
+        const textPrimary = isDark ? (theme.textMain && theme.textMain.startsWith('#F') ? theme.textMain : '#F9FAFB') : (theme.textMain || '#0f172a');
+        const textSecondary = isDark ? '#E5E7EB' : '#334155';
+        const textMuted = isDark ? (theme.textMuted || '#9CA3AF') : (theme.textMuted || '#64748b');
+
         if (theme.primary) root.style.setProperty('--primary', theme.primary);
         if (theme.primaryAccent) root.style.setProperty('--primary-accent', theme.primaryAccent);
         if (theme.primaryHover) root.style.setProperty('--primary-hover', theme.primaryHover);
         if (theme.bgColor) root.style.setProperty('--bg-color', theme.bgColor);
         if (theme.cardBg) root.style.setProperty('--card-bg', theme.cardBg);
-        if (theme.textMain) root.style.setProperty('--text-main', theme.textMain);
-        if (theme.textMuted) root.style.setProperty('--text-muted', theme.textMuted);
+        
+        root.style.setProperty('--text-main', textPrimary);
+        root.style.setProperty('--text-primary', textPrimary);
+        root.style.setProperty('--text-secondary', textSecondary);
+        root.style.setProperty('--text-muted', textMuted);
+
         if (theme.border) root.style.setProperty('--border', theme.border);
         if (theme.borderLight) root.style.setProperty('--border-light', theme.borderLight);
         if (theme.fontFamily) root.style.setProperty('--font-main', theme.fontFamily);
 
-        if (theme.mode === 'dark') {
+        if (isDark) {
+            root.style.setProperty('--input-bg', '#1e293b');
+            root.style.setProperty('--modal-bg', '#131b2e');
+            root.style.setProperty('--table-header-bg', '#0f172a');
+            root.style.setProperty('--table-row-hover', '#1e293b');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body.setAttribute('data-theme', 'dark');
             document.body.classList.add('dark-theme');
         } else {
+            root.style.setProperty('--input-bg', '#ffffff');
+            root.style.setProperty('--modal-bg', '#ffffff');
+            root.style.setProperty('--table-header-bg', '#f8fafc');
+            root.style.setProperty('--table-row-hover', '#f1f5f9');
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.body.setAttribute('data-theme', 'light');
             document.body.classList.remove('dark-theme');
         }
     }

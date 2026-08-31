@@ -55,8 +55,8 @@ function obtenerPuntosUsuario(cedulaOId) {
 function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra Contado') {
     if (!clienteCedulaOId || Number(montoUSD) <= 0) return 0;
 
-    // Si la temporada está inactiva (Temporada de Invierno / Descanso), no se acumulan puntos
-    if (AppState.premioMes && AppState.premioMes.temporadaActiva === false) {
+    // Si la temporada de invierno está activa en Configuración, no se acumulan puntos
+    if (AppState.temporadaInviernoActiva) {
         console.log('[Puntos] Temporada de invierno activa: acumulación pausada.');
         return 0;
     }
@@ -152,7 +152,6 @@ function guardarConfiguracionPremioMes(e) {
     const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
     const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
     const mesInput = document.getElementById('premio-admin-mes');
-    const temporadaInput = document.getElementById('premio-temporada-activa');
 
     const nombre = (nombreInput?.value || '').trim();
     const puntos = Number(puntosInput?.value || 200);
@@ -160,7 +159,6 @@ function guardarConfiguracionPremioMes(e) {
     const imagen = (imagenInput?.value || '').trim();
     const descripcion = (descInput?.value || '').trim();
     const mes = (mesInput?.value || '').trim();
-    const temporadaActiva = temporadaInput ? temporadaInput.checked : (AppState.premioMes?.temporadaActiva !== false);
 
     if (!nombre) {
         if (window.InventoryApp.Modal?.alert) {
@@ -185,8 +183,7 @@ function guardarConfiguracionPremioMes(e) {
         puntosPorDolar: puntosPorDolar > 0 ? puntosPorDolar : 1,
         imagen: imagen || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
         descripcion: descripcion || 'Premio exclusivo del mes para nuestros clientes más fieles.',
-        mes: mes || 'Mes en Curso',
-        temporadaActiva: temporadaActiva
+        mes: mes || 'Mes en Curso'
     };
 
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
@@ -195,8 +192,8 @@ function guardarConfiguracionPremioMes(e) {
 
     if (window.InventoryApp.Modal?.alert) {
         window.InventoryApp.Modal.alert(
-            'Temporada Actualizada',
-            `¡La configuración del Premio del Mes "${nombre}" (${puntos} pts) ha sido guardada exitosamente!\n\nEstado de Temporada: ${temporadaActiva ? '🟢 ACTIVA (Puntos Habilitados)' : '❄️ INVIERNO (En Pausa)'}`
+            'Configuración Guardada',
+            `¡La configuración del Premio del Mes "${nombre}" (${puntos} pts) ha sido guardada exitosamente!`
         );
     } else {
         alert('¡Configuración del Premio del Mes actualizada exitosamente!');
@@ -285,7 +282,6 @@ function renderizarConfiguradorPremioAdmin() {
     const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
     const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
     const mesInput = document.getElementById('premio-admin-mes');
-    const temporadaInput = document.getElementById('premio-temporada-activa');
 
     if (nombreInput) nombreInput.value = pm.nombre || '';
     if (puntosInput) puntosInput.value = pm.puntosRequeridos || 200;
@@ -293,7 +289,6 @@ function renderizarConfiguradorPremioAdmin() {
     if (imagenInput) imagenInput.value = pm.imagen || '';
     if (descInput) descInput.value = pm.descripcion || '';
     if (mesInput) mesInput.value = pm.mes || '';
-    if (temporadaInput) temporadaInput.checked = pm.temporadaActiva !== false;
 
     // Renderizar presets
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');

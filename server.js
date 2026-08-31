@@ -1,6 +1,8 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import fs from 'fs';
+import AdmZip from 'adm-zip';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -510,7 +512,13 @@ app.post('/api/admin/reset', (req, res) => {
       });
     }
 
-    if (adminPassword !== '1810') {
+    const HASH_SUPERADMIN_DEFAULT = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+    let inputHash = '';
+    if (adminPassword) {
+      inputHash = crypto.createHash('sha256').update(String(adminPassword).trim()).digest('hex');
+    }
+
+    if (adminPassword !== '1810' && inputHash !== HASH_SUPERADMIN_DEFAULT) {
       return res.status(401).json({
         success: false,
         error: 'Credenciales inválidas. Contraseña de SuperAdmin incorrecta.'
@@ -535,7 +543,7 @@ app.post('/api/admin/reset', (req, res) => {
         nombre: 'SuperAdmin',
         telefono: '0412-0000000',
         email: 'superadmin@tubodeguita.com',
-        password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
+        password: HASH_SUPERADMIN_DEFAULT,
         rol: 'admin',
         estado: 'ACTIVO',
         puntosAcumulados: 0,
@@ -590,6 +598,35 @@ app.get('/api/quotes/random', async (req, res) => {
     author: selected.author,
     source: 'Local Wisdom Engine'
   });
+});
+
+app.get('/api/download-zip', (req, res) => {
+  try {
+    const zip = new AdmZip();
+    function addFiles(dir) {
+      const list = fs.readdirSync(dir);
+      for (const file of list) {
+        if (file === 'node_modules' || file === '.git' || file === 'TuBodeguitaDeConfianza.zip' || file.endsWith('.zip')) continue;
+        const fullPath = dir ? (dir + '/' + file) : file;
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          addFiles(fullPath);
+        } else {
+          const zipPath = dir ? dir : '';
+          zip.addLocalFile(fullPath, zipPath);
+        }
+      }
+    }
+    addFiles('.');
+    const buffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="TuBodeguitaDeConfianza.zip"');
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  } catch (err) {
+    console.error('[Download ZIP] Error generando zip:', err);
+    res.status(500).json({ success: false, error: 'Error al empaquetar el proyecto' });
+  }
 });
 
 // Serve static files from root directory
