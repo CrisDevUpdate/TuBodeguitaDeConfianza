@@ -599,7 +599,7 @@ class TreeGamificationWidget {
                         ${this.generarSVGArbol(this.porcentaje)}
                         
                         <!-- Badge flotante de estado en el árbol -->
-                        <div style="position:absolute; top:12px; left:14px; background:var(--card-bg, rgba(255,255,255,0.92)); backdrop-filter:blur(6px); border:1px solid var(--border-light, #cbd5e1); border-radius:20px; padding:4px 12px; font-size:0.78rem; font-weight:700; color:var(--text-main, #0f172a); display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+                        <div style="position:absolute; top:12px; left:14px; background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); border:1px solid #cbd5e1; border-radius:20px; padding:4px 12px; font-size:0.78rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
                             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${temporadaActiva ? etapa.color : '#38bdf8'};"></span>
                             <span>${temporadaActiva ? etapa.titulo : 'Hibernación Invernal'}</span>
                         </div>

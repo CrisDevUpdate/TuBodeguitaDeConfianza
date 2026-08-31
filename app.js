@@ -224,7 +224,7 @@
     };
 
     window.limpiarBaseDeDatosVirgen = async function () {
-        if (!confirm('⚠️ ATENCIÓN: ¿Estás seguro de que deseas REINICIAR Y PURGAR completamente la base de datos a estado virgen?\n\n- Se eliminarán todos los productos, clientes, ventas, abonos y transacciones tanto en este navegador como en Firebase Firestore.\n- El usuario SuperAdmin permanecerá activo.\n\nEsta acción no se puede deshacer.')) {
+        if (!confirm('⚠️ ATENCIÓN: ¿Estás seguro de que deseas REINICIAR Y PURGAR completamente la base de datos a estado virgen?\n\n- Se eliminarán todos los productos, clientes, ventas, abonos y transacciones tanto en este navegador como en Firebase Firestore.\n- El usuario SuperAdmin quedará activo con su clave predeterminada (1810).\n\nEsta acción no se puede deshacer.')) {
             return;
         }
 

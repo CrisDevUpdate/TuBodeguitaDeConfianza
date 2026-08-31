@@ -1160,16 +1160,13 @@ function abrirModalReportarPagoCliente() {
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 520px; padding: 24px; animation: modalPop 0.25s ease-out; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 480px; padding: 24px; animation: modalPop 0.25s ease-out;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
                 <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-money-bill-transfer" style="color:var(--primary-accent);"></i> Reportar Abono a Cuenta
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalReportarPagoCliente()"><i class="fas fa-times"></i></button>
             </div>
-
-            <!-- Pasarela Multibanco Escalable: Datos de Destino Oficiales -->
-            <div id="abono-cli-bank-selector-container" style="margin-bottom:14px;"></div>
 
             <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
                 <div class="form-group" style="margin-bottom:12px;">
@@ -1181,9 +1178,9 @@ function abrirModalReportarPagoCliente() {
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago Utilizado <span style="color:var(--danger);">*</span></label>
+                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago <span style="color:var(--danger);">*</span></label>
                     <select id="abono-cli-metodo" class="form-control" required>
-                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (0102 / 0105)</option>
+                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (VES)</option>
                         <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
                         <option value="Efectivo USD">💵 Efectivo ($ USD)</option>
                         <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
@@ -1215,11 +1212,6 @@ function abrirModalReportarPagoCliente() {
     `;
 
     modal.classList.add('active');
-
-    // Inicializar pasarela de datos bancarios con copiado en 1 clic
-    if (window.InventoryApp?.BankSelector?.renderizarSelector) {
-        window.InventoryApp.BankSelector.renderizarSelector('abono-cli-bank-selector-container');
-    }
 }
 
 function calcularEquivalenteAbonoCliente(usdVal) {

@@ -5,13 +5,25 @@ window.InventoryApp = window.InventoryApp || {};
     const STORAGE_KEY = 'inventoryapp.beta.v1.state';
     let ultimoSnapshot = '';
     let temporizador = null;
+    let autoSyncTimer = null;
 
     const claves = [
         'productos', 'clientes', 'ventas', 'abonos', 'transacciones', 'carrito',
         'conteosFisicos', 'auditorias', 'eliminaciones', 'clientesEliminados',
         'clienteSeleccionadoId', 'nextProductSequence', 'usuarios', 'usuarioActual',
-        'premioMes', 'canjesPremios'
+        'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
     ];
+
+    function programarSincronizacionCloudDebounced() {
+        if (autoSyncTimer) clearTimeout(autoSyncTimer);
+        autoSyncTimer = setTimeout(() => {
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.syncToCloud === 'function') {
+                window.InventoryApp.Firebase.syncToCloud().catch(err => {
+                    console.warn('[Persistence] Auto-sincronización en segundo plano:', err.message || err);
+                });
+            }
+        }, 1200);
+    }
 
     function asegurarUsuarioAdminInicial() {
         if (!AppState.premioMes || typeof AppState.premioMes !== 'object') {
@@ -56,8 +68,7 @@ window.InventoryApp = window.InventoryApp || {};
                 puntosCanjeados: 0,
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
-            // Agregar SuperAdmin sin sobreescribir ni eliminar otros usuarios existentes
-            AppState.usuarios.unshift(superAdmin);
+            AppState.usuarios = [superAdmin];
         } else {
             // Asegurar que mantenga su contraseña hasheada, rol admin y estado ACTIVO para control total
             superAdmin.password = HASH_SUPERADMIN;
@@ -78,6 +89,7 @@ window.InventoryApp = window.InventoryApp || {};
             if (!force && snapshot === ultimoSnapshot) return false;
             localStorage.setItem(STORAGE_KEY, snapshot);
             ultimoSnapshot = snapshot;
+            programarSincronizacionCloudDebounced();
             return true;
         } catch (error) {
             console.warn('No fue posible persistir los datos localmente.', error);
@@ -140,84 +152,8 @@ window.InventoryApp = window.InventoryApp || {};
         return cargado;
     }
 
-    /**
-     * Motor de Archivado y Vaciado Universal Auditatorio
-     * Resguarda colecciones con marcas de tiempo archive_[tipo]_[TIMESTAMP] antes de cualquier vaciado
-     */
-    async function archivarUniversalmente(tipo, registros, motivo = 'Vaciado auditado', operador = 'SuperAdmin') {
-        const timestamp = Date.now();
-        const sanitizedType = String(tipo).toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-        const archiveId = `archive_${sanitizedType.toLowerCase()}_${timestamp}`;
-
-        const registroArchivo = {
-            archiveId,
-            type: sanitizedType,
-            timestamp,
-            archivedAt: new Date().toISOString(),
-            totalRecords: Array.isArray(registros) ? registros.length : 1,
-            motivo,
-            operador,
-            payload: registros
-        };
-
-        // 1. Guardar en almacenamiento local histórico inmutable
-        try {
-            const historialArchivos = JSON.parse(localStorage.getItem('app_archive_registry') || '[]');
-            historialArchivos.unshift({
-                archiveId,
-                type: sanitizedType,
-                archivedAt: registroArchivo.archivedAt,
-                totalRecords: registroArchivo.totalRecords,
-                motivo,
-                operador
-            });
-            localStorage.setItem('app_archive_registry', JSON.stringify(historialArchivos.slice(0, 100)));
-            localStorage.setItem(`app_archive_${archiveId}`, JSON.stringify(registroArchivo));
-        } catch (e) {
-            console.warn('[Archive Engine] Error en almacenamiento local de archivo:', e);
-        }
-
-        // 2. Enviar a endpoint de servidor / Serverless API
-        try {
-            fetch('/api/admin/archive', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: sanitizedType,
-                    records: registros,
-                    reason: motivo,
-                    operator
-                })
-            }).catch(() => {});
-        } catch (e) {}
-
-        // 3. Guardar en Firestore si está conectado
-        if (window.InventoryApp?.Firebase?.guardarArchivoHistorico) {
-            window.InventoryApp.Firebase.guardarArchivoHistorico(registroArchivo).catch(() => {});
-        }
-
-        console.log(`[Universal Archiving Engine] Archivado exitoso: ${archiveId} (${registroArchivo.totalRecords} registros)`);
-        return archiveId;
-    }
-
     async function limpiarBaseDeDatosVirgen() {
-        // PASO OBLIGATORIO PREVIO: Respaldar universalmente todos los datos antes del vaciado
-        const snapshotCompleto = {
-            productos: [...(AppState.productos || [])],
-            clientes: [...(AppState.clientes || [])],
-            ventas: [...(AppState.ventas || [])],
-            abonos: [...(AppState.abonos || [])],
-            transacciones: [...(AppState.transacciones || [])],
-            auditorias: [...(AppState.auditorias || [])],
-            eliminaciones: [...(AppState.eliminaciones || [])],
-            clientesEliminados: [...(AppState.clientesEliminados || [])],
-            usuarios: [...(AppState.usuarios || [])],
-            canjesPremios: [...(AppState.canjesPremios || [])]
-        };
-
-        await archivarUniversalmente('ALL_COLLECTIONS_VIRGIN_RESET', snapshotCompleto, 'Reinicio de Fábrica Solicitado', AppState.usuarioActual?.id || 'SuperAdmin');
-
-        // 1. Limpiar estado activo en memoria
+        // 1. Limpiar estado en memoria
         AppState.productos = [];
         AppState.clientes = [];
         AppState.ventas = [];
@@ -233,26 +169,17 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.nextProductSequence = 1;
         AppState.canjesPremios = [];
         
-        // 2. SuperAdmin intacto con permisos totales
+        // 2. SuperAdmin intacto con clave 1810
         asegurarUsuarioAdminInicial();
         AppState.usuarioActual = AppState.usuarios[0] || null;
 
-        // 3. Limpiar localStorage de manera definitiva
+        // 3. Limpiar localStorage
         localStorage.removeItem(STORAGE_KEY);
-        ultimoSnapshot = '';
         guardar(true);
 
-        // 4. Limpiar en Firestore con protección de Timeout (máx 3s)
+        // 4. Limpiar en Firestore si está conectado
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.purgarBaseDeDatosCompleta === 'function') {
-            try {
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud purge timeout')), 3000));
-                await Promise.race([
-                    window.InventoryApp.Firebase.purgarBaseDeDatosCompleta(),
-                    timeoutPromise
-                ]);
-            } catch (cloudErr) {
-                console.warn('[Persistence] Purga en la nube finalizada o en background:', cloudErr.message || cloudErr);
-            }
+            await window.InventoryApp.Firebase.purgarBaseDeDatosCompleta();
         }
 
         return true;
@@ -570,7 +497,6 @@ window.InventoryApp = window.InventoryApp || {};
         iniciar,
         limpiarTodo,
         limpiarBaseDeDatosVirgen,
-        archivarUniversalmente,
         exportarRespaldoJSON,
         importarRespaldoJSON,
         exportarMasterExcel,

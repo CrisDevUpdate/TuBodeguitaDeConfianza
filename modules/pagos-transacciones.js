@@ -720,11 +720,6 @@ function obtenerNombreClienteTransaccion(clienteId) {
 }
 
 function renderizarTransacciones(filtro = null) {
-    // Renderizar panel reactivo de pagos reportados pendientes
-    if (window.InventoryApp?.PaymentVerification?.renderizarPanelVerificacion) {
-        window.InventoryApp.PaymentVerification.renderizarPanelVerificacion('abonos-pendientes-admin-container');
-    }
-
     const tbody = document.getElementById('transacciones-body');
     if (!tbody) return;
     const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;

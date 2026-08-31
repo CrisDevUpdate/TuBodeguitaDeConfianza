@@ -1,8 +1,6 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
-import fs from 'fs';
-import AdmZip from 'adm-zip';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -170,91 +168,8 @@ let serverPayments = [];
 let serverLoyaltyClaims = [];
 let serverInventoryAdjustments = [];
 
-// Universal Archive Store (In-Memory Audit Store)
-let serverArchives = [];
-
-// API Universal Archiving Engine: POST /api/admin/archive
-app.post('/api/admin/archive', (req, res) => {
-  try {
-    const { type = 'GENERAL', records = [], reason = 'Vaciado administrativo', metadata = {}, operator = 'SuperAdmin' } = req.body || {};
-    const timestamp = Date.now();
-    const sanitizedType = String(type).toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-    const archiveId = `archive_${sanitizedType.toLowerCase()}_${timestamp}`;
-
-    const archiveRecord = {
-      archiveId,
-      type: sanitizedType,
-      timestamp,
-      archivedAt: new Date().toISOString(),
-      totalRecords: Array.isArray(records) ? records.length : (records ? 1 : 0),
-      reason: String(reason).trim(),
-      operator: String(operator).trim(),
-      metadata: {
-        ...metadata,
-        serverEnvironment: process.env.NODE_ENV || 'production',
-        userAgent: req.headers['user-agent'] || 'Express Server'
-      },
-      payload: records
-    };
-
-    serverArchives.unshift(archiveRecord);
-    console.log(`[Universal Archiving Engine] Archivado exitoso en servidor: ${archiveId} (${archiveRecord.totalRecords} registros)`);
-
-    res.json({
-      success: true,
-      archiveId,
-      archivedAt: archiveRecord.archivedAt,
-      totalArchived: archiveRecord.totalRecords,
-      message: `Registros archivados exitosamente en ${archiveId}. No se eliminaron datos de forma definitiva.`
-    });
-  } catch (err) {
-    console.error('[Universal Archiving Engine] Error al procesar archivado:', err);
-    res.status(500).json({ success: false, error: 'Error en archivado: ' + err.message });
-  }
-});
-
-// API Universal Archiving Engine: GET /api/admin/archive
-app.get('/api/admin/archive', (req, res) => {
-  const { type, archiveId, limit = 50 } = req.query;
-  let results = [...serverArchives];
-  if (type) {
-    results = results.filter(a => a.type === type || a.archiveId.includes(type));
-  }
-  if (archiveId) {
-    results = results.filter(a => a.archiveId === archiveId);
-  }
-  res.json({
-    success: true,
-    totalArchives: results.length,
-    archives: results.slice(0, Number(limit))
-  });
-});
-
-// API Database Reset (Con Archivado Universal Previo): POST /api/database/reset
+// API Database Reset (100% Virgin State): POST /api/database/reset
 app.post('/api/database/reset', (req, res) => {
-  const timestamp = Date.now();
-  const archiveId = `archive_reset_${timestamp}`;
-  
-  // Respaldar antes de resetear cualquier variable
-  const snapshotPreReset = {
-    archiveId,
-    type: 'RESET_TOTAL',
-    timestamp,
-    archivedAt: new Date().toISOString(),
-    totalRecords: serverSales.length + serverPayments.length + serverUsers.length + serverInventoryAdjustments.length,
-    reason: req.body?.motivo || 'Reinicio de fábrica solicitado',
-    operator: req.body?.operador || 'SuperAdmin',
-    payload: {
-      sales: [...serverSales],
-      payments: [...serverPayments],
-      users: [...serverUsers],
-      inventoryAdjustments: [...serverInventoryAdjustments],
-      loyaltyClaims: [...serverLoyaltyClaims]
-    }
-  };
-  serverArchives.unshift(snapshotPreReset);
-  console.log(`[Universal Archive] Snapshot pre-reset guardado: ${archiveId}`);
-
   serverSales = [];
   serverPayments = [];
   serverLoyaltyClaims = [];
@@ -274,12 +189,8 @@ app.post('/api/database/reset', (req, res) => {
       fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
     }
   ];
-  console.log('[Database Reset] Base de datos restaurada. Datos previos resguardados en repositorio histórico.');
-  res.json({ 
-    success: true, 
-    message: 'Base de datos restaurada. Todo el historial fue archivado en auditoría contable histórica.',
-    archiveId
-  });
+  console.log('[Database Reset] Base de datos reseteada a estado 100% virgen. Solo SuperAdmin activo.');
+  res.json({ success: true, message: 'Base de datos restaurada al estado virgen con solo SuperAdmin activo.' });
 });
 
 // API Inventory Adjustment: POST /api/inventory/adjust
@@ -599,13 +510,7 @@ app.post('/api/admin/reset', (req, res) => {
       });
     }
 
-    const HASH_SUPERADMIN_DEFAULT = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
-    let inputHash = '';
-    if (adminPassword) {
-      inputHash = crypto.createHash('sha256').update(String(adminPassword).trim()).digest('hex');
-    }
-
-    if (adminPassword !== '1810' && inputHash !== HASH_SUPERADMIN_DEFAULT) {
+    if (adminPassword !== '1810') {
       return res.status(401).json({
         success: false,
         error: 'Credenciales inválidas. Contraseña de SuperAdmin incorrecta.'
@@ -630,7 +535,7 @@ app.post('/api/admin/reset', (req, res) => {
         nombre: 'SuperAdmin',
         telefono: '0412-0000000',
         email: 'superadmin@tubodeguita.com',
-        password: HASH_SUPERADMIN_DEFAULT,
+        password: '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51',
         rol: 'admin',
         estado: 'ACTIVO',
         puntosAcumulados: 0,
@@ -685,35 +590,6 @@ app.get('/api/quotes/random', async (req, res) => {
     author: selected.author,
     source: 'Local Wisdom Engine'
   });
-});
-
-app.get('/api/download-zip', (req, res) => {
-  try {
-    const zip = new AdmZip();
-    function addFiles(dir) {
-      const list = fs.readdirSync(dir);
-      for (const file of list) {
-        if (file === 'node_modules' || file === '.git' || file === 'TuBodeguitaDeConfianza.zip' || file.endsWith('.zip')) continue;
-        const fullPath = dir ? (dir + '/' + file) : file;
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) {
-          addFiles(fullPath);
-        } else {
-          const zipPath = dir ? dir : '';
-          zip.addLocalFile(fullPath, zipPath);
-        }
-      }
-    }
-    addFiles('.');
-    const buffer = zip.toBuffer();
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="TuBodeguitaDeConfianza.zip"');
-    res.setHeader('Content-Length', buffer.length);
-    return res.send(buffer);
-  } catch (err) {
-    console.error('[Download ZIP] Error generando zip:', err);
-    res.status(500).json({ success: false, error: 'Error al empaquetar el proyecto' });
-  }
 });
 
 // Serve static files from root directory

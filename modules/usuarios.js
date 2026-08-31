@@ -328,10 +328,14 @@ function registrarUsuarioDesdeGatewall(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password) 
         : password;
 
-    // Asignar rol solicitado con estado inicial PENDIENTE_APROBACION
-    const rolAsignado = rol || 'cliente';
-    const estadoAsignado = 'PENDIENTE_APROBACION';
-    const fechaAprobacion = null;
+    // Comprobar si es el primer usuario real en registrarse en el sistema
+    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
+    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
+    const esPrimerUsuarioAdmin = !hayAdminReal;
+
+    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
+    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
+    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
 
     const nuevoUsuario = {
         id: cedula,
@@ -351,8 +355,8 @@ function registrarUsuarioDesdeGatewall(e) {
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente, registrarlo también en la colección de clientes
-    if (rolAsignado === 'cliente' && Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
+    // Si es cliente o admin, registrarlo también en la colección de clientes
+    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
             nombre: nombre,
@@ -367,6 +371,10 @@ function registrarUsuarioDesdeGatewall(e) {
     }
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
+    }
+
+    if (esPrimerUsuarioAdmin) {
+        alert(`👑 ¡Bienvenido, ${nombre}!\n\nAl ser el primer usuario registrado en la plataforma, tu cuenta ha sido configurada automáticamente como ADMINISTRADOR PRINCIPAL con acceso completo a todo el sistema (Inventario, POS, Clientes, Reportes y Usuarios).\n\nEsta función inicial ya ha quedado sellada para futuros registros.`);
     }
 
     verificarGatewall();
@@ -451,10 +459,14 @@ async function registrarUsuario(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password)
         : password;
 
-    // Asignar rol solicitado con estado inicial PENDIENTE_APROBACION
-    const rolAsignado = rol || 'cliente';
-    const estadoAsignado = 'PENDIENTE_APROBACION';
-    const fechaAprobacion = null;
+    // Comprobar si es el primer usuario real en registrarse en el sistema
+    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
+    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
+    const esPrimerUsuarioAdmin = !hayAdminReal;
+
+    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
+    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
+    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
 
     const nuevoUsuario = {
         id: cedula,
@@ -474,8 +486,8 @@ async function registrarUsuario(e) {
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente, registrarlo también en la colección de clientes
-    if (rolAsignado === 'cliente' && Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
+    // Si es cliente o admin, registrarlo también en la colección de clientes
+    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
             nombre: nombre,
@@ -503,7 +515,11 @@ async function registrarUsuario(e) {
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
 
-    mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
+    if (esPrimerUsuarioAdmin) {
+        mostrarNotificacionRegistro(`👑 ¡Registro exitoso como Administrador Principal! Tienes acceso total e ilimitado a todo el sistema.`, 'success');
+    } else {
+        mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
+    }
 
     verificarGatewall();
 }

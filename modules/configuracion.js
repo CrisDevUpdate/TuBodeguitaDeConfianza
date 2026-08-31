@@ -275,26 +275,26 @@ function abrirModalHardResetSuperAdmin() {
 
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 520px; padding: 26px; border: 2px solid #ef4444; animation: modalPop 0.25s ease-out;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light, #fee2e2); padding-bottom:10px;">
-                <h3 style="margin:0; font-size:1.2rem; color:#dc2626; display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #fee2e2; padding-bottom:10px;">
+                <h3 style="margin:0; font-size:1.2rem; color:#b91c1c; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-triangle-exclamation" style="color:#dc2626;"></i> Confirmación de Hard-Reset
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalHardResetSuperAdmin()"><i class="fas fa-times"></i></button>
             </div>
 
-            <div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.85rem; color:var(--text-main, #991b1b); line-height:1.45;">
-                <strong style="color:#dc2626;">⚠️ ATENCIÓN: ACCIÓN DESTRUCTIVA IRREVERSIBLE</strong><br>
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.85rem; color:#991b1b; line-height:1.45;">
+                <strong>⚠️ ATENCIÓN: ACCIÓN DESTRUCTIVA IRREVERSIBLE</strong><br>
                 Se archivará una copia con timestamp en la nube y se restablecerán a <b>CERO (0)</b> todas las ventas, deudas, auditorías, clientes secundarios, productos e inventario. El usuario <b>SuperAdmin</b> permanecerá intacto.
             </div>
 
             <form id="form-hard-reset-superadmin" onsubmit="event.preventDefault(); procesarEjecucionHardReset();">
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:700; color:var(--text-main, #1e293b);">Contraseña de SuperAdmin <span style="color:var(--danger);">*</span></label>
-                    <input type="password" id="reset-superadmin-password" class="form-control" placeholder="Ingresa tu clave de SuperAdmin" required autocomplete="current-password">
+                    <label style="font-size:0.85rem; font-weight:700; color:#1e293b;">Contraseña de SuperAdmin <span style="color:var(--danger);">*</span></label>
+                    <input type="password" id="reset-superadmin-password" class="form-control" placeholder="Ingresa tu clave de SuperAdmin (1810)" required autocomplete="current-password">
                 </div>
 
                 <div class="form-group" style="margin-bottom:16px;">
-                    <label style="font-size:0.85rem; font-weight:700; color:var(--text-main, #1e293b);">
+                    <label style="font-size:0.85rem; font-weight:700; color:#1e293b;">
                         Palabra de Seguridad: Escribe <span style="color:#dc2626; font-weight:800;">CONFIRMAR</span> para proceder <span style="color:var(--danger);">*</span>
                     </label>
                     <input type="text" id="reset-superadmin-keyword" class="form-control" placeholder="CONFIRMAR" required style="font-weight:700; letter-spacing:1px;">
@@ -318,29 +318,19 @@ function abrirModalHardResetSuperAdmin() {
 }
 
 /**
- * Cierra el modal de Hard-Reset y resetea su formulario
+ * Cierra el modal de Hard-Reset
  */
 function cerrarModalHardResetSuperAdmin() {
     const modal = document.getElementById('modal-hard-reset-superadmin');
     if (modal) modal.classList.remove('active');
-    const pwd = document.getElementById('reset-superadmin-password');
-    if (pwd) pwd.value = '';
-    const kw = document.getElementById('reset-superadmin-keyword');
-    if (kw) kw.value = '';
-    const spinner = document.getElementById('reset-loading-spinner');
-    if (spinner) spinner.style.display = 'none';
-    const submitBtn = document.getElementById('btn-submit-hard-reset');
-    if (submitBtn) submitBtn.disabled = false;
 }
 
 /**
  * Ejecuta el Hard-Reset atómico en cliente, servidor y nube
  */
 async function procesarEjecucionHardReset() {
-    const passwordInput = document.getElementById('reset-superadmin-password');
-    const keywordInput = document.getElementById('reset-superadmin-keyword');
-    const password = passwordInput?.value || '';
-    const keyword = (keywordInput?.value || '').trim().toUpperCase();
+    const password = document.getElementById('reset-superadmin-password')?.value;
+    const keyword = document.getElementById('reset-superadmin-keyword')?.value?.trim()?.toUpperCase();
     const spinner = document.getElementById('reset-loading-spinner');
     const submitBtn = document.getElementById('btn-submit-hard-reset');
 
@@ -366,7 +356,7 @@ async function procesarEjecucionHardReset() {
     if (submitBtn) submitBtn.disabled = true;
 
     try {
-        // 1. Invocar endpoint API server-side con Timeout ultrarrápido de 3s
+        // 1. Invocar endpoint API server-side
         const previousSnapshot = {
             ventas: AppState.ventas || [],
             productos: AppState.productos || [],
@@ -376,9 +366,6 @@ async function procesarEjecucionHardReset() {
         };
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-
             await fetch('/api/admin/reset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -386,17 +373,17 @@ async function procesarEjecucionHardReset() {
                     adminPassword: password,
                     confirmationKeyword: 'CONFIRMAR',
                     previousData: previousSnapshot
-                }),
-                signal: controller.signal
-            }).finally(() => clearTimeout(timeoutId));
+                })
+            });
         } catch (apiErr) {
-            console.warn('[HardReset] Aviso al contactar /api/admin/reset:', apiErr.message || apiErr);
+            console.warn('[HardReset] Advertencia al contactar /api/admin/reset:', apiErr);
         }
 
         // 2. Limpiar Base de Datos en Persistence (Firestore + LocalStorage)
         if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen === 'function') {
             await window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen();
         } else {
+            // Limpieza manual de respaldo
             AppState.productos = [];
             AppState.clientes = [];
             AppState.ventas = [];
@@ -433,7 +420,6 @@ async function procesarEjecucionHardReset() {
             }
         }
 
-        // Cerrar modal inmediatamente
         cerrarModalHardResetSuperAdmin();
 
         // 3. Notificación de éxito Zero-Alert
@@ -459,7 +445,6 @@ async function procesarEjecucionHardReset() {
 
     } catch (err) {
         console.error('Error durante el Hard Reset:', err);
-        cerrarModalHardResetSuperAdmin();
         if (window.InventoryApp.Modal?.alert) {
             window.InventoryApp.Modal.alert('Error en Reinicio', 'Ocurrió un inconveniente durante el reinicio: ' + (err.message || err), 'danger');
         }

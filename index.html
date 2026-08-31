@@ -14,7 +14,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles/fluid-scroll.css">
-    <link rel="stylesheet" href="styles/themeEngine.css">
 </head>
 <body>
 
@@ -1183,6 +1182,13 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
                     <input type="url" id="premio-admin-img" placeholder="https://images.unsplash.com/...">
                 </div>
 
+                <div class="form-group" style="margin-top:12px; background:#f8fafc; padding:12px 16px; border-radius:10px; border:1px solid var(--border);">
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; font-weight:700; color:var(--text-main);">
+                        <input type="checkbox" id="premio-temporada-activa" checked style="width:18px; height:18px; cursor:pointer;">
+                        <span>Temporada de Gamificación & Acumulación de Puntos Activa (Desmarca para activar Modo Invierno / Hibernación)</span>
+                    </label>
+                </div>
+
                 <!-- Presets Rápidos -->
                 <div style="margin-top:14px;">
                     <label style="font-size:0.85rem; font-weight:700; color:var(--text-main);">Plantillas Rápidas Preconfiguradas:</label>
@@ -1736,7 +1742,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div>
                     <strong style="color:#b91c1c; font-size:0.85rem;"><i class="fas fa-trash-can"></i> Reiniciar Base de Datos (Estado Virgen)</strong>
-                    <div style="font-size:0.75rem; color:#7f1d1d;">Vacía todos los productos, ventas y clientes en la nube y localmente, dejando solo a SuperAdmin.</div>
+                    <div style="font-size:0.75rem; color:#7f1d1d;">Vacía todos los productos, ventas y clientes en la nube y localmente, dejando solo a SuperAdmin (1810).</div>
                 </div>
                 <button type="button" class="btn btn-sm btn-danger" onclick="limpiarBaseDeDatosVirgen()" style="font-size:0.78rem;">
                     <i class="fas fa-arrows-rotate"></i> Purgar Todo a Virgen
@@ -2033,8 +2039,6 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="core/persistence.js"></script>
 <script src="core/bcv.js"></script>
 <script src="components/ThemeSelector.js"></script>
-<script src="components/BankSelector.js"></script>
-<script src="components/PaymentVerification.js"></script>
 <script src="components/Checkout.js"></script>
 <script src="components/Catalog.js"></script>
 <script src="components/TreeGamification.js"></script>

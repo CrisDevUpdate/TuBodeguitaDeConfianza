@@ -41,6 +41,7 @@ window.InventoryApp = window.InventoryApp || {};
         ELIMINACIONES: 'eliminaciones',
         CLIENTES_ELIMINADOS: 'clientesEliminados',
         USUARIOS: 'usuarios',
+        CANJES: 'canjesPremios',
         CONFIG: 'config'
     };
 
@@ -160,14 +161,22 @@ window.InventoryApp = window.InventoryApp || {};
             // Conectar a la base de datos de Firestore
             try {
                 if (config.firestoreDatabaseId && typeof app.firestore === 'function') {
-                    // Intenta conectar a la base de datos específica si está configurada
-                    db = app.firestore(config.firestoreDatabaseId);
+                    try {
+                        db = app.firestore(config.firestoreDatabaseId);
+                    } catch (idErr) {
+                        db = firebase.firestore();
+                    }
+                } else if (typeof firebase.firestore === 'function') {
+                    db = firebase.firestore();
                 }
             } catch (dbErr) {
                 console.warn('[Firebase] Falló con ID de base de datos específica, usando default:', dbErr.message);
+                if (typeof firebase.firestore === 'function') {
+                    db = firebase.firestore();
+                }
             }
 
-            if (!db) {
+            if (!db && typeof firebase.firestore === 'function') {
                 db = firebase.firestore();
             }
 
@@ -275,6 +284,7 @@ window.InventoryApp = window.InventoryApp || {};
                 snapElim,
                 snapCliElim,
                 snapUsuarios,
+                snapCanjes,
                 snapConfig
             ] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
@@ -286,6 +296,7 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.ELIMINACIONES),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES_ELIMINADOS),
                 obtenerColeccionSegura(COLLECTIONS.USUARIOS),
+                obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global')
             ]);
 
@@ -297,48 +308,70 @@ window.InventoryApp = window.InventoryApp || {};
                 return true;
             }
 
-            // Sincronizar colecciones autoritativas desde Firestore
-            AppState.productos = (snapProds && !snapProds.empty) ? snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.clientes = (snapCli && !snapCli.empty) ? snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.ventas = (snapVentas && !snapVentas.empty) ? snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.abonos = (snapAbonos && !snapAbonos.empty) ? snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.transacciones = (snapTx && !snapTx.empty) ? snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.auditorias = (snapAud && !snapAud.empty) ? snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.eliminaciones = (snapElim && !snapElim.empty) ? snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            AppState.clientesEliminados = (snapCliElim && !snapCliElim.empty) ? snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
+            const tieneDatosEnNube = (snapProds && !snapProds.empty) || (snapCli && !snapCli.empty) || (snapVentas && !snapVentas.empty) || (snapUsuarios && !snapUsuarios.empty);
 
-            // Fusión segura de usuarios: Preservar usuarios locales y fusionar con los de la nube sin pérdidas
-            const cloudUsers = (snapUsuarios && !snapUsuarios.empty) ? snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
-            const userMap = new Map();
-            (AppState.usuarios || []).forEach(u => {
-                const uid = u?.id || u?.cedula;
-                if (uid) userMap.set(String(uid), u);
-            });
-            cloudUsers.forEach(u => {
-                const uid = u?.id || u?.cedula;
-                if (uid) userMap.set(String(uid), { ...(userMap.get(String(uid)) || {}), ...u });
-            });
-            AppState.usuarios = Array.from(userMap.values());
+            // Si hay datos en la nube, los aplicamos al estado local
+            if (tieneDatosEnNube) {
+                if (snapProds && !snapProds.empty) {
+                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapCli && !snapCli.empty) {
+                    AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapVentas && !snapVentas.empty) {
+                    AppState.ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapAbonos && !snapAbonos.empty) {
+                    AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapTx && !snapTx.empty) {
+                    AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapAud && !snapAud.empty) {
+                    AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapElim && !snapElim.empty) {
+                    AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapCliElim && !snapCliElim.empty) {
+                    AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapUsuarios && !snapUsuarios.empty) {
+                    AppState.usuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+                if (snapCanjes && !snapCanjes.empty) {
+                    AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
 
-            if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
-                window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
-            }
+                if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                    window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+                }
 
-            if (snapConfig && snapConfig.exists) {
-                const cfg = snapConfig.data();
-                if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                if (snapConfig && snapConfig.exists) {
+                    const cfg = snapConfig.data();
+                    if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                    if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                    if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                    if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                }
+
+                // Guardar respaldo en localStorage
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(true);
+                }
+
+                refrescarTodasLasVistas();
+                lastCloudSync = new Date();
+                actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
             } else {
-                AppState.nextProductSequence = 1;
+                // La base de datos en la nube está vacía: si tenemos datos locales en memoria, los migramos a la nube
+                if (AppState.productos.length > 0 || AppState.clientes.length > 0 || (AppState.usuarios && AppState.usuarios.length > 1)) {
+                    console.log('[Firebase] Colecciones en la nube vacías. Subiendo estado inicial...');
+                    await subirTodoALaNube();
+                } else {
+                    actualizarUIEstadoNube('conectado', 'Nube lista (Base vacía)');
+                }
             }
-
-            // Guardar sincronización en caché local
-            if (window.InventoryApp && window.InventoryApp.Persistence) {
-                window.InventoryApp.Persistence.guardar(true);
-            }
-
-            refrescarTodasLasVistas();
-            lastCloudSync = new Date();
-            actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
 
             return true;
         } catch (error) {
@@ -554,7 +587,34 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
             syncListeners.push(unsubUsu);
 
-            // Listener de Abonos en Tiempo Real (Requerimiento 3: Pagos reportados por clientes)
+            // Listener de ventas
+            const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    let huboCambios = false;
+                    snapshot.docChanges().forEach(change => {
+                        const data = { id: change.doc.id, ...change.doc.data() };
+                        if (change.type === 'added' || change.type === 'modified') {
+                            const idx = (AppState.ventas || []).findIndex(v => v.id === data.id);
+                            if (idx !== -1) {
+                                AppState.ventas[idx] = data;
+                            } else {
+                                if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
+                                AppState.ventas.push(data);
+                            }
+                            huboCambios = true;
+                        } else if (change.type === 'removed') {
+                            AppState.ventas = (AppState.ventas || []).filter(v => v.id !== data.id);
+                            huboCambios = true;
+                        }
+                    });
+                    if (huboCambios) {
+                        refrescarTodasLasVistas();
+                    }
+                }
+            }, err => console.warn('[Firebase] Listener de ventas aviso:', err.message));
+            syncListeners.push(unsubVentas);
+
+            // Listener de abonos
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
                     let huboCambios = false;
@@ -566,7 +626,7 @@ window.InventoryApp = window.InventoryApp || {};
                                 AppState.abonos[idx] = data;
                             } else {
                                 if (!Array.isArray(AppState.abonos)) AppState.abonos = [];
-                                AppState.abonos.unshift(data);
+                                AppState.abonos.push(data);
                             }
                             huboCambios = true;
                         } else if (change.type === 'removed') {
@@ -576,18 +636,12 @@ window.InventoryApp = window.InventoryApp || {};
                     });
                     if (huboCambios) {
                         refrescarTodasLasVistas();
-                        if (window.InventoryApp?.PaymentVerification?.verificarNuevosPagos) {
-                            window.InventoryApp.PaymentVerification.verificarNuevosPagos();
-                        }
-                        if (typeof renderizarAbonosPendientesReportados === 'function') {
-                            renderizarAbonosPendientesReportados();
-                        }
                     }
                 }
             }, err => console.warn('[Firebase] Listener de abonos aviso:', err.message));
             syncListeners.push(unsubAbonos);
 
-            // Listener de Transacciones Bancarias
+            // Listener de transacciones
             const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
                     let huboCambios = false;
@@ -599,7 +653,7 @@ window.InventoryApp = window.InventoryApp || {};
                                 AppState.transacciones[idx] = data;
                             } else {
                                 if (!Array.isArray(AppState.transacciones)) AppState.transacciones = [];
-                                AppState.transacciones.unshift(data);
+                                AppState.transacciones.push(data);
                             }
                             huboCambios = true;
                         } else if (change.type === 'removed') {
@@ -613,6 +667,19 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }, err => console.warn('[Firebase] Listener de transacciones aviso:', err.message));
             syncListeners.push(unsubTx);
+
+            // Listener de configuración
+            const unsubConfig = db.collection(COLLECTIONS.CONFIG).doc('global').onSnapshot(doc => {
+                if (doc.exists && !doc.metadata.hasPendingWrites) {
+                    const cfg = doc.data();
+                    if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                    if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                    if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                    if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                    refrescarTodasLasVistas();
+                }
+            }, err => console.warn('[Firebase] Listener de config aviso:', err.message));
+            syncListeners.push(unsubConfig);
 
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
@@ -1003,10 +1070,7 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Purgando colecciones de la nube...');
         try {
             if (db) {
-                // Desacoplar temporalmente los listeners para evitar cascadas de re-renderizados
-                syncListeners.forEach(unsub => typeof unsub === 'function' && unsub());
-                syncListeners = [];
-
+                // Eliminar documentos de todas las colecciones principales
                 const coleccionesAPurgar = [
                     COLLECTIONS.PRODUCTOS,
                     COLLECTIONS.CLIENTES,
@@ -1019,8 +1083,7 @@ window.InventoryApp = window.InventoryApp || {};
                     COLLECTIONS.USUARIOS
                 ];
 
-                // Limpieza paralela con límite de tiempo
-                await Promise.all(coleccionesAPurgar.map(async (colName) => {
+                for (const colName of coleccionesAPurgar) {
                     try {
                         const snap = await db.collection(colName).get();
                         if (snap && !snap.empty) {
@@ -1033,7 +1096,7 @@ window.InventoryApp = window.InventoryApp || {};
                     } catch (colErr) {
                         console.warn(`[Firebase] Aviso al limpiar colección ${colName}:`, colErr.message);
                     }
-                }));
+                }
 
                 // Restablecer config y SuperAdmin en la nube
                 const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
@@ -1056,9 +1119,6 @@ window.InventoryApp = window.InventoryApp || {};
                     nextProductSequence: 1,
                     lastPurge: firebase.firestore.FieldValue.serverTimestamp()
                 });
-
-                // Reiniciar listeners en tiempo real limpios
-                iniciarListenersTiempoReal();
             }
 
             actualizarUIEstadoNube('conectado', 'Base de datos en estado virgen');
@@ -1066,28 +1126,6 @@ window.InventoryApp = window.InventoryApp || {};
         } catch (error) {
             console.error('[Firebase] Error al purgar Firestore:', error);
             actualizarUIEstadoNube('error', 'Error al purgar la nube');
-            // Asegurar que los listeners se reanuden
-            try { iniciarListenersTiempoReal(); } catch (_) {}
-            return false;
-        }
-    }
-
-    /**
-     * CRUD: Guardar Archivo Histórico de Auditoría en Firestore
-     */
-    async function guardarArchivoHistoricoCloud(registroArchivo) {
-        if (!registroArchivo || !registroArchivo.archiveId) return false;
-        try {
-            if (db) {
-                const archiveRef = db.collection('archivos_historicos').doc(String(registroArchivo.archiveId));
-                await archiveRef.set({
-                    ...registroArchivo,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-            }
-            return true;
-        } catch (e) {
-            console.warn('[Firebase] Error guardando archivo histórico:', e);
             return false;
         }
     }
@@ -1108,7 +1146,6 @@ window.InventoryApp = window.InventoryApp || {};
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
-        guardarArchivoHistorico: guardarArchivoHistoricoCloud,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
