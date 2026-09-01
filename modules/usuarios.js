@@ -828,11 +828,15 @@ async function eliminarUsuario(cedula) {
         return;
     }
 
-    // 4. Sincronizar persistencia local y Firestore
-    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+    // 4. Sincronizar persistencia local y Firestore inmediatamente
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarUsuario === 'function') {
-        window.InventoryApp.Firebase.eliminarUsuario(cedula);
+        try {
+            await window.InventoryApp.Firebase.eliminarUsuario(cedula);
+        } catch (err) {
+            console.warn('[Usuarios] Aviso al eliminar en Firebase:', err);
+        }
     }
+    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
     // 5. Re-renderizar la tabla de usuarios inmediatamente sin recarga
     renderizarUsuarios();

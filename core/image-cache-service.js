@@ -242,9 +242,15 @@ window.InventoryApp = window.InventoryApp || {};
             folder: folder
         };
 
+        const headers = { 'Content-Type': 'application/json' };
+        const savedToken = localStorage.getItem('bodeguita_blob_token');
+        if (savedToken) {
+            headers['x-blob-token'] = savedToken;
+        }
+
         const res = await fetch('/api/upload/blob', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(payload)
         });
 

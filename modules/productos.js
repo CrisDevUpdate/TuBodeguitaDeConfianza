@@ -190,12 +190,40 @@ function resetearFormularioProducto() {
     if (boton) boton.innerHTML = '<i class="fas fa-save"></i> Guardar Producto';
 }
 
-function guardarProducto(e) {
-    e.preventDefault();
+async function guardarProducto(e) {
+    if (e && e.preventDefault) e.preventDefault();
 
     const id = document.getElementById('prod-id').value.trim();
     const descripcion = document.getElementById('prod-descripcion').value.trim();
     const contenido = document.getElementById('prod-contenido').value.trim();
+    const btnSave = document.getElementById('btn-prod-save');
+    const originalBtnHtml = btnSave ? btnSave.innerHTML : '';
+
+    // Si la imagen está en formato base64/dataURI temporal, asegurar la subida a Vercel Blob
+    let imagenFinal = productoImagenTemporal || '';
+    if (imagenFinal.startsWith('data:')) {
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo imagen a Blob...';
+        }
+        try {
+            if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.webp`);
+                if (resultado && resultado.url) {
+                    imagenFinal = resultado.url;
+                    productoImagenTemporal = resultado.url;
+                    console.log('[Productos] Imagen subida y asociada a Vercel Blob:', resultado.url);
+                }
+            }
+        } catch (uploadErr) {
+            console.warn('[Productos] Aviso al subir imagen a Vercel Blob en guardado:', uploadErr);
+        } finally {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalBtnHtml;
+            }
+        }
+    }
 
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
     // Nunca usamos uno para construir o reemplazar el otro.
@@ -208,7 +236,7 @@ function guardarProducto(e) {
         stock: parseInt(document.getElementById('prod-stock').value),
         descripcion,
         contenido,
-        imagen: productoImagenTemporal || ''
+        imagen: imagenFinal
     };
 
     let productoGuardado = null;
@@ -234,11 +262,17 @@ function guardarProducto(e) {
         productos.push(productoGuardado);
     }
 
-    // Persistir asíncronamente en Firebase Firestore
+    // Persistir directamente en Firebase Firestore
     if (productoGuardado && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
-        window.InventoryApp.Firebase.guardarProducto(productoGuardado).catch(err => {
+        try {
+            await window.InventoryApp.Firebase.guardarProducto(productoGuardado);
+        } catch (err) {
             console.warn('[Productos] Error en guardado cloud:', err);
-        });
+        }
+    }
+
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
     }
 
     resetearFormularioProducto();

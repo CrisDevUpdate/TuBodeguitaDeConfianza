@@ -617,10 +617,52 @@ app.post('/api/admin/reset', (req, res) => {
 // ARQUITECTURA DE ALMACENAMIENTO HÍBRIDO (Vercel Blob + Firestore + Local)
 // =========================================================================
 
+// Función auxiliar para resolver el token de Vercel Blob de múltiples orígenes
+function obtenerVercelBlobToken(req) {
+  if (req && req.headers && req.headers['x-blob-token']) {
+    return req.headers['x-blob-token'];
+  }
+  if (req && req.body && req.body.blobToken) {
+    return req.body.blobToken;
+  }
+  if (req && req.query && req.query.token) {
+    return req.query.token;
+  }
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return process.env.BLOB_READ_WRITE_TOKEN;
+  }
+  // Verificar si existe en archivo .env
+  try {
+    const fs = path;
+    import('fs').then(fsModule => {
+      if (fsModule.existsSync('.env')) {
+        const content = fsModule.readFileSync('.env', 'utf-8');
+        const match = content.match(/BLOB_READ_WRITE_TOKEN\s*=\s*(.+)/);
+        if (match && match[1]) {
+          process.env.BLOB_READ_WRITE_TOKEN = match[1].trim().replace(/^['"]|['"]$/g, '');
+        }
+      }
+    }).catch(() => {});
+  } catch (e) {}
+
+  return process.env.BLOB_READ_WRITE_TOKEN || null;
+}
+
+// Endpoint de Estado / Diagnóstico de Vercel Blob
+app.get('/api/blob/status', (req, res) => {
+  const token = obtenerVercelBlobToken(req);
+  res.json({
+    success: true,
+    connected: Boolean(token),
+    hasEnvToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    tokenPrefix: token ? `${token.substring(0, 10)}...` : null
+  });
+});
+
 // Endpoint de Subida de Archivos a Vercel Blob (@vercel/blob)
 app.post('/api/upload/blob', async (req, res) => {
   try {
-    const { filename, fileData, contentType = 'image/webp', folder = 'productos' } = req.body;
+    const { filename, fileData, contentType = 'image/webp', folder = 'productos', access: requestedAccess } = req.body;
     if (!fileData) {
       return res.status(400).json({ success: false, error: 'Se requiere el contenido del archivo (base64 o data URI).' });
     }
@@ -641,25 +683,45 @@ app.post('/api/upload/blob', async (req, res) => {
     }
 
     // 1. Si está configurado BLOB_READ_WRITE_TOKEN, usar @vercel/blob put oficial
-    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    const blobToken = obtenerVercelBlobToken(req);
     if (blobToken) {
       try {
         const { put } = await import('@vercel/blob');
-        const blob = await put(targetPathname, buffer, {
-          access: 'public',
-          token: blobToken,
-          contentType: contentType || 'image/webp'
-        });
+        
+        let blob = null;
+        let usedAccess = requestedAccess || 'public';
 
-        console.log(`[Vercel Blob] Archivo subido exitosamente: ${blob.pathname} -> ${blob.url}`);
-        return res.json({
-          success: true,
-          url: blob.url,
-          downloadUrl: blob.downloadUrl,
-          pathname: blob.pathname,
-          contentType: blob.contentType || contentType,
-          provider: 'vercel-blob'
-        });
+        // Intento 1: Acceso público o el solicitado
+        try {
+          blob = await put(targetPathname, buffer, {
+            access: usedAccess,
+            token: blobToken,
+            contentType: contentType || 'image/webp'
+          });
+        } catch (firstErr) {
+          console.warn(`[Vercel Blob] Intento con access '${usedAccess}' falló (${firstErr.message}), intentando con acceso alternativo...`);
+          // Si falló con public, intentar con private
+          usedAccess = (usedAccess === 'public') ? 'private' : 'public';
+          blob = await put(targetPathname, buffer, {
+            access: usedAccess,
+            token: blobToken,
+            contentType: contentType || 'image/webp'
+          });
+        }
+
+        if (blob) {
+          const finalUrl = blob.url || (blob.pathname ? `/api/blob/serve?pathname=${encodeURIComponent(blob.pathname)}` : blob.downloadUrl);
+          console.log(`[Vercel Blob] Archivo subido exitosamente: ${blob.pathname} -> ${finalUrl} (Access: ${usedAccess})`);
+          return res.json({
+            success: true,
+            url: finalUrl,
+            downloadUrl: blob.downloadUrl || finalUrl,
+            pathname: blob.pathname,
+            contentType: blob.contentType || contentType,
+            access: usedAccess,
+            provider: 'vercel-blob'
+          });
+        }
       } catch (blobErr) {
         console.warn('[Vercel Blob Error]:', blobErr.message);
       }
@@ -690,14 +752,23 @@ app.get('/api/blob/serve', async (req, res) => {
       return res.status(400).json({ error: 'Missing pathname query parameter' });
     }
 
-    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    const blobToken = obtenerVercelBlobToken(req);
     if (blobToken) {
       try {
         const { get } = await import('@vercel/blob');
-        const result = await get(pathname, {
-          access: 'public',
-          token: blobToken
-        });
+        
+        let result = null;
+        try {
+          result = await get(pathname, {
+            access: 'private',
+            token: blobToken
+          });
+        } catch (e) {
+          result = await get(pathname, {
+            access: 'public',
+            token: blobToken
+          });
+        }
 
         if (result === null) {
           return res.status(404).json({ error: 'Blob not found' });

@@ -1091,8 +1091,36 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Eliminando usuario de Firestore...');
 
         try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+
             if (db) {
-                await db.collection(COLLECTIONS.USUARIOS).doc(String(usuarioId)).delete();
+                const batch = db.batch();
+                const strId = String(usuarioId);
+
+                // 1. Borrar por doc ID directo
+                const docRef = db.collection(COLLECTIONS.USUARIOS).doc(strId);
+                batch.delete(docRef);
+
+                // 2. Buscar por campo 'cedula' y agregarlo al lote
+                try {
+                    const snapCedula = await db.collection(COLLECTIONS.USUARIOS).where('cedula', '==', strId).get();
+                    if (!snapCedula.empty) {
+                        snapCedula.docs.forEach(d => batch.delete(d.ref));
+                    }
+                } catch (e) {}
+
+                // 3. Buscar por campo 'id' y agregarlo al lote
+                try {
+                    const snapId = await db.collection(COLLECTIONS.USUARIOS).where('id', '==', strId).get();
+                    if (!snapId.empty) {
+                        snapId.docs.forEach(d => batch.delete(d.ref));
+                    }
+                } catch (e) {}
+
+                await batch.commit();
+                console.log(`[Firebase] Usuario ${strId} eliminado permanentemente de Firestore.`);
             }
 
             actualizarUIEstadoNube('conectado', 'Usuario eliminado de Firestore');

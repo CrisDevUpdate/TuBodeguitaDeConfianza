@@ -26,6 +26,12 @@ service cloud.firestore {
     match /clientesEliminados/{cliEliminadoId} {
       allow read, write: if true;
     }
+    match /usuarios/{usuarioId} {
+      allow read, write: if true;
+    }
+    match /canjesPremios/{canjeId} {
+      allow read, write: if true;
+    }
     match /config/{configId} {
       allow read, write: if true;
     }
