@@ -265,6 +265,11 @@ class CatalogManager {
 
         // Verificar si debe mostrarse el centinela de scroll
         let sentinel = document.getElementById('catalog-scroll-sentinel');
+
+        // Precargar en caché local las imágenes de los productos visualizados
+        if (window.InventoryApp && window.InventoryApp.ImageCache) {
+            window.InventoryApp.ImageCache.precargarImagenes(productosAVisualizar.map(p => p.imagen).filter(Boolean));
+        }
         if (!sentinel) {
             sentinel = document.createElement('div');
             sentinel.id = 'catalog-scroll-sentinel';

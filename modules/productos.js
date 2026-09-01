@@ -101,21 +101,24 @@ function manejarDropImagenProducto(event) {
     if (archivo) procesarImagenProducto(archivo);
 }
 
-function procesarImagenProducto(archivo) {
+let estaSubiendoImagenProducto = false;
+
+async function procesarImagenProducto(archivo) {
     if (!archivo.type || !archivo.type.startsWith('image/')) {
         alert('Selecciona una imagen válida en formato JPG, PNG o WEBP.');
         return;
     }
 
-    if (archivo.size > 2 * 1024 * 1024) {
-        alert('La imagen supera el límite de 2 MB. Selecciona una imagen más liviana.');
+    if (archivo.size > 5 * 1024 * 1024) {
+        alert('La imagen supera el límite de 5 MB. Selecciona una imagen más liviana.');
         return;
     }
 
+    const dropzone = document.getElementById('product-image-dropzone');
     const lector = new FileReader();
     lector.onload = () => {
         const imagen = new Image();
-        imagen.onload = () => {
+        imagen.onload = async () => {
             const maxDimension = 900;
             const escala = Math.min(1, maxDimension / Math.max(imagen.width, imagen.height));
             const canvas = document.createElement('canvas');
@@ -123,8 +126,29 @@ function procesarImagenProducto(archivo) {
             canvas.height = Math.max(1, Math.round(imagen.height * escala));
             const contexto = canvas.getContext('2d');
             contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
-            productoImagenTemporal = canvas.toDataURL('image/jpeg', 0.82);
+            
+            const optimizadoDataUrl = canvas.toDataURL('image/webp', 0.85);
+            productoImagenTemporal = optimizadoDataUrl;
             actualizarVistaImagenProducto();
+
+            // Subir a Vercel Blob en segundo plano optimizado
+            try {
+                estaSubiendoImagenProducto = true;
+                if (dropzone) dropzone.classList.add('uploading-blob');
+
+                if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                    const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(optimizadoDataUrl, 'productos', `prod_${Date.now()}.webp`);
+                    if (resultado && resultado.url) {
+                        productoImagenTemporal = resultado.url;
+                        console.log('[Productos] Imagen subida y asociada a Vercel Blob:', resultado.url);
+                    }
+                }
+            } catch (blobErr) {
+                console.warn('[Productos] Aviso al subir a Vercel Blob, manteniendo copia en caché local:', blobErr);
+            } finally {
+                estaSubiendoImagenProducto = false;
+                if (dropzone) dropzone.classList.remove('uploading-blob');
+            }
         };
         imagen.onerror = () => alert('No fue posible procesar la imagen seleccionada.');
         imagen.src = lector.result;

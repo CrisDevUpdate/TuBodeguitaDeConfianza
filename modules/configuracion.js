@@ -177,10 +177,10 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
         <!-- Gestión de Respaldos y Base de Datos -->
         <div class="card" style="margin-bottom:20px;">
             <h3 style="margin:0 0 12px 0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-database" style="color:var(--primary-accent);"></i> Respaldos, Exportación y Base de Datos en la Nube
+                <i class="fas fa-database" style="color:var(--primary-accent);"></i> Respaldos y Exportación de Datos
             </h3>
             <p style="margin:0 0 14px 0; font-size:0.84rem; color:var(--text-muted);">
-                Descarga copias de seguridad de toda la base de datos o restaura tus archivos maestros en cualquier momento.
+                Descarga copias de seguridad de toda la base de datos o exporta tus archivos maestros en cualquier momento.
             </p>
 
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
@@ -189,9 +189,6 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
                 </button>
                 <button type="button" class="btn btn-outline" onclick="descargarMasterExcel()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
                     <i class="fas fa-file-excel" style="color:#16a34a;"></i> Descargar Máster Excel (.xlsx)
-                </button>
-                <button type="button" class="btn btn-outline" onclick="abrirModalCloudSync()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-cloud-arrow-up" style="color:#0284c7;"></i> Sincronización Firestore
                 </button>
             </div>
         </div>

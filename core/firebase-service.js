@@ -376,6 +376,14 @@ window.InventoryApp = window.InventoryApp || {};
                 window.InventoryApp.Persistence.guardar(true);
             }
 
+            // Precarga inteligente en caché local (IndexedDB) de URLs de imágenes
+            if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                const urlsAPrecargar = [];
+                (AppState.productos || []).forEach(p => { if (p.imagen) urlsAPrecargar.push(p.imagen); });
+                (AppState.usuarios || []).forEach(u => { if (u.avatar) urlsAPrecargar.push(u.avatar); });
+                window.InventoryApp.ImageCache.precargarImagenes(urlsAPrecargar);
+            }
+
             refrescarTodasLasVistas();
             lastCloudSync = new Date();
             actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
@@ -504,6 +512,27 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    // Control de debounce y hashes de carga para evitar bucles infinitos y re-renderizados innecesarios
+    let refreshDebounceTimer = null;
+    const lastCollectionHashes = {};
+
+    function calcularHashColeccion(data) {
+        try {
+            return JSON.stringify(data || []);
+        } catch {
+            return '';
+        }
+    }
+
+    function solicitarRefrescoVistasDebounced() {
+        if (refreshDebounceTimer) {
+            clearTimeout(refreshDebounceTimer);
+        }
+        refreshDebounceTimer = setTimeout(() => {
+            refrescarTodasLasVistas();
+        }, 120);
+    }
+
     /**
      * Inicia listeners en tiempo real para mantener sincronizadas múltiples pestañas y clientes
      */
@@ -525,9 +554,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de productos
             const unsubProds = db.collection(COLLECTIONS.PRODUCTOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.productos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newProds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newProds);
+                    if (lastCollectionHashes[COLLECTIONS.PRODUCTOS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.PRODUCTOS] = hash;
+                        AppState.productos = newProds;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de productos aviso:', err.message));
             syncListeners.push(unsubProds);
@@ -535,9 +569,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de clientes
             const unsubCli = db.collection(COLLECTIONS.CLIENTES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.clientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newClientes);
+                    if (lastCollectionHashes[COLLECTIONS.CLIENTES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.CLIENTES] = hash;
+                        AppState.clientes = newClientes;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de clientes aviso:', err.message));
             syncListeners.push(unsubCli);
@@ -545,12 +584,17 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de usuarios
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
-                        window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+                    const newUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newUsuarios);
+                    if (lastCollectionHashes[COLLECTIONS.USUARIOS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.USUARIOS] = hash;
+                        AppState.usuarios = newUsuarios;
+                        if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                            window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+                        }
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
                     }
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
                 }
             }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
             syncListeners.push(unsubUsu);
@@ -558,9 +602,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newVentas);
+                    if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
+                        AppState.ventas = newVentas;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de ventas aviso:', err.message));
             syncListeners.push(unsubVentas);
@@ -568,9 +617,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de abonos
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.abonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newAbonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newAbonos);
+                    if (lastCollectionHashes[COLLECTIONS.ABONOS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.ABONOS] = hash;
+                        AppState.abonos = newAbonos;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de abonos aviso:', err.message));
             syncListeners.push(unsubAbonos);
@@ -578,9 +632,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de transacciones
             const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.transacciones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newTx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newTx);
+                    if (lastCollectionHashes[COLLECTIONS.TRANSACCIONES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.TRANSACCIONES] = hash;
+                        AppState.transacciones = newTx;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de transacciones aviso:', err.message));
             syncListeners.push(unsubTx);
@@ -588,9 +647,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de auditorias
             const unsubAud = db.collection(COLLECTIONS.AUDITORIAS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.auditorias = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newAud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newAud);
+                    if (lastCollectionHashes[COLLECTIONS.AUDITORIAS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.AUDITORIAS] = hash;
+                        AppState.auditorias = newAud;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de auditorias aviso:', err.message));
             syncListeners.push(unsubAud);
@@ -598,9 +662,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de eliminaciones
             const unsubElim = db.collection(COLLECTIONS.ELIMINACIONES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.eliminaciones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newElim);
+                    if (lastCollectionHashes[COLLECTIONS.ELIMINACIONES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.ELIMINACIONES] = hash;
+                        AppState.eliminaciones = newElim;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de eliminaciones aviso:', err.message));
             syncListeners.push(unsubElim);
@@ -608,9 +677,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de clientes eliminados
             const unsubCliElim = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.clientesEliminados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newCliElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newCliElim);
+                    if (lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] = hash;
+                        AppState.clientesEliminados = newCliElim;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de clientes eliminados aviso:', err.message));
             syncListeners.push(unsubCliElim);
@@ -618,9 +692,14 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de canjes de premios
             const unsubCanjes = db.collection(COLLECTIONS.CANJES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    AppState.canjesPremios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const newCanjes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newCanjes);
+                    if (lastCollectionHashes[COLLECTIONS.CANJES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.CANJES] = hash;
+                        AppState.canjesPremios = newCanjes;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de canjes aviso:', err.message));
             syncListeners.push(unsubCanjes);
@@ -629,12 +708,16 @@ window.InventoryApp = window.InventoryApp || {};
             const unsubConfig = db.collection(COLLECTIONS.CONFIG).doc('global').onSnapshot(doc => {
                 if (doc.exists && !doc.metadata.hasPendingWrites) {
                     const cfg = doc.data();
-                    if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
-                    if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
-                    if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
-                    if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
-                    guardarCacheLocal();
-                    refrescarTodasLasVistas();
+                    const hash = calcularHashColeccion(cfg);
+                    if (lastCollectionHashes[COLLECTIONS.CONFIG] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.CONFIG] = hash;
+                        if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                        if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                        if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                        if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                        guardarCacheLocal();
+                        solicitarRefrescoVistasDebounced();
+                    }
                 }
             }, err => console.warn('[Firebase] Listener de config aviso:', err.message));
             syncListeners.push(unsubConfig);

@@ -64,8 +64,17 @@
         }
     });
 
-    // Cloud Modal Handlers & Tools
+    // Cloud Modal Handlers & Tools (Exclusivo Administrador)
     window.abrirModalCloudSync = function () {
+        const usuario = AppState.usuarioActual;
+        const rol = (usuario?.rol || '').toLowerCase();
+        const esAdmin = rol === 'admin' || rol === 'superadmin' || usuario?.id === 'SuperAdmin' || usuario?.cedula === 'SuperAdmin';
+        
+        if (!esAdmin) {
+            console.warn('[Seguridad] Acceso a sincronización en la nube denegado: Se requiere rol de Administrador.');
+            return;
+        }
+
         const modal = document.getElementById('modal-cloud-sync');
         if (!modal) return;
         

@@ -108,8 +108,13 @@ window.InventoryApp = window.InventoryApp || {};
             });
         }
 
-        // 3. Re-validación en Foco de Ventana y Cambio de Pestaña (Multi-Device Parity)
+        // 3. Re-validación en Foco de Ventana y Cambio de Pestaña con Throttle de 45s
+        let lastFocusSync = 0;
         const revalidarEstadoNube = () => {
+            const now = Date.now();
+            if (now - lastFocusSync < 45000) return; // Evitar spam de peticiones
+            lastFocusSync = now;
+
             if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.sincronizarTodoDesdeNube === 'function') {
                 window.InventoryApp.Firebase.sincronizarTodoDesdeNube();
             }

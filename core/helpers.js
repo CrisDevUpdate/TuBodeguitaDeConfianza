@@ -179,6 +179,23 @@ function verificarPasswordHash(inputPassword, storedPasswordOrHash) {
 
 function switchTab(tabId) {
     if (!tabId) return;
+
+    // Control estricto de acceso RBAC por rol
+    const usuario = window.AppState?.usuarioActual;
+    const rol = (usuario?.rol || 'cliente').toLowerCase();
+    const esAdmin = rol === 'admin' || rol === 'superadmin';
+    const esVendedor = rol === 'vendedor';
+    const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+
+    if (!esAdmin) {
+        if (esVendedor && !vendedorAllowedTabs.includes(tabId)) {
+            console.warn(`[RBAC] Acceso denegado a la pestaña ${tabId} para el rol Vendedor.`);
+            tabId = 'pos';
+        } else if (!esVendedor && !tabId.startsWith('cliente-')) {
+            console.warn(`[RBAC] Acceso denegado a la pestaña administrativa ${tabId} para el rol Cliente.`);
+            tabId = 'cliente-catalogo';
+        }
+    }
     
     // Ocultar todas las vistas
     const allViews = document.querySelectorAll('.view-content');
@@ -247,6 +264,8 @@ function switchTab(tabId) {
             if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         } else if (tabId === 'cliente-premio') {
             if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        } else if (tabId === 'cliente-perfil') {
+            if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
         }
     } catch (err) {
         console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);

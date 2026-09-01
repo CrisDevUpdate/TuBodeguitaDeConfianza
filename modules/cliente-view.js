@@ -1160,12 +1160,38 @@ function abrirModalReportarPagoCliente() {
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 480px; padding: 24px; animation: modalPop 0.25s ease-out;">
+        <div class="modal-content" style="max-width: 520px; padding: 24px; animation: modalPop 0.25s ease-out;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
                 <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-money-bill-transfer" style="color:var(--primary-accent);"></i> Reportar Abono a Cuenta
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalReportarPagoCliente()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Coordenadas Bancarias del Comercio para Pago Rápido -->
+            <div style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:10px; padding:12px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+                        <i class="fas fa-building-columns"></i> Coordenadas Bancarias
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline" style="font-size:0.75rem; padding:3px 8px;" onclick="copiarDatosBancariosCompletos()">
+                        <i class="fas fa-copy"></i> Copiar Todo
+                    </button>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.82rem;">
+                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Pago Móvil / Banco:</span>
+                        <strong style="color:var(--text-main);">Bancamiga (0172)</strong>
+                    </div>
+                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Cédula / RIF:</span>
+                        <strong style="color:var(--text-main);">V-30.544.641</strong>
+                    </div>
+                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; grid-column:span 2;">
+                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Teléfono Pago Móvil:</span>
+                        <strong style="color:var(--text-main);">0412-1234567</strong>
+                    </div>
+                </div>
             </div>
 
             <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
@@ -1212,6 +1238,17 @@ function abrirModalReportarPagoCliente() {
     `;
 
     modal.classList.add('active');
+}
+
+function copiarDatosBancariosCompletos() {
+    const texto = `Coordenadas Bancarias Tu Bodeguita:\nBanco: Bancamiga (0172)\nRIF: V-30544641\nTeléfono: 0412-1234567`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(() => {
+            if (window.InventoryApp.Modal?.toast) window.InventoryApp.Modal.toast('📋 Coordenadas bancarias copiadas al portapapeles', 'success');
+        });
+    } else {
+        alert('Coordenadas Bancarias:\n' + texto);
+    }
 }
 
 function calcularEquivalenteAbonoCliente(usdVal) {
@@ -1290,6 +1327,205 @@ async function procesarReportePagoCliente() {
     }
 }
 
+/**
+ * Renderiza la vista de Mi Perfil & Ajustes del Cliente
+ */
+function renderizarPerfilCliente() {
+    const container = document.getElementById('cliente-perfil-container');
+    const usuario = AppState.usuarioActual;
+    if (!container || !usuario) return;
+
+    const avatarUrl = usuario.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const puntos = typeof obtenerPuntosCliente === 'function' ? obtenerPuntosCliente(usuario.cedula || usuario.id) : (usuario.puntos || 0);
+
+    container.innerHTML = `
+        <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <!-- Tarjeta de Identidad de Perfil -->
+            <div class="card" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-main)); border: 1px solid var(--border-light); padding: 24px; position: relative;">
+                <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="position: relative;">
+                        <img src="${avatarUrl}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalSelectorAvatar()" style="position: absolute; bottom: 0; right: 0; border-radius: 50%; width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Cambiar Avatar">
+                            <i class="fas fa-camera" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <h2 style="margin: 0; font-size: 1.4rem; color: var(--text-main);">${usuario.nombre}</h2>
+                            <span class="badge-status badge-active" style="font-size: 0.75rem;"><i class="fas fa-shield-check"></i> Cliente Verificado</span>
+                        </div>
+                        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                            <i class="fas fa-id-card"></i> Cédula / RIF: <strong>${usuario.cedula || usuario.id}</strong>
+                        </p>
+                        <p style="margin: 2px 0 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                            <i class="fas fa-calendar-alt"></i> Miembro desde: ${usuario.fecha || usuario.fechaCreacion || '2026'}
+                        </p>
+                    </div>
+                    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 12px 18px; text-align: center;">
+                        <span style="font-size: 0.75rem; text-transform: uppercase; color: #d97706; font-weight: 700; display: block;">Puntos Acumulados</span>
+                        <strong style="font-size: 1.5rem; color: #d97706;"><i class="fas fa-trophy"></i> ${puntos} pts</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario de Edición de Datos de Contacto -->
+            <div class="card">
+                <h3 style="margin-bottom: 16px; font-size: 1.15rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-user-pen" style="color: var(--primary-accent);"></i> Mis Datos de Contacto
+                </h3>
+                <form id="form-cliente-perfil-datos" onsubmit="event.preventDefault(); guardarAjustesPerfilCliente();">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Nombre Completo <span style="color:var(--danger);">*</span></label>
+                            <input type="text" id="perfil-cli-nombre" class="form-control" value="${escaparHtmlInventario(usuario.nombre)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Teléfono Móvil (WhatsApp) <span style="color:var(--danger);">*</span></label>
+                            <input type="tel" id="perfil-cli-telefono" class="form-control" value="${escaparHtmlInventario(usuario.telefono || '')}" required>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Correo Electrónico</label>
+                            <input type="email" id="perfil-cli-email" class="form-control" value="${escaparHtmlInventario(usuario.email || '')}" placeholder="usuario@correo.com">
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 10px 20px;">
+                            <i class="fas fa-floppy-disk"></i> Guardar Cambios de Contacto
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Cambio de Contraseña Segura -->
+            <div class="card">
+                <h3 style="margin-bottom: 16px; font-size: 1.15rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-key" style="color: #f59e0b;"></i> Seguridad y Contraseña
+                </h3>
+                <form id="form-cliente-perfil-pwd" onsubmit="event.preventDefault(); cambiarPasswordPerfilCliente();">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Contraseña Actual</label>
+                            <input type="password" id="perfil-cli-pwd-actual" class="form-control" placeholder="••••••••" required>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Nueva Contraseña</label>
+                            <input type="password" id="perfil-cli-pwd-nueva" class="form-control" placeholder="Mínimo 4 caracteres" minlength="4" required>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-warning" style="font-weight: 700; padding: 10px 20px;">
+                            <i class="fas fa-shield-halved"></i> Actualizar Contraseña
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Selector de Temas Visuales -->
+            <div class="card">
+                <h3 style="margin-bottom: 12px; font-size: 1.15rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-palette" style="color: #8b5cf6;"></i> Apariencia y Tema Visual
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+                    Selecciona tu paleta visual favorita. Tu preferencia se guardará automáticamente en este dispositivo.
+                </p>
+                <div id="perfil-theme-selector-embed"></div>
+            </div>
+        </div>
+    `;
+
+    // Renderizar selector de temas embebido
+    if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarSelectorCliente === 'function') {
+        window.InventoryApp.Theme.renderizarSelectorCliente('perfil-theme-selector-embed');
+    }
+}
+
+function guardarAjustesPerfilCliente() {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    const nombre = document.getElementById('perfil-cli-nombre')?.value.trim();
+    const telefono = document.getElementById('perfil-cli-telefono')?.value.trim();
+    const email = document.getElementById('perfil-cli-email')?.value.trim();
+
+    if (!nombre) {
+        alert('El nombre no puede estar vacío.');
+        return;
+    }
+
+    usuario.nombre = nombre;
+    if (telefono) usuario.telefono = telefono;
+    if (email) usuario.email = email;
+
+    // Actualizar también en la colección global de usuarios
+    const uInState = (AppState.usuarios || []).find(u => (u.id === usuario.id || u.cedula === usuario.cedula));
+    if (uInState) {
+        uInState.nombre = nombre;
+        uInState.telefono = telefono;
+        uInState.email = email;
+    }
+
+    // Actualizar cliente vinculado
+    const cInState = (AppState.clientes || []).find(c => (c.id === usuario.cedula || c.id === usuario.id));
+    if (cInState) {
+        cInState.nombre = nombre;
+        cInState.telefono = telefono;
+    }
+
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    actualizarUIUsuarioActual();
+    renderizarPerfilCliente();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast('✅ Perfil actualizado correctamente.', 'success');
+    } else {
+        alert('Perfil actualizado correctamente.');
+    }
+}
+
+function cambiarPasswordPerfilCliente() {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    const pwdActual = document.getElementById('perfil-cli-pwd-actual')?.value.trim();
+    const pwdNueva = document.getElementById('perfil-cli-pwd-nueva')?.value.trim();
+
+    if (!verificarPasswordHash(pwdActual, usuario.passwordHash || usuario.password)) {
+        alert('❌ La contraseña actual ingresada es incorrecta.');
+        return;
+    }
+
+    if (!pwdNueva || pwdNueva.length < 4) {
+        alert('❌ La nueva contraseña debe tener al menos 4 caracteres.');
+        return;
+    }
+
+    const nuevoHash = calcularHashSha256(pwdNueva);
+    usuario.passwordHash = nuevoHash;
+    usuario.password = nuevoHash;
+
+    const uInState = (AppState.usuarios || []).find(u => (u.id === usuario.id || u.cedula === usuario.cedula));
+    if (uInState) {
+        uInState.passwordHash = nuevoHash;
+        uInState.password = nuevoHash;
+    }
+
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    document.getElementById('perfil-cli-pwd-actual').value = '';
+    document.getElementById('perfil-cli-pwd-nueva').value = '';
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast('🔒 Contraseña actualizada exitosamente.', 'success');
+    } else {
+        alert('Contraseña actualizada exitosamente.');
+    }
+}
+
 // Exportar a la ventana global
 window.BANCO_MENSAJES_SABIDURIA = BANCO_MENSAJES_SABIDURIA;
 window.obtenerSaludoSegunHora = obtenerSaludoSegunHora;
@@ -1321,3 +1557,7 @@ window.abrirModalReportarPagoCliente = abrirModalReportarPagoCliente;
 window.cerrarModalReportarPagoCliente = cerrarModalReportarPagoCliente;
 window.procesarReportePagoCliente = procesarReportePagoCliente;
 window.calcularEquivalenteAbonoCliente = calcularEquivalenteAbonoCliente;
+window.copiarDatosBancariosCompletos = copiarDatosBancariosCompletos;
+window.renderizarPerfilCliente = renderizarPerfilCliente;
+window.guardarAjustesPerfilCliente = guardarAjustesPerfilCliente;
+window.cambiarPasswordPerfilCliente = cambiarPasswordPerfilCliente;

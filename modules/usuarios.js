@@ -140,21 +140,145 @@ function configurarVistasPorRol(usuario) {
  * Renderiza los datos informativos en la pantalla de Solicitud Pendiente del Gatewall
  */
 function renderizarDetalleGatewallPendiente(usuario) {
-    const nombreEl = document.getElementById('gatewall-pending-nombre');
-    const cedulaEl = document.getElementById('gatewall-pending-cedula');
-    const rolEl = document.getElementById('gatewall-pending-rol');
-    const fechaEl = document.getElementById('gatewall-pending-fecha');
+    if (!usuario) return;
+
+    const nombreEl = document.getElementById('gw-pending-nombre');
+    const cedulaEl = document.getElementById('gw-pending-cedula');
+    const telefonoEl = document.getElementById('gw-pending-telefono');
+    const emailEl = document.getElementById('gw-pending-email');
+    const rolEl = document.getElementById('gw-pending-rol');
+    const fechaEl = document.getElementById('gw-pending-fecha');
     const waBtn = document.getElementById('gatewall-pending-btn-wa');
 
-    if (nombreEl) nombreEl.textContent = usuario.nombre || 'Usuario';
-    if (cedulaEl) cedulaEl.textContent = usuario.cedula || usuario.id || 'N/A';
+    if (nombreEl) nombreEl.textContent = usuario.nombre || '—';
+    if (cedulaEl) cedulaEl.textContent = usuario.cedula || usuario.id || '—';
+    if (telefonoEl) telefonoEl.textContent = usuario.telefono || '—';
+    if (emailEl) emailEl.textContent = usuario.email || '—';
     if (rolEl) rolEl.textContent = (usuario.rol || 'cliente').toUpperCase();
-    if (fechaEl) fechaEl.textContent = usuario.fechaRegistro || new Date().toISOString().substring(0, 16);
+    if (fechaEl) fechaEl.textContent = usuario.fechaRegistro || new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     if (waBtn) {
-        const telefonoLimpio = (usuario.telefono || '').replace(/\D/g, '');
-        const msg = encodeURIComponent(`Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula}). Acabo de registrarme y solicito la aprobación de mi cuenta.`);
+        const msg = encodeURIComponent(`Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id}). Acabo de registrarme y solicito la aprobación de mi cuenta.`);
         waBtn.href = `https://wa.me/584120000000?text=${msg}`;
+    }
+}
+
+/**
+ * Abre el Modal Interactivo para Corregir/Editar los Datos del Usuario en Gatewall
+ */
+function abrirModalEditarDatosGatewall() {
+    let modal = document.getElementById('modal-gatewall-editar-datos');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-gatewall-editar-datos';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 440px; padding: 24px; animation: modalPop 0.25s ease-out;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-user-pen" style="color:var(--primary-accent);"></i> Corregir Mis Datos
+                    </h3>
+                    <button type="button" class="btn-icon-tasa" onclick="cerrarModalEditarDatosGatewall()"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="form-gw-editar-datos" onsubmit="event.preventDefault(); procesarEdicionDatosGatewall();">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.85rem; font-weight:600;">Nombre y Apellido *</label>
+                        <input type="text" id="gw-edit-nombre" class="form-control" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.85rem; font-weight:600;">Cédula / RIF *</label>
+                        <input type="text" id="gw-edit-cedula" class="form-control" required readonly style="background:#f1f5f9;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.85rem; font-weight:600;">Teléfono / WhatsApp *</label>
+                        <input type="tel" id="gw-edit-telefono" class="form-control" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label style="font-size:0.85rem; font-weight:600;">Correo Electrónico *</label>
+                        <input type="email" id="gw-edit-email" class="form-control" required>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px;">
+                        <button type="button" class="btn btn-outline" onclick="cerrarModalEditarDatosGatewall()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="font-weight:700;">
+                            <i class="fas fa-floppy-disk"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+        modal.onclick = function(e) { if (e.target === this) cerrarModalEditarDatosGatewall(); };
+        document.body.appendChild(modal);
+    }
+
+    const usuario = AppState.usuarioActual;
+    if (usuario) {
+        const elNom = document.getElementById('gw-edit-nombre');
+        const elCed = document.getElementById('gw-edit-cedula');
+        const elTel = document.getElementById('gw-edit-telefono');
+        const elEmail = document.getElementById('gw-edit-email');
+
+        if (elNom) elNom.value = usuario.nombre || '';
+        if (elCed) elCed.value = usuario.cedula || usuario.id || '';
+        if (elTel) elTel.value = usuario.telefono || '';
+        if (elEmail) elEmail.value = usuario.email || '';
+    }
+
+    modal.classList.add('active');
+}
+
+function cerrarModalEditarDatosGatewall() {
+    const modal = document.getElementById('modal-gatewall-editar-datos');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Guarda los datos editados del usuario pendiente y actualiza Firestore / LocalStorage
+ */
+async function procesarEdicionDatosGatewall() {
+    const usuario = AppState.usuarioActual;
+    if (!usuario) return;
+
+    const nombre = document.getElementById('gw-edit-nombre')?.value?.trim();
+    const telefono = document.getElementById('gw-edit-telefono')?.value?.trim();
+    const email = document.getElementById('gw-edit-email')?.value?.trim()?.toLowerCase();
+
+    if (!nombre || !telefono || !email) {
+        alert('Todos los campos son obligatorios.');
+        return;
+    }
+
+    usuario.nombre = nombre;
+    usuario.telefono = telefono;
+    usuario.email = email;
+
+    // Actualizar en el array AppState.usuarios
+    const idx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === (usuario.cedula || usuario.id));
+    if (idx !== -1) {
+        AppState.usuarios[idx] = { ...AppState.usuarios[idx], nombre, telefono, email };
+    }
+
+    // Actualizar cliente correspondiente
+    const cliIdx = (AppState.clientes || []).findIndex(c => (c.id || c.cedula) === (usuario.cedula || usuario.id));
+    if (cliIdx !== -1) {
+        AppState.clientes[cliIdx].nombre = nombre;
+        AppState.clientes[cliIdx].telefono = telefono;
+    }
+
+    // Persistir localmente y en Firestore
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (window.InventoryApp.Firebase?.guardarUsuario) {
+        await window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+
+    cerrarModalEditarDatosGatewall();
+    renderizarDetalleGatewallPendiente(usuario);
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast('Tus datos han sido actualizados exitosamente.', 'success');
+    } else {
+        alert('Tus datos han sido actualizados exitosamente.');
     }
 }
 
@@ -328,14 +452,11 @@ function registrarUsuarioDesdeGatewall(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password) 
         : password;
 
-    // Comprobar si es el primer usuario real en registrarse en el sistema
-    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
-    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
-    const esPrimerUsuarioAdmin = !hayAdminReal;
-
-    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
-    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
-    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
+    // Regla de Seguridad Invariable: NINGÚN usuario registrado por formulario es Admin automáticamente.
+    // Todo nuevo usuario queda en estado PENDIENTE_APROBACION y rol cliente/solicitado.
+    const rolAsignado = rol || 'cliente';
+    const estadoAsignado = 'PENDIENTE_APROBACION';
+    const fechaAprobacion = null;
 
     const nuevoUsuario = {
         id: cedula,
@@ -355,7 +476,7 @@ function registrarUsuarioDesdeGatewall(e) {
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente o admin, registrarlo también en la colección de clientes
+    // Si es cliente, registrarlo también en la colección de clientes
     if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
@@ -371,10 +492,6 @@ function registrarUsuarioDesdeGatewall(e) {
     }
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
-    }
-
-    if (esPrimerUsuarioAdmin) {
-        alert(`👑 ¡Bienvenido, ${nombre}!\n\nAl ser el primer usuario registrado en la plataforma, tu cuenta ha sido configurada automáticamente como ADMINISTRADOR PRINCIPAL con acceso completo a todo el sistema (Inventario, POS, Clientes, Reportes y Usuarios).\n\nEsta función inicial ya ha quedado sellada para futuros registros.`);
     }
 
     verificarGatewall();
@@ -459,14 +576,10 @@ async function registrarUsuario(e) {
         ? window.InventoryApp.Helpers.calcularHashSha256(password)
         : password;
 
-    // Comprobar si es el primer usuario real en registrarse en el sistema
-    const usuariosExistentes = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
-    const hayAdminReal = usuariosExistentes.some(u => (u.rol === 'admin' || u.rol === 'superadmin') && u.estado === 'ACTIVO' && u.id !== 'SuperAdmin' && u.id !== 'V-00000001');
-    const esPrimerUsuarioAdmin = !hayAdminReal;
-
-    const rolAsignado = esPrimerUsuarioAdmin ? 'admin' : (rol || 'cliente');
-    const estadoAsignado = esPrimerUsuarioAdmin ? 'ACTIVO' : 'PENDIENTE_APROBACION';
-    const fechaAprobacion = esPrimerUsuarioAdmin ? new Date().toISOString().replace('T', ' ').substring(0, 16) : null;
+    // Regla de Seguridad Invariable: NINGÚN usuario registrado por formulario es Admin automáticamente.
+    const rolAsignado = rol || 'cliente';
+    const estadoAsignado = 'PENDIENTE_APROBACION';
+    const fechaAprobacion = null;
 
     const nuevoUsuario = {
         id: cedula,
@@ -486,7 +599,7 @@ async function registrarUsuario(e) {
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente o admin, registrarlo también en la colección de clientes
+    // Si es cliente, registrarlo también en la colección de clientes
     if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
         AppState.clientes.push({
             id: cedula,
@@ -515,11 +628,7 @@ async function registrarUsuario(e) {
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
 
-    if (esPrimerUsuarioAdmin) {
-        mostrarNotificacionRegistro(`👑 ¡Registro exitoso como Administrador Principal! Tienes acceso total e ilimitado a todo el sistema.`, 'success');
-    } else {
-        mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
-    }
+    mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
 
     verificarGatewall();
 }
@@ -867,33 +976,52 @@ function procesarSubidaAvatar(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
-        img.onload = function() {
-            // Resize to exact 150x150 square center-crop
+        img.onload = async function() {
+            // Resize to exact 180x180 square center-crop
             const canvas = document.createElement('canvas');
-            canvas.width = 150;
-            canvas.height = 150;
+            canvas.width = 180;
+            canvas.height = 180;
             const ctx = canvas.getContext('2d');
 
             const minDim = Math.min(img.width, img.height);
             const startX = (img.width - minDim) / 2;
             const startY = (img.height - minDim) / 2;
 
-            ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 150, 150);
+            ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 180, 180);
 
-            const dataUrl = canvas.toDataURL('image/webp', 0.85);
+            const dataUrl = canvas.toDataURL('image/webp', 0.88);
             
             const usuario = AppState.usuarioActual;
-            if (usuario) {
-                usuario.avatar = dataUrl;
-                if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
-                if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-                    window.InventoryApp.Firebase.guardarUsuario(usuario);
+            if (!usuario) return;
+
+            // 1. Asignar temporalmente y actualizar UI de inmediato
+            usuario.avatar = dataUrl;
+            actualizarUIUsuarioActual();
+            cerrarModalSelectorAvatar();
+
+            // 2. Subir a Vercel Blob (@vercel/blob) y guardar solo la URL en Firestore
+            try {
+                if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                    const idUser = usuario.cedula || usuario.id || 'user';
+                    const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(dataUrl, 'avatars', `avatar_${idUser}_${Date.now()}.webp`);
+                    if (resultado && resultado.url) {
+                        usuario.avatar = resultado.url;
+                        console.log('[Usuarios] Avatar persistido en Vercel Blob:', resultado.url);
+                    }
                 }
-                actualizarUIUsuarioActual();
-                cerrarModalSelectorAvatar();
-                if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-                if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+            } catch (blobErr) {
+                console.warn('[Usuarios] Aviso al subir avatar a Vercel Blob, usando copia local:', blobErr);
             }
+
+            // 3. Persistir en Firestore (solo la URL) y localStorage
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+            if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+                window.InventoryApp.Firebase.guardarUsuario(usuario);
+            }
+
+            actualizarUIUsuarioActual();
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         };
         img.src = e.target.result;
     };
@@ -1150,6 +1278,22 @@ function actualizarUIUsuarioActual() {
             headerPtsPill.style.display = 'none';
         }
     }
+
+    // Botón de Estado de Persistencia/Nube solo visible para Administradores
+    const persistenciaStatusEl = document.getElementById('persistencia-status');
+    if (persistenciaStatusEl) {
+        const rolUsuario = (usuario.rol || '').toLowerCase();
+        const esAdmin = rolUsuario === 'admin' || rolUsuario === 'superadmin';
+        persistenciaStatusEl.style.display = esAdmin ? 'flex' : 'none';
+    }
+
+    // Botón de Edición Manual de Tasa solo visible para Administradores
+    const btnEditarTasaManual = document.getElementById('btn-editar-tasa-manual');
+    if (btnEditarTasaManual) {
+        const rolUsuario = (usuario.rol || '').toLowerCase();
+        const esAdmin = rolUsuario === 'admin' || rolUsuario === 'superadmin';
+        btnEditarTasaManual.style.display = esAdmin ? 'inline-flex' : 'none';
+    }
 }
 
 /**
@@ -1259,3 +1403,7 @@ window.cerrarModalSelectorAvatar = cerrarModalSelectorAvatar;
 window.seleccionarAvatarPreset = seleccionarAvatarPreset;
 window.restablecerAvatarPorDefecto = restablecerAvatarPorDefecto;
 window.procesarSubidaAvatar = procesarSubidaAvatar;
+window.abrirModalEditarDatosGatewall = abrirModalEditarDatosGatewall;
+window.cerrarModalEditarDatosGatewall = cerrarModalEditarDatosGatewall;
+window.procesarEdicionDatosGatewall = procesarEdicionDatosGatewall;
+window.verificarEstadoAprobacionGatewall = verificarEstadoAprobacionGatewall;

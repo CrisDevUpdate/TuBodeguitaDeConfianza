@@ -14,6 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles/fluid-scroll.css">
+    <link rel="stylesheet" href="styles/themeEngine.css">
 </head>
 <body>
 
@@ -135,6 +136,9 @@
                 <a id="gatewall-pending-btn-wa" href="#" target="_blank" class="btn btn-success" style="padding:12px; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
                     <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> Notificar al Administrador por WhatsApp
                 </a>
+                <button type="button" class="btn btn-outline" onclick="abrirModalEditarDatosGatewall()" style="font-weight:700;">
+                    <i class="fas fa-user-pen"></i> Corregir Mis Datos
+                </button>
                 <button type="button" class="btn btn-outline" onclick="verificarEstadoAprobacionGatewall()">
                     <i class="fas fa-rotate"></i> Comprobar Estado de Aprobación
                 </button>
@@ -268,6 +272,9 @@
         </button>
         <button class="nav-btn nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')">
             <i class="fas fa-trophy" style="color:#f59e0b;"></i> Mis Puntos & Premios
+        </button>
+        <button class="nav-btn nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')">
+            <i class="fas fa-user-gear" style="color:var(--primary-accent);"></i> Mi Perfil & Ajustes
         </button>
     </div>
 
@@ -1441,6 +1448,13 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
             <!-- Se renderiza reactivamente por renderizarPremioMesCliente() -->
         </div>
     </div>
+
+    <!-- VISTA 11 (CLIENTE): MI PERFIL, TEMA & AJUSTES -->
+    <div id="cliente-perfil" class="view-content">
+        <div id="cliente-perfil-container">
+            <!-- Se renderiza reactivamente por renderizarPerfilCliente() -->
+        </div>
+    </div>
 </div>
 </div>
 
@@ -1613,149 +1627,6 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
                 <button type="submit" class="btn btn-success">Procesar Pago</button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Modal de Estado y Control de la Nube (Firebase Firestore) -->
-<div id="modal-cloud-sync" class="modal" onclick="if(event.target === this) cerrarModalCloudSync();">
-    <div class="modal-content" style="max-width: 620px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:15px; position:sticky; top:0; background:#ffffff; z-index:10;">
-            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-cloud-arrow-up" style="color:var(--primary-accent);"></i> Base de Datos en la Nube
-            </h3>
-            <button type="button" class="btn btn-sm" onclick="cerrarModalCloudSync()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
-        </div>
-
-        <div class="cloud-info-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div>
-                    <strong>Motor de Nube:</strong> Google Cloud Firebase Firestore (Gratuito)
-                </div>
-                <span id="modal-cloud-status-badge" class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">Conectado</span>
-            </div>
-            <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.4;">
-                Tus datos de productos, clientes, ventas, abonos y auditoría se sincronizan en tiempo real con Firestore y se respaldan localmente en tu navegador para acceso sin interrupciones.
-            </div>
-
-            <div class="cloud-info-grid">
-                <div class="cloud-stat-card">
-                    <strong id="cloud-stat-productos">0</strong>
-                    <span>Productos</span>
-                </div>
-                <div class="cloud-stat-card">
-                    <strong id="cloud-stat-clientes">0</strong>
-                    <span>Clientes</span>
-                </div>
-                <div class="cloud-stat-card">
-                    <strong id="cloud-stat-ventas">0</strong>
-                    <span>Ventas</span>
-                </div>
-                <div class="cloud-stat-card">
-                    <strong id="cloud-stat-transacciones">0</strong>
-                    <span>Transacciones</span>
-                </div>
-            </div>
-        </div>
-
-        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-success" id="btn-cloud-sync-now" onclick="ejecutarSincronizacionNube()" style="flex:1;">
-                    <i class="fas fa-rotate"></i> Forzar Sincronización Nube
-                </button>
-                <button type="button" class="btn btn-primary" onclick="descargarRespaldoLocal()" style="flex:1;">
-                    <i class="fas fa-download"></i> Descargar Datos JSON
-                </button>
-            </div>
-
-            <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:12px; text-align:center;">
-                <label style="cursor:pointer; display:block; font-size:0.85rem; color:var(--text-main); font-weight:600;">
-                    <i class="fas fa-upload"></i> Restaurar / Importar desde archivo JSON
-                    <input type="file" id="input-restaurar-json" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
-                </label>
-                <small style="color:var(--text-muted); font-size:0.75rem;">Sube un respaldo previo para recuperar todos los datos y sincronizarlos a la nube.</small>
-            </div>
-        </div>
-
-        <div class="drive-box" id="google-drive-integration-box">
-            <div class="drive-box-header">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <i class="fab fa-google-drive" style="font-size:1.4rem; color:#16a34a;"></i>
-                    <div>
-                        <strong style="color:#15803d; font-size:0.92rem;">Integración con Google Drive</strong>
-                        <div style="font-size:0.75rem; color:#166534;">Respaldos automáticos, restauración y exportación de hojas de cálculo</div>
-                    </div>
-                </div>
-                <button type="button" id="btn-google-drive-logout" class="btn btn-sm btn-outline" style="display:none;" onclick="InventoryApp.GoogleDrive.logout()">
-                    <i class="fas fa-arrow-right-from-bracket"></i> Desconectar
-                </button>
-            </div>
-
-            <div id="drive-user-status" style="margin-bottom:12px;"></div>
-
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
-                <!-- Official Sign in with Google Button -->
-                <button type="button" id="btn-google-drive-login" class="gsi-material-button" onclick="InventoryApp.GoogleDrive.login()">
-                    <div class="gsi-material-button-state"></div>
-                    <div class="gsi-material-button-content-wrapper">
-                        <div class="gsi-material-button-icon">
-                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="display: block;">
-                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                                <path fill="none" d="M0 0h48v48H0z"></path>
-                            </svg>
-                        </div>
-                        <span class="gsi-material-button-contents">Conectar con Google Drive</span>
-                    </div>
-                </button>
-            </div>
-
-            <div id="drive-actions-section" style="display:none;">
-                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-                    <button type="button" class="btn btn-sm btn-success" id="btn-drive-backup-now" onclick="InventoryApp.GoogleDrive.guardarRespaldo()" style="flex:1;">
-                        <i class="fab fa-google-drive"></i> Crear Respaldo en Drive
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="InventoryApp.GoogleDrive.exportarCSVADrive('productos')" title="Exportar catálogo a Google Drive">
-                        <i class="fas fa-file-csv"></i> Exportar Inventario CSV
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="InventoryApp.GoogleDrive.exportarCSVADrive('ventas')" title="Exportar historial de ventas a Google Drive">
-                        <i class="fas fa-file-invoice-dollar"></i> Exportar Ventas CSV
-                    </button>
-                </div>
-
-                <div style="border-top:1px solid #dcfce7; padding-top:10px;">
-                    <div style="font-weight:600; font-size:0.8rem; color:#15803d; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                        <span><i class="fas fa-clock-rotate-left"></i> Respaldos en tu Google Drive</span>
-                        <button type="button" class="btn btn-sm" onclick="InventoryApp.GoogleDrive.listarRespaldos()" style="background:none; border:none; color:#15803d; cursor:pointer; font-size:0.75rem;">
-                            <i class="fas fa-rotate"></i> Actualizar lista
-                        </button>
-                    </div>
-                    <div id="drive-backups-list">
-                        <!-- Lista dinámica de archivos en Google Drive -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div style="margin-top:15px; border-top:1px dashed #fca5a5; padding-top:12px; background:#fff5f5; border-radius:8px; padding:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div>
-                    <strong style="color:#b91c1c; font-size:0.85rem;"><i class="fas fa-trash-can"></i> Reiniciar Base de Datos (Estado Virgen)</strong>
-                    <div style="font-size:0.75rem; color:#7f1d1d;">Vacía todos los productos, ventas y clientes en la nube y localmente, dejando solo a SuperAdmin (1810).</div>
-                </div>
-                <button type="button" class="btn btn-sm btn-danger" onclick="limpiarBaseDeDatosVirgen()" style="font-size:0.78rem;">
-                    <i class="fas fa-arrows-rotate"></i> Purgar Todo a Virgen
-                </button>
-            </div>
-        </div>
-
-        <div style="margin-top:20px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; position:sticky; bottom:0; background:#ffffff; z-index:10;">
-            <span style="font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-shield-halved"></i> Datos protegidos y cifrados</span>
-            <button type="button" class="btn btn-primary" onclick="cerrarModalCloudSync()" style="min-width:110px; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-                <i class="fas fa-times"></i> Cerrar
-            </button>
-        </div>
     </div>
 </div>
 
@@ -2023,6 +1894,10 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         <i class="fas fa-trophy"></i>
         <span>Premios</span>
     </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')" aria-label="Mi Perfil y Ajustes">
+        <i class="fas fa-user-gear"></i>
+        <span>Perfil</span>
+    </button>
 </nav>
 
 <!-- Firebase SDK Compat (Firestore + Auth) -->
@@ -2035,6 +1910,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="core/modal.js"></script>
 <script src="core/helpers.js"></script>
 <script src="core/firebase-service.js"></script>
+<script src="core/image-cache-service.js"></script>
 <script src="core/google-drive-service.js"></script>
 <script src="core/persistence.js"></script>
 <script src="core/bcv.js"></script>

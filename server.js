@@ -11,7 +11,8 @@ const PORT = 3000;
 const HOST = '0.0.0.0';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Strict Zero-Cache Stale Policy for all API Routes
 app.use('/api', (req, res, next) => {
@@ -609,6 +610,116 @@ app.post('/api/admin/reset', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// =========================================================================
+// ARQUITECTURA DE ALMACENAMIENTO HÍBRIDO (Vercel Blob + Firestore + Local)
+// =========================================================================
+
+// Endpoint de Subida de Archivos a Vercel Blob (@vercel/blob)
+app.post('/api/upload/blob', async (req, res) => {
+  try {
+    const { filename, fileData, contentType = 'image/webp', folder = 'productos' } = req.body;
+    if (!fileData) {
+      return res.status(400).json({ success: false, error: 'Se requiere el contenido del archivo (base64 o data URI).' });
+    }
+
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+    const cleanFilename = filename ? filename.replace(/[^a-zA-Z0-9._-]/g, '_') : `${folder}_${timestamp}_${randomSuffix}.${ext}`;
+    const targetPathname = `${folder}/${cleanFilename}`;
+
+    let buffer;
+    if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+      buffer = Buffer.from(fileData.split(',')[1], 'base64');
+    } else if (typeof fileData === 'string') {
+      buffer = Buffer.from(fileData, 'base64');
+    } else {
+      buffer = Buffer.from(fileData);
+    }
+
+    // 1. Si está configurado BLOB_READ_WRITE_TOKEN, usar @vercel/blob put oficial
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (blobToken) {
+      try {
+        const { put } = await import('@vercel/blob');
+        const blob = await put(targetPathname, buffer, {
+          access: 'public',
+          token: blobToken,
+          contentType: contentType || 'image/webp'
+        });
+
+        console.log(`[Vercel Blob] Archivo subido exitosamente: ${blob.pathname} -> ${blob.url}`);
+        return res.json({
+          success: true,
+          url: blob.url,
+          downloadUrl: blob.downloadUrl,
+          pathname: blob.pathname,
+          contentType: blob.contentType || contentType,
+          provider: 'vercel-blob'
+        });
+      } catch (blobErr) {
+        console.warn('[Vercel Blob Error]:', blobErr.message);
+      }
+    }
+
+    // 2. Fallback local optimizado si aún no se ha proporcionado el token
+    const safeDataUrl = fileData.startsWith('data:') ? fileData : `data:${contentType};base64,${buffer.toString('base64')}`;
+    console.log(`[Storage Híbrido] Guardado en formato optimizado local para: ${targetPathname}`);
+    return res.json({
+      success: true,
+      url: safeDataUrl,
+      pathname: targetPathname,
+      contentType: contentType,
+      provider: 'local-hybrid-cache',
+      notice: 'Para almacenar en CDN de Vercel Blob, define BLOB_READ_WRITE_TOKEN en las variables de entorno.'
+    });
+  } catch (err) {
+    console.error('[Upload Blob API Error]:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint de Consulta / Proxy de Vercel Blob según especificación con get()
+app.get('/api/blob/serve', async (req, res) => {
+  try {
+    const pathname = req.query.pathname || req.query.url;
+    if (!pathname) {
+      return res.status(400).json({ error: 'Missing pathname query parameter' });
+    }
+
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (blobToken) {
+      try {
+        const { get } = await import('@vercel/blob');
+        const result = await get(pathname, {
+          access: 'public',
+          token: blobToken
+        });
+
+        if (result === null) {
+          return res.status(404).json({ error: 'Blob not found' });
+        }
+
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        if (result.blob && result.blob.contentType) {
+          res.setHeader('Content-Type', result.blob.contentType);
+        }
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        if (result.stream) {
+          return result.stream.pipe(res);
+        }
+      } catch (getErr) {
+        console.warn('[Blob Get Error]:', getErr.message);
+      }
+    }
+
+    return res.status(404).json({ error: 'Blob not accessible or token not configured' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
