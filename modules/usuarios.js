@@ -20,7 +20,26 @@ function verificarGatewall() {
 
     if (!gatewall || !mainApp) return;
 
-    const usuario = AppState.usuarioActual;
+    let usuario = AppState.usuarioActual;
+
+    // Verificar si el usuario actual sigue existiendo en el estado del sistema
+    if (usuario) {
+        const idDoc = usuario.cedula || usuario.id;
+        const esSuperAdmin = idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
+        if (!esSuperAdmin && Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
+            const usuarioEnMemoria = AppState.usuarios.find(u => (u.cedula || u.id) === idDoc || (u.email && u.email.toLowerCase() === (usuario.email || '').toLowerCase()));
+            if (!usuarioEnMemoria) {
+                // El usuario ya no existe en el sistema
+                AppState.usuarioActual = null;
+                usuario = null;
+                if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+            } else {
+                // Mantener estado y rol sincronizados
+                usuario = usuarioEnMemoria;
+                AppState.usuarioActual = usuarioEnMemoria;
+            }
+        }
+    }
 
     // 1. Si no hay usuario o no está ACTIVO -> BLOQUEO TOTAL CERO ACCESO
     if (!usuario || usuario.estado !== 'ACTIVO') {
@@ -321,57 +340,130 @@ function switchGatewallTab(tab) {
 /**
  * Procesa el inicio de sesión desde el Gatewall con verificación estricta de credenciales y SHA-256
  */
-function procesarLoginGatewall(e) {
+async function procesarLoginGatewall(e) {
     if (e && e.preventDefault) e.preventDefault();
 
     const inputId = document.getElementById('gw-login-id');
     const inputPass = document.getElementById('gw-login-pass');
+    const btnSubmit = e && e.target ? e.target.querySelector('button[type="submit"]') : null;
+    const btnOriginalHtml = btnSubmit ? btnSubmit.innerHTML : '';
 
     const id = (inputId?.value || '').trim();
     const pass = (inputPass?.value || '').trim();
 
     if (!id || !pass) {
-        alert('Por favor ingresa tu Cédula/Correo y Contraseña.');
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Campos Incompletos', 'Por favor ingresa tu Cédula/Correo y Contraseña.', 'warning');
+        } else {
+            alert('Por favor ingresa tu Cédula/Correo y Contraseña.');
+        }
         return false;
     }
 
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando credenciales...';
+    }
+
     const cleanId = id.toUpperCase();
+    const cleanEmail = id.toLowerCase();
     
     // Asegurar que si la lista de usuarios no contiene al SuperAdmin, se garantice
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
         window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
     }
 
-    let usuario = (AppState.usuarios || []).find(u => 
-        (u.id || '').trim().toUpperCase() === cleanId ||
-        (u.cedula || '').trim().toUpperCase() === cleanId || 
-        (u.nombre || '').trim().toUpperCase() === cleanId ||
-        (u.email || '').trim().toLowerCase() === id.toLowerCase()
-    );
-
-    // Fallback de contingencia directa para SuperAdmin (Hash SHA-256)
     const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
-    if (!usuario && (cleanId === 'SUPERADMIN' || id.toLowerCase() === 'superadmin@tubodeguita.com')) {
-        usuario = {
-            id: 'SuperAdmin',
-            cedula: 'SuperAdmin',
-            nombre: 'SuperAdmin',
-            telefono: '0412-0000000',
-            email: 'superadmin@tubodeguita.com',
-            password: HASH_SUPERADMIN,
-            rol: 'admin',
-            estado: 'ACTIVO',
-            puntosAcumulados: 0,
-            puntosCanjeados: 0,
-            fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
-        };
-        if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
-        AppState.usuarios.unshift(usuario);
-        if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+    const esSuperAdminLogin = cleanId === 'SUPERADMIN' || cleanEmail === 'superadmin@tubodeguita.com';
+
+    let usuario = null;
+
+    if (esSuperAdminLogin) {
+        usuario = (AppState.usuarios || []).find(u => u.id === 'SuperAdmin' || (u.cedula && u.cedula.toUpperCase() === 'SUPERADMIN'));
+        if (!usuario) {
+            usuario = {
+                id: 'SuperAdmin',
+                cedula: 'SuperAdmin',
+                nombre: 'SuperAdmin',
+                telefono: '0412-0000000',
+                email: 'superadmin@tubodeguita.com',
+                password: HASH_SUPERADMIN,
+                rol: 'admin',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+            AppState.usuarios.unshift(usuario);
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        }
+    } else {
+        // Consultar primero en Firestore para verificar el estado real y no permitir usuarios eliminados
+        let userCloud = null;
+        if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.obtenerUsuario === 'function') {
+            try {
+                userCloud = await window.InventoryApp.Firebase.obtenerUsuario(id);
+            } catch (errCloud) {
+                console.warn('[Gatewall] Aviso al consultar Firestore:', errCloud);
+            }
+        }
+
+        if (userCloud) {
+            // Usuario validado en Firestore
+            usuario = userCloud;
+            // Sincronizar en AppState.usuarios
+            if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+            const idx = AppState.usuarios.findIndex(u => (u.cedula || u.id) === (userCloud.cedula || userCloud.id));
+            if (idx !== -1) {
+                AppState.usuarios[idx] = userCloud;
+            } else {
+                AppState.usuarios.push(userCloud);
+            }
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        } else if (navigator.onLine && window.InventoryApp.Firebase) {
+            // Está online y NO existe en Firestore -> Usuario borrado o inexistente
+            // Purgar de la caché local para mantener sincronización estricta
+            AppState.usuarios = (AppState.usuarios || []).filter(u => 
+                (u.id || '').toUpperCase() !== cleanId && 
+                (u.cedula || '').toUpperCase() !== cleanId && 
+                (u.email || '').toLowerCase() !== cleanEmail
+            );
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = btnOriginalHtml;
+            }
+
+            if (window.InventoryApp.Modal?.alert) {
+                window.InventoryApp.Modal.alert('Cuenta no encontrada', `No existe una cuenta registrada con "${id}" o ha sido eliminada del sistema. Puedes enviar una nueva solicitud de registro.`, 'error');
+            } else {
+                alert(`No existe una cuenta registrada con "${id}" o ha sido eliminada del sistema. Puedes enviar una nueva solicitud de registro.`);
+            }
+            return false;
+        } else {
+            // Modo offline sin conexión
+            usuario = (AppState.usuarios || []).find(u => 
+                (u.id || '').trim().toUpperCase() === cleanId ||
+                (u.cedula || '').trim().toUpperCase() === cleanId || 
+                (u.nombre || '').trim().toUpperCase() === cleanId ||
+                (u.email || '').trim().toLowerCase() === cleanEmail
+            );
+        }
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = btnOriginalHtml;
     }
 
     if (!usuario) {
-        alert(`No existe una cuenta registrada con "${id}". Puedes registrarte en la pestaña "Registrarse".`);
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Cuenta no encontrada', `No existe una cuenta registrada con "${id}". Puedes registrarte en la pestaña "Registrarse".`, 'error');
+        } else {
+            alert(`No existe una cuenta registrada con "${id}". Puedes registrarte en la pestaña "Registrarse".`);
+        }
         return false;
     }
 
@@ -384,7 +476,11 @@ function procesarLoginGatewall(e) {
     }
 
     if (!esPasswordValido) {
-        alert('Contraseña incorrecta. Verifica tus credenciales.');
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Contraseña Incorrecta', 'La contraseña ingresada no coincide con nuestros registros.', 'error');
+        } else {
+            alert('Contraseña incorrecta. Verifica tus credenciales.');
+        }
         return false;
     }
 
@@ -400,6 +496,10 @@ function procesarLoginGatewall(e) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
+    if (usuario.estado === 'ACTIVO' && window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`¡Bienvenido de nuevo, ${usuario.nombre || usuario.cedula}!`, 'success');
+    }
+
     verificarGatewall();
     return false;
 }
@@ -407,7 +507,7 @@ function procesarLoginGatewall(e) {
 /**
  * Registra usuario desde el formulario del Gatewall
  */
-function registrarUsuarioDesdeGatewall(e) {
+async function registrarUsuarioDesdeGatewall(e) {
     if (e && e.preventDefault) e.preventDefault();
 
     const cedulaInput = document.getElementById('gw-reg-cedula');
@@ -416,6 +516,8 @@ function registrarUsuarioDesdeGatewall(e) {
     const emailInput = document.getElementById('gw-reg-email');
     const passwordInput = document.getElementById('gw-reg-password');
     const rolSelect = document.getElementById('gw-reg-rol');
+    const btnSubmit = e && e.target ? e.target.querySelector('button[type="submit"]') : null;
+    const btnOriginalHtml = btnSubmit ? btnSubmit.innerHTML : '';
 
     const cedula = (cedulaInput?.value || '').trim();
     const nombre = (nombreInput?.value || '').trim();
@@ -447,13 +549,17 @@ function registrarUsuarioDesdeGatewall(e) {
         return false;
     }
 
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando solicitud a la nube...';
+    }
+
     // Generar Hash SHA-256 para no guardar jamás la contraseña en texto plano
     const passwordHash = (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.calcularHashSha256 === 'function') 
         ? window.InventoryApp.Helpers.calcularHashSha256(password) 
         : password;
 
     // Regla de Seguridad Invariable: NINGÚN usuario registrado por formulario es Admin automáticamente.
-    // Todo nuevo usuario queda en estado PENDIENTE_APROBACION y rol cliente/solicitado.
     const rolAsignado = rol || 'cliente';
     const estadoAsignado = 'PENDIENTE_APROBACION';
     const fechaAprobacion = null;
@@ -490,8 +596,19 @@ function registrarUsuarioDesdeGatewall(e) {
     if (window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
+    
+    // Guardar en Firestore con sincronización inmediata
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-        window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
+        try {
+            await window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
+        } catch (err) {
+            console.warn('[Gatewall] Aviso al guardar usuario en Firestore:', err);
+        }
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = btnOriginalHtml;
     }
 
     verificarGatewall();
@@ -499,25 +616,75 @@ function registrarUsuarioDesdeGatewall(e) {
 }
 
 /**
- * Comprueba si la solicitud actual fue aprobada por el Admin
+ * Comprueba si la solicitud actual fue aprobada por el Admin consultando directamente Firestore
  */
-function verificarEstadoAprobacionGatewall() {
+async function verificarEstadoAprobacionGatewall() {
     if (!AppState.usuarioActual) {
         cerrarSesionUsuario();
         return;
     }
 
     const cedula = AppState.usuarioActual.cedula || AppState.usuarioActual.id;
-    const actualizado = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
+    let usuarioActualizado = null;
 
-    if (actualizado) {
-        AppState.usuarioActual = actualizado;
-        if (actualizado.estado === 'ACTIVO') {
-            alert('¡Felicidades! Tu cuenta ha sido APROBADA. Ingresando al sistema...');
-        } else if (actualizado.estado === 'RECHAZADO') {
-            alert('Tu solicitud fue RECHAZADA. Revisa el motivo especificado.');
+    // 1. Consultar Firestore directamente
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.obtenerUsuario === 'function') {
+        try {
+            usuarioActualizado = await window.InventoryApp.Firebase.obtenerUsuario(cedula);
+        } catch (e) {
+            console.warn('[Gatewall] Error consultando estado en Firestore:', e);
+        }
+    }
+
+    if (!usuarioActualizado) {
+        // Si no se encontró en Firestore y hay conexión a internet -> Fue eliminado
+        if (navigator.onLine && window.InventoryApp.Firebase) {
+            AppState.usuarioActual = null;
+            AppState.usuarios = (AppState.usuarios || []).filter(u => (u.cedula || u.id) !== cedula);
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+            verificarGatewall();
+            if (window.InventoryApp.Modal?.alert) {
+                window.InventoryApp.Modal.alert('Solicitud No Encontrada', 'Esta cuenta fue eliminada de la base de datos por la administración.', 'error');
+            } else {
+                alert('Esta cuenta fue eliminada de la base de datos por la administración.');
+            }
+            return;
+        }
+        // Fallback local
+        usuarioActualizado = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
+    }
+
+    if (usuarioActualizado) {
+        AppState.usuarioActual = usuarioActualizado;
+        const idx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === cedula);
+        if (idx !== -1) {
+            AppState.usuarios[idx] = usuarioActualizado;
         } else {
-            alert('Tu solicitud aún se encuentra en revisión.');
+            AppState.usuarios.push(usuarioActualizado);
+        }
+        if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+
+        if (usuarioActualizado.estado === 'ACTIVO') {
+            if (window.InventoryApp.Firebase?.reproducirSonidoNotificacion) {
+                window.InventoryApp.Firebase.reproducirSonidoNotificacion();
+            }
+            if (window.InventoryApp.Modal?.alert) {
+                window.InventoryApp.Modal.alert('¡Cuenta Aprobada!', '¡Felicidades! Tu cuenta ha sido APROBADA por el Administrador. Ingresando al sistema...', 'success');
+            } else {
+                alert('¡Felicidades! Tu cuenta ha sido APROBADA. Ingresando al sistema...');
+            }
+        } else if (usuarioActualizado.estado === 'RECHAZADO') {
+            if (window.InventoryApp.Modal?.alert) {
+                window.InventoryApp.Modal.alert('Solicitud Rechazada', `Tu solicitud fue RECHAZADA. Motivo: ${usuarioActualizado.motivoRechazo || 'Requisitos no cumplidos.'}`, 'error');
+            } else {
+                alert(`Tu solicitud fue RECHAZADA. Motivo: ${usuarioActualizado.motivoRechazo || 'Requisitos no cumplidos.'}`);
+            }
+        } else {
+            if (window.InventoryApp.Modal?.alert) {
+                window.InventoryApp.Modal.alert('En Revisión', 'Tu solicitud aún se encuentra pendiente de validación por el Administrador.', 'info');
+            } else {
+                alert('Tu solicitud aún se encuentra en revisión.');
+            }
         }
         verificarGatewall();
     }
@@ -1325,7 +1492,7 @@ function verificarAccesoPOS(mostrarAlerta = true) {
 /**
  * Procesa el inicio de sesión desde el modal de cambio/login
  */
-function procesarLoginUsuario(e) {
+async function procesarLoginUsuario(e) {
     if (e && e.preventDefault) e.preventDefault();
     const inputId = document.getElementById('login-identificador');
     const inputPass = document.getElementById('login-password');
@@ -1333,20 +1500,41 @@ function procesarLoginUsuario(e) {
     const pass = (inputPass?.value || '').trim();
 
     if (!id || !pass) {
-        alert('Ingresa identificador y contraseña.');
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Campos Incompletos', 'Ingresa identificador y contraseña.', 'warning');
+        } else {
+            alert('Ingresa identificador y contraseña.');
+        }
         return false;
     }
 
     const cleanId = id.toUpperCase();
-    const usuario = (AppState.usuarios || []).find(u => 
-        (u.id || '').trim().toUpperCase() === cleanId ||
-        (u.cedula || '').trim().toUpperCase() === cleanId || 
-        (u.nombre || '').trim().toUpperCase() === cleanId ||
-        (u.email || '').trim().toLowerCase() === id.toLowerCase()
-    );
+    const cleanEmail = id.toLowerCase();
+    let usuario = null;
+
+    if (cleanId === 'SUPERADMIN' || cleanEmail === 'superadmin@tubodeguita.com') {
+        usuario = (AppState.usuarios || []).find(u => u.id === 'SuperAdmin' || (u.cedula && u.cedula.toUpperCase() === 'SUPERADMIN'));
+    } else if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.obtenerUsuario === 'function') {
+        try {
+            usuario = await window.InventoryApp.Firebase.obtenerUsuario(id);
+        } catch (e) {}
+    }
 
     if (!usuario) {
-        alert(`No existe una cuenta registrada para "${id}".`);
+        usuario = (AppState.usuarios || []).find(u => 
+            (u.id || '').trim().toUpperCase() === cleanId ||
+            (u.cedula || '').trim().toUpperCase() === cleanId || 
+            (u.nombre || '').trim().toUpperCase() === cleanId ||
+            (u.email || '').trim().toLowerCase() === cleanEmail
+        );
+    }
+
+    if (!usuario) {
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Usuario no encontrado', `No existe una cuenta registrada para "${id}" o fue eliminada.`, 'error');
+        } else {
+            alert(`No existe una cuenta registrada para "${id}".`);
+        }
         return false;
     }
 
@@ -1358,7 +1546,11 @@ function procesarLoginUsuario(e) {
     }
 
     if (!esValido) {
-        alert('Contraseña incorrecta.');
+        if (window.InventoryApp.Modal?.alert) {
+            window.InventoryApp.Modal.alert('Contraseña Incorrecta', 'Contraseña incorrecta. Verifica tus credenciales.', 'error');
+        } else {
+            alert('Contraseña incorrecta.');
+        }
         return false;
     }
 

@@ -1,0 +1,99 @@
+{
+  "entities": [
+    {
+      "collection": "usuarios",
+      "fields": {
+        "id": "string",
+        "cedula": "string",
+        "nombre": "string",
+        "telefono": "string",
+        "email": "string",
+        "password": "string",
+        "rol": "string",
+        "estado": "string",
+        "puntosAcumulados": "number",
+        "puntosCanjeados": "number",
+        "fechaRegistro": "string",
+        "fechaAprobacion": "string",
+        "motivoRechazo": "string",
+        "avatar": "string"
+      }
+    },
+    {
+      "collection": "productos",
+      "fields": {
+        "id": "string",
+        "codigo": "string",
+        "nombre": "string",
+        "categoria": "string",
+        "precioUSD": "number",
+        "costoUSD": "number",
+        "stock": "number",
+        "stockMinimo": "number",
+        "imagen": "string"
+      }
+    },
+    {
+      "collection": "clientes",
+      "fields": {
+        "id": "string",
+        "nombre": "string",
+        "telefono": "string",
+        "email": "string",
+        "limiteCreditoUSD": "number"
+      }
+    },
+    {
+      "collection": "ventas",
+      "fields": {
+        "id": "string",
+        "clienteId": "string",
+        "items": "array",
+        "totalUSD": "number",
+        "totalVES": "number",
+        "tipoPago": "string",
+        "fecha": "string"
+      }
+    },
+    {
+      "collection": "abonos",
+      "fields": {
+        "id": "string",
+        "clienteId": "string",
+        "montoUSD": "number",
+        "montoVES": "number",
+        "metodoPago": "string",
+        "fecha": "string"
+      }
+    },
+    {
+      "collection": "transacciones",
+      "fields": {
+        "id": "string",
+        "tipo": "string",
+        "nombre": "string",
+        "tasaVES": "number"
+      }
+    },
+    {
+      "collection": "auditorias",
+      "fields": {
+        "id": "string",
+        "productoId": "string",
+        "stockSistema": "number",
+        "stockFisico": "number",
+        "diferencia": "number",
+        "fecha": "string"
+      }
+    },
+    {
+      "collection": "config",
+      "fields": {
+        "id": "string",
+        "nextProductSequence": "number",
+        "premioMes": "object",
+        "treeProgress": "number"
+      }
+    }
+  ]
+}

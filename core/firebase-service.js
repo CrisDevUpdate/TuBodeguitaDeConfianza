@@ -34,6 +34,48 @@ window.InventoryApp = window.InventoryApp || {};
     let lastSyncAttempt = 0;
 
     /**
+     * Reproduce un tono suave y agradable de notificación mediante Web Audio API
+     */
+    function reproducirSonidoNotificacion() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            const now = ctx.currentTime;
+            
+            // Tono 1: Frecuencia 587.33 Hz (Re5)
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(587.33, now);
+            osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
+            gain1.gain.setValueAtTime(0.18, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.35);
+
+            // Tono 2: Frecuencia 1174.66 Hz (Re6)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1174.66, now + 0.15);
+            gain2.gain.setValueAtTime(0.22, now + 0.15);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(now + 0.15);
+            osc2.stop(now + 0.55);
+        } catch (e) {
+            // Audio no disponible o no permitido por autoplay
+        }
+    }
+
+    /**
      * Detecta si un error corresponde al límite de cuota gratuita diaria de Firestore
      */
     function esErrorDeCuota(error) {
@@ -41,6 +83,7 @@ window.InventoryApp = window.InventoryApp || {};
         const code = String(error.code || '');
         const msg = String(error.message || '').toLowerCase();
         return code === 'resource-exhausted' ||
+               code.includes('resource-exhausted') ||
                msg.includes('quota exceeded') ||
                msg.includes('resource-exhausted') ||
                msg.includes('quota_exceeded') ||
@@ -53,15 +96,24 @@ window.InventoryApp = window.InventoryApp || {};
     function manejarErrorCuota() {
         if (!isQuotaExhausted) {
             isQuotaExhausted = true;
-            console.warn('[Firebase] Cuota gratuita de Firestore temporalmente agotada (resource-exhausted). Activando Modo Local Inteligente sin pérdida de datos.');
+            console.warn('[Firebase] Cuota gratuita de Firestore alcanzada (resource-exhausted). Desconectando red Firestore y operando con persistencia local/IndexedDB.');
             detenerListenersTiempoReal();
-            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore límite alcanzado)');
+            if (db && typeof db.disableNetwork === 'function') {
+                db.disableNetwork().catch(() => {});
+            }
+            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore protegida)');
         }
 
         if (quotaCooldownTimer) clearTimeout(quotaCooldownTimer);
-        quotaCooldownTimer = setTimeout(() => {
+        quotaCooldownTimer = setTimeout(async () => {
             isQuotaExhausted = false;
             console.log('[Firebase] Reanudando verificaciones con Firestore tras período de enfriamiento...');
+            if (db && typeof db.enableNetwork === 'function') {
+                try {
+                    await db.enableNetwork();
+                    iniciarListenersTiempoReal();
+                } catch (e) {}
+            }
         }, 15 * 60 * 1000); // 15 minutos
     }
 
@@ -226,6 +278,13 @@ window.InventoryApp = window.InventoryApp || {};
             if (!db && typeof firebase.firestore === 'function') {
                 db = firebase.firestore();
             }
+
+            // Configurar nivel de log silencioso para evitar mensajes repetitivos de reintento en cuota
+            try {
+                if (typeof firebase.firestore.setLogLevel === 'function') {
+                    firebase.firestore.setLogLevel('silent');
+                }
+            } catch (e) {}
 
             // Habilitar persistencia de caché offline si está soportada
             try {
@@ -449,20 +508,23 @@ window.InventoryApp = window.InventoryApp || {};
                 window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
             }
 
-            if (snapConfig && snapConfig.exists) {
-                const cfg = snapConfig.data();
-                if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
-                if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
-                if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
-                if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+            // Si la colección de usuarios en Firestore no tiene SuperAdmin, solo guardar SuperAdmin
+            if (snapUsuarios && snapUsuarios.empty && db) {
+                const superAdmin = (AppState.usuarios || []).find(u => u.id === 'SuperAdmin');
+                if (superAdmin) {
+                    db.collection(COLLECTIONS.USUARIOS).doc('SuperAdmin').set(superAdmin, { merge: true }).catch(() => {});
+                }
             }
 
-            // Si la nube estaba totalmente vacía de usuarios, subir SuperAdmin y configuración base
-            if (!snapUsuarios || snapUsuarios.empty) {
-                if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
-                    window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+            // Validar si el usuario en sesión activa actual todavía existe en la base de datos
+            if (AppState.usuarioActual) {
+                const idActual = AppState.usuarioActual.cedula || AppState.usuarioActual.id;
+                const esSuperAdmin = idActual === 'SuperAdmin' || (AppState.usuarioActual.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
+                const existeEnNube = (AppState.usuarios || []).some(u => (u.cedula || u.id) === idActual || (u.email && u.email.toLowerCase() === (AppState.usuarioActual.email || '').toLowerCase()));
+                if (!existeEnNube && !esSuperAdmin) {
+                    console.warn('[Sync Nube] El usuario de la sesión actual no existe en Firestore. Cerrando sesión.');
+                    AppState.usuarioActual = null;
                 }
-                await subirTodoALaNube();
             }
 
             // Guardar respaldo en localStorage
@@ -690,20 +752,73 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('clientes', err));
             syncListeners.push(unsubCli);
 
-            // Listener de usuarios
+            // Listener de usuarios con detección de nuevas solicitudes en tiempo real
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newUsuarios);
-                    if (lastCollectionHashes[COLLECTIONS.USUARIOS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.USUARIOS] = hash;
-                        AppState.usuarios = newUsuarios;
-                        if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
-                            window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
+                const newUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Analizar cambios específicos de documentos
+                try {
+                    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+                    changes.forEach(change => {
+                        const u = { id: change.doc.id, ...change.doc.data() };
+                        const idDoc = u.cedula || u.id;
+
+                        if (change.type === 'added') {
+                            // Detectar nueva solicitud si no estaba ya en AppState.usuarios
+                            const existiaAntes = (AppState.usuarios || []).some(prev => (prev.cedula || prev.id) === idDoc);
+                            if (!existiaAntes && u.estado === 'PENDIENTE_APROBACION') {
+                                reproducirSonidoNotificacion();
+                                const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
+                                if (window.showToast) {
+                                    window.showToast(`🔔 ¡Nueva solicitud de registro! <strong>${nombreUsu}</strong> (${u.cedula || idDoc}) espera aprobación.`, 'warning', 10000);
+                                }
+                            }
+                        } else if (change.type === 'modified') {
+                            // Si el usuario actual en sesión fue modificado (ej. Aprobado por el Admin)
+                            if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idDoc) {
+                                const estadoPrevio = AppState.usuarioActual.estado;
+                                AppState.usuarioActual = { ...AppState.usuarioActual, ...u };
+                                if (estadoPrevio === 'PENDIENTE_APROBACION' && u.estado === 'ACTIVO') {
+                                    reproducirSonidoNotificacion();
+                                    if (typeof verificarGatewall === 'function') verificarGatewall();
+                                    if (window.showAlert) {
+                                        window.showAlert('¡Cuenta Aprobada!', '¡Tu cuenta ha sido aprobada por el Administrador! Bienvenido al sistema.', 'success');
+                                    }
+                                } else if (u.estado === 'RECHAZADO' && estadoPrevio !== 'RECHAZADO') {
+                                    if (typeof verificarGatewall === 'function') verificarGatewall();
+                                }
+                            }
+                        } else if (change.type === 'removed') {
+                            // Si el usuario actual en sesión fue eliminado en Firestore
+                            if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idDoc) {
+                                if (idDoc !== 'SuperAdmin' && (AppState.usuarioActual.email || '').toLowerCase() !== 'superadmin@tubodeguita.com') {
+                                    console.warn(`[Firebase Realtime] La cuenta activa ${idDoc} fue eliminada de Firestore. Cerrando sesión.`);
+                                    AppState.usuarioActual = null;
+                                    guardarCacheLocal();
+                                    if (typeof verificarGatewall === 'function') verificarGatewall();
+                                    if (window.showAlert) {
+                                        window.showAlert('Sesión Finalizada', 'Tu cuenta fue eliminada de la base de datos por el Administrador.', 'error');
+                                    }
+                                }
+                            }
                         }
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+                    });
+                } catch (chErr) {
+                    console.warn('[Firebase] Aviso al procesar docChanges de usuarios:', chErr);
+                }
+
+                const hash = calcularHashColeccion(newUsuarios);
+                if (lastCollectionHashes[COLLECTIONS.USUARIOS] !== hash) {
+                    lastCollectionHashes[COLLECTIONS.USUARIOS] = hash;
+                    AppState.usuarios = newUsuarios;
+                    if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
+                        window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                     }
+                    guardarCacheLocal();
+                    if (typeof actualizarBadgesUsuarios === 'function') {
+                        actualizarBadgesUsuarios();
+                    }
+                    solicitarRefrescoVistasDebounced();
                 }
             }, err => manejarErrorListener('usuarios', err));
             syncListeners.push(unsubUsu);
@@ -1452,6 +1567,92 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * Consulta Firestore directamente para verificar si un usuario existe y obtener sus datos más recientes
+     */
+    async function obtenerUsuarioCloud(identificador) {
+        if (!identificador) return null;
+
+        const rawId = String(identificador).trim();
+        const cleanId = rawId.toUpperCase();
+        const cleanEmail = rawId.toLowerCase();
+
+        // Si la cuota de Firestore está agotada o el modo offline está activo, buscar en memoria local
+        if (isQuotaExhausted) {
+            return (AppState.usuarios || []).find(u => 
+                (u.id || '').trim().toUpperCase() === cleanId ||
+                (u.cedula || '').trim().toUpperCase() === cleanId || 
+                (u.nombre || '').trim().toUpperCase() === cleanId ||
+                (u.email || '').trim().toLowerCase() === cleanEmail
+            ) || null;
+        }
+
+        if (!db) {
+            try {
+                await inicializarFirebase();
+            } catch (e) {}
+        }
+        if (!db) return null;
+
+        try {
+            // 1. Doc directo por ID exacto
+            const docRef = await db.collection(COLLECTIONS.USUARIOS).doc(rawId).get();
+            if (docRef.exists) {
+                return { id: docRef.id, ...docRef.data() };
+            }
+
+            // 2. Doc directo por ID en mayúsculas
+            if (cleanId !== rawId) {
+                const docRefUpper = await db.collection(COLLECTIONS.USUARIOS).doc(cleanId).get();
+                if (docRefUpper.exists) {
+                    return { id: docRefUpper.id, ...docRefUpper.data() };
+                }
+            }
+
+            // 3. Query por campo 'cedula'
+            const snapCedula = await db.collection(COLLECTIONS.USUARIOS).where('cedula', '==', rawId).limit(1).get();
+            if (!snapCedula.empty) {
+                const doc = snapCedula.docs[0];
+                return { id: doc.id, ...doc.data() };
+            }
+            if (cleanId !== rawId) {
+                const snapCedUpper = await db.collection(COLLECTIONS.USUARIOS).where('cedula', '==', cleanId).limit(1).get();
+                if (!snapCedUpper.empty) {
+                    const doc = snapCedUpper.docs[0];
+                    return { id: doc.id, ...doc.data() };
+                }
+            }
+
+            // 4. Query por campo 'email'
+            const snapEmail = await db.collection(COLLECTIONS.USUARIOS).where('email', '==', cleanEmail).limit(1).get();
+            if (!snapEmail.empty) {
+                const doc = snapEmail.docs[0];
+                return { id: doc.id, ...doc.data() };
+            }
+
+            // 5. Query por campo 'id'
+            const snapId = await db.collection(COLLECTIONS.USUARIOS).where('id', '==', rawId).limit(1).get();
+            if (!snapId.empty) {
+                const doc = snapId.docs[0];
+                return { id: doc.id, ...doc.data() };
+            }
+
+            return null; // El usuario NO existe en Firestore (fue eliminado o no existe)
+        } catch (err) {
+            if (esErrorDeCuota(err)) {
+                manejarErrorCuota();
+                return (AppState.usuarios || []).find(u => 
+                    (u.id || '').trim().toUpperCase() === cleanId ||
+                    (u.cedula || '').trim().toUpperCase() === cleanId || 
+                    (u.nombre || '').trim().toUpperCase() === cleanId ||
+                    (u.email || '').trim().toLowerCase() === cleanEmail
+                ) || null;
+            }
+            console.warn('[Firebase] Error consultando usuario en Firestore:', err);
+            return null;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -1468,6 +1669,8 @@ window.InventoryApp = window.InventoryApp || {};
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
+        obtenerUsuario: obtenerUsuarioCloud,
+        reproducirSonidoNotificacion: reproducirSonidoNotificacion,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
