@@ -11,15 +11,15 @@
 window.InventoryApp = window.InventoryApp || {};
 
 (function () {
-    // Configuración predeterminada de Firebase provisionada
+    // Configuración predeterminada de Firebase del proyecto del usuario
     const DEFAULT_FIREBASE_CONFIG = {
-        apiKey: "AIzaSyCvaTzvnsq3EcH2X4HjQbbGTTH9HPPYR34",
-        authDomain: "natural-interface-hdtd0.firebaseapp.com",
-        projectId: "natural-interface-hdtd0",
-        firestoreDatabaseId: "ai-studio-tubodeguitadecon-7145ac79-a848-43d7-8106-96fe7a2467f8",
-        storageBucket: "natural-interface-hdtd0.firebasestorage.app",
-        messagingSenderId: "330467021734",
-        appId: "1:330467021734:web:d85b10e5c129b887963567"
+        apiKey: "AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA",
+        authDomain: "tubodeguitadeconfianza.firebaseapp.com",
+        projectId: "tubodeguitadeconfianza",
+        storageBucket: "tubodeguitadeconfianza.firebasestorage.app",
+        messagingSenderId: "851659747065",
+        appId: "1:851659747065:web:175908dcd4bb4c68af7c28",
+        measurementId: "G-9TDEL6NVCQ"
     };
 
     let db = null;
