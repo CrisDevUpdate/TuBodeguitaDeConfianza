@@ -29,6 +29,53 @@ window.InventoryApp = window.InventoryApp || {};
     let isSaving = false;
     let cloudStatus = 'iniciando'; // 'conectado', 'sincronizando', 'offline', 'error'
     let lastCloudSync = null;
+    let isQuotaExhausted = false;
+    let quotaCooldownTimer = null;
+    let lastSyncAttempt = 0;
+
+    /**
+     * Detecta si un error corresponde al límite de cuota gratuita diaria de Firestore
+     */
+    function esErrorDeCuota(error) {
+        if (!error) return false;
+        const code = String(error.code || '');
+        const msg = String(error.message || '').toLowerCase();
+        return code === 'resource-exhausted' ||
+               msg.includes('quota exceeded') ||
+               msg.includes('resource-exhausted') ||
+               msg.includes('quota_exceeded') ||
+               msg.includes('maximum backoff');
+    }
+
+    /**
+     * Maneja el estado de cuota agotada pausando temporalmente las peticiones recurrentes a la nube
+     */
+    function manejarErrorCuota() {
+        if (!isQuotaExhausted) {
+            isQuotaExhausted = true;
+            console.warn('[Firebase] Cuota gratuita de Firestore temporalmente agotada (resource-exhausted). Activando Modo Local Inteligente sin pérdida de datos.');
+            detenerListenersTiempoReal();
+            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore límite alcanzado)');
+        }
+
+        if (quotaCooldownTimer) clearTimeout(quotaCooldownTimer);
+        quotaCooldownTimer = setTimeout(() => {
+            isQuotaExhausted = false;
+            console.log('[Firebase] Reanudando verificaciones con Firestore tras período de enfriamiento...');
+        }, 15 * 60 * 1000); // 15 minutos
+    }
+
+    /**
+     * Detiene los listeners en tiempo real para evitar loops de reconexión y sobrecarga del SDK
+     */
+    function detenerListenersTiempoReal() {
+        syncListeners.forEach(unsub => {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {}
+        });
+        syncListeners = [];
+    }
 
     // Colecciones de Firestore
     const COLLECTIONS = {
@@ -202,8 +249,13 @@ window.InventoryApp = window.InventoryApp || {};
             // Escuchar cambios en tiempo real
             iniciarListenersTiempoReal();
 
-            // Re-validación en foco de ventana (Multi-Device Parity)
+            // Re-validación en foco de ventana (Multi-Device Parity) con throttle de 60s
+            let lastFocusSync = 0;
             const revalidarEnFoco = () => {
+                if (isQuotaExhausted) return;
+                const now = Date.now();
+                if (now - lastFocusSync < 60000) return;
+                lastFocusSync = now;
                 sincronizarTodoDesdeNube().catch(() => {});
             };
             window.addEventListener('focus', revalidarEnFoco);
@@ -215,6 +267,7 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Escuchar cambios de conectividad de red
             window.addEventListener('online', () => {
+                if (isQuotaExhausted) return;
                 console.log('[Firebase] Conexión a internet reanudada. Sincronizando con Firestore...');
                 actualizarUIEstadoNube('sincronizando', 'Reconectando con la nube...');
                 sincronizarTodoDesdeNube().then(() => {
@@ -228,8 +281,12 @@ window.InventoryApp = window.InventoryApp || {};
 
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al inicializar Firebase:', error);
-            actualizarUIEstadoNube('offline', 'Modo Offline (Base local)');
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al inicializar Firebase:', error);
+                actualizarUIEstadoNube('offline', 'Modo Offline (Base local)');
+            }
             return false;
         }
     }
@@ -239,9 +296,25 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function obtenerColeccionSegura(nombreColeccion) {
         if (!db) return null;
+        if (isQuotaExhausted) {
+            try {
+                return await db.collection(nombreColeccion).get({ source: 'cache' });
+            } catch (cacheErr) {
+                return null;
+            }
+        }
         try {
             return await db.collection(nombreColeccion).get();
         } catch (err) {
+            if (esErrorDeCuota(err)) {
+                manejarErrorCuota();
+                try {
+                    return await db.collection(nombreColeccion).get({ source: 'cache' });
+                } catch (cacheErr) {
+                    return null;
+                }
+            }
+
             const esOffline = err && (
                 err.code === 'unavailable' ||
                 err.code === 'failed-precondition' ||
@@ -265,9 +338,19 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function obtenerDocSeguro(nombreColeccion, docId) {
         if (!db) return null;
+        if (isQuotaExhausted) {
+            try {
+                return await db.collection(nombreColeccion).doc(docId).get({ source: 'cache' });
+            } catch (cacheErr) {
+                return null;
+            }
+        }
         try {
             return await db.collection(nombreColeccion).doc(docId).get();
         } catch (err) {
+            if (esErrorDeCuota(err)) {
+                manejarErrorCuota();
+            }
             try {
                 return await db.collection(nombreColeccion).doc(docId).get({ source: 'cache' });
             } catch (cacheErr) {
@@ -281,6 +364,17 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function sincronizarTodoDesdeNube() {
         if (!db) return false;
+
+        const now = Date.now();
+        if (now - lastSyncAttempt < 15000) {
+            return true; // Throttled
+        }
+        lastSyncAttempt = now;
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore límite alcanzado)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Comprobando sincronización en la nube...');
 
@@ -389,13 +483,17 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
             return true;
         } catch (error) {
-            const esOffline = error && error.message && error.message.includes('offline');
-            if (esOffline) {
-                console.info('[Firebase] Firestore en modo sin conexión. Continuando con almacenamiento local.');
-                actualizarUIEstadoNube('offline', 'Modo Offline (Caché local activa)');
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
             } else {
-                console.warn('[Firebase] Aviso de sincronización desde Firestore:', error.message || error);
-                actualizarUIEstadoNube('offline', 'Modo local activo');
+                const esOffline = error && error.message && error.message.includes('offline');
+                if (esOffline) {
+                    console.info('[Firebase] Firestore en modo sin conexión. Continuando con almacenamiento local.');
+                    actualizarUIEstadoNube('offline', 'Modo Offline (Caché local activa)');
+                } else {
+                    console.warn('[Firebase] Aviso de sincronización desde Firestore:', error.message || error);
+                    actualizarUIEstadoNube('offline', 'Modo local activo');
+                }
             }
             return false;
         }
@@ -405,7 +503,7 @@ window.InventoryApp = window.InventoryApp || {};
      * Sube todos los datos locales actuales a Firestore en lote (batch)
      */
     async function subirTodoALaNube() {
-        if (!db) return false;
+        if (!db || isQuotaExhausted) return false;
 
         actualizarUIEstadoNube('sincronizando', 'Subiendo datos a Firestore...');
 
@@ -506,8 +604,12 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Sincronizado con Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al subir datos en lote a Firestore:', error);
-            actualizarUIEstadoNube('error', 'Error al guardar en Firestore');
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al subir datos en lote a Firestore:', error);
+                actualizarUIEstadoNube('error', 'Error al guardar en Firestore');
+            }
             return false;
         }
     }
@@ -537,17 +639,24 @@ window.InventoryApp = window.InventoryApp || {};
      * Inicia listeners en tiempo real para mantener sincronizadas múltiples pestañas y clientes
      */
     function iniciarListenersTiempoReal() {
-        if (!db) return;
+        if (!db || isQuotaExhausted) return;
 
         // Limpiar listeners previos
-        syncListeners.forEach(unsub => typeof unsub === 'function' && unsub());
-        syncListeners = [];
+        detenerListenersTiempoReal();
 
         try {
             // Helper para persistir caché tras actualización en tiempo real
             const guardarCacheLocal = () => {
                 if (window.InventoryApp && window.InventoryApp.Persistence) {
                     window.InventoryApp.Persistence.guardar(false);
+                }
+            };
+
+            const manejarErrorListener = (nombre, err) => {
+                if (esErrorDeCuota(err)) {
+                    manejarErrorCuota();
+                } else {
+                    console.warn(`[Firebase] Listener de ${nombre} aviso:`, err ? err.message : err);
                 }
             };
 
@@ -563,7 +672,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de productos aviso:', err.message));
+            }, err => manejarErrorListener('productos', err));
             syncListeners.push(unsubProds);
 
             // Listener de clientes
@@ -578,7 +687,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de clientes aviso:', err.message));
+            }, err => manejarErrorListener('clientes', err));
             syncListeners.push(unsubCli);
 
             // Listener de usuarios
@@ -596,7 +705,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de usuarios aviso:', err.message));
+            }, err => manejarErrorListener('usuarios', err));
             syncListeners.push(unsubUsu);
 
             // Listener de ventas
@@ -611,7 +720,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de ventas aviso:', err.message));
+            }, err => manejarErrorListener('ventas', err));
             syncListeners.push(unsubVentas);
 
             // Listener de abonos
@@ -626,7 +735,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de abonos aviso:', err.message));
+            }, err => manejarErrorListener('abonos', err));
             syncListeners.push(unsubAbonos);
 
             // Listener de transacciones
@@ -641,7 +750,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de transacciones aviso:', err.message));
+            }, err => manejarErrorListener('transacciones', err));
             syncListeners.push(unsubTx);
 
             // Listener de auditorias
@@ -656,7 +765,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de auditorias aviso:', err.message));
+            }, err => manejarErrorListener('auditorias', err));
             syncListeners.push(unsubAud);
 
             // Listener de eliminaciones
@@ -671,7 +780,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de eliminaciones aviso:', err.message));
+            }, err => manejarErrorListener('eliminaciones', err));
             syncListeners.push(unsubElim);
 
             // Listener de clientes eliminados
@@ -686,7 +795,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de clientes eliminados aviso:', err.message));
+            }, err => manejarErrorListener('clientes eliminados', err));
             syncListeners.push(unsubCliElim);
 
             // Listener de canjes de premios
@@ -701,7 +810,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de canjes aviso:', err.message));
+            }, err => manejarErrorListener('canjes', err));
             syncListeners.push(unsubCanjes);
 
             // Listener de configuración
@@ -719,7 +828,7 @@ window.InventoryApp = window.InventoryApp || {};
                         solicitarRefrescoVistasDebounced();
                     }
                 }
-            }, err => console.warn('[Firebase] Listener de config aviso:', err.message));
+            }, err => manejarErrorListener('config', err));
             syncListeners.push(unsubConfig);
 
         } catch (e) {
@@ -756,6 +865,16 @@ window.InventoryApp = window.InventoryApp || {};
     async function guardarProductoCloud(producto) {
         if (!producto || !producto.id) return false;
 
+        // Persistir siempre localmente primero
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Guardado localmente (Cuota Firestore activa)');
+            return true;
+        }
+
         actualizarUIEstadoNube('sincronizando', 'Guardando producto en Firestore...');
 
         try {
@@ -783,9 +902,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Producto guardado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al guardar producto en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Guardado localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar producto en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Guardado localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -794,6 +917,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function eliminarProductoCloud(productoId) {
         if (!productoId) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Eliminado localmente (Cuota Firestore activa)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Actualizando inventario en la nube...');
 
@@ -804,9 +936,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Inventario actualizado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al eliminar producto en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Modificado localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar producto en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Modificado localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -815,6 +951,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function registrarVentaCloud(venta, itemsVendidos) {
         if (!venta || !venta.id) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Venta guardada localmente (Cuota Firestore activa)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Procesando venta en Firestore...');
 
@@ -853,9 +998,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Venta registrada en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al registrar venta en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Venta guardada localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al registrar venta en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Venta guardada localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -864,6 +1013,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function guardarClienteCloud(cliente) {
         if (!cliente || !cliente.id) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Cuota Firestore activa)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Guardando cliente en Firestore...');
 
@@ -880,9 +1038,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Cliente guardado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al guardar cliente en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar cliente en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -891,6 +1053,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function eliminarClienteCloud(clienteId, registroEliminado) {
         if (!clienteId) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Cliente eliminado localmente (Cuota Firestore activa)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Actualizando clientes en Firestore...');
 
@@ -916,9 +1087,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Cliente actualizado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al eliminar cliente en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Cliente eliminado localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar cliente en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Cliente eliminado localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -927,6 +1102,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function guardarAbonoCloud(abono) {
         if (!abono) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Pago guardado localmente (Cuota Firestore activa)');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Registrando pago en Firestore...');
 
@@ -944,9 +1128,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Pago registrado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al registrar abono en Firestore:', error);
-            actualizarUIEstadoNube('offline', 'Pago guardado localmente (Offline)');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al registrar abono en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Pago guardado localmente (Offline)');
+            }
+            return true;
         }
     }
 
@@ -955,6 +1143,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function guardarTransaccionCloud(tx) {
         if (!tx || !tx.id) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Transacción guardada localmente');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Guardando transacción...');
 
@@ -970,8 +1167,12 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Transacción guardada');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al guardar transacción:', error);
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar transacción:', error);
+            }
+            return true;
         }
     }
 
@@ -980,6 +1181,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function registrarAuditoriaCloud(registroAuditoria, productoId, nuevoStock) {
         if (!registroAuditoria) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Auditoría guardada localmente');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Guardando ajuste de auditoría...');
 
@@ -1008,8 +1218,12 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Ajuste de inventario guardado');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al registrar auditoría:', error);
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al registrar auditoría:', error);
+            }
+            return true;
         }
     }
 
@@ -1018,6 +1232,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function registrarEliminacionCloud(registroEliminacion, productoId, nuevoStock) {
         if (!registroEliminacion) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Retiro registrado localmente');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Registrando retiro en Firestore...');
 
@@ -1050,8 +1273,12 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Retiro registrado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al registrar retiro:', error);
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al registrar retiro:', error);
+            }
+            return true;
         }
     }
 
@@ -1061,6 +1288,15 @@ window.InventoryApp = window.InventoryApp || {};
     async function guardarUsuarioCloud(usuario) {
         if (!usuario || (!usuario.id && !usuario.cedula)) return false;
         const id = usuario.id || usuario.cedula;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Usuario guardado localmente');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Guardando usuario en Firestore...');
 
@@ -1076,9 +1312,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Usuario guardado en Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al guardar usuario en Firestore:', error);
-            actualizarUIEstadoNube('error', 'Error al guardar usuario');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar usuario en Firestore:', error);
+                actualizarUIEstadoNube('error', 'Error al guardar usuario');
+            }
+            return true;
         }
     }
 
@@ -1087,6 +1327,15 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function eliminarUsuarioCloud(usuarioId) {
         if (!usuarioId) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Usuario eliminado localmente');
+            return true;
+        }
 
         actualizarUIEstadoNube('sincronizando', 'Eliminando usuario de Firestore...');
 
@@ -1126,9 +1375,13 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Usuario eliminado de Firestore');
             return true;
         } catch (error) {
-            console.error('[Firebase] Error al eliminar usuario en Firestore:', error);
-            actualizarUIEstadoNube('error', 'Error al eliminar usuario');
-            return false;
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar usuario en Firestore:', error);
+                actualizarUIEstadoNube('error', 'Error al eliminar usuario');
+            }
+            return true;
         }
     }
 

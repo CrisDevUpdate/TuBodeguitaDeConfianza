@@ -1,9 +1,8 @@
-/* core/persistence.js - Persistencia Nube Pura (Firebase Firestore) & Cero Caché Local */
+/* core/persistence.js - Persistencia Híbrida: Firestore Nube + Respaldo Local Continuo */
 window.InventoryApp = window.InventoryApp || {};
 
 (function () {
     const STORAGE_KEY = 'inventoryapp.beta.v1.state';
-    let autoSyncTimer = null;
 
     const claves = [
         'productos', 'clientes', 'ventas', 'abonos', 'transacciones', 'carrito',
@@ -11,25 +10,6 @@ window.InventoryApp = window.InventoryApp || {};
         'clienteSeleccionadoId', 'nextProductSequence', 'usuarios',
         'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
     ];
-
-    // Purgar inmediatamente cualquier residuo de caché obsoleto en localStorage
-    try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem('inventoryapp.state');
-    } catch (e) {
-        console.warn('[Persistence] Error purgando storage local obsoleto:', e);
-    }
-
-    function programarSincronizacionCloudDebounced() {
-        if (autoSyncTimer) clearTimeout(autoSyncTimer);
-        autoSyncTimer = setTimeout(() => {
-            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.syncToCloud === 'function') {
-                window.InventoryApp.Firebase.syncToCloud().catch(err => {
-                    console.warn('[Persistence] Auto-sincronización en segundo plano:', err.message || err);
-                });
-            }
-        }, 800);
-    }
 
     function asegurarUsuarioAdminInicial() {
         if (!AppState.premioMes || typeof AppState.premioMes !== 'object') {
@@ -74,7 +54,7 @@ window.InventoryApp = window.InventoryApp || {};
                 puntosCanjeados: 0,
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
-            AppState.usuarios = [superAdmin];
+            AppState.usuarios.push(superAdmin);
         } else {
             superAdmin.password = HASH_SUPERADMIN;
             superAdmin.rol = 'admin';
@@ -83,50 +63,54 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     function guardar(force = false) {
-        // En arquitectura Cloud-First, las mutaciones se persisten directamente en Firestore
-        programarSincronizacionCloudDebounced();
+        // 1. Respaldo inmediato y continuo en localStorage para máxima tolerancia a fallos/offline
+        try {
+            const stateToSave = {};
+            claves.forEach(k => {
+                if (AppState[k] !== undefined) {
+                    stateToSave[k] = AppState[k];
+                }
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+        } catch (e) {
+            console.warn('[Persistence] Error guardando copia en localStorage:', e);
+        }
         return true;
     }
 
     function cargar() {
-        // Garantizar SuperAdmin base en memoria limpia
+        // Cargar estado local previo como respaldo inmediato
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                claves.forEach(k => {
+                    if (parsed[k] !== undefined) {
+                        AppState[k] = parsed[k];
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('[Persistence] Error cargando copia local de localStorage:', e);
+        }
+        // Garantizar SuperAdmin base
         asegurarUsuarioAdminInicial();
         AppState.usuarioActual = null;
         return true;
     }
 
     function iniciar() {
-        // 1. Inicializar estado base en memoria
+        // 1. Inicializar estado base en memoria y restaurar caché local
         cargar();
         
-        // 2. Inicializar conexión a Firebase Firestore de forma prioritaria (Single Source of Truth)
+        // 2. Inicializar conexión a Firebase Firestore
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.init === 'function') {
             window.InventoryApp.Firebase.init().then(() => {
-                console.log('[Persistence] Firebase conectado y datos sincronizados desde la nube.');
+                console.log('[Persistence] Firebase conectado y datos sincronizados.');
             }).catch(err => {
                 console.warn('[Persistence] Aviso al inicializar Firebase:', err);
             });
         }
-
-        // 3. Re-validación en Foco de Ventana y Cambio de Pestaña con Throttle de 45s
-        let lastFocusSync = 0;
-        const revalidarEstadoNube = () => {
-            const now = Date.now();
-            if (now - lastFocusSync < 45000) return; // Evitar spam de peticiones
-            lastFocusSync = now;
-
-            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.sincronizarTodoDesdeNube === 'function') {
-                window.InventoryApp.Firebase.sincronizarTodoDesdeNube();
-            }
-        };
-
-        window.addEventListener('focus', revalidarEstadoNube);
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                revalidarEstadoNube();
-            }
-        });
-        window.addEventListener('online', revalidarEstadoNube);
 
         return true;
     }
