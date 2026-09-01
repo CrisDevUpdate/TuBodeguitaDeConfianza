@@ -202,6 +202,17 @@ window.InventoryApp = window.InventoryApp || {};
             // Escuchar cambios en tiempo real
             iniciarListenersTiempoReal();
 
+            // Re-validación en foco de ventana (Multi-Device Parity)
+            const revalidarEnFoco = () => {
+                sincronizarTodoDesdeNube().catch(() => {});
+            };
+            window.addEventListener('focus', revalidarEnFoco);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    revalidarEnFoco();
+                }
+            });
+
             // Escuchar cambios de conectividad de red
             window.addEventListener('online', () => {
                 console.log('[Firebase] Conexión a internet reanudada. Sincronizando con Firestore...');

@@ -13,6 +13,15 @@ const HOST = '0.0.0.0';
 app.use(cors());
 app.use(express.json());
 
+// Strict Zero-Cache Stale Policy for all API Routes
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 // In-memory cache for BCV exchange rates with resilient defaults
 let bcvCache = {
   usd: { tasa: null, fecha: new Date().toLocaleDateString('es-VE'), fuente: 'BCV Oficial', lastUpdated: 0, manual: false },
@@ -314,6 +323,54 @@ app.post('/api/users', (req, res) => {
     serverUsers.push(user);
   }
   res.json({ success: true, user, count: serverUsers.length });
+});
+
+// API Sales: GET and POST /api/sales
+app.get('/api/sales', (req, res) => {
+  const clienteId = req.query.clienteId || req.query.userId || req.query.cedula;
+  if (clienteId) {
+    const filtered = serverSales.filter(s => s.clienteId === clienteId || s.clienteCedula === clienteId);
+    return res.json({ success: true, sales: filtered, count: filtered.length });
+  }
+  res.json({ success: true, sales: serverSales, count: serverSales.length });
+});
+
+app.post('/api/sales', (req, res) => {
+  const venta = req.body;
+  if (!venta || !venta.id) {
+    return res.status(400).json({ success: false, error: 'Valid sale object with id is required' });
+  }
+  const idx = serverSales.findIndex(s => s.id === venta.id);
+  if (idx !== -1) {
+    serverSales[idx] = { ...serverSales[idx], ...venta };
+  } else {
+    serverSales.unshift(venta);
+  }
+  res.json({ success: true, sale: venta, count: serverSales.length });
+});
+
+// API Payments: GET and POST /api/payments
+app.get('/api/payments', (req, res) => {
+  const clienteId = req.query.clienteId || req.query.userId || req.query.cedula;
+  if (clienteId) {
+    const filtered = serverPayments.filter(p => p.clienteId === clienteId || p.clienteCedula === clienteId);
+    return res.json({ success: true, payments: filtered, count: filtered.length });
+  }
+  res.json({ success: true, payments: serverPayments, count: serverPayments.length });
+});
+
+app.post('/api/payments', (req, res) => {
+  const payment = req.body;
+  if (!payment || !payment.id) {
+    return res.status(400).json({ success: false, error: 'Valid payment object with id is required' });
+  }
+  const idx = serverPayments.findIndex(p => p.id === payment.id);
+  if (idx !== -1) {
+    serverPayments[idx] = { ...serverPayments[idx], ...payment };
+  } else {
+    serverPayments.unshift(payment);
+  }
+  res.json({ success: true, payment, count: serverPayments.length });
 });
 
 // API Account Status: GET /api/account/status?userId=ID

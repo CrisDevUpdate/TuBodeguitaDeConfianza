@@ -1,10 +1,8 @@
-/* core/persistence.js - Persistencia Dual: Local (Caché Offline) + Nube (Firebase Firestore) */
+/* core/persistence.js - Persistencia Nube Pura (Firebase Firestore) & Cero Caché Local */
 window.InventoryApp = window.InventoryApp || {};
 
 (function () {
     const STORAGE_KEY = 'inventoryapp.beta.v1.state';
-    let ultimoSnapshot = '';
-    let temporizador = null;
     let autoSyncTimer = null;
 
     const claves = [
@@ -14,6 +12,14 @@ window.InventoryApp = window.InventoryApp || {};
         'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
     ];
 
+    // Purgar inmediatamente cualquier residuo de caché obsoleto en localStorage
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('inventoryapp.state');
+    } catch (e) {
+        console.warn('[Persistence] Error purgando storage local obsoleto:', e);
+    }
+
     function programarSincronizacionCloudDebounced() {
         if (autoSyncTimer) clearTimeout(autoSyncTimer);
         autoSyncTimer = setTimeout(() => {
@@ -22,7 +28,7 @@ window.InventoryApp = window.InventoryApp || {};
                     console.warn('[Persistence] Auto-sincronización en segundo plano:', err.message || err);
                 });
             }
-        }, 1200);
+        }, 800);
     }
 
     function asegurarUsuarioAdminInicial() {
@@ -70,89 +76,54 @@ window.InventoryApp = window.InventoryApp || {};
             };
             AppState.usuarios = [superAdmin];
         } else {
-            // Asegurar que mantenga su contraseña hasheada, rol admin y estado ACTIVO para control total
             superAdmin.password = HASH_SUPERADMIN;
             superAdmin.rol = 'admin';
             superAdmin.estado = 'ACTIVO';
         }
     }
 
-    function construirSnapshot() {
-        const datos = {};
-        claves.forEach((clave) => { datos[clave] = AppState[clave]; });
-        return JSON.stringify(datos);
-    }
-
     function guardar(force = false) {
-        try {
-            const snapshot = construirSnapshot();
-            if (!force && snapshot === ultimoSnapshot) return false;
-            localStorage.setItem(STORAGE_KEY, snapshot);
-            ultimoSnapshot = snapshot;
-            programarSincronizacionCloudDebounced();
-            return true;
-        } catch (error) {
-            console.warn('No fue posible persistir los datos localmente.', error);
-            const status = document.getElementById('persistencia-status');
-            if (status) {
-                status.textContent = 'Almacenamiento local no disponible';
-                status.classList.add('error');
-            }
-            return false;
-        }
+        // En arquitectura Cloud-First, las mutaciones se persisten directamente en Firestore
+        programarSincronizacionCloudDebounced();
+        return true;
     }
 
     function cargar() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) {
-                asegurarUsuarioAdminInicial();
-                return false;
-            }
-            const datos = JSON.parse(raw);
-            if (!datos || typeof datos !== 'object') {
-                asegurarUsuarioAdminInicial();
-                return false;
-            }
-
-            claves.forEach((clave) => {
-                if (Object.prototype.hasOwnProperty.call(datos, clave)) {
-                    AppState[clave] = datos[clave];
-                }
-            });
-
-            asegurarUsuarioAdminInicial();
-            AppState.usuarioActual = null;
-            ultimoSnapshot = construirSnapshot();
-            return true;
-        } catch (error) {
-            console.warn('No fue posible cargar el respaldo local. Se iniciará con el estado actual.', error);
-            asegurarUsuarioAdminInicial();
-            AppState.usuarioActual = null;
-            return false;
-        }
+        // Garantizar SuperAdmin base en memoria limpia
+        asegurarUsuarioAdminInicial();
+        AppState.usuarioActual = null;
+        return true;
     }
 
     function iniciar() {
-        // 1. Carga inmediata de caché local para arranque instantáneo (0ms)
-        const cargado = cargar();
-        AppState.usuarioActual = null;
+        // 1. Inicializar estado base en memoria
+        cargar();
         
-        if (temporizador) clearInterval(temporizador);
-        temporizador = setInterval(() => guardar(false), 2000);
-        window.addEventListener('beforeunload', () => guardar(true));
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') guardar(true);
-        });
-
-        // 2. Inicializar conexión a Firebase Firestore en segundo plano
+        // 2. Inicializar conexión a Firebase Firestore de forma prioritaria (Single Source of Truth)
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.init === 'function') {
-            window.InventoryApp.Firebase.init().catch(err => {
+            window.InventoryApp.Firebase.init().then(() => {
+                console.log('[Persistence] Firebase conectado y datos sincronizados desde la nube.');
+            }).catch(err => {
                 console.warn('[Persistence] Aviso al inicializar Firebase:', err);
             });
         }
 
-        return cargado;
+        // 3. Re-validación en Foco de Ventana y Cambio de Pestaña (Multi-Device Parity)
+        const revalidarEstadoNube = () => {
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.sincronizarTodoDesdeNube === 'function') {
+                window.InventoryApp.Firebase.sincronizarTodoDesdeNube();
+            }
+        };
+
+        window.addEventListener('focus', revalidarEstadoNube);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                revalidarEstadoNube();
+            }
+        });
+        window.addEventListener('online', revalidarEstadoNube);
+
+        return true;
     }
 
     async function limpiarBaseDeDatosVirgen() {
