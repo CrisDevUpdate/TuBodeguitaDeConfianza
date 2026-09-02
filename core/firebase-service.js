@@ -753,6 +753,7 @@ window.InventoryApp = window.InventoryApp || {};
             syncListeners.push(unsubCli);
 
             // Listener de usuarios con detección de nuevas solicitudes en tiempo real
+            let primerCargaUsuarios = true;
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
                 const newUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
@@ -764,13 +765,16 @@ window.InventoryApp = window.InventoryApp || {};
                         const idDoc = u.cedula || u.id;
 
                         if (change.type === 'added') {
-                            // Detectar nueva solicitud si no estaba ya en AppState.usuarios
+                            // Detectar nueva solicitud
                             const existiaAntes = (AppState.usuarios || []).some(prev => (prev.cedula || prev.id) === idDoc);
-                            if (!existiaAntes && u.estado === 'PENDIENTE_APROBACION') {
-                                reproducirSonidoNotificacion();
-                                const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
-                                if (window.showToast) {
-                                    window.showToast(`🔔 ¡Nueva solicitud de registro! <strong>${nombreUsu}</strong> (${u.cedula || idDoc}) espera aprobación.`, 'warning', 10000);
+                            if (!primerCargaUsuarios && (!existiaAntes || u.estado === 'PENDIENTE_APROBACION')) {
+                                if (u.estado === 'PENDIENTE_APROBACION') {
+                                    reproducirSonidoNotificacion();
+                                    const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
+                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                    if (typeof notifFn === 'function') {
+                                        notifFn(`🔔 ¡Nueva solicitud de registro! <strong>${nombreUsu}</strong> (${idDoc}) espera aprobación.`, 'warning', 10000);
+                                    }
                                 }
                             }
                         } else if (change.type === 'modified') {
@@ -781,8 +785,9 @@ window.InventoryApp = window.InventoryApp || {};
                                 if (estadoPrevio === 'PENDIENTE_APROBACION' && u.estado === 'ACTIVO') {
                                     reproducirSonidoNotificacion();
                                     if (typeof verificarGatewall === 'function') verificarGatewall();
-                                    if (window.showAlert) {
-                                        window.showAlert('¡Cuenta Aprobada!', '¡Tu cuenta ha sido aprobada por el Administrador! Bienvenido al sistema.', 'success');
+                                    const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
+                                    if (typeof alertFn === 'function') {
+                                        alertFn('¡Cuenta Aprobada!', '¡Tu cuenta ha sido aprobada por el Administrador! Bienvenido al sistema.', 'success');
                                     }
                                 } else if (u.estado === 'RECHAZADO' && estadoPrevio !== 'RECHAZADO') {
                                     if (typeof verificarGatewall === 'function') verificarGatewall();
@@ -796,8 +801,9 @@ window.InventoryApp = window.InventoryApp || {};
                                     AppState.usuarioActual = null;
                                     guardarCacheLocal();
                                     if (typeof verificarGatewall === 'function') verificarGatewall();
-                                    if (window.showAlert) {
-                                        window.showAlert('Sesión Finalizada', 'Tu cuenta fue eliminada de la base de datos por el Administrador.', 'error');
+                                    const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
+                                    if (typeof alertFn === 'function') {
+                                        alertFn('Sesión Finalizada', 'Tu cuenta fue eliminada de la base de datos por el Administrador.', 'error');
                                     }
                                 }
                             }
@@ -807,6 +813,7 @@ window.InventoryApp = window.InventoryApp || {};
                     console.warn('[Firebase] Aviso al procesar docChanges de usuarios:', chErr);
                 }
 
+                primerCargaUsuarios = false;
                 const hash = calcularHashColeccion(newUsuarios);
                 if (lastCollectionHashes[COLLECTIONS.USUARIOS] !== hash) {
                     lastCollectionHashes[COLLECTIONS.USUARIOS] = hash;
@@ -817,6 +824,9 @@ window.InventoryApp = window.InventoryApp || {};
                     guardarCacheLocal();
                     if (typeof actualizarBadgesUsuarios === 'function') {
                         actualizarBadgesUsuarios();
+                    }
+                    if (typeof renderizarUsuarios === 'function') {
+                        renderizarUsuarios();
                     }
                     solicitarRefrescoVistasDebounced();
                 }
@@ -1416,12 +1426,22 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Guardando usuario en Firestore...');
 
         try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+
             if (db) {
-                await db.collection(COLLECTIONS.USUARIOS).doc(String(id)).set({
+                const docRef = db.collection(COLLECTIONS.USUARIOS).doc(String(id));
+                const payload = {
                     ...usuario,
-                    id,
+                    id: String(id),
+                    cedula: usuario.cedula || String(id),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                };
+
+                const writePromise = docRef.set(payload, { merge: true });
+                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 2000));
+                await Promise.race([writePromise, timeoutPromise]);
             }
 
             actualizarUIEstadoNube('conectado', 'Usuario guardado en Firestore');

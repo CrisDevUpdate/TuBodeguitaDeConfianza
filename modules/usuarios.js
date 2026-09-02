@@ -551,67 +551,68 @@ async function registrarUsuarioDesdeGatewall(e) {
 
     if (btnSubmit) {
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando solicitud a la nube...';
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando solicitud...';
     }
 
-    // Generar Hash SHA-256 para no guardar jamás la contraseña en texto plano
-    const passwordHash = (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.calcularHashSha256 === 'function') 
-        ? window.InventoryApp.Helpers.calcularHashSha256(password) 
-        : password;
+    try {
+        // Generar Hash SHA-256 para no guardar jamás la contraseña en texto plano
+        const passwordHash = (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.calcularHashSha256 === 'function') 
+            ? window.InventoryApp.Helpers.calcularHashSha256(password) 
+            : password;
 
-    // Regla de Seguridad Invariable: NINGÚN usuario registrado por formulario es Admin automáticamente.
-    const rolAsignado = rol || 'cliente';
-    const estadoAsignado = 'PENDIENTE_APROBACION';
-    const fechaAprobacion = null;
+        // Regla de Seguridad Invariable: NINGÚN usuario registrado por formulario es Admin automáticamente.
+        const rolAsignado = rol || 'cliente';
+        const estadoAsignado = 'PENDIENTE_APROBACION';
+        const fechaAprobacion = null;
 
-    const nuevoUsuario = {
-        id: cedula,
-        cedula: cedula,
-        nombre: nombre,
-        telefono: telefono,
-        email: email,
-        password: passwordHash,
-        rol: rolAsignado,
-        estado: estadoAsignado,
-        puntosAcumulados: 0,
-        puntosCanjeados: 0,
-        fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        fechaAprobacion: fechaAprobacion,
-        motivoRechazo: null
-    };
-
-    AppState.usuarios.push(nuevoUsuario);
-
-    // Si es cliente, registrarlo también en la colección de clientes
-    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
-        AppState.clientes.push({
+        const nuevoUsuario = {
             id: cedula,
+            cedula: cedula,
             nombre: nombre,
-            telefono: telefono
-        });
-    }
+            telefono: telefono,
+            email: email,
+            password: passwordHash,
+            rol: rolAsignado,
+            estado: estadoAsignado,
+            puntosAcumulados: 0,
+            puntosCanjeados: 0,
+            fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            fechaAprobacion: fechaAprobacion,
+            motivoRechazo: null
+        };
 
-    AppState.usuarioActual = nuevoUsuario;
+        AppState.usuarios.push(nuevoUsuario);
 
-    if (window.InventoryApp.Persistence) {
-        window.InventoryApp.Persistence.guardar(true);
-    }
-    
-    // Guardar en Firestore con sincronización inmediata
-    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-        try {
-            await window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario);
-        } catch (err) {
-            console.warn('[Gatewall] Aviso al guardar usuario en Firestore:', err);
+        // Si es cliente, registrarlo también en la colección de clientes
+        if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
+            AppState.clientes.push({
+                id: cedula,
+                nombre: nombre,
+                telefono: telefono
+            });
+        }
+
+        AppState.usuarioActual = nuevoUsuario;
+
+        if (window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+        
+        // Guardar en Firestore con sincronización en tiempo real
+        if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+            window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario).catch(err => {
+                console.warn('[Gatewall] Aviso al guardar usuario en Firestore:', err);
+            });
+        }
+
+        verificarGatewall();
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = btnOriginalHtml;
         }
     }
 
-    if (btnSubmit) {
-        btnSubmit.disabled = false;
-        btnSubmit.innerHTML = btnOriginalHtml;
-    }
-
-    verificarGatewall();
     return false;
 }
 

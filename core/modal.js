@@ -290,6 +290,12 @@ window.InventoryApp = window.InventoryApp || {};
     window.showCustomPrompt = showPrompt;
     window.showCustomToast = showToast;
 
+    // Aliases globales
+    window.showToast = showToast;
+    window.showAlert = showAlert;
+    window.showConfirm = showConfirm;
+    window.showPrompt = showPrompt;
+
     // Graceful overrides de primitivas nativas del navegador para evitar popups nativos
     window.alert = function(msg) {
         let title = 'Notificación del Sistema';
