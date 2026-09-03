@@ -817,11 +817,23 @@ window.InventoryApp = window.InventoryApp || {};
                             const existiaAntes = (AppState.usuarios || []).some(prev => (prev.cedula || prev.id) === idDoc);
                             if (!primerCargaUsuarios && (!existiaAntes || u.estado === 'PENDIENTE_APROBACION')) {
                                 if (u.estado === 'PENDIENTE_APROBACION') {
-                                    reproducirSonidoNotificacion();
-                                    const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
-                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
-                                    if (typeof notifFn === 'function') {
-                                        notifFn(`🔔 ¡Nueva solicitud de registro! <strong>${nombreUsu}</strong> (${idDoc}) espera aprobación.`, 'warning', 10000);
+                                    // Comprobar estrictamente si el usuario en sesión es un Administrador activo
+                                    const usuarioSesion = AppState.usuarioActual;
+                                    const rolSesion = String(usuarioSesion?.rol || '').toLowerCase();
+                                    const esAdminSesion = Boolean(
+                                        usuarioSesion &&
+                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || usuarioSesion.id === 'SuperAdmin' || usuarioSesion.cedula === 'SuperAdmin') &&
+                                        usuarioSesion.estado === 'ACTIVO'
+                                    );
+
+                                    // Solo el administrador activo recibe la notificación visual y el sonido de alerta
+                                    if (esAdminSesion) {
+                                        reproducirSonidoNotificacion();
+                                        const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
+                                        const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                        if (typeof notifFn === 'function') {
+                                            notifFn(`🔔 ¡Nueva solicitud de registro! <strong>${nombreUsu}</strong> (${idDoc}) espera aprobación.`, 'warning', 10000);
+                                        }
                                     }
                                 }
                             }

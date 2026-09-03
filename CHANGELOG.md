@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 4.1.0-beta — Restricción de notificaciones de nuevos clientes al Administrador
+- Las alertas visuales (toast) y el sonido de notificación de nuevas solicitudes de registro ahora se emiten exclusivamente para el Administrador activo.
+- Los clientes u otros usuarios conectados ya no reciben alertas ni sonidos cuando se registra un nuevo cliente en el sistema.
+
 ## 4.0.0-beta — Ayuda contextual del Stock
 - Recuperado el texto informativo del Stock sin ocupar espacio permanente en el formulario.
 - Añadido un icono de información junto a “Stock Inicial”.
