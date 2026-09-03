@@ -5,7 +5,7 @@ window.InventoryApp = window.InventoryApp || {};
     const STORAGE_KEY = 'inventoryapp.beta.v1.state';
 
     const claves = [
-        'productos', 'clientes', 'ventas', 'abonos', 'transacciones', 'carrito',
+        'productos', 'clientes', 'ventas', 'abonos', 'pagosPorVerificar', 'transacciones', 'carrito',
         'conteosFisicos', 'auditorias', 'eliminaciones', 'clientesEliminados',
         'clienteSeleccionadoId', 'nextProductSequence', 'usuarios', 'usuarioActual',
         'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
@@ -123,6 +123,7 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.clientes = [];
         AppState.ventas = [];
         AppState.abonos = [];
+        AppState.pagosPorVerificar = [];
         AppState.transacciones = [];
         AppState.carrito = [];
         AppState.clienteSeleccionadoId = null;

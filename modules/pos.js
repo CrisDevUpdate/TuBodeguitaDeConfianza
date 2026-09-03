@@ -293,6 +293,32 @@ async function ejecutarFinalizacionCheckoutPOS() {
         });
     }
 
+    // Sincronizar venta en PagosPorVerificar de Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+        window.InventoryApp.Firebase.guardarPagoPorVerificar({
+            id: nuevaVenta.id,
+            pedidoId: nuevaVenta.id,
+            ventaId: nuevaVenta.id,
+            clienteId: clienteId,
+            clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+            clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
+            totalUSD: total,
+            montoUSD: total,
+            totalVES: totalVES,
+            montoVES: totalVES,
+            metodoPago: metodoPago,
+            tipoPago: metodoPago,
+            tipo: metodoPago,
+            referencia: referencia || (metodoPago.includes('Efectivo') ? 'Efectivo en caja POS' : 'N/A'),
+            items: itemsVendidos,
+            fecha: nuevaVenta.fecha,
+            fechaISO: new Date().toISOString(),
+            estado: 'PENDIENTE_VERIFICACION',
+            tipoRegistro: 'VENTA_POS',
+            origen: 'POS Mostrador'
+        }).catch(() => {});
+    }
+
     // Sincronizar con backend local si está disponible
     try {
         fetch('/api/users', {

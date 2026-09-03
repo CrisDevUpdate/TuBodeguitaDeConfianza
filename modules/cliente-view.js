@@ -801,6 +801,37 @@ async function ejecutarCompraConfirmadaCliente() {
         window.InventoryApp.Firebase.registrarVenta(nuevaVenta, itemsVendidos).catch(e => console.warn(e));
     }
 
+    // Sincronizar en la colección y documento PagosPorVerificar en Firebase Firestore
+    const datosPagoPorVerificar = {
+        id: nuevoPedidoId,
+        pedidoId: nuevoPedidoId,
+        ventaId: nuevoPedidoId,
+        clienteId: clienteCedula,
+        clienteNombre: usuario.nombre,
+        clienteCedula: clienteCedula,
+        clienteTelefono: usuario.telefono || '',
+        clienteEmail: usuario.email || '',
+        totalUSD: totalUSD,
+        montoUSD: totalUSD,
+        totalVES: totalVES,
+        montoVES: totalVES,
+        metodoPago: tipoPago,
+        tipoPago: tipoPago,
+        tipo: tipoPago,
+        referencia: referencia || (tipoPago.includes('Efectivo') ? 'Efectivo por verificar' : (esCredito ? 'Crédito' : 'N/A')),
+        items: itemsVendidos,
+        fecha: fechaHora,
+        fechaISO: new Date().toISOString(),
+        estado: 'PENDIENTE_VERIFICACION',
+        tipoRegistro: 'VENTA',
+        origen: 'Tienda Online'
+    };
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+        window.InventoryApp.Firebase.guardarPagoPorVerificar(datosPagoPorVerificar).catch(err => {
+            console.warn('[Firebase] Error al registrar en PagosPorVerificar:', err);
+        });
+    }
+
     const datosPedidoCompletado = {
         pedidoId: nuevoPedidoId,
         items: [...itemsVendidos],
@@ -1337,6 +1368,33 @@ async function procesarReportePagoCliente() {
         } catch (err) {
             console.warn('[Firebase] Advertencia al sincronizar reporte de abono en Firestore:', err);
         }
+    }
+
+    // Registrar en PagosPorVerificar para la respectiva revisión del Administrador
+    if (window.InventoryApp?.Firebase?.guardarPagoPorVerificar) {
+        window.InventoryApp.Firebase.guardarPagoPorVerificar({
+            id: nuevoAbono.id,
+            pedidoId: nuevoAbono.id,
+            abonoId: nuevoAbono.id,
+            clienteId: nuevoAbono.clienteId,
+            clienteNombre: nuevoAbono.clienteNombre || AppState.usuarioActual?.nombre || 'Cliente',
+            clienteCedula: nuevoAbono.clienteCedula || nuevoAbono.clienteId,
+            clienteTelefono: AppState.usuarioActual?.telefono || '',
+            totalUSD: nuevoAbono.montoUSD,
+            montoUSD: nuevoAbono.montoUSD,
+            totalVES: nuevoAbono.montoVES,
+            montoVES: nuevoAbono.montoVES,
+            metodoPago: nuevoAbono.metodo,
+            tipoPago: nuevoAbono.metodo,
+            tipo: nuevoAbono.metodo,
+            referencia: nuevoAbono.referencia || 'N/A',
+            fecha: nuevoAbono.fecha,
+            fechaISO: new Date().toISOString(),
+            estado: 'PENDIENTE_VERIFICACION',
+            tipoRegistro: 'ABONO',
+            nota: nuevoAbono.nota || '',
+            origen: 'Reporte de Abono Cliente'
+        }).catch(err => console.warn('[Firebase] Error al registrar abono en PagosPorVerificar:', err));
     }
 
     renderizarEstadoCuentaCliente();

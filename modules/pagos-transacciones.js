@@ -967,11 +967,14 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
 }
 
 /**
- * Actualiza los badges de abonos pendientes por aprobar
+ * Actualiza los badges de abonos y pagos pendientes por aprobar
  */
 function actualizarBadgesAbonos() {
-    const lista = Array.isArray(AppState.abonos) ? AppState.abonos : [];
-    const pendientes = lista.filter(a => a.estado === 'PENDIENTE_CONFIRMACION').length;
+    const listaAbonos = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+    const abonosPend = listaAbonos.filter(a => a.estado === 'PENDIENTE_CONFIRMACION').length;
+    const listaPagosVerif = Array.isArray(AppState.pagosPorVerificar) ? AppState.pagosPorVerificar : [];
+    const pagosVerifPend = listaPagosVerif.filter(p => !p.estado || p.estado === 'PENDIENTE_VERIFICACION' || p.estado === 'PENDIENTE_CONFIRMACION' || p.estado === 'PENDIENTE' || p.estado === 'POR_VERIFICAR').length;
+    const pendientes = abonosPend + pagosVerifPend;
 
     const bDesk = document.getElementById('badge-abonos-desktop');
     const bMob = document.getElementById('badge-abonos-mobile');
@@ -995,6 +998,106 @@ function actualizarBadgesAbonos() {
 }
 
 /**
+ * Aprueba una venta o pago registrado en PagosPorVerificar
+ */
+window.aprobarPagoPorVerificarAdmin = async function(id) {
+    if (!id) return;
+    const lista = AppState.pagosPorVerificar || [];
+    const item = lista.find(p => p.id === id);
+    if (!item) return;
+
+    item.estado = 'APROBADO';
+    item.fechaAprobacion = new Date().toISOString();
+
+    // 1. Si es venta, confirmar en AppState.ventas
+    const ventaId = item.ventaId || item.pedidoId || (item.tipoRegistro === 'VENTA' ? item.id : null);
+    if (ventaId) {
+        const venta = (AppState.ventas || []).find(v => v.id === ventaId);
+        if (venta) {
+            venta.estado = 'CONFIRMADO';
+            if (window.InventoryApp?.Firebase?.registrarVenta) {
+                window.InventoryApp.Firebase.registrarVenta(venta, venta.items || []).catch(() => {});
+            }
+        }
+    }
+
+    // 2. Si es abono, confirmar en AppState.abonos
+    const abonoId = item.abonoId || (item.tipoRegistro === 'ABONO' ? item.id : null);
+    if (abonoId) {
+        const abono = (AppState.abonos || []).find(a => a.id === abonoId);
+        if (abono) {
+            abono.estado = 'Pago agregado';
+            if (window.InventoryApp?.Firebase?.guardarAbono) {
+                window.InventoryApp.Firebase.guardarAbono(abono).catch(() => {});
+            }
+        }
+    }
+
+    // 3. Sincronizar en Firebase colección PagosPorVerificar
+    if (window.InventoryApp?.Firebase?.actualizarEstadoPagoPorVerificar) {
+        await window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(id, 'APROBADO');
+    }
+
+    // 4. Persistir localmente
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarAbonosPendientesReportados();
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`✅ Pago #${id} verificado y aprobado con éxito en Firebase.`, 'success');
+    }
+};
+
+/**
+ * Rechaza un pago registrado en PagosPorVerificar
+ */
+window.rechazarPagoPorVerificarAdmin = async function(id) {
+    if (!id) return;
+    const motivo = prompt('Ingresa el motivo del rechazo (ej. Comprobante bancario no coincide):', 'Comprobante de pago no validado en banco');
+    if (motivo === null) return;
+
+    const lista = AppState.pagosPorVerificar || [];
+    const item = lista.find(p => p.id === id);
+    if (item) {
+        item.estado = 'RECHAZADO';
+        item.motivoRechazo = motivo;
+        item.fechaRechazo = new Date().toISOString();
+    }
+
+    const ventaId = item?.ventaId || item?.pedidoId || (item?.tipoRegistro === 'VENTA' ? item.id : null);
+    if (ventaId) {
+        const venta = (AppState.ventas || []).find(v => v.id === ventaId);
+        if (venta) {
+            venta.estado = 'RECHAZADO';
+            venta.motivoRechazo = motivo;
+        }
+    }
+
+    const abonoId = item?.abonoId || (item?.tipoRegistro === 'ABONO' ? item.id : null);
+    if (abonoId) {
+        const abono = (AppState.abonos || []).find(a => a.id === abonoId);
+        if (abono) {
+            abono.estado = 'RECHAZADO';
+            abono.motivoRechazo = motivo;
+        }
+    }
+
+    if (window.InventoryApp?.Firebase?.actualizarEstadoPagoPorVerificar) {
+        await window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(id, 'RECHAZADO', motivo);
+    }
+
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarAbonosPendientesReportados();
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`⚠️ Pago #${id} marcado como Rechazado.`, 'warning');
+    }
+};
+
+/**
  * Renderiza la sección de pagos reportados pendientes en el Panel de Transacciones y Clientes Admin
  */
 function renderizarAbonosPendientesReportados() {
@@ -1008,19 +1111,91 @@ function renderizarAbonosPendientesReportados() {
     if (containers.length === 0) return;
 
     const abonosPendientes = (AppState.abonos || []).filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
+    const pagosVerificarPendientes = (AppState.pagosPorVerificar || []).filter(p => !p.estado || p.estado === 'PENDIENTE_VERIFICACION' || p.estado === 'PENDIENTE_CONFIRMACION' || p.estado === 'PENDIENTE' || p.estado === 'POR_VERIFICAR');
 
-    if (abonosPendientes.length === 0) {
+    if (abonosPendientes.length === 0 && pagosVerificarPendientes.length === 0) {
         containers.forEach(c => {
             c.innerHTML = `
                 <div style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:14px; text-align:center; color:var(--text-muted); font-size:0.88rem;">
-                    <i class="fas fa-check-double" style="color:#16a34a; margin-right:6px;"></i> Todos los reportes de abonos se encuentran al día. Sin pagos pendientes por verificar.
+                    <i class="fas fa-check-double" style="color:#16a34a; margin-right:6px;"></i> Todos los reportes de ventas y pagos se encuentran al día. Sin pagos pendientes por verificar en Firebase.
                 </div>
             `;
         });
         return;
     }
 
-    const htmlContent = `
+    let htmlContent = '';
+
+    // 1. Módulo Pagos y Ventas por Verificar (PagosPorVerificar de Firebase)
+    if (pagosVerificarPendientes.length > 0) {
+        htmlContent += `
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:16px; margin-bottom:18px; box-shadow:0 2px 8px rgba(220,38,38,0.08);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <h4 style="margin:0; font-size:1rem; color:#991b1b; display:flex; align-items:center; gap:8px;">
+                        <span style="display:inline-flex; width:26px; height:26px; border-radius:50%; background:#dc2626; color:#ffffff; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800;">${pagosVerificarPendientes.length}</span>
+                        <i class="fas fa-file-invoice-dollar" style="color:#dc2626;"></i> Ventas y Pagos por Verificar (Firebase: PagosPorVerificar)
+                    </h4>
+                    <small style="color:#991b1b; font-weight:600;">Revisa comprobante de Pago Móvil o Efectivo y aprueba la transacción</small>
+                </div>
+                <div class="table-responsive">
+                    <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#fee2e2; border-bottom:1px solid #fecaca;">
+                                <th style="padding:8px; text-align:left;">Fecha</th>
+                                <th style="padding:8px; text-align:left;">Venta / ID</th>
+                                <th style="padding:8px; text-align:left;">Cliente</th>
+                                <th style="padding:8px; text-align:left;">Método / Ref</th>
+                                <th style="padding:8px; text-align:left;">Detalle</th>
+                                <th style="padding:8px; text-align:right;">Total ($)</th>
+                                <th style="padding:8px; text-align:right;">Total (Bs)</th>
+                                <th style="padding:8px; text-align:center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pagosVerificarPendientes.map(p => {
+                                const itemsTexto = Array.isArray(p.items) 
+                                    ? p.items.map(it => `${it.cantidad}x ${it.nombre || it.productoId}`).join(', ') 
+                                    : (p.nota || p.origen || 'Venta general');
+                                const totalUSD = Number(p.totalUSD || p.montoUSD || p.total || 0);
+                                const totalVES = Number(p.totalVES || p.montoVES || 0);
+                                return `
+                                <tr style="border-bottom:1px solid #fee2e2; background:rgba(255,255,255,0.7);">
+                                    <td style="padding:8px; white-space:nowrap;">${p.fecha || ''}</td>
+                                    <td style="padding:8px;"><code>#${p.id}</code></td>
+                                    <td style="padding:8px;">
+                                        <strong>${p.clienteNombre || p.clienteId || 'Cliente'}</strong>
+                                        <br><small style="color:var(--text-muted);">${p.clienteCedula || p.clienteId || ''} ${p.clienteTelefono ? '• ' + p.clienteTelefono : ''}</small>
+                                    </td>
+                                    <td style="padding:8px;">
+                                        <strong style="color:#b91c1c;">${p.metodoPago || p.tipoPago || p.tipo || 'Pago'}</strong>
+                                        <br><code>Ref: ${p.referencia || 'N/A'}</code>
+                                    </td>
+                                    <td style="padding:8px; max-width:220px; font-size:0.8rem; color:#475569;" title="${itemsTexto}">
+                                        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${itemsTexto}</div>
+                                    </td>
+                                    <td style="padding:8px; text-align:right; font-weight:700; color:var(--primary-accent);">$${totalUSD.toFixed(2)}</td>
+                                    <td style="padding:8px; text-align:right; font-weight:600; color:#16a34a;">Bs. ${totalVES.toFixed(2)}</td>
+                                    <td style="padding:8px; text-align:center; white-space:nowrap;">
+                                        <button type="button" class="btn btn-sm btn-success" onclick="aprobarPagoPorVerificarAdmin('${p.id}')" style="padding:6px 12px; margin-right:4px; font-weight:700;">
+                                            <i class="fas fa-check"></i> Aprobar
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="rechazarPagoPorVerificarAdmin('${p.id}')" style="padding:6px 12px; font-weight:700;">
+                                            <i class="fas fa-times"></i> Rechazar
+                                        </button>
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // 2. Módulo Abonos de Clientes Pendientes por Conciliar
+    if (abonosPendientes.length > 0) {
+        htmlContent += `
         <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:16px; margin-bottom:18px; box-shadow:0 2px 8px rgba(217,119,6,0.08);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                 <h4 style="margin:0; font-size:1rem; color:#92400e; display:flex; align-items:center; gap:8px;">
@@ -1067,7 +1242,8 @@ function renderizarAbonosPendientesReportados() {
                 </table>
             </div>
         </div>
-    `;
+        `;
+    }
 
     containers.forEach(c => {
         c.innerHTML = htmlContent;

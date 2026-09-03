@@ -94,6 +94,27 @@
         "premioMes": "object",
         "treeProgress": "number"
       }
+    },
+    {
+      "collection": "PagosPorVerificar",
+      "fields": {
+        "id": "string",
+        "pedidoId": "string",
+        "ventaId": "string",
+        "clienteId": "string",
+        "clienteNombre": "string",
+        "clienteCedula": "string",
+        "clienteTelefono": "string",
+        "metodoPago": "string",
+        "tipoPago": "string",
+        "referencia": "string",
+        "totalUSD": "number",
+        "totalVES": "number",
+        "items": "array",
+        "fecha": "string",
+        "estado": "string",
+        "origen": "string"
+      }
     }
   ]
 }
