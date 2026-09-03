@@ -70,6 +70,8 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     let audioCtxSingleton = null;
+    let audioChimeDataUriSingleton = null;
+    let ultimoSonidoTimestamp = 0;
 
     function getAudioContext() {
         if (!audioCtxSingleton) {
@@ -81,13 +83,15 @@ window.InventoryApp = window.InventoryApp || {};
         return audioCtxSingleton;
     }
 
-    // Audio Element WAV sintetizado como respaldo de campana de dos tonos
-    let audioFallbackElement = null;
-    function getAudioFallbackElement() {
-        if (audioFallbackElement) return audioFallbackElement;
+    /**
+     * Genera un Data URI base64 de un archivo WAV PCM con una campana de dos tonos de alta fidelidad.
+     * Funciona como fallback 100% autónomo sin depender de APIs externas ni URLs temporales.
+     */
+    function getAudioChimeDataUri() {
+        if (audioChimeDataUriSingleton) return audioChimeDataUriSingleton;
         try {
             const sampleRate = 22050;
-            const duration = 0.55;
+            const duration = 0.58;
             const numSamples = Math.floor(sampleRate * duration);
             const buffer = new ArrayBuffer(44 + numSamples * 2);
             const view = new DataView(buffer);
@@ -101,8 +105,8 @@ window.InventoryApp = window.InventoryApp || {};
             writeString(8, 'WAVE');
             writeString(12, 'fmt ');
             view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, 1, true);
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, 1, true); // Mono
             view.setUint32(24, sampleRate, true);
             view.setUint32(28, sampleRate * 2, true);
             view.setUint16(32, 2, true);
@@ -113,116 +117,157 @@ window.InventoryApp = window.InventoryApp || {};
             for (let i = 0; i < numSamples; i++) {
                 const t = i / sampleRate;
                 let sample = 0;
-                if (t < 0.32) sample += 0.5 * Math.sin(2 * Math.PI * 587.33 * t) * Math.exp(-t * 11);
-                if (t >= 0.1) {
-                    const t2 = t - 0.1;
-                    sample += 0.65 * Math.sin(2 * Math.PI * 1174.66 * t2) * Math.exp(-t2 * 9);
+                // Tono 1 (0 a 0.35s): Campana 784 Hz (Sol5) + armónico 1568 Hz
+                if (t < 0.35) {
+                    sample += 0.55 * Math.sin(2 * Math.PI * 784 * t) * Math.exp(-t * 9);
+                    sample += 0.28 * Math.sin(2 * Math.PI * 1568 * t) * Math.exp(-t * 12);
+                }
+                // Tono 2 (0.12 a 0.58s): Campana de caja registradora 1046.5 Hz (Do6) + armónico 2093 Hz
+                if (t >= 0.12) {
+                    const t2 = t - 0.12;
+                    sample += 0.65 * Math.sin(2 * Math.PI * 1046.5 * t2) * Math.exp(-t2 * 8);
+                    sample += 0.32 * Math.sin(2 * Math.PI * 2093 * t2) * Math.exp(-t2 * 11);
                 }
                 const val = Math.max(-1, Math.min(1, sample));
-                view.setInt16(44 + i * 2, Math.floor(val * 32767), true);
+                view.setInt16(44 + i * 2, Math.round(val * 32767), true);
             }
 
-            const blob = new Blob([buffer], { type: 'audio/wav' });
-            audioFallbackElement = new Audio(URL.createObjectURL(blob));
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            audioChimeDataUriSingleton = 'data:audio/wav;base64,' + (typeof btoa === 'function' ? btoa(binary) : '');
         } catch (e) {
-            console.warn('[Audio] No se pudo sintetizar audio fallback:', e);
+            console.warn('[Audio] Error al generar Chime Data URI:', e);
         }
-        return audioFallbackElement;
+        return audioChimeDataUriSingleton;
     }
 
     // Desbloquear audio automáticamente con cualquier clic, toque o teclado en la ventana
     if (typeof window !== 'undefined') {
         const desbloquearAudio = () => {
-            const ctx = getAudioContext();
-            if (ctx && ctx.state === 'suspended') {
-                ctx.resume().catch(() => {});
-            }
-            const fallback = getAudioFallbackElement();
-            if (fallback && fallback.paused) {
-                // Silencio mínimo para despertar el elemento
-                fallback.volume = 0.001;
-                fallback.play().then(() => {
-                    fallback.pause();
-                    fallback.currentTime = 0;
-                    fallback.volume = 1.0;
-                }).catch(() => {});
-            }
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+            } catch (e) {}
         };
-        ['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
+        ['click', 'touchstart', 'touchend', 'keydown', 'mousedown', 'pointerdown'].forEach(evt => {
             window.addEventListener(evt, desbloquearAudio, { passive: true, capture: true });
         });
     }
 
     /**
-     * Reproduce un chime de campana de dos tonos mediante Web Audio API con fallback directo de Audio Element.
+     * Reproduce el sonido de notificación de campana de dos tonos.
+     * REGLA ESTRICTA: Se reproduce EXCLUSIVAMENTE para el Administrador activo.
      */
-    function reproducirSonidoNotificacion() {
-        let sonidoEmitido = false;
+    function reproducirSonidoNotificacion(forzar = false) {
+        // 1. Verificación estricta: Solo el Administrador activo puede escuchar el sonido
+        const usuarioSesion = window.AppState?.usuarioActual;
+        if (!forzar && !esUsuarioAdminActivo(usuarioSesion)) {
+            return;
+        }
 
-        // Intentar reproducción mediante Web Audio API
+        // 2. Anti-rebote / throttling (evita ráfagas o dobles campanas simultáneas si coinciden listeners)
+        const ahora = Date.now();
+        if (ahora - ultimoSonidoTimestamp < 400) {
+            return;
+        }
+        ultimoSonidoTimestamp = ahora;
+
+        let sonidoReproducidoWebAudio = false;
+
+        // 3. Método Primario: Síntesis de Alta Fidelidad mediante Web Audio API
         try {
             const ctx = getAudioContext();
             if (ctx) {
-                const emitirTonos = () => {
-                    try {
-                        const now = ctx.currentTime || 0;
-                        // Tono 1: Frecuencia 587.33 Hz (Re5)
-                        const osc1 = ctx.createOscillator();
-                        const gain1 = ctx.createGain();
-                        osc1.type = 'sine';
-                        osc1.frequency.setValueAtTime(587.33, now);
-                        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
-                        gain1.gain.setValueAtTime(0.35, now);
-                        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-                        osc1.connect(gain1);
-                        gain1.connect(ctx.destination);
-                        osc1.start(now);
-                        osc1.stop(now + 0.35);
-
-                        // Tono 2: Frecuencia 1174.66 Hz (Re6)
-                        const osc2 = ctx.createOscillator();
-                        const gain2 = ctx.createGain();
-                        osc2.type = 'sine';
-                        osc2.frequency.setValueAtTime(1174.66, now + 0.12);
-                        gain2.gain.setValueAtTime(0.4, now + 0.12);
-                        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-                        osc2.connect(gain2);
-                        gain2.connect(ctx.destination);
-                        osc2.start(now + 0.12);
-                        osc2.stop(now + 0.6);
-                        sonidoEmitido = true;
-                    } catch (errInner) {
-                        console.warn('[Audio] Error al sintetizar sonido WebAudio:', errInner);
-                    }
-                };
-
                 if (ctx.state === 'suspended') {
-                    ctx.resume().then(emitirTonos).catch(() => {
-                        // Fallback a HTML5 Audio Element
-                        const fallback = getAudioFallbackElement();
-                        if (fallback) {
-                            fallback.currentTime = 0;
-                            fallback.volume = 1.0;
-                            fallback.play().catch(() => {});
-                        }
-                    });
-                } else {
-                    emitirTonos();
+                    ctx.resume().catch(() => {});
+                }
+
+                if (ctx.state === 'running') {
+                    const now = ctx.currentTime || 0;
+                    const masterGain = ctx.createGain();
+                    masterGain.gain.setValueAtTime(0.8, now);
+                    masterGain.connect(ctx.destination);
+
+                    // Tono 1: Sol5 (784 Hz)
+                    const osc1 = ctx.createOscillator();
+                    const gain1 = ctx.createGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(784, now);
+                    gain1.gain.setValueAtTime(0.7, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc1.connect(gain1);
+                    gain1.connect(masterGain);
+                    osc1.start(now);
+                    osc1.stop(now + 0.35);
+
+                    // Armónico tono 1: 1568 Hz
+                    const osc1b = ctx.createOscillator();
+                    const gain1b = ctx.createGain();
+                    osc1b.type = 'sine';
+                    osc1b.frequency.setValueAtTime(1568, now);
+                    gain1b.gain.setValueAtTime(0.35, now);
+                    gain1b.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc1b.connect(gain1b);
+                    gain1b.connect(masterGain);
+                    osc1b.start(now);
+                    osc1b.stop(now + 0.3);
+
+                    // Tono 2: Do6 (1046.5 Hz) a los 120ms
+                    const t2 = now + 0.12;
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1046.5, t2);
+                    gain2.gain.setValueAtTime(0.85, t2);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.55);
+                    osc2.connect(gain2);
+                    gain2.connect(masterGain);
+                    osc2.start(t2);
+                    osc2.stop(t2 + 0.55);
+
+                    // Armónico tono 2: 2093 Hz
+                    const osc2b = ctx.createOscillator();
+                    const gain2b = ctx.createGain();
+                    osc2b.type = 'sine';
+                    osc2b.frequency.setValueAtTime(2093, t2);
+                    gain2b.gain.setValueAtTime(0.4, t2);
+                    gain2b.gain.exponentialRampToValueAtTime(0.001, t2 + 0.45);
+                    osc2b.connect(gain2b);
+                    gain2b.connect(masterGain);
+                    osc2b.start(t2);
+                    osc2b.stop(t2 + 0.45);
+
+                    sonidoReproducidoWebAudio = true;
                 }
             }
-        } catch (e) {
-            console.warn('[Audio] Error en WebAudio:', e);
+        } catch (eWebAudio) {
+            console.warn('[Audio] Aviso en WebAudio API:', eWebAudio);
         }
 
-        // Siempre disparar fallback en caso de que Web Audio esté silenciado por política
-        try {
-            const fallback = getAudioFallbackElement();
-            if (fallback && !sonidoEmitido) {
-                fallback.currentTime = 0;
-                fallback.volume = 1.0;
-                fallback.play().catch(() => {});
+        // 4. Respaldo directo e infalible vía HTML5 Audio Element con WAV Data URI
+        if (!sonidoReproducidoWebAudio) {
+            try {
+                const dataUri = getAudioChimeDataUri();
+                if (dataUri) {
+                    const audio = new Audio(dataUri);
+                    audio.volume = 1.0;
+                    const playPromise = audio.play();
+                    if (playPromise && typeof playPromise.then === 'function') {
+                        playPromise.catch(ePlay => {
+                            console.warn('[Audio] Fallback HTML5 Audio play aviso:', ePlay);
+                        });
+                    }
+                }
+            } catch (eFallback) {
+                console.warn('[Audio] Fallback HTML5 Audio error:', eFallback);
             }
-        } catch (eFallback) {}
+        }
     }
 
     if (typeof window !== 'undefined') {
@@ -1071,7 +1116,6 @@ window.InventoryApp = window.InventoryApp || {};
                                 const estadoPrevio = AppState.usuarioActual.estado;
                                 AppState.usuarioActual = { ...AppState.usuarioActual, ...u };
                                 if (estadoPrevio === 'PENDIENTE_APROBACION' && u.estado === 'ACTIVO') {
-                                    reproducirSonidoNotificacion();
                                     if (typeof verificarGatewall === 'function') verificarGatewall();
                                     const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
                                     if (typeof alertFn === 'function') {
@@ -1203,7 +1247,6 @@ window.InventoryApp = window.InventoryApp || {};
                             const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
                             if (usuarioSesion && (abn.clienteId === idSesion || abn.clienteCedula === idSesion || abn.clienteId === usuarioSesion.cedula)) {
                                 if (abn.estado === 'Pago agregado' || abn.estado === 'Confirmado') {
-                                    reproducirSonidoNotificacion();
                                     const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
                                     if (typeof alertFn === 'function') {
                                         alertFn('¡Abono Aprobado!', `Tu abono de $${Number(abn.montoUSD || 0).toFixed(2)} ha sido validado y conciliado por el Administrador. Tu saldo ha sido actualizado y tus puntos liberados.`, 'success');

@@ -687,9 +687,6 @@ async function verificarEstadoAprobacionGatewall() {
         if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
         if (usuarioActualizado.estado === 'ACTIVO') {
-            if (window.InventoryApp.Firebase?.reproducirSonidoNotificacion) {
-                window.InventoryApp.Firebase.reproducirSonidoNotificacion();
-            }
             if (window.InventoryApp.Modal?.alert) {
                 window.InventoryApp.Modal.alert('¡Cuenta Aprobada!', '¡Felicidades! Tu cuenta ha sido APROBADA por el Administrador. Ingresando al sistema...', 'success');
             } else {
