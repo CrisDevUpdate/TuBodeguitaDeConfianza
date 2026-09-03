@@ -145,6 +145,11 @@ function configurarVistasPorRol(usuario) {
         const abonosPendientes = (AppState.abonos || []).filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
         if (abonosPendientes.length > 0) {
             setTimeout(() => {
+                if (typeof reproducirSonidoNotificacion === 'function') {
+                    reproducirSonidoNotificacion();
+                } else if (window.reproducirSonidoNotificacion) {
+                    window.reproducirSonidoNotificacion();
+                }
                 const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                 if (typeof notifFn === 'function') {
                     notifFn(`🔔 Tienes <strong>${abonosPendientes.length} reporte(s) de abono</strong> pendiente(s) por verificar. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);

@@ -791,6 +791,16 @@ function guardarAbono(e) {
             observacion: 'Referencia registrada. Esperando verificación.'
         };
         transacciones.push(tx);
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarTransaccion === 'function') {
+            window.InventoryApp.Firebase.guardarTransaccion(tx).catch(err => {
+                console.warn('[Firebase] Error al guardar transacción en Firestore:', err);
+            });
+        }
+
         document.getElementById('abono-monto').value = '';
         document.getElementById('abono-referencia').value = '';
         cerrarModalAbono();
@@ -809,9 +819,12 @@ function guardarAbono(e) {
         montoUSD = calcularMontoUSDDesdeBs(montoIngresado);
     }
 
+    const clienteObj = clientes.find(c => c.id === clienteSeleccionadoId);
     const nuevoAbono = {
         id: 'A' + (abonos.length + 1) + '_' + Date.now().toString().slice(-4),
         clienteId: clienteSeleccionadoId,
+        clienteNombre: clienteObj?.nombre || 'Cliente',
+        clienteCedula: clienteObj?.cedula || clienteSeleccionadoId,
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
         montoUSD,
         montoVES,
@@ -822,14 +835,21 @@ function guardarAbono(e) {
     abonos.push(nuevoAbono);
 
     // Actualizar fecha de último abono en cliente para pausar penalización por mora
-    const clienteObj = clientes.find(c => c.id === clienteSeleccionadoId);
     if (clienteObj) {
         clienteObj.ultimoAbonoFecha = new Date().toISOString();
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(clienteObj).catch(() => {});
+        }
     }
 
     // Fidelización y Gamificación: Otorgar puntos por el monto abonado
     if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
         otorgarPuntosPorCompra(clienteSeleccionadoId, montoUSD, 'Abono a Cuenta');
+    }
+
+    // Persistir localmente
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
     }
 
     // Guardar abono en Firestore
@@ -843,6 +863,9 @@ function guardarAbono(e) {
     cerrarModalAbono();
     verDetalleCliente(clienteSeleccionadoId);
     renderizarClientes();
+    if (window.InventoryApp && window.InventoryApp.Modal && typeof window.InventoryApp.Modal.toast === 'function') {
+        window.InventoryApp.Modal.toast(`Abono de $${montoUSD.toFixed(2)} registrado correctamente.`, 'success');
+    }
 }
 
 /**

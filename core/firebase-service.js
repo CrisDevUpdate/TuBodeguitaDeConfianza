@@ -37,7 +37,22 @@ window.InventoryApp = window.InventoryApp || {};
      * Comprueba si un usuario corresponde a un Administrador activo del sistema
      */
     function esUsuarioAdminActivo(usuario) {
-        if (!usuario) return false;
+        if (!usuario) {
+            // Si no hay sesión explícita en AppState pero la app está en vista de administración
+            try {
+                const mainApp = document.getElementById('main-app');
+                const gatewall = document.getElementById('gatewall-modal');
+                const esMainVisible = mainApp && mainApp.style.display !== 'none';
+                const esGatewallOculto = !gatewall || gatewall.style.display === 'none';
+                const activeTab = document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '';
+                const esVistaAdmin = !activeTab.startsWith('cliente-');
+                if (esMainVisible && esGatewallOculto && esVistaAdmin) {
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
         const rol = String(usuario.rol || '').trim().toLowerCase();
         const id = String(usuario.id || usuario.cedula || '').trim().toLowerCase();
         const email = String(usuario.email || '').trim().toLowerCase();
@@ -66,12 +81,71 @@ window.InventoryApp = window.InventoryApp || {};
         return audioCtxSingleton;
     }
 
+    // Audio Element WAV sintetizado como respaldo de campana de dos tonos
+    let audioFallbackElement = null;
+    function getAudioFallbackElement() {
+        if (audioFallbackElement) return audioFallbackElement;
+        try {
+            const sampleRate = 22050;
+            const duration = 0.55;
+            const numSamples = Math.floor(sampleRate * duration);
+            const buffer = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(buffer);
+
+            const writeString = (offset, str) => {
+                for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + numSamples * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, numSamples * 2, true);
+
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate;
+                let sample = 0;
+                if (t < 0.32) sample += 0.5 * Math.sin(2 * Math.PI * 587.33 * t) * Math.exp(-t * 11);
+                if (t >= 0.1) {
+                    const t2 = t - 0.1;
+                    sample += 0.65 * Math.sin(2 * Math.PI * 1174.66 * t2) * Math.exp(-t2 * 9);
+                }
+                const val = Math.max(-1, Math.min(1, sample));
+                view.setInt16(44 + i * 2, Math.floor(val * 32767), true);
+            }
+
+            const blob = new Blob([buffer], { type: 'audio/wav' });
+            audioFallbackElement = new Audio(URL.createObjectURL(blob));
+        } catch (e) {
+            console.warn('[Audio] No se pudo sintetizar audio fallback:', e);
+        }
+        return audioFallbackElement;
+    }
+
     // Desbloquear audio automáticamente con cualquier clic, toque o teclado en la ventana
     if (typeof window !== 'undefined') {
         const desbloquearAudio = () => {
             const ctx = getAudioContext();
             if (ctx && ctx.state === 'suspended') {
                 ctx.resume().catch(() => {});
+            }
+            const fallback = getAudioFallbackElement();
+            if (fallback && fallback.paused) {
+                // Silencio mínimo para despertar el elemento
+                fallback.volume = 0.001;
+                fallback.play().then(() => {
+                    fallback.pause();
+                    fallback.currentTime = 0;
+                    fallback.volume = 1.0;
+                }).catch(() => {});
             }
         };
         ['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
@@ -80,53 +154,75 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * Reproduce un chime de campana de dos tonos mediante Web Audio API.
+     * Reproduce un chime de campana de dos tonos mediante Web Audio API con fallback directo de Audio Element.
      */
     function reproducirSonidoNotificacion() {
+        let sonidoEmitido = false;
+
+        // Intentar reproducción mediante Web Audio API
         try {
             const ctx = getAudioContext();
-            if (!ctx) return;
+            if (ctx) {
+                const emitirTonos = () => {
+                    try {
+                        const now = ctx.currentTime || 0;
+                        // Tono 1: Frecuencia 587.33 Hz (Re5)
+                        const osc1 = ctx.createOscillator();
+                        const gain1 = ctx.createGain();
+                        osc1.type = 'sine';
+                        osc1.frequency.setValueAtTime(587.33, now);
+                        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
+                        gain1.gain.setValueAtTime(0.35, now);
+                        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                        osc1.connect(gain1);
+                        gain1.connect(ctx.destination);
+                        osc1.start(now);
+                        osc1.stop(now + 0.35);
 
-            const emitirTonos = () => {
-                try {
-                    const now = ctx.currentTime;
-                    // Tono 1: Frecuencia 587.33 Hz (Re5)
-                    const osc1 = ctx.createOscillator();
-                    const gain1 = ctx.createGain();
-                    osc1.type = 'sine';
-                    osc1.frequency.setValueAtTime(587.33, now);
-                    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
-                    gain1.gain.setValueAtTime(0.28, now);
-                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-                    osc1.connect(gain1);
-                    gain1.connect(ctx.destination);
-                    osc1.start(now);
-                    osc1.stop(now + 0.35);
+                        // Tono 2: Frecuencia 1174.66 Hz (Re6)
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.type = 'sine';
+                        osc2.frequency.setValueAtTime(1174.66, now + 0.12);
+                        gain2.gain.setValueAtTime(0.4, now + 0.12);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.start(now + 0.12);
+                        osc2.stop(now + 0.6);
+                        sonidoEmitido = true;
+                    } catch (errInner) {
+                        console.warn('[Audio] Error al sintetizar sonido WebAudio:', errInner);
+                    }
+                };
 
-                    // Tono 2: Frecuencia 1174.66 Hz (Re6)
-                    const osc2 = ctx.createOscillator();
-                    const gain2 = ctx.createGain();
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(1174.66, now + 0.15);
-                    gain2.gain.setValueAtTime(0.32, now + 0.15);
-                    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-                    osc2.connect(gain2);
-                    gain2.connect(ctx.destination);
-                    osc2.start(now + 0.15);
-                    osc2.stop(now + 0.6);
-                } catch (errInner) {
-                    console.warn('[Audio] Error al sintetizar sonido:', errInner);
+                if (ctx.state === 'suspended') {
+                    ctx.resume().then(emitirTonos).catch(() => {
+                        // Fallback a HTML5 Audio Element
+                        const fallback = getAudioFallbackElement();
+                        if (fallback) {
+                            fallback.currentTime = 0;
+                            fallback.volume = 1.0;
+                            fallback.play().catch(() => {});
+                        }
+                    });
+                } else {
+                    emitirTonos();
                 }
-            };
-
-            if (ctx.state === 'suspended') {
-                ctx.resume().then(emitirTonos).catch(emitirTonos);
-            } else {
-                emitirTonos();
             }
         } catch (e) {
-            console.warn('[Audio] Error en reproducirSonidoNotificacion:', e);
+            console.warn('[Audio] Error en WebAudio:', e);
         }
+
+        // Siempre disparar fallback en caso de que Web Audio esté silenciado por política
+        try {
+            const fallback = getAudioFallbackElement();
+            if (fallback && !sonidoEmitido) {
+                fallback.currentTime = 0;
+                fallback.volume = 1.0;
+                fallback.play().catch(() => {});
+            }
+        } catch (eFallback) {}
     }
 
     if (typeof window !== 'undefined') {
@@ -201,23 +297,20 @@ window.InventoryApp = window.InventoryApp || {};
                 .map(item => sanitizarObjetoParaFirestore(item));
         }
 
-        // Si es un objeto especial de Firebase (FieldValue, Timestamp, etc.)
-        if (obj.constructor && obj.constructor.name && (
-            obj.constructor.name === 'FieldValue' ||
-            obj.constructor.name === 'Timestamp' ||
-            obj.constructor.name.includes('FieldValue') ||
-            typeof obj.isEqual === 'function' ||
-            typeof obj.toMillis === 'function'
-        )) {
+        // Si NO es un objeto plano simple (ej: es instancia de FieldValue, Timestamp, Date, etc.)
+        // NUNCA deconstruir con Object.entries() porque rompe los centinelas internos del SDK de Firestore
+        const esObjetoPlano = Boolean(
+            obj && typeof obj === 'object' && !Array.isArray(obj) &&
+            (obj.constructor === Object || !obj.constructor)
+        );
+
+        if (!esObjetoPlano) {
             return obj;
         }
 
         const limpio = {};
         for (const [k, v] of Object.entries(obj)) {
-            if (v === undefined) {
-                continue;
-            }
-            if (typeof v === 'function') {
+            if (v === undefined || typeof v === 'function') {
                 continue;
             }
             if (v !== null && typeof v === 'object') {
@@ -762,43 +855,57 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Abonos
             AppState.abonos.forEach((a, idx) => {
-                const id = a.id || `AB-${idx}-${Date.now()}`;
-                const ref = db.collection(COLLECTIONS.ABONOS).doc(String(id));
-                batch.set(ref, { ...a, id }, { merge: true });
+                const id = String(a.id || `AB-${idx}-${Date.now()}`);
+                const ref = db.collection(COLLECTIONS.ABONOS).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...a, id }) || {};
+                try {
+                    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                } catch (e) {}
+                batch.set(ref, payload, { merge: true });
             });
 
             // Transacciones
             AppState.transacciones.forEach(t => {
-                const ref = db.collection(COLLECTIONS.TRANSACCIONES).doc(String(t.id));
-                batch.set(ref, { ...t }, { merge: true });
+                const id = String(t.id);
+                const ref = db.collection(COLLECTIONS.TRANSACCIONES).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...t, id }) || {};
+                try {
+                    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                } catch (e) {}
+                batch.set(ref, payload, { merge: true });
             });
 
             // Auditorías
             AppState.auditorias.forEach(a => {
-                const id = a.id || `AUD-${Date.now()}-${Math.random()}`;
-                const ref = db.collection(COLLECTIONS.AUDITORIAS).doc(String(id));
-                batch.set(ref, { ...a, id }, { merge: true });
+                const id = String(a.id || `AUD-${Date.now()}-${Math.random()}`);
+                const ref = db.collection(COLLECTIONS.AUDITORIAS).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...a, id }) || {};
+                batch.set(ref, payload, { merge: true });
             });
 
             // Eliminaciones
             AppState.eliminaciones.forEach(e => {
-                const id = e.id || `EL-${Date.now()}-${Math.random()}`;
-                const ref = db.collection(COLLECTIONS.ELIMINACIONES).doc(String(id));
-                batch.set(ref, { ...e, id }, { merge: true });
+                const id = String(e.id || `EL-${Date.now()}-${Math.random()}`);
+                const ref = db.collection(COLLECTIONS.ELIMINACIONES).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...e, id }) || {};
+                batch.set(ref, payload, { merge: true });
             });
 
             // Clientes Eliminados
             AppState.clientesEliminados.forEach(c => {
-                const ref = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).doc(String(c.id));
-                batch.set(ref, { ...c }, { merge: true });
+                const id = String(c.id);
+                const ref = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...c, id }) || {};
+                batch.set(ref, payload, { merge: true });
             });
 
             // Usuarios
             (AppState.usuarios || []).forEach(u => {
-                const id = u.id || u.cedula;
+                const id = String(u.id || u.cedula || '');
                 if (id) {
-                    const ref = db.collection(COLLECTIONS.USUARIOS).doc(String(id));
-                    batch.set(ref, { ...u, id }, { merge: true });
+                    const ref = db.collection(COLLECTIONS.USUARIOS).doc(id);
+                    const payload = sanitizarObjetoParaFirestore({ ...u, id }) || {};
+                    batch.set(ref, payload, { merge: true });
                 }
             });
 
@@ -1016,7 +1123,10 @@ window.InventoryApp = window.InventoryApp || {};
 
                         if (change.type === 'added') {
                             if (!primerCargaAbonos) {
-                                if (abn.estado === 'PENDIENTE_CONFIRMACION' && !abonosNotificadosIds.has(idDoc)) {
+                                const esPendiente = abn.estado === 'PENDIENTE_CONFIRMACION';
+                                const esAbonoAgregado = abn.estado === 'Pago agregado' || !abn.estado;
+                                
+                                if ((esPendiente || esAbonoAgregado) && !abonosNotificadosIds.has(idDoc)) {
                                     abonosNotificadosIds.add(idDoc);
 
                                     const usuarioSesion = window.AppState?.usuarioActual;
@@ -1029,7 +1139,11 @@ window.InventoryApp = window.InventoryApp || {};
                                         const refFmt = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
                                         const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                         if (typeof notifFn === 'function') {
-                                            notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 14000);
+                                            if (esPendiente) {
+                                                notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 14000);
+                                            } else {
+                                                notifFn(`💰 ¡Abono agregado! <strong>${clienteNom}</strong> abonó $${montoFmt}${refFmt}.`, 'success', 8000);
+                                            }
                                         }
                                     }
                                 }
@@ -1078,6 +1192,23 @@ window.InventoryApp = window.InventoryApp || {};
                     });
                 } catch (chErr) {
                     console.warn('[Firebase] Aviso al procesar docChanges de abonos:', chErr);
+                }
+
+                // Si en la primera carga hay abonos pendientes y el usuario actual es admin, avisar y sonar campana
+                if (primerCargaAbonos) {
+                    const pendientesIniciales = newAbonos.filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
+                    if (pendientesIniciales.length > 0) {
+                        const usuarioSesion = window.AppState?.usuarioActual;
+                        if (esUsuarioAdminActivo(usuarioSesion)) {
+                            setTimeout(() => {
+                                reproducirSonidoNotificacion();
+                                const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                if (typeof notifFn === 'function') {
+                                    notifFn(`🔔 Tienes <strong>${pendientesIniciales.length} reporte(s) de abono</strong> pendiente(s) por verificar. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
+                                }
+                            }, 800);
+                        }
+                    }
                 }
 
                 primerCargaAbonos = false;
@@ -1487,15 +1618,22 @@ window.InventoryApp = window.InventoryApp || {};
             if (db) {
                 const id = String(abono.id || `ABN_${Date.now()}`);
                 const docRef = db.collection(COLLECTIONS.ABONOS).doc(id);
-                const rawPayload = {
-                    ...abono,
-                    id,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                if (!rawPayload.createdAt) {
-                    rawPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const payload = sanitizarObjetoParaFirestore({ ...abono, id }) || {};
+                try {
+                    if (firebase && firebase.firestore && firebase.firestore.FieldValue) {
+                        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                        if (!payload.createdAt) {
+                            payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        }
+                    } else {
+                        const nowIso = new Date().toISOString();
+                        payload.updatedAt = nowIso;
+                        if (!payload.createdAt) payload.createdAt = nowIso;
+                    }
+                } catch (tsErr) {
+                    payload.updatedAt = new Date().toISOString();
                 }
-                const payload = sanitizarObjetoParaFirestore(rawPayload);
+
                 await docRef.set(payload, { merge: true });
                 console.log('[Firebase] Abono guardado exitosamente en Firestore:', id);
             }
@@ -1531,12 +1669,26 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Guardando transacción...');
 
         try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+
             if (db) {
-                const docRef = db.collection(COLLECTIONS.TRANSACCIONES).doc(String(tx.id));
-                await docRef.set({
-                    ...tx,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                const id = String(tx.id);
+                const docRef = db.collection(COLLECTIONS.TRANSACCIONES).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...tx, id }) || {};
+                try {
+                    if (firebase && firebase.firestore && firebase.firestore.FieldValue) {
+                        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                    } else {
+                        payload.updatedAt = new Date().toISOString();
+                    }
+                } catch (tsErr) {
+                    payload.updatedAt = new Date().toISOString();
+                }
+
+                await docRef.set(payload, { merge: true });
+                console.log('[Firebase] Transacción guardada exitosamente en Firestore:', id);
             }
 
             actualizarUIEstadoNube('conectado', 'Transacción guardada');
@@ -1546,8 +1698,9 @@ window.InventoryApp = window.InventoryApp || {};
                 manejarErrorCuota();
             } else {
                 console.error('[Firebase] Error al guardar transacción:', error);
+                actualizarUIEstadoNube('offline', 'Transacción guardada localmente (Offline)');
             }
-            return true;
+            return false;
         }
     }
 
