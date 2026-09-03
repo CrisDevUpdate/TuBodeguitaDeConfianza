@@ -1262,17 +1262,23 @@ window.InventoryApp = window.InventoryApp || {};
             let primerCargaPagosPorVerificar = true;
             const pagosPorVerificarNotificadosIds = new Set();
             const unsubPagosPorVerificar = db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).onSnapshot(snapshot => {
-                const newPagos = [];
+                const mapPagos = new Map();
                 snapshot.docs.forEach(doc => {
                     const data = doc.data() || {};
                     if (Array.isArray(data.pagos)) {
-                        data.pagos.forEach(p => { if (p && p.id) newPagos.push(p); });
+                        data.pagos.forEach(p => { if (p && p.id) mapPagos.set(String(p.id), p); });
                     }
                     if (Array.isArray(data.historial)) {
-                        data.historial.forEach(p => { if (p && p.id) newPagos.push(p); });
+                        data.historial.forEach(p => { if (p && p.id) mapPagos.set(String(p.id), p); });
                     }
-                    newPagos.push({ id: doc.id, ...data });
+                    if (data.ultimoPago && data.ultimoPago.id) {
+                        mapPagos.set(String(data.ultimoPago.id), data.ultimoPago);
+                    }
+                    if (doc.id !== 'PagosPorVerificar' || (!Array.isArray(data.pagos) && (data.montoUSD || data.totalUSD || data.referencia))) {
+                        mapPagos.set(String(doc.id), { id: doc.id, ...data });
+                    }
                 });
+                const newPagos = Array.from(mapPagos.values());
 
                 try {
                     const changes = snapshot.docChanges ? snapshot.docChanges() : [];
@@ -1331,6 +1337,26 @@ window.InventoryApp = window.InventoryApp || {};
                 solicitarRefrescoVistasDebounced();
             }, err => manejarErrorListener('PagosPorVerificar', err));
             syncListeners.push(unsubPagosPorVerificar);
+
+            // Listener redundante por si el documento maestro PagosPorVerificar fue creado en app_state
+            try {
+                const unsubDocAppStatePagos = db.collection('app_state').doc('PagosPorVerificar').onSnapshot(docSnap => {
+                    if (docSnap && docSnap.exists) {
+                        const data = docSnap.data() || {};
+                        let items = [];
+                        if (Array.isArray(data.pagos)) items = data.pagos;
+                        else if (data.ultimoPago) items = [data.ultimoPago];
+                        if (items.length > 0) {
+                            const map = new Map((AppState.pagosPorVerificar || []).map(p => [String(p.id), p]));
+                            items.forEach(it => { if (it && it.id) map.set(String(it.id), { ...map.get(String(it.id)), ...it }); });
+                            AppState.pagosPorVerificar = Array.from(map.values());
+                            guardarCacheLocal();
+                            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+                        }
+                    }
+                }, () => {});
+                syncListeners.push(unsubDocAppStatePagos);
+            } catch (e) {}
 
             // Listener de transacciones
             const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
@@ -1863,24 +1889,55 @@ window.InventoryApp = window.InventoryApp || {};
                 console.log('[Firebase] Pago guardado con éxito en PagosPorVerificar:', id);
 
                 // 2. Si el usuario creó o espera un documento raíz llamado 'PagosPorVerificar'
+                const unionField = (firebase && firebase.firestore && firebase.firestore.FieldValue)
+                    ? firebase.firestore.FieldValue.arrayUnion(payload)
+                    : [payload];
+
                 try {
                     const docMaestroRef = db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).doc('PagosPorVerificar');
                     if (id !== 'PagosPorVerificar') {
                         await docMaestroRef.set({
+                            ...payload,
                             ultimoPago: payload,
+                            pagos: unionField,
+                            historial: unionField,
                             totalPendientes: (AppState.pagosPorVerificar || []).filter(p => !p.estado || p.estado === 'PENDIENTE_VERIFICACION' || p.estado === 'PENDIENTE_CONFIRMACION').length,
                             updatedAt: payload.updatedAt
                         }, { merge: true });
                     }
-                } catch (maestroErr) {}
+                } catch (maestroErr) {
+                    console.warn('[Firebase] Aviso doc maestro PagosPorVerificar:', maestroErr);
+                }
 
-                // 3. Documento redundante en app_state
+                // 3. Documento en app_state/PagosPorVerificar
                 try {
                     await db.collection('app_state').doc('PagosPorVerificar').set({
+                        ...payload,
                         ultimoPago: payload,
+                        pagos: unionField,
                         updatedAt: payload.updatedAt
                     }, { merge: true });
                 } catch (appErr) {}
+
+                // 4. Documento en ventas/PagosPorVerificar
+                try {
+                    await db.collection('ventas').doc('PagosPorVerificar').set({
+                        ...payload,
+                        ultimoPago: payload,
+                        pagos: unionField,
+                        updatedAt: payload.updatedAt
+                    }, { merge: true });
+                } catch (vErr) {}
+
+                // 5. Documento en transacciones/PagosPorVerificar
+                try {
+                    await db.collection('transacciones').doc('PagosPorVerificar').set({
+                        ...payload,
+                        ultimoPago: payload,
+                        pagos: unionField,
+                        updatedAt: payload.updatedAt
+                    }, { merge: true });
+                } catch (txErr) {}
             }
 
             actualizarUIEstadoNube('conectado', 'PagosPorVerificar actualizado');
@@ -1932,12 +1989,23 @@ window.InventoryApp = window.InventoryApp || {};
 
                 await docRef.set(payload, { merge: true });
 
+                const updateObj = {
+                    estado: nuevoEstado,
+                    ultimoCambio: { id, estado: nuevoEstado, motivo: motivo || '' },
+                    totalPendientes: (AppState.pagosPorVerificar || []).filter(p => !p.estado || p.estado === 'PENDIENTE_VERIFICACION' || p.estado === 'PENDIENTE_CONFIRMACION').length,
+                    updatedAt: payload.updatedAt || new Date().toISOString()
+                };
+
                 try {
-                    const docMaestroRef = db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).doc('PagosPorVerificar');
-                    await docMaestroRef.set({
-                        ultimoCambio: { id, estado: nuevoEstado },
-                        updatedAt: payload.updatedAt || new Date().toISOString()
-                    }, { merge: true });
+                    await db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).doc('PagosPorVerificar').set(updateObj, { merge: true });
+                } catch (e) {}
+
+                try {
+                    await db.collection('app_state').doc('PagosPorVerificar').set(updateObj, { merge: true });
+                } catch (e) {}
+
+                try {
+                    await db.collection('ventas').doc('PagosPorVerificar').set(updateObj, { merge: true });
                 } catch (e) {}
             }
             return true;

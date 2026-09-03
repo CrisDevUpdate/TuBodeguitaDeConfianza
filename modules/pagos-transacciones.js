@@ -193,6 +193,14 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
             window.InventoryApp.Persistence.guardar(true);
         }
 
+        // Actualizar estado en PagosPorVerificar de Firestore
+        if (window.InventoryApp?.Firebase?.actualizarEstadoPagoPorVerificar) {
+            window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(tx.id, 'APROBADO').catch(() => {});
+            if (tx.pedidoId) {
+                window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(tx.pedidoId, 'APROBADO').catch(() => {});
+            }
+        }
+
         renderizarTransacciones();
         renderizarClientes();
         if (clienteSeleccionadoId === tx.clienteId) verDetalleCliente(tx.clienteId);
@@ -801,6 +809,32 @@ function guardarAbono(e) {
             });
         }
 
+        // Guardar inmediatamente en PagosPorVerificar de Firebase Firestore
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+            const clienteObj = (clientes || []).find(c => c.id === clienteSeleccionadoId);
+            window.InventoryApp.Firebase.guardarPagoPorVerificar({
+                id: tx.id,
+                pedidoId: tx.id,
+                transaccionId: tx.id,
+                clienteId: clienteSeleccionadoId,
+                clienteNombre: clienteObj ? clienteObj.nombre : clienteSeleccionadoId,
+                clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteSeleccionadoId,
+                montoUSD: tx.montoUSD,
+                totalUSD: tx.montoUSD,
+                montoVES: tx.montoVES,
+                totalVES: tx.montoVES,
+                metodoPago: tx.tipo,
+                tipoPago: tx.tipo,
+                tipo: tx.tipo,
+                referencia: tx.referencia,
+                fecha: tx.fecha,
+                fechaISO: new Date().toISOString(),
+                estado: 'PENDIENTE_VERIFICACION',
+                tipoRegistro: 'TRANSACCION_ABONO',
+                origen: 'Abono / Pago Móvil Registrado'
+            }).catch(err => console.warn('[Firebase] Error al registrar abono en PagosPorVerificar:', err));
+        }
+
         document.getElementById('abono-monto').value = '';
         document.getElementById('abono-referencia').value = '';
         cerrarModalAbono();
@@ -857,6 +891,30 @@ function guardarAbono(e) {
         window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
             console.warn('[Abonos] Error al guardar abono en Firestore:', err);
         });
+    }
+
+    // Registrar en PagosPorVerificar de Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+        window.InventoryApp.Firebase.guardarPagoPorVerificar({
+            id: nuevoAbono.id,
+            abonoId: nuevoAbono.id,
+            clienteId: clienteSeleccionadoId,
+            clienteNombre: clienteObj?.nombre || 'Cliente',
+            clienteCedula: clienteObj?.cedula || clienteSeleccionadoId,
+            montoUSD: nuevoAbono.montoUSD,
+            totalUSD: nuevoAbono.montoUSD,
+            montoVES: nuevoAbono.montoVES,
+            totalVES: nuevoAbono.montoVES,
+            metodoPago: nuevoAbono.metodo,
+            tipoPago: nuevoAbono.metodo,
+            tipo: nuevoAbono.metodo,
+            referencia: 'Efectivo',
+            fecha: nuevoAbono.fecha,
+            fechaISO: new Date().toISOString(),
+            estado: 'PENDIENTE_VERIFICACION',
+            tipoRegistro: 'ABONO_EFECTIVO',
+            origen: 'Abono en Efectivo'
+        }).catch(err => console.warn('[Abonos] Error al registrar abono en PagosPorVerificar:', err));
     }
 
     document.getElementById('abono-monto').value = '';
@@ -917,6 +975,14 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
         });
     }
 
+    // Actualizar estado en PagosPorVerificar de Firestore
+    if (window.InventoryApp?.Firebase?.actualizarEstadoPagoPorVerificar) {
+        window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(abono.id, 'APROBADO').catch(() => {});
+        if (abono.transaccionId) {
+            window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(abono.transaccionId, 'APROBADO').catch(() => {});
+        }
+    }
+
     // 6. Refrescar vistas
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
@@ -956,6 +1022,14 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
         window.InventoryApp.Firebase.guardarAbono(abono).catch(err => {
             console.warn('[Firebase] Fallo al sincronizar abono rechazado:', err);
         });
+    }
+
+    // Actualizar estado en PagosPorVerificar de Firestore
+    if (window.InventoryApp?.Firebase?.actualizarEstadoPagoPorVerificar) {
+        window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(abono.id, 'RECHAZADO', 'Rechazado por administrador').catch(() => {});
+        if (abono.transaccionId) {
+            window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(abono.transaccionId, 'RECHAZADO', 'Rechazado por administrador').catch(() => {});
+        }
     }
 
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();

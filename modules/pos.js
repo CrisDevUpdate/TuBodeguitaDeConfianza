@@ -230,6 +230,9 @@ async function ejecutarFinalizacionCheckoutPOS() {
     }
 
     const total = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
+    const clienteObj = clientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const totalVES = tasa > 0 ? (total * tasa) : 0;
 
     // Prevalidación de stock atómica
     for (const item of carrito) {

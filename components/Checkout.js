@@ -240,6 +240,40 @@ class PosCheckoutManager {
         };
         ventas.push(nuevaVenta);
 
+        // Sincronizar en Firebase Firestore
+        const clienteObj = clientes.find(c => c.id === clienteId);
+        if (window.InventoryApp?.Firebase?.registrarVenta) {
+            window.InventoryApp.Firebase.registrarVenta(nuevaVenta, nuevaVenta.items || []).catch(err => {
+                console.warn('[Checkout] Error al registrar venta en Firestore:', err);
+            });
+        }
+
+        // Registrar en PagosPorVerificar de Firestore
+        if (window.InventoryApp?.Firebase?.guardarPagoPorVerificar) {
+            window.InventoryApp.Firebase.guardarPagoPorVerificar({
+                id: nuevaVenta.id,
+                pedidoId: nuevaVenta.id,
+                ventaId: nuevaVenta.id,
+                clienteId: clienteId,
+                clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+                clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
+                totalUSD: totalUSD,
+                montoUSD: totalUSD,
+                totalVES: totalVES,
+                montoVES: totalVES,
+                metodoPago: metodo,
+                tipoPago: metodo,
+                tipo: metodo,
+                referencia: referencia || (metodo.includes('Efectivo') ? 'Efectivo en caja POS' : (metodo === 'Crédito' ? 'Crédito' : 'N/A')),
+                items: nuevaVenta.items,
+                fecha: nuevaVenta.fecha,
+                fechaISO: new Date().toISOString(),
+                estado: 'PENDIENTE_VERIFICACION',
+                tipoRegistro: 'VENTA_POS',
+                origen: 'POS Mostrador'
+            }).catch(err => console.warn('[Checkout] Error al guardar en PagosPorVerificar:', err));
+        }
+
         // 3. Acreditar Puntos si la compra es de contado y la temporada está activa
         const temporadaActiva = window.AppState?.premioMes?.temporadaActiva !== false;
         if (metodo !== 'Crédito' && temporadaActiva) {
