@@ -243,7 +243,10 @@
         <button class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
         <button class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
         <button class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
-        <button class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')"><i class="fas fa-receipt"></i> Tipos de Transacciones</button>
+        <button class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
+            <i class="fas fa-receipt"></i> Tipos de Transacciones
+            <span id="badge-abonos-desktop" class="badge-pill-counter" style="background:#d97706; color:#ffffff; display:none;">0</span>
+        </button>
         <button class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
         <button class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
             <i class="fas fa-user-shield"></i> Usuarios & Aprobación
@@ -578,6 +581,9 @@
 
     <!-- VISTA 3: CLIENTES -->
     <div id="clientes" class="view-content">
+        <!-- Contenedor dinámico de Abonos Pendientes Reportados por Clientes -->
+        <div id="abonos-pendientes-clientes-container" style="margin-bottom:18px;"></div>
+
         <div class="card">
             <h3>Registrar Nuevo Cliente</h3>
             <form id="form-cliente" class="form-grid" style="margin-top: 15px;" onsubmit="guardarCliente(event)">
@@ -1962,9 +1968,10 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         <i class="fas fa-users"></i>
         <span>Clientes</span>
     </button>
-    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones" style="position:relative;">
         <i class="fas fa-receipt"></i>
         <span>Transac.</span>
+        <span id="badge-abonos-mobile" class="badge-dot" style="background:#d97706; display:none;"></span>
     </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
         <i class="fas fa-clipboard-check"></i>
@@ -2013,30 +2020,30 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
 <!-- Scripts de Arquitectura y Módulos -->
-<script src="core/app-state.js?v=4.1.1"></script>
-<script src="core/modal.js?v=4.1.1"></script>
-<script src="core/helpers.js?v=4.1.1"></script>
-<script src="core/firebase-service.js?v=4.1.1"></script>
-<script src="core/image-cache-service.js?v=4.1.1"></script>
-<script src="core/google-drive-service.js?v=4.1.1"></script>
-<script src="core/persistence.js?v=4.1.1"></script>
-<script src="core/bcv.js?v=4.1.1"></script>
-<script src="components/ThemeSelector.js?v=4.1.1"></script>
-<script src="components/Checkout.js?v=4.1.1"></script>
-<script src="components/Catalog.js?v=4.1.1"></script>
-<script src="components/TreeGamification.js?v=4.1.1"></script>
-<script src="modules/productos.js?v=4.1.1"></script>
-<script src="modules/pos.js?v=4.1.1"></script>
-<script src="modules/clientes.js?v=4.1.1"></script>
-<script src="modules/pagos-transacciones.js?v=4.1.1"></script>
-<script src="modules/auditoria.js?v=4.1.1"></script>
-<script src="modules/perdidas.js?v=4.1.1"></script>
-<script src="modules/premio-mes.js?v=4.1.1"></script>
-<script src="modules/cliente-view.js?v=4.1.1"></script>
-<script src="modules/historial-ventas.js?v=4.1.1"></script>
-<script src="modules/usuarios.js?v=4.1.1"></script>
-<script src="modules/configuracion.js?v=4.1.1"></script>
-<script src="app.js?v=4.1.1"></script>
+<script src="core/app-state.js?v=4.1.2"></script>
+<script src="core/modal.js?v=4.1.2"></script>
+<script src="core/helpers.js?v=4.1.2"></script>
+<script src="core/firebase-service.js?v=4.1.2"></script>
+<script src="core/image-cache-service.js?v=4.1.2"></script>
+<script src="core/google-drive-service.js?v=4.1.2"></script>
+<script src="core/persistence.js?v=4.1.2"></script>
+<script src="core/bcv.js?v=4.1.2"></script>
+<script src="components/ThemeSelector.js?v=4.1.2"></script>
+<script src="components/Checkout.js?v=4.1.2"></script>
+<script src="components/Catalog.js?v=4.1.2"></script>
+<script src="components/TreeGamification.js?v=4.1.2"></script>
+<script src="modules/productos.js?v=4.1.2"></script>
+<script src="modules/pos.js?v=4.1.2"></script>
+<script src="modules/clientes.js?v=4.1.2"></script>
+<script src="modules/pagos-transacciones.js?v=4.1.2"></script>
+<script src="modules/auditoria.js?v=4.1.2"></script>
+<script src="modules/perdidas.js?v=4.1.2"></script>
+<script src="modules/premio-mes.js?v=4.1.2"></script>
+<script src="modules/cliente-view.js?v=4.1.2"></script>
+<script src="modules/historial-ventas.js?v=4.1.2"></script>
+<script src="modules/usuarios.js?v=4.1.2"></script>
+<script src="modules/configuracion.js?v=4.1.2"></script>
+<script src="app.js?v=4.1.2"></script>
 </body>
 </html>
 

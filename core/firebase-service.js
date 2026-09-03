@@ -930,16 +930,92 @@ window.InventoryApp = window.InventoryApp || {};
             syncListeners.push(unsubVentas);
 
             // Listener de abonos
+            let primerCargaAbonos = true;
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newAbonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newAbonos);
-                    if (lastCollectionHashes[COLLECTIONS.ABONOS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.ABONOS] = hash;
-                        AppState.abonos = newAbonos;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+                if (snapshot.metadata.hasPendingWrites) {
+                    return;
+                }
+
+                const newAbonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                try {
+                    snapshot.docChanges().forEach(change => {
+                        const abn = change.doc.data() || {};
+                        const idDoc = change.doc.id;
+
+                        if (change.type === 'added') {
+                            const existiaAntes = (AppState.abonos || []).some(prev => prev.id === idDoc);
+                            if (!primerCargaAbonos && (!existiaAntes || abn.estado === 'PENDIENTE_CONFIRMACION')) {
+                                if (abn.estado === 'PENDIENTE_CONFIRMACION') {
+                                    // Comprobar estrictamente si el usuario en sesión es un Administrador activo
+                                    const usuarioSesion = window.AppState?.usuarioActual;
+                                    const rolSesion = String(usuarioSesion?.rol || '').trim().toLowerCase();
+                                    const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
+                                    const esAdminSesion = Boolean(
+                                        usuarioSesion &&
+                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || idSesion === 'SuperAdmin') &&
+                                        usuarioSesion.estado === 'ACTIVO'
+                                    );
+
+                                    // Comprobar si el navegador está mostrando la interfaz de cliente
+                                    const esVistaCliente = Boolean(
+                                        (document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '').startsWith('cliente-') ||
+                                        (document.querySelector('.bottom-nav-item.active')?.getAttribute('data-tab') || '').startsWith('cliente-')
+                                    );
+
+                                    // Solo el administrador activo recibe la notificación visual y el sonido de alerta
+                                    if (esAdminSesion && !esVistaCliente) {
+                                        reproducirSonidoNotificacion();
+                                        const clienteNom = abn.clienteNombre || abn.clienteId || 'Cliente';
+                                        const montoFmt = Number(abn.montoUSD || 0).toFixed(2);
+                                        const refFmt = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
+                                        const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                        if (typeof notifFn === 'function') {
+                                            notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (change.type === 'modified') {
+                            // Si el usuario en sesión es el cliente de este abono y cambió de estado
+                            const usuarioSesion = window.AppState?.usuarioActual;
+                            const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
+                            if (usuarioSesion && (abn.clienteId === idSesion || abn.clienteId === usuarioSesion.cedula)) {
+                                if (abn.estado === 'Pago agregado' || abn.estado === 'Confirmado') {
+                                    reproducirSonidoNotificacion();
+                                    const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
+                                    if (typeof alertFn === 'function') {
+                                        alertFn('¡Abono Aprobado!', `Tu abono de $${Number(abn.montoUSD || 0).toFixed(2)} ha sido validado y conciliado por el Administrador. Tu saldo ha sido actualizado y tus puntos liberados.`, 'success');
+                                    }
+                                } else if (abn.estado === 'RECHAZADO') {
+                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                    if (typeof notifFn === 'function') {
+                                        notifFn(`⚠️ Tu reporte de abono #${idDoc} fue marcado como Rechazado. Por favor verifica tus datos bancarios.`, 'error', 10000);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (chErr) {
+                    console.warn('[Firebase] Aviso al procesar docChanges de abonos:', chErr);
+                }
+
+                primerCargaAbonos = false;
+                const hash = calcularHashColeccion(newAbonos);
+                if (lastCollectionHashes[COLLECTIONS.ABONOS] !== hash) {
+                    lastCollectionHashes[COLLECTIONS.ABONOS] = hash;
+                    AppState.abonos = newAbonos;
+                    guardarCacheLocal();
+                    if (typeof actualizarBadgesAbonos === 'function') {
+                        actualizarBadgesAbonos();
                     }
+                    if (typeof renderizarAbonosPendientesReportados === 'function') {
+                        renderizarAbonosPendientesReportados();
+                    }
+                    if (typeof renderizarEstadoCuentaCliente === 'function') {
+                        renderizarEstadoCuentaCliente();
+                    }
+                    solicitarRefrescoVistasDebounced();
                 }
             }, err => manejarErrorListener('abonos', err));
             syncListeners.push(unsubAbonos);
@@ -1059,6 +1135,9 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
         if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
+        if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
+        if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
     }
 
     // =========================================================================
@@ -1324,11 +1403,15 @@ window.InventoryApp = window.InventoryApp || {};
             if (db) {
                 const id = abono.id || `AB-${Date.now()}`;
                 const docRef = db.collection(COLLECTIONS.ABONOS).doc(String(id));
-                await docRef.set({
+                const payload = {
                     ...abono,
                     id,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                if (!abono.createdAt) {
+                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+                await docRef.set(payload, { merge: true });
             }
 
             actualizarUIEstadoNube('conectado', 'Pago registrado en Firestore');

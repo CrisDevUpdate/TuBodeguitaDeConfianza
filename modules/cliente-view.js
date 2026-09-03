@@ -943,11 +943,12 @@ async function renderizarEstadoCuentaCliente() {
     }
 
     const ventasCliente = (AppState.ventas || []).filter(v => (v.clienteId === cedula || v.clienteId === usuario.id));
-    const abonosCliente = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
+    const abonosAprobados = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
+    const todosAbonosCliente = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id));
 
     const totalCompradoUSD = ventasCliente.reduce((sum, v) => sum + Number(v.total || 0), 0);
     const totalCreditoUSD = ventasCliente.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalAbonadoUSD = abonosCliente.reduce((sum, a) => sum + Number(a.montoUSD || 0), 0);
+    const totalAbonadoUSD = abonosAprobados.reduce((sum, a) => sum + Number(a.montoUSD || 0), 0);
     const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
@@ -1009,7 +1010,7 @@ async function renderizarEstadoCuentaCliente() {
                 <div class="stat-info">
                     <span class="stat-label">Total Abonado ($)</span>
                     <h3 class="stat-value">$${totalAbonadoUSD.toFixed(2)}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">${abonosCliente.length} pagos registrados</small>
+                    <small style="color:var(--text-muted); font-size:0.75rem;">${abonosAprobados.length} pagos conciliados</small>
                 </div>
             </div>
 
@@ -1092,7 +1093,7 @@ async function renderizarEstadoCuentaCliente() {
                     </p>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${abonosCliente.length} abonos</span>
+                    <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${todosAbonosCliente.length} abonos</span>
                     <button type="button" class="btn btn-primary btn-sm" onclick="abrirModalReportarPagoCliente()" style="display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 14px;">
                         <i class="fas fa-plus-circle"></i> Reportar Nuevo Abono
                     </button>
@@ -1111,20 +1112,23 @@ async function renderizarEstadoCuentaCliente() {
                         </tr>
                     </thead>
                     <tbody id="cli-historial-abonos-body">
-                        ${abonosCliente.length === 0 ? `
+                        ${todosAbonosCliente.length === 0 ? `
                             <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Sin abonos de pago registrados todavía. Puedes hacer clic en "Reportar Nuevo Abono" para registrar tu pago.</td></tr>
-                        ` : abonosCliente.slice().reverse().map(a => {
+                        ` : todosAbonosCliente.slice().reverse().map(a => {
                             const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
+                            const esRechazado = a.estado === 'RECHAZADO';
                             return `
                                 <tr>
                                     <td>${a.fecha}</td>
                                     <td>${a.formaPago || a.metodo || 'Transferencia / Pago Móvil'}</td>
-                                    <td><code>${a.referencia || 'N/A'}</code></td>
-                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : 'var(--success)'};">$${Number(a.montoUSD || 0).toFixed(2)}</td>
+                                    <td><code>${a.referencia || 'N/A'}</code>${a.nota ? `<br><small style="color:var(--text-muted); font-style:italic;">Nota: ${a.nota}</small>` : ''}</td>
+                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : 'var(--success)')};">$${Number(a.montoUSD || 0).toFixed(2)}</td>
                                     <td style="text-align:center;">
                                         ${esPendiente 
                                             ? '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> En Verificación</span>' 
-                                            : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Aprobado</span>'}
+                                            : (esRechazado 
+                                                ? '<span class="badge-status" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;"><i class="fas fa-times-circle"></i> Rechazado</span>'
+                                                : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Aprobado</span>')}
                                     </td>
                                 </tr>
                             `;
@@ -1315,9 +1319,16 @@ async function procesarReportePagoCliente() {
 
     cerrarModalReportarPagoCliente();
 
-    // Persistir
+    // Persistir localmente
     if (window.InventoryApp.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Persistir en Firebase Cloud
+    if (window.InventoryApp?.Firebase?.guardarAbono) {
+        window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
+            console.warn('[Firebase] Advertencia al sincronizar reporte de abono en Firestore:', err);
+        });
     }
 
     renderizarEstadoCuentaCliente();

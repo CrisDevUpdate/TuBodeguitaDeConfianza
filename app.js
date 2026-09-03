@@ -37,6 +37,7 @@
         actualizarSelectTransacciones();
         renderizarTransacciones();
         if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
         if (typeof verificarPenalizacionesPorMoraGlobal === 'function') verificarPenalizacionesPorMoraGlobal();
         prepararCodigoNuevoProducto();
         actualizarVistaImagenProducto();

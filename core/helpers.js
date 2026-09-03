@@ -242,9 +242,11 @@ function switchTab(tabId) {
         } else if (tabId === 'clientes') {
             if (typeof renderizarClientes === 'function') renderizarClientes();
             if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
+            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         } else if (tabId === 'transacciones') {
             if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
             if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         } else if (tabId === 'auditoria') {
             if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
             if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
@@ -267,6 +269,8 @@ function switchTab(tabId) {
         } else if (tabId === 'cliente-perfil') {
             if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
         }
+
+        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
     } catch (err) {
         console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
     }

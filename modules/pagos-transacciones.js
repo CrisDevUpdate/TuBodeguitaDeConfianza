@@ -877,15 +877,28 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
         otorgarPuntosPorCompra(abono.clienteId, Number(abono.montoUSD), 'Abono Conciliado por Admin');
     }
 
-    // 4. Persistir
+    // 4. Persistir localmente
     if (window.InventoryApp.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // 5. Refrescar vistas
+    // 5. Sincronizar en Firebase Firestore
+    if (window.InventoryApp?.Firebase?.guardarAbono) {
+        window.InventoryApp.Firebase.guardarAbono(abono).catch(err => {
+            console.warn('[Firebase] Fallo al sincronizar abono aprobado:', err);
+        });
+    }
+    if (cliente && window.InventoryApp?.Firebase?.guardarCliente) {
+        window.InventoryApp.Firebase.guardarCliente(cliente).catch(err => {
+            console.warn('[Firebase] Fallo al sincronizar cliente tras abono aprobado:', err);
+        });
+    }
+
+    // 6. Refrescar vistas
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Abono de $${Number(abono.montoUSD).toFixed(2)} aprobado y conciliado exitosamente.`, 'success');
@@ -916,7 +929,14 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
+    if (window.InventoryApp?.Firebase?.guardarAbono) {
+        window.InventoryApp.Firebase.guardarAbono(abono).catch(err => {
+            console.warn('[Firebase] Fallo al sincronizar abono rechazado:', err);
+        });
+    }
+
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`Reporte de abono #${abono.id} marcado como rechazado.`, 'warning');
@@ -924,29 +944,67 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
 }
 
 /**
- * Renderiza la sección de pagos reportados pendientes en el Panel de Transacciones Admin
+ * Actualiza los badges de abonos pendientes por aprobar
+ */
+function actualizarBadgesAbonos() {
+    const lista = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+    const pendientes = lista.filter(a => a.estado === 'PENDIENTE_CONFIRMACION').length;
+
+    const bDesk = document.getElementById('badge-abonos-desktop');
+    const bMob = document.getElementById('badge-abonos-mobile');
+
+    if (bDesk) {
+        if (pendientes > 0) {
+            bDesk.style.display = 'inline-flex';
+            bDesk.textContent = pendientes;
+        } else {
+            bDesk.style.display = 'none';
+        }
+    }
+
+    if (bMob) {
+        if (pendientes > 0) {
+            bMob.style.display = 'block';
+        } else {
+            bMob.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Renderiza la sección de pagos reportados pendientes en el Panel de Transacciones y Clientes Admin
  */
 function renderizarAbonosPendientesReportados() {
-    const container = document.getElementById('abonos-pendientes-admin-container');
-    if (!container) return;
+    actualizarBadgesAbonos();
+
+    const containers = [
+        document.getElementById('abonos-pendientes-admin-container'),
+        document.getElementById('abonos-pendientes-clientes-container')
+    ].filter(Boolean);
+
+    if (containers.length === 0) return;
 
     const abonosPendientes = (AppState.abonos || []).filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
 
     if (abonosPendientes.length === 0) {
-        container.innerHTML = `
-            <div style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:16px; text-align:center; color:var(--text-muted); font-size:0.88rem;">
-                <i class="fas fa-check-double" style="color:#16a34a; margin-right:6px;"></i> Todos los reportes de abonos se encuentran al día. Sin pagos pendientes por verificar.
-            </div>
-        `;
+        containers.forEach(c => {
+            c.innerHTML = `
+                <div style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:14px; text-align:center; color:var(--text-muted); font-size:0.88rem;">
+                    <i class="fas fa-check-double" style="color:#16a34a; margin-right:6px;"></i> Todos los reportes de abonos se encuentran al día. Sin pagos pendientes por verificar.
+                </div>
+            `;
+        });
         return;
     }
 
-    container.innerHTML = `
-        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:16px; margin-bottom:18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    const htmlContent = `
+        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:16px; margin-bottom:18px; box-shadow:0 2px 8px rgba(217,119,6,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                 <h4 style="margin:0; font-size:1rem; color:#92400e; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-bell" style="color:#d97706;"></i> Abonos de Clientes Pendientes por Conciliar (${abonosPendientes.length})
+                    <span style="display:inline-flex; width:26px; height:26px; border-radius:50%; background:#d97706; color:#ffffff; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800;">${abonosPendientes.length}</span>
+                    <i class="fas fa-bell" style="color:#d97706;"></i> Abonos de Clientes Pendientes por Conciliar
                 </h4>
+                <small style="color:#92400e; font-weight:600;">Verifica los datos bancarios y aprueba para liberar saldo y puntos</small>
             </div>
             <div class="table-responsive">
                 <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
@@ -962,17 +1020,21 @@ function renderizarAbonosPendientesReportados() {
                     </thead>
                     <tbody>
                         ${abonosPendientes.map(a => `
-                            <tr style="border-bottom:1px solid #fef3c7;">
-                                <td style="padding:8px;">${a.fecha}</td>
+                            <tr style="border-bottom:1px solid #fef3c7; background:rgba(255,255,255,0.6);">
+                                <td style="padding:8px; white-space:nowrap;">${a.fecha}</td>
                                 <td style="padding:8px;"><strong>${a.clienteNombre || a.clienteId}</strong><br><small style="color:var(--text-muted);">${a.clienteId}</small></td>
-                                <td style="padding:8px;">${a.formaPago || a.metodo}<br><code>${a.referencia || 'Sin Ref'}</code></td>
+                                <td style="padding:8px;">
+                                    <strong>${a.formaPago || a.metodo}</strong><br>
+                                    <code>Ref: ${a.referencia || 'Sin Ref'}</code>
+                                    ${a.nota ? `<br><small style="color:#64748b; font-style:italic;">Nota: ${a.nota}</small>` : ''}
+                                </td>
                                 <td style="padding:8px; text-align:right; font-weight:700; color:var(--primary-accent);">$${Number(a.montoUSD || 0).toFixed(2)}</td>
                                 <td style="padding:8px; text-align:right; font-weight:600; color:#16a34a;">Bs. ${Number(a.montoVES || 0).toFixed(2)}</td>
                                 <td style="padding:8px; text-align:center; white-space:nowrap;">
-                                    <button type="button" class="btn btn-sm btn-success" onclick="aprobarAbonoReportadoAdmin('${a.id}')" style="padding:5px 10px; margin-right:4px;">
+                                    <button type="button" class="btn btn-sm btn-success" onclick="aprobarAbonoReportadoAdmin('${a.id}')" style="padding:6px 12px; margin-right:4px; font-weight:700;">
                                         <i class="fas fa-check"></i> Aprobar
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-danger" onclick="rechazarAbonoReportadoAdmin('${a.id}')" style="padding:5px 10px;">
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="rechazarAbonoReportadoAdmin('${a.id}')" style="padding:6px 12px; font-weight:700;">
                                         <i class="fas fa-times"></i> Rechazar
                                     </button>
                                 </td>
@@ -983,6 +1045,10 @@ function renderizarAbonosPendientesReportados() {
             </div>
         </div>
     `;
+
+    containers.forEach(c => {
+        c.innerHTML = htmlContent;
+    });
 }
 
 /**
@@ -1055,6 +1121,7 @@ setTimeout(verificarPenalizacionesPorMoraGlobal, 2000);
 window.aprobarAbonoReportadoAdmin = aprobarAbonoReportadoAdmin;
 window.rechazarAbonoReportadoAdmin = rechazarAbonoReportadoAdmin;
 window.renderizarAbonosPendientesReportados = renderizarAbonosPendientesReportados;
+window.actualizarBadgesAbonos = actualizarBadgesAbonos;
 window.verificarPenalizacionesPorMoraGlobal = verificarPenalizacionesPorMoraGlobal;
 window.renderizarTransacciones = renderizarTransacciones;
 window.procesarVerificacionTransaccion = procesarVerificacionTransaccion;
