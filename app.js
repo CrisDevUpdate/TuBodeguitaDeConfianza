@@ -70,24 +70,26 @@
         const rol = (usuario?.rol || '').toLowerCase();
         const esAdmin = rol === 'admin' || rol === 'superadmin' || usuario?.id === 'SuperAdmin' || usuario?.cedula === 'SuperAdmin';
         
-        if (!esAdmin) {
-            console.warn('[Seguridad] Acceso a sincronización en la nube denegado: Se requiere rol de Administrador.');
+        if (!esAdmin && AppState.usuarioActual) {
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Acceso a sincronización restringido a Administrador', 'warning');
+            }
             return;
         }
 
         const modal = document.getElementById('modal-cloud-sync');
         if (!modal) return;
         
-        // Actualizar estadísticas de la base de datos
-        const statProd = document.getElementById('cloud-stat-productos');
-        const statCli = document.getElementById('cloud-stat-clientes');
-        const statVen = document.getElementById('cloud-stat-ventas');
-        const statTx = document.getElementById('cloud-stat-transacciones');
-        
-        if (statProd) statProd.textContent = Array.isArray(AppState.productos) ? AppState.productos.length : 0;
-        if (statCli) statCli.textContent = Array.isArray(AppState.clientes) ? AppState.clientes.length : 0;
-        if (statVen) statVen.textContent = Array.isArray(AppState.ventas) ? AppState.ventas.length : 0;
-        if (statTx) statTx.textContent = Array.isArray(AppState.transacciones) ? AppState.transacciones.length : 0;
+        // Actualizar estadísticas y campos del modal
+        actualizarEstadisticasModalCloud();
+        cargarCamposConfiguracionFirebase();
+
+        // Limpiar banner de test previo
+        const resultBox = document.getElementById('cloud-test-result-box');
+        if (resultBox) {
+            resultBox.style.display = 'none';
+            resultBox.innerHTML = '';
+        }
         
         modal.classList.add('active');
     };
@@ -96,6 +98,40 @@
         const modal = document.getElementById('modal-cloud-sync');
         if (modal) modal.classList.remove('active');
     };
+
+    function cargarCamposConfiguracionFirebase() {
+        const cfg = window.InventoryApp.Firebase?.getConfig ? window.InventoryApp.Firebase.getConfig() : {
+            projectId: 'tubodeguitadeconfianza',
+            apiKey: 'AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA',
+            authDomain: 'tubodeguitadeconfianza.firebaseapp.com'
+        };
+
+        const pidEl = document.getElementById('modal-cloud-project-id');
+        const inPid = document.getElementById('cfg-firebase-projectid');
+        const inKey = document.getElementById('cfg-firebase-apikey');
+        const inDom = document.getElementById('cfg-firebase-authdomain');
+
+        if (pidEl) pidEl.textContent = cfg.projectId || 'tubodeguitadeconfianza';
+        if (inPid) inPid.value = cfg.projectId || '';
+        if (inKey) inKey.value = cfg.apiKey || '';
+        if (inDom) inDom.value = cfg.authDomain || '';
+    }
+
+    function actualizarEstadisticasModalCloud() {
+        const statProds = document.getElementById('cloud-stat-prods') || document.getElementById('cloud-stat-productos');
+        const statCli = document.getElementById('cloud-stat-cli') || document.getElementById('cloud-stat-clientes');
+        const statVen = document.getElementById('cloud-stat-ventas');
+        const statUsr = document.getElementById('cloud-stat-usuarios');
+        const statAbo = document.getElementById('cloud-stat-abonos');
+        const statTx = document.getElementById('cloud-stat-transacciones');
+        
+        if (statProds) statProds.textContent = Array.isArray(AppState.productos) ? AppState.productos.length : 0;
+        if (statCli) statCli.textContent = Array.isArray(AppState.clientes) ? AppState.clientes.length : 0;
+        if (statVen) statVen.textContent = Array.isArray(AppState.ventas) ? AppState.ventas.length : 0;
+        if (statUsr) statUsr.textContent = Array.isArray(AppState.usuarios) ? AppState.usuarios.length : 0;
+        if (statAbo) statAbo.textContent = Array.isArray(AppState.abonos) ? AppState.abonos.length : 0;
+        if (statTx) statTx.textContent = Array.isArray(AppState.transacciones) ? AppState.transacciones.length : 0;
+    }
 
     // Cerrar modal con tecla Escape
     document.addEventListener('keydown', (e) => {
@@ -109,51 +145,40 @@
 
     window.ejecutarSincronizacionNube = async function () {
         const btn = document.getElementById('btn-cloud-sync-now');
-        const iconOriginal = '<i class="fas fa-rotate"></i> Forzar Sincronización Nube';
+        const iconOriginal = '<i class="fas fa-rotate"></i> Forzar Sincronización (Descargar de la Nube)';
         
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando datos...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando datos con Firestore...';
         }
 
         try {
             if (window.InventoryApp && window.InventoryApp.Firebase) {
-                // Primero asegurar inicialización si estaba en espera
                 if (typeof window.InventoryApp.Firebase.init === 'function') {
                     await window.InventoryApp.Firebase.init();
                 }
 
-                // Sincronizar hacia Firestore
-                const res = await window.InventoryApp.Firebase.syncToCloud();
+                // Sincronizar desde la nube (descarga y reconciliación de Firestore)
+                const res = await window.InventoryApp.Firebase.syncFromCloud();
                 
-                // Actualizar contadores del modal
                 actualizarEstadisticasModalCloud();
 
-                if (res) {
-                    if (btn) {
-                        btn.innerHTML = '<i class="fas fa-check"></i> ¡Sincronizado!';
-                        btn.classList.remove('btn-success');
-                        btn.classList.add('btn-primary');
-                    }
-                    setTimeout(() => {
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = iconOriginal;
-                            btn.classList.remove('btn-primary');
-                            btn.classList.add('btn-success');
-                        }
-                    }, 1500);
-                } else {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-check"></i> ¡Sincronizado con éxito!';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-primary');
+                }
+                setTimeout(() => {
                     if (btn) {
                         btn.disabled = false;
                         btn.innerHTML = iconOriginal;
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-success');
                     }
-                    alert('Sincronización finalizada en modo offline / caché local.');
-                }
-            } else {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = iconOriginal;
+                }, 2000);
+
+                if (window.InventoryApp.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('Datos actualizados desde Firestore con éxito', 'success');
                 }
             }
         } catch (e) {
@@ -162,21 +187,172 @@
                 btn.disabled = false;
                 btn.innerHTML = iconOriginal;
             }
-            alert('Aviso de sincronización: ' + (e.message || e));
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Aviso de sincronización: ' + (e.message || e), 'warning');
+            }
         }
     };
 
-    function actualizarEstadisticasModalCloud() {
-        const statProd = document.getElementById('cloud-stat-productos');
-        const statCli = document.getElementById('cloud-stat-clientes');
-        const statVen = document.getElementById('cloud-stat-ventas');
-        const statTx = document.getElementById('cloud-stat-transacciones');
-        
-        if (statProd) statProd.textContent = Array.isArray(AppState.productos) ? AppState.productos.length : 0;
-        if (statCli) statCli.textContent = Array.isArray(AppState.clientes) ? AppState.clientes.length : 0;
-        if (statVen) statVen.textContent = Array.isArray(AppState.ventas) ? AppState.ventas.length : 0;
-        if (statTx) statTx.textContent = Array.isArray(AppState.transacciones) ? AppState.transacciones.length : 0;
-    }
+    window.ejecutarSubidaCompletaNube = async function () {
+        const btn = document.getElementById('btn-cloud-upload-all');
+        const iconOriginal = '<i class="fas fa-cloud-arrow-up"></i> Subir Todo a Firestore';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo...';
+        }
+
+        try {
+            if (window.InventoryApp.Firebase?.syncToCloud) {
+                await window.InventoryApp.Firebase.syncToCloud();
+                actualizarEstadisticasModalCloud();
+                if (window.InventoryApp.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('Todos los datos locales se han subido a Firestore', 'success');
+                }
+            }
+        } catch (err) {
+            console.error('Error subiendo a la nube:', err);
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Error subiendo: ' + (err.message || err), 'danger');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = iconOriginal;
+            }
+        }
+    };
+
+    window.probarConexionFirebaseModal = async function () {
+        const btn = document.getElementById('btn-cloud-test-conn');
+        const resultBox = document.getElementById('cloud-test-result-box');
+        const origHtml = '<i class="fas fa-bolt"></i> Probar Conexión (Ping)';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+        }
+        if (resultBox) {
+            resultBox.style.display = 'block';
+            resultBox.style.background = 'var(--bg-secondary)';
+            resultBox.style.color = 'var(--text-main)';
+            resultBox.style.border = '1px solid var(--border-light)';
+            resultBox.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Conectando con servidor de Firestore y ejecutando prueba de lectura/escritura...';
+        }
+
+        try {
+            if (window.InventoryApp.Firebase?.testConexion) {
+                const res = await window.InventoryApp.Firebase.testConexion();
+                if (res.ok) {
+                    if (resultBox) {
+                        resultBox.style.background = '#dcfce7';
+                        resultBox.style.color = '#15803d';
+                        resultBox.style.border = '1px solid #86efac';
+                        resultBox.innerHTML = `
+                            <strong><i class="fas fa-circle-check"></i> ¡Conexión Exitosa con Firestore!</strong><br>
+                            <span style="font-size:0.8rem;">
+                                • Proyecto: <strong>${res.projectId}</strong><br>
+                                • Latencia de respuesta: <strong>${res.latency} ms</strong><br>
+                                • Estado: Tu dispositivo está conectado y sincroniza en tiempo real.
+                            </span>
+                        `;
+                    }
+                    if (window.InventoryApp.Modal?.toast) {
+                        window.InventoryApp.Modal.toast(`Conexión exitosa a Firestore (${res.latency}ms)`, 'success');
+                    }
+                } else {
+                    if (resultBox) {
+                        resultBox.style.background = '#fee2e2';
+                        resultBox.style.color = '#b91c1c';
+                        resultBox.style.border = '1px solid #fca5a5';
+                        resultBox.innerHTML = `
+                            <strong><i class="fas fa-triangle-exclamation"></i> Error al conectar con Firestore</strong><br>
+                            <span style="font-size:0.8rem;">${res.error || 'No se pudo comunicar con Firestore.'}</span>
+                        `;
+                    }
+                }
+            }
+        } catch (e) {
+            if (resultBox) {
+                resultBox.style.background = '#fee2e2';
+                resultBox.style.color = '#b91c1c';
+                resultBox.style.border = '1px solid #fca5a5';
+                resultBox.innerHTML = `<strong>Error de conexión:</strong> ${e.message || e}`;
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+    };
+
+    window.restablecerConfiguracionFirebaseUI = async function () {
+        if (window.InventoryApp.Modal?.confirm) {
+            const confirmed = await window.InventoryApp.Modal.confirm(
+                'Restablecer Proyecto Firebase',
+                '¿Deseas restablecer la configuración de Firebase al proyecto oficial <strong>tubodeguitadeconfianza</strong>? Ambos dispositivos deben tener este proyecto para compartir usuarios y ventas.',
+                'info'
+            );
+            if (!confirmed) return;
+        }
+
+        try {
+            if (window.InventoryApp.Firebase?.restablecerConfiguracionPredeterminada) {
+                await window.InventoryApp.Firebase.restablecerConfiguracionPredeterminada();
+                cargarCamposConfiguracionFirebase();
+                actualizarEstadisticasModalCloud();
+                if (window.InventoryApp.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('Firebase restablecido al proyecto oficial tubodeguitadeconfianza', 'success');
+                }
+            }
+        } catch (err) {
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Error al restablecer: ' + (err.message || err), 'danger');
+            }
+        }
+    };
+
+    window.guardarConfiguracionFirebaseUI = async function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const inPid = document.getElementById('cfg-firebase-projectid');
+        const inKey = document.getElementById('cfg-firebase-apikey');
+        const inDom = document.getElementById('cfg-firebase-authdomain');
+
+        const projectId = inPid?.value?.trim();
+        const apiKey = inKey?.value?.trim();
+        const authDomain = inDom?.value?.trim() || `${projectId}.firebaseapp.com`;
+
+        if (!projectId || !apiKey) {
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Project ID y API Key son obligatorios', 'warning');
+            }
+            return;
+        }
+
+        try {
+            if (window.InventoryApp.Firebase?.guardarConfiguracionPersonalizada) {
+                await window.InventoryApp.Firebase.guardarConfiguracionPersonalizada({
+                    projectId,
+                    apiKey,
+                    authDomain,
+                    storageBucket: `${projectId}.firebasestorage.app`,
+                    messagingSenderId: '851659747065',
+                    appId: '1:851659747065:web:175908dcd4bb4c68af7c28'
+                });
+                cargarCamposConfiguracionFirebase();
+                actualizarEstadisticasModalCloud();
+                if (window.InventoryApp.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('Configuración de Firebase guardada y reconectada exitosamente', 'success');
+                }
+            }
+        } catch (err) {
+            if (window.InventoryApp.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Error guardando configuración: ' + (err.message || err), 'danger');
+            }
+        }
+    };
 
     window.descargarRespaldoLocal = function () {
         if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.exportarRespaldoJSON === 'function') {

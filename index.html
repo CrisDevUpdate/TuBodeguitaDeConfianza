@@ -1840,6 +1840,113 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
     </div>
 </div>
 
+<!-- Modal Sincronización y Configuración Firebase Cloud Firestore -->
+<div id="modal-cloud-sync" class="modal">
+    <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:16px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px; font-size:1.2rem;">
+                <i class="fas fa-cloud-bolt" style="color:var(--primary-accent);"></i> Sincronización Firebase Cloud
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalCloudSync()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- Estado de Conexión y Proyecto -->
+        <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <div>
+                    <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Estado Firestore:</span>
+                    <div id="modal-cloud-status-badge" style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; font-size:0.85rem; font-weight:700; background:#dcfce7; color:#15803d; margin-left:6px;">
+                        <i class="fas fa-cloud-check"></i> Conectado
+                    </div>
+                </div>
+                <div>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Proyecto:</span>
+                    <code id="modal-cloud-project-id" style="background:var(--card-bg); padding:3px 8px; border-radius:6px; font-size:0.85rem; font-weight:700; color:var(--primary-accent); border:1px solid var(--border-light);">tubodeguitadeconfianza</code>
+                </div>
+            </div>
+
+            <!-- Resumen de Datos Sincronizados -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap:8px; margin-top:10px; text-align:center;">
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-prods" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Productos</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-cli" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Clientes</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-ventas" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Ventas</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-usuarios" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Usuarios</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-abonos" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Abonos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner de Resultado de Diagnóstico / Test -->
+        <div id="cloud-test-result-box" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:0.9rem;"></div>
+
+        <!-- Botones de Acción de Sincronización -->
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <button type="button" id="btn-cloud-sync-now" class="btn btn-success" style="padding:12px; font-weight:700; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="ejecutarSincronizacionNube()">
+                <i class="fas fa-rotate"></i> Forzar Sincronización (Descargar de la Nube)
+            </button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button type="button" id="btn-cloud-upload-all" class="btn btn-primary" style="padding:10px; font-weight:600; display:flex; justify-content:center; align-items:center; gap:6px; font-size:0.85rem;" onclick="ejecutarSubidaCompletaNube()">
+                    <i class="fas fa-cloud-arrow-up"></i> Subir Todo a Firestore
+                </button>
+                <button type="button" id="btn-cloud-test-conn" class="btn btn-outline" style="padding:10px; font-weight:600; display:flex; justify-content:center; align-items:center; gap:6px; font-size:0.85rem;" onclick="probarConexionFirebaseModal()">
+                    <i class="fas fa-bolt"></i> Probar Conexión (Ping)
+                </button>
+            </div>
+        </div>
+
+        <!-- Sección de Configuración de Proyecto Firebase -->
+        <div style="border-top:1px solid var(--border-light); padding-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-sliders" style="color:var(--primary-accent);"></i> Configuración del Proyecto Firebase
+                </h4>
+                <button type="button" class="btn btn-outline" style="font-size:0.75rem; padding:4px 8px;" onclick="restablecerConfiguracionFirebaseUI()">
+                    <i class="fas fa-arrow-rotate-left"></i> Restablecer Proyecto Oficial
+                </button>
+            </div>
+
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
+                💡 <strong>Multi-dispositivo:</strong> Para que tu teléfono y tu PC compartan exactamente los mismos usuarios, productos y ventas en tiempo real, ambos deben apuntar al proyecto <strong><code>tubodeguitadeconfianza</code></strong>.
+            </p>
+
+            <form id="form-firebase-config" onsubmit="guardarConfiguracionFirebaseUI(event)">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; font-weight:600;">Project ID <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="cfg-firebase-projectid" required style="font-family:monospace; font-size:0.85rem;" placeholder="tubodeguitadeconfianza">
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; font-weight:600;">API Key <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="cfg-firebase-apikey" required style="font-family:monospace; font-size:0.85rem;" placeholder="AIzaSy...">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label style="font-size:0.8rem; font-weight:600;">Auth Domain</label>
+                    <input type="text" id="cfg-firebase-authdomain" style="font-family:monospace; font-size:0.85rem;" placeholder="tubodeguitadeconfianza.firebaseapp.com">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCloudSync()">Cerrar</button>
+                    <button type="submit" class="btn btn-primary" style="font-weight:700;">
+                        <i class="fas fa-save"></i> Guardar y Reconectar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Barra de Navegación Inferior Móvil (Mobile Bottom Navigation Bar) Adaptativa por Rol -->
 <nav class="bottom-nav-bar" id="mobile-bottom-nav" aria-label="Navegación Móvil">
     <!-- Botones Admin Móvil -->

@@ -174,6 +174,51 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             </div>
         ` : ''}
 
+        <!-- MÓDULO DE SINCRONIZACIÓN Y BASE DE DATOS FIREBASE CLOUD -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid var(--primary-accent);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-cloud-bolt" style="color:var(--primary-accent);"></i> Base de Datos & Sincronización Firebase (Multi-dispositivo)
+                    </h3>
+                    <p style="margin:4px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
+                        Sincronización en tiempo real entre tu teléfono y tu PC mediante Cloud Firestore.
+                    </p>
+                </div>
+                <div>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Proyecto:</span>
+                    <code style="background:var(--bg-secondary); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--primary-accent); border:1px solid var(--border-light);">tubodeguitadeconfianza</code>
+                </div>
+            </div>
+
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:8px; padding:12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <div style="font-size:0.85rem; color:var(--text-main);">
+                    <i class="fas fa-circle-check" style="color:#16a34a; margin-right:4px;"></i> 
+                    <strong>Sincronización Multi-dispositivo:</strong> Ambos dispositivos (teléfono y PC) se actualizan instantáneamente.
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="restablecerConfiguracionFirebaseUI()" title="Restablecer al proyecto tubodeguitadeconfianza">
+                        <i class="fas fa-arrow-rotate-left"></i> Restablecer Proyecto Oficial
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalCloudSync()">
+                        <i class="fas fa-sliders"></i> Abrir Panel de Sincronización
+                    </button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                <button type="button" class="btn btn-success" onclick="ejecutarSincronizacionNube()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:700;">
+                    <i class="fas fa-rotate"></i> Forzar Sincronización (Descargar)
+                </button>
+                <button type="button" class="btn btn-outline" onclick="ejecutarSubidaCompletaNube()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
+                    <i class="fas fa-cloud-arrow-up"></i> Subir Todo a Firestore
+                </button>
+                <button type="button" class="btn btn-outline" onclick="probarConexionFirebaseModal(); abrirModalCloudSync();" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
+                    <i class="fas fa-bolt"></i> Probar Conexión (Ping)
+                </button>
+            </div>
+        </div>
+
         <!-- Gestión de Respaldos y Base de Datos -->
         <div class="card" style="margin-bottom:20px;">
             <h3 style="margin:0 0 12px 0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
@@ -461,28 +506,6 @@ window.descargarRespaldoLocal = function() {
 window.descargarMasterExcel = function() {
     if (window.InventoryApp.Persistence?.exportarMasterExcel) {
         window.InventoryApp.Persistence.exportarMasterExcel();
-    }
-};
-
-window.abrirModalCloudSync = async function() {
-    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.syncToCloud === 'function') {
-        if (window.InventoryApp.Modal?.toast) {
-            window.InventoryApp.Modal.toast('Sincronizando con la nube Firestore...', 'info');
-        }
-        try {
-            await window.InventoryApp.Firebase.syncToCloud();
-            if (window.InventoryApp.Modal?.toast) {
-                window.InventoryApp.Modal.toast('Sincronización en la nube completada con éxito', 'success');
-            }
-        } catch (err) {
-            if (window.InventoryApp.Modal?.alert) {
-                window.InventoryApp.Modal.alert('Sincronización', 'Resultado de sincronización: ' + (err.message || 'Completado'), 'info');
-            }
-        }
-    } else {
-        if (window.InventoryApp.Modal?.alert) {
-            window.InventoryApp.Modal.alert('Base de Datos', 'La base de datos local y el almacenamiento se encuentran sincronizados activamente.', 'info');
-        }
     }
 };
 
