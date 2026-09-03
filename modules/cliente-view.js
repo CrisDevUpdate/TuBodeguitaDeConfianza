@@ -1300,22 +1300,28 @@ async function procesarReportePagoCliente() {
     const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const nuevoAbono = {
         id: `ABN_${Date.now()}`,
-        clienteId: usuario.cedula || usuario.id,
-        clienteNombre: usuario.nombre,
+        clienteId: String(usuario.cedula || usuario.id || '').trim(),
+        clienteNombre: String(usuario.nombre || usuario.cedula || 'Cliente').trim(),
+        clienteCedula: String(usuario.cedula || usuario.id || '').trim(),
         montoUSD: montoUSD,
         montoVES: tasa > 0 ? (montoUSD * tasa) : 0,
         tasaMomento: tasa,
-        formaPago: metodo,
-        metodo: metodo,
-        referencia: referencia,
-        nota: nota,
+        formaPago: metodo || 'Transferencia / Pago Móvil',
+        metodo: metodo || 'Transferencia / Pago Móvil',
+        referencia: String(referencia || '').trim(),
+        nota: String(nota || '').trim(),
         fecha: fechaHora,
         estado: 'PENDIENTE_CONFIRMACION',
         registradoPor: 'CLIENTE'
     };
 
     AppState.abonos = AppState.abonos || [];
-    AppState.abonos.push(nuevoAbono);
+    const idxExistente = AppState.abonos.findIndex(a => a.id === nuevoAbono.id);
+    if (idxExistente >= 0) {
+        AppState.abonos[idxExistente] = nuevoAbono;
+    } else {
+        AppState.abonos.unshift(nuevoAbono);
+    }
 
     cerrarModalReportarPagoCliente();
 
@@ -1324,14 +1330,22 @@ async function procesarReportePagoCliente() {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // Persistir en Firebase Cloud
+    // Persistir en Firebase Cloud de manera directa
     if (window.InventoryApp?.Firebase?.guardarAbono) {
-        window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
+        try {
+            await window.InventoryApp.Firebase.guardarAbono(nuevoAbono);
+        } catch (err) {
             console.warn('[Firebase] Advertencia al sincronizar reporte de abono en Firestore:', err);
-        });
+        }
     }
 
     renderizarEstadoCuentaCliente();
+    if (typeof renderizarAbonosPendientesReportados === 'function') {
+        renderizarAbonosPendientesReportados();
+    }
+    if (typeof actualizarBadgesAbonos === 'function') {
+        actualizarBadgesAbonos();
+    }
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Tu abono de $${montoUSD.toFixed(2)} fue reportado con éxito (Ref: ${referencia}) y está pendiente de verificación.`, 'success');

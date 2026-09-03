@@ -34,59 +34,103 @@ window.InventoryApp = window.InventoryApp || {};
     let lastSyncAttempt = 0;
 
     /**
-     * Reproduce un tono suave y agradable de notificación mediante Web Audio API.
-     * Restringido exclusivamente al Administrador activo del sistema.
+     * Comprueba si un usuario corresponde a un Administrador activo del sistema
+     */
+    function esUsuarioAdminActivo(usuario) {
+        if (!usuario) return false;
+        const rol = String(usuario.rol || '').trim().toLowerCase();
+        const id = String(usuario.id || usuario.cedula || '').trim().toLowerCase();
+        const email = String(usuario.email || '').trim().toLowerCase();
+        const estado = String(usuario.estado || 'ACTIVO').trim().toUpperCase();
+
+        const esAdmin = (
+            rol === 'admin' ||
+            rol === 'superadmin' ||
+            rol === 'administrador' ||
+            id === 'superadmin' ||
+            email === 'superadmin@tubodeguita.com'
+        );
+        const esActivo = (estado === 'ACTIVO' || !usuario.estado);
+        return Boolean(esAdmin && esActivo);
+    }
+
+    let audioCtxSingleton = null;
+
+    function getAudioContext() {
+        if (!audioCtxSingleton) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                audioCtxSingleton = new AudioCtx();
+            }
+        }
+        return audioCtxSingleton;
+    }
+
+    // Desbloquear audio automáticamente con cualquier clic, toque o teclado en la ventana
+    if (typeof window !== 'undefined') {
+        const desbloquearAudio = () => {
+            const ctx = getAudioContext();
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+        };
+        ['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
+            window.addEventListener(evt, desbloquearAudio, { passive: true, capture: true });
+        });
+    }
+
+    /**
+     * Reproduce un chime de campana de dos tonos mediante Web Audio API.
      */
     function reproducirSonidoNotificacion() {
         try {
-            // Protección estricta: silencio absoluto si no es un Administrador activo
-            const usuario = window.AppState?.usuarioActual;
-            const rol = String(usuario?.rol || '').trim().toLowerCase();
-            const id = String(usuario?.id || usuario?.cedula || '').trim();
-            const esAdmin = Boolean(
-                usuario &&
-                (rol === 'admin' || rol === 'superadmin' || id === 'SuperAdmin') &&
-                usuario.estado === 'ACTIVO'
-            );
-            if (!esAdmin) {
-                return;
-            }
+            const ctx = getAudioContext();
+            if (!ctx) return;
 
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-            const ctx = new AudioCtx();
+            const emitirTonos = () => {
+                try {
+                    const now = ctx.currentTime;
+                    // Tono 1: Frecuencia 587.33 Hz (Re5)
+                    const osc1 = ctx.createOscillator();
+                    const gain1 = ctx.createGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(587.33, now);
+                    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
+                    gain1.gain.setValueAtTime(0.28, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc1.connect(gain1);
+                    gain1.connect(ctx.destination);
+                    osc1.start(now);
+                    osc1.stop(now + 0.35);
+
+                    // Tono 2: Frecuencia 1174.66 Hz (Re6)
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1174.66, now + 0.15);
+                    gain2.gain.setValueAtTime(0.32, now + 0.15);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.start(now + 0.15);
+                    osc2.stop(now + 0.6);
+                } catch (errInner) {
+                    console.warn('[Audio] Error al sintetizar sonido:', errInner);
+                }
+            };
+
             if (ctx.state === 'suspended') {
-                ctx.resume();
+                ctx.resume().then(emitirTonos).catch(emitirTonos);
+            } else {
+                emitirTonos();
             }
-            const now = ctx.currentTime;
-            
-            // Tono 1: Frecuencia 587.33 Hz (Re5)
-            const osc1 = ctx.createOscillator();
-            const gain1 = ctx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(587.33, now);
-            osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // La5
-            gain1.gain.setValueAtTime(0.18, now);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-            osc1.connect(gain1);
-            gain1.connect(ctx.destination);
-            osc1.start(now);
-            osc1.stop(now + 0.35);
-
-            // Tono 2: Frecuencia 1174.66 Hz (Re6)
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1174.66, now + 0.15);
-            gain2.gain.setValueAtTime(0.22, now + 0.15);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.start(now + 0.15);
-            osc2.stop(now + 0.55);
         } catch (e) {
-            // Audio no disponible o no permitido por autoplay
+            console.warn('[Audio] Error en reproducirSonidoNotificacion:', e);
         }
+    }
+
+    if (typeof window !== 'undefined') {
+        window.reproducirSonidoNotificacion = reproducirSonidoNotificacion;
     }
 
     /**
@@ -141,6 +185,48 @@ window.InventoryApp = window.InventoryApp || {};
             } catch (e) {}
         });
         syncListeners = [];
+    }
+
+    /**
+     * Elimina propiedades undefined o funciones no serializables para evitar
+     * que Firestore rechace escrituras con "Unsupported field value: undefined"
+     */
+    function sanitizarObjetoParaFirestore(obj) {
+        if (obj === null || obj === undefined) return null;
+        if (typeof obj !== 'object') return obj;
+
+        if (Array.isArray(obj)) {
+            return obj
+                .filter(item => item !== undefined)
+                .map(item => sanitizarObjetoParaFirestore(item));
+        }
+
+        // Si es un objeto especial de Firebase (FieldValue, Timestamp, etc.)
+        if (obj.constructor && obj.constructor.name && (
+            obj.constructor.name === 'FieldValue' ||
+            obj.constructor.name === 'Timestamp' ||
+            obj.constructor.name.includes('FieldValue') ||
+            typeof obj.isEqual === 'function' ||
+            typeof obj.toMillis === 'function'
+        )) {
+            return obj;
+        }
+
+        const limpio = {};
+        for (const [k, v] of Object.entries(obj)) {
+            if (v === undefined) {
+                continue;
+            }
+            if (typeof v === 'function') {
+                continue;
+            }
+            if (v !== null && typeof v === 'object') {
+                limpio[k] = sanitizarObjetoParaFirestore(v);
+            } else {
+                limpio[k] = v;
+            }
+        }
+        return limpio;
     }
 
     // Colecciones de Firestore
@@ -831,24 +917,11 @@ window.InventoryApp = window.InventoryApp || {};
                             const existiaAntes = (AppState.usuarios || []).some(prev => (prev.cedula || prev.id) === idDoc);
                             if (!primerCargaUsuarios && (!existiaAntes || u.estado === 'PENDIENTE_APROBACION')) {
                                 if (u.estado === 'PENDIENTE_APROBACION') {
-                                    // Comprobar estrictamente si el usuario en sesión es un Administrador activo
                                     const usuarioSesion = window.AppState?.usuarioActual;
-                                    const rolSesion = String(usuarioSesion?.rol || '').trim().toLowerCase();
-                                    const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
-                                    const esAdminSesion = Boolean(
-                                        usuarioSesion &&
-                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || idSesion === 'SuperAdmin') &&
-                                        usuarioSesion.estado === 'ACTIVO'
-                                    );
+                                    const esAdminSesion = esUsuarioAdminActivo(usuarioSesion);
 
-                                    // Comprobar si el navegador está mostrando la interfaz de cliente
-                                    const esVistaCliente = Boolean(
-                                        (document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '').startsWith('cliente-') ||
-                                        (document.querySelector('.bottom-nav-item.active')?.getAttribute('data-tab') || '').startsWith('cliente-')
-                                    );
-
-                                    // Solo el administrador activo recibe la notificación visual y el sonido de alerta
-                                    if (esAdminSesion && !esVistaCliente) {
+                                    // El administrador activo recibe la notificación visual y el sonido de alerta
+                                    if (esAdminSesion) {
                                         reproducirSonidoNotificacion();
                                         const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
                                         const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
@@ -929,58 +1002,65 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('ventas', err));
             syncListeners.push(unsubVentas);
 
-            // Listener de abonos
+            // Listener de abonos en tiempo real con alerta auditiva y visual para el Administrador
             let primerCargaAbonos = true;
+            const abonosNotificadosIds = new Set();
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
-                if (snapshot.metadata.hasPendingWrites) {
-                    return;
-                }
-
                 const newAbonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 try {
-                    snapshot.docChanges().forEach(change => {
+                    const changes = snapshot.docChanges ? snapshot.docChanges() : [];
+                    changes.forEach(change => {
                         const abn = change.doc.data() || {};
                         const idDoc = change.doc.id;
 
                         if (change.type === 'added') {
-                            const existiaAntes = (AppState.abonos || []).some(prev => prev.id === idDoc);
-                            if (!primerCargaAbonos && (!existiaAntes || abn.estado === 'PENDIENTE_CONFIRMACION')) {
-                                if (abn.estado === 'PENDIENTE_CONFIRMACION') {
-                                    // Comprobar estrictamente si el usuario en sesión es un Administrador activo
+                            if (!primerCargaAbonos) {
+                                if (abn.estado === 'PENDIENTE_CONFIRMACION' && !abonosNotificadosIds.has(idDoc)) {
+                                    abonosNotificadosIds.add(idDoc);
+
                                     const usuarioSesion = window.AppState?.usuarioActual;
-                                    const rolSesion = String(usuarioSesion?.rol || '').trim().toLowerCase();
-                                    const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
-                                    const esAdminSesion = Boolean(
-                                        usuarioSesion &&
-                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || idSesion === 'SuperAdmin') &&
-                                        usuarioSesion.estado === 'ACTIVO'
-                                    );
+                                    const esAdminSesion = esUsuarioAdminActivo(usuarioSesion);
 
-                                    // Comprobar si el navegador está mostrando la interfaz de cliente
-                                    const esVistaCliente = Boolean(
-                                        (document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '').startsWith('cliente-') ||
-                                        (document.querySelector('.bottom-nav-item.active')?.getAttribute('data-tab') || '').startsWith('cliente-')
-                                    );
-
-                                    // Solo el administrador activo recibe la notificación visual y el sonido de alerta
-                                    if (esAdminSesion && !esVistaCliente) {
+                                    if (esAdminSesion) {
                                         reproducirSonidoNotificacion();
-                                        const clienteNom = abn.clienteNombre || abn.clienteId || 'Cliente';
+                                        const clienteNom = abn.clienteNombre || abn.clienteCedula || abn.clienteId || 'Cliente';
                                         const montoFmt = Number(abn.montoUSD || 0).toFixed(2);
                                         const refFmt = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
                                         const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                         if (typeof notifFn === 'function') {
-                                            notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
+                                            notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 14000);
                                         }
                                     }
                                 }
+                            } else {
+                                if (abn.estado === 'PENDIENTE_CONFIRMACION') {
+                                    abonosNotificadosIds.add(idDoc);
+                                }
                             }
                         } else if (change.type === 'modified') {
+                            if (abn.estado === 'PENDIENTE_CONFIRMACION' && !abonosNotificadosIds.has(idDoc)) {
+                                abonosNotificadosIds.add(idDoc);
+
+                                const usuarioSesion = window.AppState?.usuarioActual;
+                                const esAdminSesion = esUsuarioAdminActivo(usuarioSesion);
+
+                                if (esAdminSesion) {
+                                    reproducirSonidoNotificacion();
+                                    const clienteNom = abn.clienteNombre || abn.clienteCedula || abn.clienteId || 'Cliente';
+                                    const montoFmt = Number(abn.montoUSD || 0).toFixed(2);
+                                    const refFmt = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
+                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                    if (typeof notifFn === 'function') {
+                                        notifFn(`💰 ¡Nuevo reporte de abono! <strong>${clienteNom}</strong> reportó $${montoFmt}${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 14000);
+                                    }
+                                }
+                            }
+
                             // Si el usuario en sesión es el cliente de este abono y cambió de estado
                             const usuarioSesion = window.AppState?.usuarioActual;
                             const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
-                            if (usuarioSesion && (abn.clienteId === idSesion || abn.clienteId === usuarioSesion.cedula)) {
+                            if (usuarioSesion && (abn.clienteId === idSesion || abn.clienteCedula === idSesion || abn.clienteId === usuarioSesion.cedula)) {
                                 if (abn.estado === 'Pago agregado' || abn.estado === 'Confirmado') {
                                     reproducirSonidoNotificacion();
                                     const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
@@ -1400,18 +1480,24 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Registrando pago en Firestore...');
 
         try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+
             if (db) {
-                const id = abono.id || `AB-${Date.now()}`;
-                const docRef = db.collection(COLLECTIONS.ABONOS).doc(String(id));
-                const payload = {
+                const id = String(abono.id || `ABN_${Date.now()}`);
+                const docRef = db.collection(COLLECTIONS.ABONOS).doc(id);
+                const rawPayload = {
                     ...abono,
                     id,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-                if (!abono.createdAt) {
-                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                if (!rawPayload.createdAt) {
+                    rawPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 }
+                const payload = sanitizarObjetoParaFirestore(rawPayload);
                 await docRef.set(payload, { merge: true });
+                console.log('[Firebase] Abono guardado exitosamente en Firestore:', id);
             }
 
             actualizarUIEstadoNube('conectado', 'Pago registrado en Firestore');
@@ -1423,7 +1509,7 @@ window.InventoryApp = window.InventoryApp || {};
                 console.error('[Firebase] Error al registrar abono en Firestore:', error);
                 actualizarUIEstadoNube('offline', 'Pago guardado localmente (Offline)');
             }
-            return true;
+            return false;
         }
     }
 

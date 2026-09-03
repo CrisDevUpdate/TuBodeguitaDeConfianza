@@ -7,7 +7,7 @@ window.InventoryApp = window.InventoryApp || {};
     const claves = [
         'productos', 'clientes', 'ventas', 'abonos', 'transacciones', 'carrito',
         'conteosFisicos', 'auditorias', 'eliminaciones', 'clientesEliminados',
-        'clienteSeleccionadoId', 'nextProductSequence', 'usuarios',
+        'clienteSeleccionadoId', 'nextProductSequence', 'usuarios', 'usuarioActual',
         'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
     ];
 
@@ -95,7 +95,9 @@ window.InventoryApp = window.InventoryApp || {};
         }
         // Garantizar SuperAdmin base
         asegurarUsuarioAdminInicial();
-        AppState.usuarioActual = null;
+        if (!AppState.usuarioActual) {
+            AppState.usuarioActual = null;
+        }
         return true;
     }
 

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 4.1.3-beta — Sincronización en Firebase Cloud de Abonos Reportados y Notificaciones al Admin
+- **Guardado Robusto en Firestore**: Se implementó `sanitizarObjetoParaFirestore()` para limpiar propiedades `undefined` en abonos antes de escribir en Firestore, evitando rechazos silenciosos. `guardarAbonoCloud` ahora inicializa la conexión si es necesario y confirma la escritura en la colección `abonos`.
+- **Notificación y Sonido en Tiempo Real para el Admin**: Se eliminó la restricción basada en selectores de pestañas del DOM (`esVistaCliente`) que bloqueaba las notificaciones al admin; ahora se utiliza `esUsuarioAdminActivo()` directamente sobre el estado de la sesión, asegurando que el administrador reciba el toast visual y el sonido sin importar la vista previa.
+- **Detección de Nuevos Abonos y Deduplicación**: El listener de `abonos` en tiempo real rastrea los reportes pendientes de confirmación recibidos y reproduce el audio mediante el singleton reactivado del `AudioContext`, mostrando un toast interactivo con acceso directo a verificación.
+- **Alerta Inmediata al Iniciar Sesión**: Al cargar el panel o iniciar sesión como administrador, el sistema revisa los reportes pendientes existentes y alerta de inmediato si hay abonos por conciliar.
+- **Persistencia de Sesión Activa**: Se agregó `usuarioActual` al almacenamiento persistente para evitar pérdidas de estado del usuario activo en recargas.
+
 ## 4.1.1-beta — Blindaje integral de alertas y sonidos de nuevos registros (Exclusivo Administrador)
 - Se añadió validación estricta dentro de `reproducirSonidoNotificacion()` para bloquear cualquier sonido Web Audio API si la sesión actual no es un Administrador activo.
 - Se añadió comprobación contextual en el listener en tiempo real de Firestore para ignorar completamente notificaciones y sonidos si la sesión corresponde a un cliente o si la interfaz activa es una vista de cliente (`cliente-*`).
