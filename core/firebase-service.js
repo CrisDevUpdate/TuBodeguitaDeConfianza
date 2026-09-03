@@ -34,10 +34,24 @@ window.InventoryApp = window.InventoryApp || {};
     let lastSyncAttempt = 0;
 
     /**
-     * Reproduce un tono suave y agradable de notificación mediante Web Audio API
+     * Reproduce un tono suave y agradable de notificación mediante Web Audio API.
+     * Restringido exclusivamente al Administrador activo del sistema.
      */
     function reproducirSonidoNotificacion() {
         try {
+            // Protección estricta: silencio absoluto si no es un Administrador activo
+            const usuario = window.AppState?.usuarioActual;
+            const rol = String(usuario?.rol || '').trim().toLowerCase();
+            const id = String(usuario?.id || usuario?.cedula || '').trim();
+            const esAdmin = Boolean(
+                usuario &&
+                (rol === 'admin' || rol === 'superadmin' || id === 'SuperAdmin') &&
+                usuario.estado === 'ACTIVO'
+            );
+            if (!esAdmin) {
+                return;
+            }
+
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return;
             const ctx = new AudioCtx();
@@ -818,16 +832,23 @@ window.InventoryApp = window.InventoryApp || {};
                             if (!primerCargaUsuarios && (!existiaAntes || u.estado === 'PENDIENTE_APROBACION')) {
                                 if (u.estado === 'PENDIENTE_APROBACION') {
                                     // Comprobar estrictamente si el usuario en sesión es un Administrador activo
-                                    const usuarioSesion = AppState.usuarioActual;
-                                    const rolSesion = String(usuarioSesion?.rol || '').toLowerCase();
+                                    const usuarioSesion = window.AppState?.usuarioActual;
+                                    const rolSesion = String(usuarioSesion?.rol || '').trim().toLowerCase();
+                                    const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
                                     const esAdminSesion = Boolean(
                                         usuarioSesion &&
-                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || usuarioSesion.id === 'SuperAdmin' || usuarioSesion.cedula === 'SuperAdmin') &&
+                                        (rolSesion === 'admin' || rolSesion === 'superadmin' || idSesion === 'SuperAdmin') &&
                                         usuarioSesion.estado === 'ACTIVO'
                                     );
 
+                                    // Comprobar si el navegador está mostrando la interfaz de cliente
+                                    const esVistaCliente = Boolean(
+                                        (document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '').startsWith('cliente-') ||
+                                        (document.querySelector('.bottom-nav-item.active')?.getAttribute('data-tab') || '').startsWith('cliente-')
+                                    );
+
                                     // Solo el administrador activo recibe la notificación visual y el sonido de alerta
-                                    if (esAdminSesion) {
+                                    if (esAdminSesion && !esVistaCliente) {
                                         reproducirSonidoNotificacion();
                                         const nombreUsu = u.nombre || u.cedula || 'Nuevo Usuario';
                                         const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);

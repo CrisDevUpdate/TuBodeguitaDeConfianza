@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 4.1.1-beta — Blindaje integral de alertas y sonidos de nuevos registros (Exclusivo Administrador)
+- Se añadió validación estricta dentro de `reproducirSonidoNotificacion()` para bloquear cualquier sonido Web Audio API si la sesión actual no es un Administrador activo.
+- Se añadió comprobación contextual en el listener en tiempo real de Firestore para ignorar completamente notificaciones y sonidos si la sesión corresponde a un cliente o si la interfaz activa es una vista de cliente (`cliente-*`).
+- Se corrigió la función de registro en el panel de usuarios para preservar la sesión del administrador activo cuando crea o registra usuarios.
+- Se implementaron cabeceras `no-cache` en el servidor y versiones de control de caché (`?v=4.1.1`) en las etiquetas de script de `index.html` para garantizar que los navegadores y dispositivos de clientes ejecuten inmediatamente la lógica actualizada.
+
 ## 4.1.0-beta — Restricción de notificaciones de nuevos clientes al Administrador
 - Las alertas visuales (toast) y el sonido de notificación de nuevas solicitudes de registro ahora se emiten exclusivamente para el Administrador activo.
 - Los clientes u otros usuarios conectados ya no reciben alertas ni sonidos cuando se registra un nuevo cliente en el sistema.

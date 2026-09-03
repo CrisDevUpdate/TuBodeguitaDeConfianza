@@ -776,8 +776,18 @@ async function registrarUsuario(e) {
         });
     }
 
-    // Establecemos como usuario actual
-    AppState.usuarioActual = nuevoUsuario;
+    // Si quien está registrando ya es un administrador activo, conservar intacta su sesión
+    const usuarioActual = AppState.usuarioActual;
+    const rolActual = String(usuarioActual?.rol || '').trim().toLowerCase();
+    const esAdminSesion = Boolean(
+        usuarioActual &&
+        (rolActual === 'admin' || rolActual === 'superadmin' || usuarioActual.id === 'SuperAdmin' || usuarioActual.cedula === 'SuperAdmin') &&
+        usuarioActual.estado === 'ACTIVO'
+    );
+
+    if (!esAdminSesion) {
+        AppState.usuarioActual = nuevoUsuario;
+    }
 
     // Guardar en almacenamiento local y Firebase
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
@@ -798,7 +808,11 @@ async function registrarUsuario(e) {
 
     mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
 
-    verificarGatewall();
+    if (!esAdminSesion) {
+        verificarGatewall();
+    } else {
+        renderizarUsuarios();
+    }
 }
 
 /**
