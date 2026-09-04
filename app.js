@@ -26,6 +26,9 @@
             window.InventoryApp.Theme.inicializarTema();
         }
 
+        if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+            asegurarSincronizacionUsuariosAClientes();
+        }
         renderizarPosProductos();
         renderizarInventario();
         renderizarClientes();
@@ -34,8 +37,8 @@
         renderizarAuditoria();
         renderizarHistorialAuditoria();
         renderizarResumenPerdidasEconomicas();
-        actualizarSelectTransacciones();
-        renderizarTransacciones();
+        if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+        if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
         if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
         if (typeof verificarPenalizacionesPorMoraGlobal === 'function') verificarPenalizacionesPorMoraGlobal();

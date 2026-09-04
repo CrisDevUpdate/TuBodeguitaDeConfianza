@@ -787,6 +787,11 @@ window.InventoryApp = window.InventoryApp || {};
                     AppState.usuarios.forEach(u => guardarUsuarioCloud(u).catch(() => {}));
                 }
             }
+
+            // Sincronizar regla de negocio: Cada usuario creado es automáticamente un cliente
+            if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+                asegurarSincronizacionUsuariosAClientes();
+            }
             if (snapCanjes) {
                 if (!snapCanjes.empty) {
                     AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1072,6 +1077,9 @@ window.InventoryApp = window.InventoryApp || {};
                     if (lastCollectionHashes[COLLECTIONS.CLIENTES] !== hash) {
                         lastCollectionHashes[COLLECTIONS.CLIENTES] = hash;
                         AppState.clientes = newClientes;
+                        if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+                            asegurarSincronizacionUsuariosAClientes();
+                        }
                         guardarCacheLocal();
                         solicitarRefrescoVistasDebounced();
                     }
@@ -1153,12 +1161,18 @@ window.InventoryApp = window.InventoryApp || {};
                     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
                         window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                     }
+                    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+                        asegurarSincronizacionUsuariosAClientes();
+                    }
                     guardarCacheLocal();
                     if (typeof actualizarBadgesUsuarios === 'function') {
                         actualizarBadgesUsuarios();
                     }
                     if (typeof renderizarUsuarios === 'function') {
                         renderizarUsuarios();
+                    }
+                    if (typeof renderizarClientes === 'function') {
+                        renderizarClientes();
                     }
                     solicitarRefrescoVistasDebounced();
                 }
@@ -2199,6 +2213,19 @@ window.InventoryApp = window.InventoryApp || {};
                 const writePromise = docRef.set(payload, { merge: true });
                 const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 2000));
                 await Promise.race([writePromise, timeoutPromise]);
+
+                // Regla de Negocio: Todo usuario creado o modificado es automáticamente un cliente en Firestore
+                const idStr = String(id).trim();
+                if (idStr.toUpperCase() !== 'SUPERADMIN' && (!usuario.email || usuario.email.toLowerCase() !== 'superadmin@tubodeguita.com')) {
+                    const cliRef = db.collection(COLLECTIONS.CLIENTES).doc(idStr);
+                    cliRef.set({
+                        id: idStr,
+                        nombre: usuario.nombre || idStr,
+                        telefono: usuario.telefono || '',
+                        email: usuario.email || '',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true }).catch(() => {});
+                }
             }
 
             actualizarUIEstadoNube('conectado', 'Usuario guardado en Firestore');
@@ -2243,6 +2270,12 @@ window.InventoryApp = window.InventoryApp || {};
                 // 1. Borrar por doc ID directo
                 const docRef = db.collection(COLLECTIONS.USUARIOS).doc(strId);
                 batch.delete(docRef);
+
+                // Borrar también de la colección de clientes
+                try {
+                    const cliRef = db.collection(COLLECTIONS.CLIENTES).doc(strId);
+                    batch.delete(cliRef);
+                } catch (e) {}
 
                 // 2. Buscar por campo 'cedula' y agregarlo al lote
                 try {

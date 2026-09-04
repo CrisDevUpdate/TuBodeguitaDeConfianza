@@ -604,18 +604,26 @@ async function registrarUsuarioDesdeGatewall(e) {
 
         AppState.usuarios.push(nuevoUsuario);
 
-        // Si es cliente, registrarlo también en la colección de clientes
-        if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
-            const nuevoCli = {
-                id: cedula,
-                nombre: nombre,
-                telefono: telefono
-            };
+        // Regla de Negocio: Todo usuario creado es automáticamente un cliente
+        const nuevoCli = {
+            id: cedula,
+            nombre: nombre,
+            telefono: telefono,
+            email: email
+        };
+        if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+        const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+        if (idxCli === -1) {
             AppState.clientes.push(nuevoCli);
-            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-                window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
-            }
+        } else {
+            AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
         }
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+        }
+        if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+        if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+        if (typeof renderizarClientes === 'function') renderizarClientes();
 
         AppState.usuarioActual = nuevoUsuario;
 
@@ -789,14 +797,26 @@ async function registrarUsuario(e) {
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Si es cliente, registrarlo también en la colección de clientes
-    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
-        AppState.clientes.push({
-            id: cedula,
-            nombre: nombre,
-            telefono: telefono
-        });
+    // Regla de Negocio: Todo usuario creado es automáticamente un cliente
+    const nuevoCli = {
+        id: cedula,
+        nombre: nombre,
+        telefono: telefono,
+        email: email
+    };
+    if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+    const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+    if (idxCli === -1) {
+        AppState.clientes.push(nuevoCli);
+    } else {
+        AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
     }
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+    }
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
 
     // Si quien está registrando ya es un administrador activo, conservar intacta su sesión
     const usuarioActual = AppState.usuarioActual;
@@ -875,13 +895,20 @@ function aprobarUsuario(cedula) {
         AppState.usuarioActual.estado = 'ACTIVO';
     }
 
-    // Asegurar en lista de clientes si es cliente
-    if (usuario.rol === 'cliente' && Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
-        AppState.clientes.push({
+    // Asegurar en lista de clientes (Todo usuario es automáticamente un cliente)
+    if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+    let cli = AppState.clientes.find(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+    if (!cli) {
+        cli = {
             id: cedula,
             nombre: usuario.nombre,
-            telefono: usuario.telefono || ''
-        });
+            telefono: usuario.telefono || '',
+            email: usuario.email || ''
+        };
+        AppState.clientes.push(cli);
+    }
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(cli).catch(() => {});
     }
 
     // Persistir
@@ -892,6 +919,9 @@ function aprobarUsuario(cedula) {
 
     renderizarUsuarios();
     actualizarBadgesUsuarios();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
     verificarGatewall();
 }
 
@@ -1040,11 +1070,21 @@ async function eliminarUsuario(cedula) {
             console.warn('[Usuarios] Aviso al eliminar en Firebase:', err);
         }
     }
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
+        try {
+            await window.InventoryApp.Firebase.eliminarCliente(cedula);
+        } catch (err) {
+            console.warn('[Usuarios] Aviso al eliminar cliente en Firebase:', err);
+        }
+    }
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
-    // 5. Re-renderizar la tabla de usuarios inmediatamente sin recarga
+    // 5. Re-renderizar la tabla de usuarios y clientes inmediatamente sin recarga
     renderizarUsuarios();
     actualizarBadgesUsuarios();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
 
     if (typeof showCustomToast === 'function') {
         showCustomToast(`Usuario ${usuario.nombre} eliminado correctamente`, 'success');

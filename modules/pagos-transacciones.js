@@ -896,6 +896,98 @@ function registrarTransaccion(event) {
     }
 }
 
+function actualizarSelectTransacciones() {
+    const select = document.getElementById('transaccion-cliente');
+    if (!select) return;
+    const anterior = select.value;
+    const listadoClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    select.innerHTML = listadoClientes.length
+        ? listadoClientes.map(c => `<option value="${c.id}">${escaparHtmlInventario(c.nombre || c.id)} · ${escaparHtmlInventario(c.id)}</option>`).join('')
+        : '<option value="">No hay clientes registrados</option>';
+    if (listadoClientes.some(c => c.id === anterior)) {
+        select.value = anterior;
+    }
+}
+
+function obtenerNombreClienteTransaccion(clienteId) {
+    const listadoClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const encontrado = listadoClientes.find(c => c.id === clienteId);
+    return encontrado ? (encontrado.nombre || encontrado.id) : 'Cliente eliminado';
+}
+
+function transaccionesPendientesCliente(clienteId) {
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    return listadoTx.filter(t => t.clienteId === clienteId && t.estado === 'Confirmando').map(t => ({
+        fecha: t.fecha,
+        concepto: `Pago ${t.tipo || 'Directo'}`,
+        detalle: `Ref. ${t.referencia || 'S/R'}`,
+        cargoUSD: 0,
+        abonoUSD: 0,
+        montoPagoVES: `Bs. ${Number(t.montoVES || 0).toFixed(2)}`,
+        pendiente: true,
+        estado: 'Confirmando'
+    }));
+}
+
+function renderizarTransacciones(filtro = null) {
+    const tbody = document.getElementById('transacciones-body');
+    if (!tbody) return;
+    const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;
+    const normalizado = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(texto) : (texto || '').trim().toUpperCase();
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+
+    const lista = listadoTx.slice().reverse().filter(t => {
+        if (!normalizado) return true;
+        const refNorm = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(t.referencia) : (t.referencia || '').trim().toUpperCase();
+        const nomNorm = (obtenerNombreClienteTransaccion(t.clienteId) || '').toUpperCase();
+        return refNorm.includes(normalizado) || nomNorm.includes(texto.toUpperCase());
+    });
+
+    const pendientes = listadoTx.filter(t => t.estado === 'Confirmando').length;
+    const agregados = listadoTx.filter(t => t.estado === 'Pago agregado').length;
+    const fallidos = listadoTx.filter(t => t.estado === 'Fallido').length;
+    const resumen = document.getElementById('transaccion-resumen');
+    if (resumen) {
+        resumen.textContent = `${pendientes} pendiente${pendientes === 1 ? '' : 's'} · ${fallidos} fallido${fallidos === 1 ? '' : 's'} · ${agregados} pago${agregados === 1 ? '' : 's'} agregado${agregados === 1 ? '' : 's'}`;
+    }
+
+    if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = lista.map(t => {
+        const cliente = typeof escaparHtmlInventario === 'function'
+            ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
+            : obtenerNombreClienteTransaccion(t.clienteId);
+        const estadoClass = t.estado === 'Pago agregado'
+            ? 'transaction-approved'
+            : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+        const accion = t.estado === 'Pago agregado'
+            ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
+            : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
+                <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
+            </div>`;
+        const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
+        const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+        return `<tr>
+            <td>${t.fecha || ''}</td>
+            <td>${cliente}</td>
+            <td>${tipoStr}</td>
+            <td><strong>${refStr}</strong></td>
+            <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
+            <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
+            <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
+            <td>${accion}</td>
+        </tr>`;
+    }).join('');
+}
+
+function filtrarTransacciones() {
+    renderizarTransacciones(document.getElementById('transaccion-busqueda')?.value || '');
+}
+
 function guardarAbono(e) {
     e.preventDefault();
     const metodo = document.getElementById('abono-metodo')?.value || 'Efectivo USD';
@@ -1517,6 +1609,8 @@ window.actualizarBadgesAbonos = actualizarBadgesAbonos;
 window.verificarPenalizacionesPorMoraGlobal = verificarPenalizacionesPorMoraGlobal;
 window.renderizarTransacciones = renderizarTransacciones;
 window.actualizarSelectTransacciones = actualizarSelectTransacciones;
+window.transaccionesPendientesCliente = transaccionesPendientesCliente;
+window.obtenerNombreClienteTransaccion = obtenerNombreClienteTransaccion;
 window.procesarVerificacionTransaccion = procesarVerificacionTransaccion;
 window.registrarTransaccion = registrarTransaccion;
 window.editarTransaccion = editarTransaccion;

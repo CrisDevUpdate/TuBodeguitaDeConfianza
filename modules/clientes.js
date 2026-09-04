@@ -1,3 +1,70 @@
+/**
+ * Regla Fundamental del Negocio: Todo usuario registrado/creado es automáticamente un cliente.
+ * Sincroniza la lista de usuarios con la lista de clientes y asegura su persistencia en Firestore.
+ */
+function asegurarSincronizacionUsuariosAClientes() {
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    if (!Array.isArray(AppState.clientes)) {
+        AppState.clientes = [];
+    }
+    const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
+    let huboCambios = false;
+
+    usuariosList.forEach(u => {
+        const idCed = String(u.cedula || u.id || '').trim();
+        if (!idCed) return;
+        const idUpper = idCed.toUpperCase();
+        // SuperAdmin no es cliente comercial
+        if (idUpper === 'SUPERADMIN' || (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com') return;
+
+        // Si fue eliminado explícitamente y figura en clientesEliminados, respetamos la eliminación
+        const estaEliminado = eliminadosList.some(ce => String(ce.id).trim().toUpperCase() === idUpper);
+        if (estaEliminado) return;
+
+        let cliente = AppState.clientes.find(c => String(c.id).trim().toUpperCase() === idUpper);
+        if (!cliente) {
+            cliente = {
+                id: idCed,
+                nombre: u.nombre || idCed,
+                telefono: u.telefono || '',
+                email: u.email || ''
+            };
+            AppState.clientes.push(cliente);
+            huboCambios = true;
+
+            // Sincronizar en la nube en Firestore
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(cliente).catch(err => {
+                    console.warn('[Sync Clientes] Error al persistir cliente en Firestore:', err);
+                });
+            }
+        } else {
+            let actualizado = false;
+            if (u.nombre && cliente.nombre !== u.nombre) {
+                cliente.nombre = u.nombre;
+                actualizado = true;
+            }
+            if (u.telefono && cliente.telefono !== u.telefono) {
+                cliente.telefono = u.telefono;
+                actualizado = true;
+            }
+            if (u.email && cliente.email !== u.email) {
+                cliente.email = u.email;
+                actualizado = true;
+            }
+            if (actualizado) {
+                huboCambios = true;
+                if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
+                }
+            }
+        }
+    });
+
+    return huboCambios;
+}
+window.asegurarSincronizacionUsuariosAClientes = asegurarSincronizacionUsuariosAClientes;
+
 function guardarCliente(e) {
     e.preventDefault();
     const nuevoCliente = {
@@ -25,15 +92,55 @@ function guardarCliente(e) {
         });
     }
 
+    // Sincronizar también con la colección de usuarios
+    if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+    const idxU = AppState.usuarios.findIndex(u => (u.cedula || u.id) === nuevoCliente.id);
+    if (idxU === -1) {
+        const passHash = (window.InventoryApp?.Helpers?.calcularHashSha256)
+            ? window.InventoryApp.Helpers.calcularHashSha256(nuevoCliente.id)
+            : nuevoCliente.id;
+        const nuevoUsuario = {
+            id: nuevoCliente.id,
+            cedula: nuevoCliente.id,
+            nombre: nuevoCliente.nombre,
+            telefono: nuevoCliente.telefono || '',
+            email: `${nuevoCliente.id.toLowerCase().replace(/[^a-z0-9]/g, '')}@cliente.com`,
+            password: passHash,
+            rol: 'cliente',
+            estado: 'ACTIVO',
+            puntosAcumulados: 0,
+            puntosCanjeados: 0,
+            fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            fechaAprobacion: new Date().toISOString().replace('T', ' ').substring(0, 16)
+        };
+        AppState.usuarios.push(nuevoUsuario);
+        if (window.InventoryApp?.Firebase?.guardarUsuario) {
+            window.InventoryApp.Firebase.guardarUsuario(nuevoUsuario).catch(() => {});
+        }
+        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+    } else {
+        AppState.usuarios[idxU].nombre = nuevoCliente.nombre;
+        if (nuevoCliente.telefono) AppState.usuarios[idxU].telefono = nuevoCliente.telefono;
+        if (window.InventoryApp?.Firebase?.guardarUsuario) {
+            window.InventoryApp.Firebase.guardarUsuario(AppState.usuarios[idxU]).catch(() => {});
+        }
+    }
+
     document.getElementById('form-cliente').reset();
     actualizarSelectClientes();
-    actualizarSelectTransacciones();
+    if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
     renderizarClientes();
 }
 
 function actualizarSelectClientes() {
-    document.getElementById('pos-cliente-select').innerHTML = 
-        clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        asegurarSincronizacionUsuariosAClientes();
+    }
+    const select = document.getElementById('pos-cliente-select');
+    if (!select) return;
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    select.innerHTML = lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
 }
 
 function calcularEstadoFinancieroCliente(clienteId) {
@@ -57,14 +164,29 @@ function calcularEstadoFinancieroCliente(clienteId) {
 }
 
 function renderizarClientes() {
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        asegurarSincronizacionUsuariosAClientes();
+    }
     const tbody = document.getElementById('clientes-body');
-    tbody.innerHTML = clientes.map(c => {
+    if (!tbody) return;
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+
+    if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">No hay clientes registrados en el directorio.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = lista.map(c => {
         const { totalCompradoUSD, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(c.id);
+        const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
+        const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
+        const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
         return `
             <tr>
-                <td>${c.id}</td>
-                <td>${c.nombre}</td>
-                <td>${c.telefono}</td>
+                <td><strong>${idSafe}</strong></td>
+                <td>${nomSafe}</td>
+                <td>${telSafe}</td>
                 <td class="num">$${totalCompradoUSD.toFixed(2)}</td>
                 <td class="num" style="color: ${saldoDeudaUSD > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
                     $${saldoDeudaUSD.toFixed(2)}
@@ -225,7 +347,9 @@ function verDetalleCliente(id) {
         });
     });
 
-    transacciones.push(...transaccionesPendientesCliente(id));
+    if (typeof transaccionesPendientesCliente === 'function') {
+        transacciones.push(...transaccionesPendientesCliente(id));
+    }
 
     transacciones.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
 
