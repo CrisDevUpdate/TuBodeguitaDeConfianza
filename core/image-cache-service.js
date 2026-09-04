@@ -263,7 +263,11 @@ window.InventoryApp = window.InventoryApp || {};
         const headers = { 'Content-Type': contentType };
         const savedToken = localStorage.getItem('bodeguita_blob_token');
         if (savedToken) {
-            headers['x-blob-token'] = savedToken;
+            if (savedToken.startsWith('vercel_blob_rw_')) {
+                headers['x-blob-token'] = savedToken;
+            } else {
+                localStorage.removeItem('bodeguita_blob_token');
+            }
         }
 
         // Subida al endpoint de Vercel Blob

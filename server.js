@@ -651,13 +651,13 @@ app.post('/api/admin/reset', (req, res) => {
 
 // Función auxiliar para resolver el token de Vercel Blob de múltiples orígenes
 function obtenerVercelBlobToken(req) {
-  if (req && req.headers && req.headers['x-blob-token']) {
+  if (req && req.headers && req.headers['x-blob-token'] && req.headers['x-blob-token'].startsWith('vercel_blob_rw_')) {
     return req.headers['x-blob-token'];
   }
-  if (req && req.body && req.body.blobToken) {
+  if (req && req.body && req.body.blobToken && req.body.blobToken.startsWith('vercel_blob_rw_')) {
     return req.body.blobToken;
   }
-  if (req && req.query && req.query.token) {
+  if (req && req.query && req.query.token && req.query.token.startsWith('vercel_blob_rw_')) {
     return req.query.token;
   }
 
