@@ -578,6 +578,9 @@ function solicitarConfirmacionCompraCliente() {
     const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
     const puntosEstimados = Math.floor(totalUSD * ptsPorDolar);
 
+    const comentarioInput = document.getElementById('cliente-pago-comentario');
+    const comentario = (comentarioInput ? comentarioInput.value : '').trim();
+
     // Preparar objeto de pedido para la confirmación
     const datosPedido = {
         carrito: [...carrito],
@@ -585,6 +588,7 @@ function solicitarConfirmacionCompraCliente() {
         totalVES: totalVES,
         metodoPago: tipoPago,
         referencia: referencia,
+        comentario: comentario,
         esCredito: esCredito,
         puntosEstimados: puntosEstimados,
         usuario: usuario
@@ -801,34 +805,95 @@ async function ejecutarCompraConfirmadaCliente() {
         window.InventoryApp.Firebase.registrarVenta(nuevaVenta, itemsVendidos).catch(e => console.warn(e));
     }
 
-    // Sincronizar en la colección y documento PagosPorVerificar en Firebase Firestore
-    const datosPagoPorVerificar = {
-        id: nuevoPedidoId,
-        pedidoId: nuevoPedidoId,
-        ventaId: nuevoPedidoId,
-        clienteId: clienteCedula,
-        clienteNombre: usuario.nombre,
-        clienteCedula: clienteCedula,
-        clienteTelefono: usuario.telefono || '',
-        clienteEmail: usuario.email || '',
-        totalUSD: totalUSD,
-        montoUSD: totalUSD,
-        totalVES: totalVES,
-        montoVES: totalVES,
-        metodoPago: tipoPago,
-        tipoPago: tipoPago,
-        tipo: tipoPago,
-        referencia: referencia || (tipoPago.includes('Efectivo') ? 'Efectivo por verificar' : (esCredito ? 'Crédito' : 'N/A')),
-        items: itemsVendidos,
-        fecha: fechaHora,
-        fechaISO: new Date().toISOString(),
-        estado: 'PENDIENTE_VERIFICACION',
-        tipoRegistro: 'VENTA',
-        origen: 'Tienda Online'
-    };
-    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
-        window.InventoryApp.Firebase.guardarPagoPorVerificar(datosPagoPorVerificar).catch(err => {
-            console.warn('[Firebase] Error al registrar en PagosPorVerificar:', err);
+    // Manejo de Notificaciones y Verificación según el método de pago
+    if (esCredito) {
+        // Las transacciones a crédito NO requieren verificación/aprobación.
+        // Se refleja de inmediato en el Centro de Notificaciones:
+        if (typeof window.registrarNotificacion === 'function') {
+            window.registrarNotificacion({
+                tipo: 'credito',
+                titulo: 'Crédito Concedido',
+                mensaje: `${usuario.nombre} sacó un crédito por $${Number(totalUSD).toFixed(2)} (Pedido #${nuevoPedidoId})`,
+                clienteId: clienteCedula,
+                clienteNombre: usuario.nombre,
+                montoUSD: Number(totalUSD),
+                montoVES: Number(totalVES),
+                referenciaId: nuevoPedidoId,
+                destino: {
+                    tab: 'clientes',
+                    subAccion: 'verCliente',
+                    clienteId: clienteCedula,
+                    idRef: nuevoPedidoId
+                }
+            });
+        }
+    } else {
+        // Sincronizar en la colección y documento PagosPorVerificar en Firebase Firestore solo para pagos pendientes de conciliar
+        const datosPagoPorVerificar = {
+            id: nuevoPedidoId,
+            pedidoId: nuevoPedidoId,
+            ventaId: nuevoPedidoId,
+            clienteId: clienteCedula,
+            clienteNombre: usuario.nombre,
+            clienteCedula: clienteCedula,
+            clienteTelefono: usuario.telefono || '',
+            clienteEmail: usuario.email || '',
+            totalUSD: totalUSD,
+            montoUSD: totalUSD,
+            totalVES: totalVES,
+            montoVES: totalVES,
+            metodoPago: tipoPago,
+            tipoPago: tipoPago,
+            tipo: tipoPago,
+            referencia: referencia || (tipoPago.includes('Efectivo') ? 'Efectivo por verificar' : 'N/A'),
+            items: itemsVendidos,
+            fecha: fechaHora,
+            fechaISO: new Date().toISOString(),
+            estado: 'PENDIENTE_VERIFICACION',
+            tipoRegistro: 'VENTA',
+            origen: 'Tienda Online'
+        };
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+            window.InventoryApp.Firebase.guardarPagoPorVerificar(datosPagoPorVerificar).catch(err => {
+                console.warn('[Firebase] Error al registrar en PagosPorVerificar:', err);
+            });
+        }
+        if (typeof window.registrarNotificacion === 'function') {
+            window.registrarNotificacion({
+                tipo: 'pago',
+                titulo: 'Nuevo Pago Reportado',
+                mensaje: `${usuario.nombre} reportó un pago de $${Number(totalUSD).toFixed(2)} (${tipoPago} - Ref: ${referencia || 'N/A'})`,
+                clienteId: clienteCedula,
+                clienteNombre: usuario.nombre,
+                montoUSD: Number(totalUSD),
+                montoVES: Number(totalVES),
+                referenciaId: nuevoPedidoId,
+                destino: {
+                    tab: 'transacciones',
+                    subAccion: 'verPago',
+                    idRef: nuevoPedidoId,
+                    clienteId: clienteCedula
+                }
+            });
+        }
+    }
+
+    // Registrar notificación de comentario si el cliente escribió una observación
+    if (datos.comentario && typeof window.registrarNotificacion === 'function') {
+        window.registrarNotificacion({
+            tipo: 'comentario',
+            titulo: 'Comentario en Pedido',
+            mensaje: `${usuario.nombre} dejó un comentario: "${datos.comentario}"`,
+            clienteId: clienteCedula,
+            clienteNombre: usuario.nombre,
+            referenciaId: nuevoPedidoId,
+            destino: {
+                tab: 'clientes',
+                subAccion: 'verCliente',
+                clienteId: clienteCedula,
+                idRef: nuevoPedidoId,
+                textoComentario: datos.comentario
+            }
         });
     }
 
@@ -848,6 +913,8 @@ async function ejecutarCompraConfirmadaCliente() {
     AppState.carrito = [];
     const referenciaInput = document.getElementById('cliente-pago-referencia');
     if (referenciaInput) referenciaInput.value = '';
+    const comentarioLimpiarInput = document.getElementById('cliente-pago-comentario');
+    if (comentarioLimpiarInput) comentarioLimpiarInput.value = '';
 
     cerrarModalDobleConfirmacion();
     cerrarModalCarritoCliente();
@@ -1403,6 +1470,45 @@ async function procesarReportePagoCliente() {
     }
     if (typeof actualizarBadgesAbonos === 'function') {
         actualizarBadgesAbonos();
+    }
+
+    // Registrar en el Centro de Notificaciones
+    if (typeof window.registrarNotificacion === 'function') {
+        const nomCliente = nuevoAbono.clienteNombre || AppState.usuarioActual?.nombre || 'Cliente';
+        window.registrarNotificacion({
+            tipo: 'pago',
+            titulo: 'Abono Reportado',
+            mensaje: `${nomCliente} agregó un pago de $${Number(montoUSD).toFixed(2)} (${nuevoAbono.metodo} - Ref: ${referencia || 'N/A'})`,
+            clienteId: nuevoAbono.clienteId,
+            clienteNombre: nomCliente,
+            montoUSD: Number(montoUSD),
+            montoVES: Number(nuevoAbono.montoVES || 0),
+            referenciaId: nuevoAbono.id,
+            destino: {
+                tab: 'transacciones',
+                subAccion: 'verPago',
+                idRef: nuevoAbono.id,
+                clienteId: nuevoAbono.clienteId
+            }
+        });
+
+        if (nuevoAbono.nota && nuevoAbono.nota.trim()) {
+            window.registrarNotificacion({
+                tipo: 'comentario',
+                titulo: 'Comentario en Abono',
+                mensaje: `${nomCliente} dejó un comentario: "${nuevoAbono.nota}"`,
+                clienteId: nuevoAbono.clienteId,
+                clienteNombre: nomCliente,
+                referenciaId: nuevoAbono.id,
+                destino: {
+                    tab: 'transacciones',
+                    subAccion: 'verComentario',
+                    idRef: nuevoAbono.id,
+                    clienteId: nuevoAbono.clienteId,
+                    textoComentario: nuevoAbono.nota
+                }
+            });
+        }
     }
 
     if (window.InventoryApp.Modal?.toast) {

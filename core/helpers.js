@@ -185,7 +185,7 @@ function switchTab(tabId) {
     const rol = (usuario?.rol || 'cliente').toLowerCase();
     const esAdmin = rol === 'admin' || rol === 'superadmin';
     const esVendedor = rol === 'vendedor';
-    const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+    const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
 
     if (!esAdmin) {
         if (esVendedor && !vendedorAllowedTabs.includes(tabId)) {
@@ -209,6 +209,9 @@ function switchTab(tabId) {
     if (targetView) {
         targetView.classList.add('active');
         targetView.style.display = 'block';
+        if (tabId === 'notificaciones' && typeof window.renderizarNotificaciones === 'function') {
+            window.renderizarNotificaciones();
+        }
     }
 
     // Actualizar botones de navegación desktop
