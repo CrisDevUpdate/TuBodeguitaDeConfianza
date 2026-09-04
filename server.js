@@ -939,6 +939,96 @@ app.get('/api/avatar/view', manejarVistaVercelBlob);
 app.get('/api/blob/view', manejarVistaVercelBlob);
 app.get('/api/blob/serve', manejarVistaVercelBlob);
 
+// Listar archivos reales en el almacén de Vercel Blob
+app.get('/api/blob/list', async (req, res) => {
+  try {
+    const token = obtenerVercelBlobToken(req);
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Token de Vercel Blob no configurado' });
+    }
+    const { list } = await import('@vercel/blob');
+    const result = await list({ token });
+    const blobs = (result.blobs || []).map(b => ({
+      pathname: b.pathname,
+      size: b.size,
+      uploadedAt: b.uploadedAt,
+      url: b.url,
+      viewUrl: `/api/avatar/view?pathname=${encodeURIComponent(b.pathname)}`
+    }));
+    return res.json({ success: true, count: blobs.length, blobs });
+  } catch (err) {
+    console.error('[Blob List Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Sincronizar automáticamente imágenes pendientes desde Firestore hacia Vercel Blob
+app.post('/api/blob/sync-firestore-images', async (req, res) => {
+  try {
+    const token = obtenerVercelBlobToken(req);
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Token de Vercel Blob no configurado' });
+    }
+    const { put } = await import('@vercel/blob');
+    
+    // Consultar productos de Firestore
+    const fsUrl = 'https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents/productos';
+    const fsRes = await fetch(fsUrl);
+    const fsData = await fsRes.json();
+    
+    const results = [];
+    if (fsData && fsData.documents) {
+      for (const doc of fsData.documents) {
+        const id = doc.name.split('/').pop();
+        const f = doc.fields || {};
+        const img = (f.imagen && f.imagen.stringValue) || '';
+        
+        if (img && img.startsWith('data:')) {
+          try {
+            const parts = img.split(',');
+            const mimeMatch = parts[0].match(/:(.*?);/);
+            const mime = mimeMatch ? mimeMatch[1] : 'image/webp';
+            const buf = Buffer.from(parts[1], 'base64');
+            const ext = mime.includes('png') ? 'png' : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp';
+            const targetName = `productos/prod_${id}_${Date.now()}.${ext}`;
+            
+            const vRes = await put(targetName, buf, {
+              access: 'private',
+              token: token,
+              contentType: mime
+            });
+            
+            const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(vRes.pathname)}`;
+            
+            // Actualizar doc en Firestore
+            const patchUrl = `https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents/productos/${id}?updateMask.fieldPaths=imagen`;
+            await fetch(patchUrl, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fields: {
+                  imagen: { stringValue: viewUrl }
+                }
+              })
+            });
+            
+            results.push({ id, status: 'migrated_to_blob', pathname: vRes.pathname, url: vRes.url, viewUrl });
+          } catch (itemErr) {
+            results.push({ id, status: 'error', error: itemErr.message });
+          }
+        } else if (img) {
+          results.push({ id, status: 'already_url', url: img.substring(0, 60) });
+        }
+      }
+    }
+    
+    return res.json({ success: true, processed: results });
+  } catch (err) {
+    console.error('[Sync Firestore Images Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/quotes/random', async (req, res) => {
   try {
     const fetchController = new AbortController();

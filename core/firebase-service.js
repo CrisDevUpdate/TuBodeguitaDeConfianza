@@ -882,6 +882,11 @@ window.InventoryApp = window.InventoryApp || {};
             // Productos
             AppState.productos.forEach(p => {
                 const ref = db.collection(COLLECTIONS.PRODUCTOS).doc(String(p.id));
+                // Asegurar que nunca se guarden cadenas base64 gigantes en Firestore
+                let safeImagen = p.imagen || '';
+                if (safeImagen.startsWith('data:')) {
+                    safeImagen = '';
+                }
                 batch.set(ref, {
                     codigo: p.codigo || '',
                     nombre: p.nombre || '',
@@ -891,7 +896,7 @@ window.InventoryApp = window.InventoryApp || {};
                     stock: Number(p.stock) || 0,
                     descripcion: p.descripcion || '',
                     contenido: p.contenido || '',
-                    imagen: p.imagen || '',
+                    imagen: safeImagen,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });

@@ -241,15 +241,21 @@ window.InventoryApp = window.InventoryApp || {};
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
             }
         } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-            const parts = fileOrDataUrl.split(',');
-            const mimeMatch = parts[0].match(/:(.*?);/);
-            contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
-            const binary = atob(parts[1]);
-            const array = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                array[i] = binary.charCodeAt(i);
+            try {
+                const parts = fileOrDataUrl.split(',');
+                const mimeMatch = parts[0].match(/:(.*?);/);
+                contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
+                const bstr = atob(parts[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                blobToSend = new Blob([u8arr], { type: contentType });
+            } catch (atobErr) {
+                console.warn('[ImageCache] Decodificación binaria en cliente falló, se enviará vía payload seguro:', atobErr);
+                blobToSend = null;
             }
-            blobToSend = new Blob([array], { type: contentType });
             if (!cleanFilename) {
                 const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
@@ -260,7 +266,7 @@ window.InventoryApp = window.InventoryApp || {};
             cleanFilename = `${folder}/${cleanFilename}`;
         }
 
-        const headers = { 'Content-Type': contentType };
+        const headers = {};
         const savedToken = localStorage.getItem('bodeguita_blob_token');
         if (savedToken) {
             if (savedToken.startsWith('vercel_blob_rw_')) {
@@ -270,12 +276,24 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // Subida al endpoint de Vercel Blob
-        const response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-            method: 'POST',
-            headers: headers,
-            body: blobToSend
-        });
+        let response;
+        if (blobToSend) {
+            headers['Content-Type'] = contentType;
+            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                method: 'POST',
+                headers: headers,
+                body: blobToSend
+            });
+        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+            headers['Content-Type'] = 'application/json';
+            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
+            });
+        } else {
+            throw new Error('Formato de imagen inválido o no soportado para subir a Blob.');
+        }
 
         if (!response.ok) {
             const errText = await response.text();
@@ -283,7 +301,7 @@ window.InventoryApp = window.InventoryApp || {};
         }
 
         const newBlob = await response.json();
-        const finalUrl = newBlob.url || (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.downloadUrl);
+        const finalUrl = (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.url) || newBlob.downloadUrl;
 
         // Guardar de inmediato en el caché local para evitar cualquier descarga futura
         if (blobToSend) {
@@ -300,8 +318,11 @@ window.InventoryApp = window.InventoryApp || {};
             console.warn(`[Almacén Local Fallback] Imagen guardada en almacenamiento local (${finalUrl}). Causa: ${newBlob.blobError || newBlob.notice}`);
         }
         return {
+            success: true,
             url: finalUrl,
             pathname: newBlob.pathname,
+            viewUrl: newBlob.viewUrl || finalUrl,
+            blobUrl: newBlob.url || '',
             provider: newBlob.provider
         };
     }
