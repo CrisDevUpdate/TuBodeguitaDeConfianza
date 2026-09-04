@@ -132,47 +132,37 @@ export default function CustomerSettings({
     setSaveToast('Subiendo y optimizando imagen...');
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result;
+      // Subida directa al endpoint de Vercel Blob usando el stream binario
+      const cleanExt = file.name.split('.').pop() || 'jpg';
+      const targetFilename = `avatars/avatar_${currentUser?.cedula || currentUser?.id || 'user'}_${Date.now()}.${cleanExt}`;
 
-        // Intentar subir a Vercel Blob Serverless endpoint
-        let finalUrl = base64Data;
-        try {
-          const res = await fetch('/api/upload/blob', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filename: `avatar_${currentUser?.cedula || 'user'}_${Date.now()}.jpg`,
-              fileData: base64Data,
-              contentType: file.type,
-              folder: 'avatars'
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.url) {
-              finalUrl = data.url;
-            }
-          }
-        } catch (uploadErr) {
-          console.warn('[Avatar Upload] Usando caché local optimizado:', uploadErr);
+      const response = await fetch(
+        `/api/avatar/upload?filename=${encodeURIComponent(targetFilename)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': file.type || 'image/jpeg' },
+          body: file,
         }
+      );
 
-        setAvatarUrl(finalUrl);
+      if (!response.ok) {
+        throw new Error('Error al comunicar con el servicio de Vercel Blob');
+      }
 
-        // Guardar en caché local
-        localStorage.setItem(`app_avatar_${currentUser?.cedula || currentUser?.id}`, finalUrl);
+      const newBlob = await response.json();
+      const finalUrl = newBlob.url || (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.downloadUrl);
 
-        if (typeof onUpdateAvatar === 'function') {
-          await onUpdateAvatar(finalUrl);
-        }
+      setAvatarUrl(finalUrl);
 
-        setSaveToast('¡Foto de perfil actualizada exitosamente!');
-        setTimeout(() => setSaveToast(null), 3000);
-      };
-      reader.readAsDataURL(file);
+      // Guardar en caché local
+      localStorage.setItem(`app_avatar_${currentUser?.cedula || currentUser?.id}`, finalUrl);
+
+      if (typeof onUpdateAvatar === 'function') {
+        await onUpdateAvatar(finalUrl);
+      }
+
+      setSaveToast('¡Foto de perfil actualizada en Vercel Blob!');
+      setTimeout(() => setSaveToast(null), 3000);
     } catch (err) {
       alert('Error al procesar la imagen: ' + err.message);
     } finally {

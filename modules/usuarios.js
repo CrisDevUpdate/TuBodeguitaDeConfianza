@@ -1501,7 +1501,7 @@ function actualizarUIUsuarioActual() {
     const avatarMini = document.querySelector('#btn-user-session-header .user-avatar-mini');
     if (avatarMini) {
         if (usuario.avatar) {
-            if (usuario.avatar.startsWith('data:image') || usuario.avatar.startsWith('http')) {
+            if (usuario.avatar.startsWith('data:image') || usuario.avatar.startsWith('http') || usuario.avatar.startsWith('/api/')) {
                 avatarMini.innerHTML = `<img src="${usuario.avatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
             } else {
                 avatarMini.innerHTML = `<span style="font-size:1.15rem;">${usuario.avatar}</span>`;

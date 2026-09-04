@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 
@@ -11,8 +12,10 @@ const PORT = 3000;
 const HOST = '0.0.0.0';
 
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ limit: '20mb', extended: true }));
+// Raw parser for direct binary uploads (file streams from Vercel Blob client)
+app.use(express.raw({ type: ['image/*', 'application/octet-stream'], limit: '30mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
 // Strict Zero-Cache Stale Policy for all API Routes, JS scripts, and HTML pages
 app.use((req, res, next) => {
@@ -661,140 +664,202 @@ app.get('/api/blob/status', (req, res) => {
   });
 });
 
-// Endpoint de Subida de Archivos a Vercel Blob (@vercel/blob)
-app.post('/api/upload/blob', async (req, res) => {
+// --- Vercel Blob Storage Integration (@vercel/blob) ---
+const BLOB_LOCAL_DIR = path.join(process.cwd(), '.blob-store');
+if (!fs.existsSync(BLOB_LOCAL_DIR)) {
+  try { fs.mkdirSync(BLOB_LOCAL_DIR, { recursive: true }); } catch (e) {}
+}
+
+async function manejarSubidaVercelBlob(req, res) {
   try {
-    const { filename, fileData, contentType = 'image/webp', folder = 'productos', access: requestedAccess } = req.body;
-    if (!fileData) {
-      return res.status(400).json({ success: false, error: 'Se requiere el contenido del archivo (base64 o data URI).' });
-    }
-
+    const filenameParam = req.query.filename || (req.body && typeof req.body === 'object' && req.body.filename);
+    const requestedFolder = (req.body && typeof req.body === 'object' && req.body.folder) || 'uploads';
     const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
-    const cleanFilename = filename ? filename.replace(/[^a-zA-Z0-9._-]/g, '_') : `${folder}_${timestamp}_${randomSuffix}.${ext}`;
-    const targetPathname = `${folder}/${cleanFilename}`;
+    const randomSuffix = Math.random().toString(36).substring(2, 7);
 
-    let buffer;
-    if (typeof fileData === 'string' && fileData.startsWith('data:')) {
-      buffer = Buffer.from(fileData.split(',')[1], 'base64');
-    } else if (typeof fileData === 'string') {
-      buffer = Buffer.from(fileData, 'base64');
-    } else {
-      buffer = Buffer.from(fileData);
+    // Determinar nombre y ruta
+    let targetFilename = filenameParam ? filenameParam.replace(/\\/g, '/') : `${requestedFolder}/${timestamp}_${randomSuffix}.webp`;
+    // Asegurar que no tenga dobles barras o inicio con barra
+    targetFilename = targetFilename.replace(/^\/+/, '');
+
+    // Obtener buffer binario
+    let buffer = null;
+    let contentType = 'image/webp';
+
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) {
+      buffer = req.body;
+      contentType = req.headers['content-type'] || 'image/webp';
+    } else if (req.body && typeof req.body === 'object' && req.body.fileData) {
+      const fileData = req.body.fileData;
+      if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+        const parts = fileData.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        if (mimeMatch) contentType = mimeMatch[1];
+        buffer = Buffer.from(parts[1], 'base64');
+      } else if (typeof fileData === 'string') {
+        buffer = Buffer.from(fileData, 'base64');
+      }
+      if (req.body.contentType) contentType = req.body.contentType;
+    } else if (req.readable) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      buffer = Buffer.concat(chunks);
+      contentType = req.headers['content-type'] || 'image/webp';
     }
 
-    // 1. Si está configurado BLOB_READ_WRITE_TOKEN, usar @vercel/blob put oficial
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ success: false, error: 'No se recibieron datos de archivo válidos para subir a Blob.' });
+    }
+
+    // Inferir Content-Type si viene genérico
+    if (!contentType || contentType === 'application/octet-stream' || contentType === 'application/json') {
+      const ext = path.extname(targetFilename).toLowerCase();
+      contentType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
+    }
+
     const blobToken = obtenerVercelBlobToken(req);
+
+    // 1. Si existe BLOB_READ_WRITE_TOKEN, usar la SDK oficial de @vercel/blob
     if (blobToken) {
       try {
         const { put } = await import('@vercel/blob');
-        
-        let blob = null;
-        let usedAccess = requestedAccess || 'public';
+        let blobResult = null;
 
-        // Intento 1: Acceso público o el solicitado
+        // Intentar primero con access: 'private' (como se indica en la documentación oficial compartida)
         try {
-          blob = await put(targetPathname, buffer, {
-            access: usedAccess,
+          blobResult = await put(targetFilename, buffer, {
+            access: 'private',
             token: blobToken,
-            contentType: contentType || 'image/webp'
+            contentType: contentType
           });
-        } catch (firstErr) {
-          console.warn(`[Vercel Blob] Intento con access '${usedAccess}' falló (${firstErr.message}), intentando con acceso alternativo...`);
-          // Si falló con public, intentar con private
-          usedAccess = (usedAccess === 'public') ? 'private' : 'public';
-          blob = await put(targetPathname, buffer, {
-            access: usedAccess,
+        } catch (privErr) {
+          console.warn(`[Vercel Blob] put 'private' no disponible (${privErr.message}), intentando con access: 'public'...`);
+          blobResult = await put(targetFilename, buffer, {
+            access: 'public',
             token: blobToken,
-            contentType: contentType || 'image/webp'
+            contentType: contentType
           });
         }
 
-        if (blob) {
-          const finalUrl = blob.url || (blob.pathname ? `/api/blob/serve?pathname=${encodeURIComponent(blob.pathname)}` : blob.downloadUrl);
-          console.log(`[Vercel Blob] Archivo subido exitosamente: ${blob.pathname} -> ${finalUrl} (Access: ${usedAccess})`);
+        if (blobResult) {
+          const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
+          console.log(`[Vercel Blob] Archivo subido exitosamente a la nube: ${blobResult.pathname} (${blobResult.url || viewUrl})`);
+          
           return res.json({
-            success: true,
-            url: finalUrl,
-            downloadUrl: blob.downloadUrl || finalUrl,
-            pathname: blob.pathname,
-            contentType: blob.contentType || contentType,
-            access: usedAccess,
+            pathname: blobResult.pathname,
+            contentType: blobResult.contentType || contentType,
+            contentDisposition: blobResult.contentDisposition || `inline; filename="${path.basename(blobResult.pathname)}"`,
+            url: blobResult.url || viewUrl,
+            viewUrl: viewUrl,
+            downloadUrl: blobResult.downloadUrl || blobResult.url || viewUrl,
             provider: 'vercel-blob'
           });
         }
       } catch (blobErr) {
-        console.warn('[Vercel Blob Error]:', blobErr.message);
+        console.error('[Vercel Blob Error]:', blobErr);
       }
     }
 
-    // 2. Fallback local optimizado si aún no se ha proporcionado el token
-    const safeDataUrl = fileData.startsWith('data:') ? fileData : `data:${contentType};base64,${buffer.toString('base64')}`;
-    console.log(`[Storage Híbrido] Guardado en formato optimizado local para: ${targetPathname}`);
+    // 2. Almacenamiento persistente en sistema de archivos local para entorno de desarrollo / fallback
+    const localFilePath = path.join(BLOB_LOCAL_DIR, targetFilename);
+    const localDir = path.dirname(localFilePath);
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    fs.writeFileSync(localFilePath, buffer);
+
+    const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
+    console.log(`[Blob Storage] Archivo guardado localmente: ${targetFilename} -> ${viewUrl}`);
+
     return res.json({
-      success: true,
-      url: safeDataUrl,
-      pathname: targetPathname,
+      pathname: targetFilename,
       contentType: contentType,
-      provider: 'local-hybrid-cache',
-      notice: 'Para almacenar en CDN de Vercel Blob, define BLOB_READ_WRITE_TOKEN en las variables de entorno.'
+      contentDisposition: `inline; filename="${path.basename(targetFilename)}"`,
+      url: viewUrl,
+      viewUrl: viewUrl,
+      downloadUrl: viewUrl,
+      provider: 'local-blob-store',
+      notice: 'Para almacenar en CDN global de Vercel Blob, define BLOB_READ_WRITE_TOKEN en las variables de entorno.'
     });
+
   } catch (err) {
-    console.error('[Upload Blob API Error]:', err);
+    console.error('[Upload Blob Handler Error]:', err);
     res.status(500).json({ success: false, error: err.message });
   }
-});
+}
 
-// Endpoint de Consulta / Proxy de Vercel Blob según especificación con get()
-app.get('/api/blob/serve', async (req, res) => {
+async function manejarVistaVercelBlob(req, res) {
   try {
     const pathname = req.query.pathname || req.query.url;
     if (!pathname) {
       return res.status(400).json({ error: 'Missing pathname query parameter' });
     }
 
+    const cleanPath = String(pathname).replace(/^\/+/, '');
     const blobToken = obtenerVercelBlobToken(req);
+
+    // 1. Intentar servir desde Vercel Blob con la SDK oficial (@vercel/blob get())
     if (blobToken) {
       try {
         const { get } = await import('@vercel/blob');
-        
         let result = null;
+
         try {
-          result = await get(pathname, {
+          result = await get(cleanPath, {
             access: 'private',
             token: blobToken
           });
         } catch (e) {
-          result = await get(pathname, {
+          result = await get(cleanPath, {
             access: 'public',
             token: blobToken
           });
         }
 
-        if (result === null) {
-          return res.status(404).json({ error: 'Blob not found' });
-        }
+        if (result && (result.statusCode === 200 || result.stream || result.blob)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          if (result.blob && result.blob.contentType) {
+            res.setHeader('Content-Type', result.blob.contentType);
+          }
+          res.setHeader('X-Content-Type-Options', 'nosniff');
 
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        if (result.blob && result.blob.contentType) {
-          res.setHeader('Content-Type', result.blob.contentType);
-        }
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-
-        if (result.stream) {
-          return result.stream.pipe(res);
+          if (result.stream) {
+            return result.stream.pipe(res);
+          }
         }
       } catch (getErr) {
         console.warn('[Blob Get Error]:', getErr.message);
       }
     }
 
-    return res.status(404).json({ error: 'Blob not accessible or token not configured' });
+    // 2. Intentar servir desde el almacén local persistente
+    const localFilePath = path.join(BLOB_LOCAL_DIR, cleanPath);
+    if (fs.existsSync(localFilePath)) {
+      const ext = path.extname(cleanPath).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
+      res.setHeader('Content-Type', mime);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return fs.createReadStream(localFilePath).pipe(res);
+    }
+
+    return res.status(404).send('Not found');
   } catch (err) {
+    console.error('[Blob View Error]:', err);
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+// Endpoints oficiales y unificados para subida y visualización de blobs
+app.post('/api/avatar/upload', manejarSubidaVercelBlob);
+app.post('/api/blob/upload', manejarSubidaVercelBlob);
+app.post('/api/upload/blob', manejarSubidaVercelBlob);
+
+app.get('/api/avatar/view', manejarVistaVercelBlob);
+app.get('/api/blob/view', manejarVistaVercelBlob);
+app.get('/api/blob/serve', manejarVistaVercelBlob);
 
 app.get('/api/quotes/random', async (req, res) => {
   try {

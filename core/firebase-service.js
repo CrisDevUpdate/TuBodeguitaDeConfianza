@@ -1559,6 +1559,27 @@ window.InventoryApp = window.InventoryApp || {};
 
         try {
             if (db) {
+                let imagenUrl = producto.imagen || '';
+                // Si la imagen está en formato base64/dataURI, asegurar su subida a Vercel Blob
+                if (imagenUrl.startsWith('data:')) {
+                    try {
+                        if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
+                            if (resBlob && resBlob.url) {
+                                imagenUrl = resBlob.url;
+                                producto.imagen = resBlob.url;
+                            } else {
+                                imagenUrl = '';
+                            }
+                        } else {
+                            imagenUrl = '';
+                        }
+                    } catch (e) {
+                        console.warn('[Firebase] No fue posible subir a Vercel Blob; omitiendo base64 en Firestore:', e);
+                        imagenUrl = '';
+                    }
+                }
+
                 const docRef = db.collection(COLLECTIONS.PRODUCTOS).doc(String(producto.id));
                 await docRef.set({
                     codigo: producto.codigo || '',
@@ -1569,7 +1590,7 @@ window.InventoryApp = window.InventoryApp || {};
                     stock: Number(producto.stock) || 0,
                     descripcion: producto.descripcion || '',
                     contenido: producto.contenido || '',
-                    imagen: producto.imagen || '',
+                    imagen: imagenUrl,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
@@ -2202,9 +2223,30 @@ window.InventoryApp = window.InventoryApp || {};
             }
 
             if (db) {
+                let avatarUrl = usuario.avatar || '';
+                if (avatarUrl.startsWith('data:')) {
+                    try {
+                        if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(avatarUrl, 'avatars', `avatar_${id}_${Date.now()}.webp`);
+                            if (resBlob && resBlob.url) {
+                                avatarUrl = resBlob.url;
+                                usuario.avatar = resBlob.url;
+                            } else {
+                                avatarUrl = '';
+                            }
+                        } else {
+                            avatarUrl = '';
+                        }
+                    } catch (e) {
+                        console.warn('[Firebase] No fue posible subir avatar a Vercel Blob; omitiendo base64 en Firestore:', e);
+                        avatarUrl = '';
+                    }
+                }
+
                 const docRef = db.collection(COLLECTIONS.USUARIOS).doc(String(id));
                 const payload = {
                     ...usuario,
+                    avatar: avatarUrl,
                     id: String(id),
                     cedula: usuario.cedula || String(id),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()

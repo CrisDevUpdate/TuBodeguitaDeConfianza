@@ -218,62 +218,83 @@ window.InventoryApp = window.InventoryApp || {};
     async function subirImagenVercelBlob(fileOrDataUrl, folder = 'productos', filename = '') {
         if (!fileOrDataUrl) throw new Error('Se requiere un archivo o Data URL para subir.');
 
-        let fileDataString = '';
-        let contentType = 'image/webp';
-
-        if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
-            contentType = fileOrDataUrl.type || 'image/webp';
-            fileDataString = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(fileOrDataUrl);
-            });
-        } else if (typeof fileOrDataUrl === 'string') {
-            fileDataString = fileOrDataUrl;
-            if (fileDataString.startsWith('data:image/png')) contentType = 'image/png';
-            else if (fileDataString.startsWith('data:image/jpeg') || fileDataString.startsWith('data:image/jpg')) contentType = 'image/jpeg';
+        // Si ya es una URL persistida en Vercel Blob o web
+        if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://') || fileOrDataUrl.startsWith('/api/avatar/view') || fileOrDataUrl.startsWith('/api/blob/view'))) {
+            return { url: fileOrDataUrl, pathname: fileOrDataUrl, provider: 'vercel-blob' };
         }
 
-        const payload = {
-            filename: filename || `${folder}_${Date.now()}.${contentType.includes('png') ? 'png' : contentType.includes('jpeg') ? 'jpg' : 'webp'}`,
-            fileData: fileDataString,
-            contentType: contentType,
-            folder: folder
-        };
+        let blobToSend = null;
+        let contentType = 'image/webp';
+        let cleanFilename = filename;
 
-        const headers = { 'Content-Type': 'application/json' };
+        if (fileOrDataUrl instanceof File) {
+            blobToSend = fileOrDataUrl;
+            contentType = fileOrDataUrl.type || 'image/webp';
+            if (!cleanFilename) {
+                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.webp`}`;
+            }
+        } else if (fileOrDataUrl instanceof Blob) {
+            blobToSend = fileOrDataUrl;
+            contentType = fileOrDataUrl.type || 'image/webp';
+            if (!cleanFilename) {
+                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+                cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+            }
+        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+            const parts = fileOrDataUrl.split(',');
+            const mimeMatch = parts[0].match(/:(.*?);/);
+            contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
+            const binary = atob(parts[1]);
+            const array = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                array[i] = binary.charCodeAt(i);
+            }
+            blobToSend = new Blob([array], { type: contentType });
+            if (!cleanFilename) {
+                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+                cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+            }
+        }
+
+        if (!cleanFilename.includes('/')) {
+            cleanFilename = `${folder}/${cleanFilename}`;
+        }
+
+        const headers = { 'Content-Type': contentType };
         const savedToken = localStorage.getItem('bodeguita_blob_token');
         if (savedToken) {
             headers['x-blob-token'] = savedToken;
         }
 
-        const res = await fetch('/api/upload/blob', {
+        // Subida al endpoint de Vercel Blob
+        const response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(payload)
+            body: blobToSend
         });
 
-        if (!res.ok) {
-            const errText = await res.text();
+        if (!response.ok) {
+            const errText = await response.text();
             throw new Error(`Error en servidor de subida: ${errText}`);
         }
 
-        const data = await res.json();
-        if (!data.success || !data.url) {
-            throw new Error(data.error || 'No se recibió una URL válida de almacenamiento.');
-        }
-
-        const finalUrl = data.url;
+        const newBlob = await response.json();
+        const finalUrl = newBlob.url || (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.downloadUrl);
 
         // Guardar de inmediato en el caché local para evitar cualquier descarga futura
-        await guardarEnCacheLocal(finalUrl, fileDataString, contentType);
+        if (blobToSend) {
+            await guardarEnCacheLocal(finalUrl, blobToSend, contentType);
+            if (newBlob.pathname) {
+                const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}`;
+                await guardarEnCacheLocal(viewUrl, blobToSend, contentType);
+            }
+        }
 
-        console.log(`[Vercel Blob Storage] Imagen almacenada con éxito: ${finalUrl} (Proveedor: ${data.provider})`);
+        console.log(`[Vercel Blob Storage] Imagen almacenada con éxito: ${finalUrl} (Proveedor: ${newBlob.provider})`);
         return {
             url: finalUrl,
-            provider: data.provider,
-            pathname: data.pathname
+            pathname: newBlob.pathname,
+            provider: newBlob.provider
         };
     }
 
