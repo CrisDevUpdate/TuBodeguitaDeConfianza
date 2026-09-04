@@ -189,6 +189,14 @@ function guardarConfiguracionPremioMes(e) {
         temporadaActiva: temporadaActiva
     };
 
+    // Persistir directamente en Firebase Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes,
+            temporadaInviernoActiva: !temporadaActiva
+        }).catch(err => console.warn('[PremioMes] Error guardando config en Firestore:', err));
+    }
+
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -691,11 +699,14 @@ function canjearPremioMesCliente() {
     AppState.canjesPremios.push(nuevoCanje);
 
     // Persistir
-    if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
-        window.InventoryApp.Persistence.guardar(true);
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCanjePremio === 'function') {
+        window.InventoryApp.Firebase.guardarCanjePremio(nuevoCanje).catch(e => console.warn('[Canje] Error sync Firestore:', e));
     }
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(usuario).catch(e => console.warn(e));
+    }
+    if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
+        window.InventoryApp.Persistence.guardar(true);
     }
 
     alert(`🎉 ¡FELICITACIONES ${usuario.nombre}! Has canjeado con éxito tu "${pm.nombre}". Presenta tu comprobante #${nuevoCanje.id} en caja.`);

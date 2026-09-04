@@ -469,18 +469,10 @@ function limpiarLoteTransacciones() {
 }
 
 function limpiarVistaConciliacion() {
-    limpiarLoteTransacciones();
+    if (typeof limpiarLoteTransacciones === 'function') limpiarLoteTransacciones();
     const busqueda = document.getElementById('transaccion-busqueda');
     if (busqueda) busqueda.value = '';
-    const resumen = document.getElementById('transaccion-resumen');
-    if (resumen) resumen.textContent = '0 pendientes · 0 fallidos · 0 pagos agregados';
-    const resultado = document.getElementById('transaccion-lote-resultado');
-    if (resultado) {
-        resultado.style.display = 'none';
-        resultado.innerHTML = '';
-    }
-    const progreso = document.getElementById('transaccion-lote-progreso');
-    if (progreso) progreso.innerHTML = 'Vista reiniciada. Las transacciones guardadas no fueron eliminadas.';
+    renderizarTransacciones('');
 }
 
 function agregarTransaccionesAlLote() {
@@ -608,9 +600,67 @@ async function verificarTodasLasTransacciones() {
     }
 }
 
+function alCambiarMetodoTransaccionDirecta() {
+    const tipo = document.getElementById('transaccion-tipo')?.value || 'Efectivo USD';
+    const lblMonto = document.getElementById('lbl-transaccion-monto');
+    const inputRef = document.getElementById('transaccion-referencia');
+    const lblRef = document.getElementById('lbl-transaccion-referencia');
+    const esEfectivo = tipo.includes('Efectivo');
+    const esUSD = tipo === 'Efectivo USD';
+
+    if (lblMonto) {
+        lblMonto.innerHTML = esUSD 
+            ? '<i class="fas fa-dollar-sign"></i> Monto ($ USD)' 
+            : '<i class="fas fa-coins"></i> Monto (Bs)';
+    }
+
+    if (inputRef) {
+        const hintRef = document.getElementById('transaccion-referencia-hint');
+        if (esEfectivo) {
+            inputRef.placeholder = 'Efectivo (opcional)';
+            inputRef.required = false;
+            if (lblRef) lblRef.innerHTML = '<i class="fas fa-hashtag"></i> N° de Referencia (opcional)';
+            if (hintRef) hintRef.textContent = 'Opcional para pagos en efectivo';
+        } else {
+            inputRef.placeholder = tipo.includes('Móvil') ? 'Teléfono / N° Referencia' : 'N° Referencia Bancaria';
+            inputRef.required = true;
+            if (lblRef) lblRef.innerHTML = '<i class="fas fa-hashtag"></i> N° de Referencia <span style="color:var(--danger)">*</span>';
+            if (hintRef) hintRef.textContent = 'Requerido para conciliar pago bancario';
+        }
+    }
+
+    alEscribirMontoTransaccionDirecta();
+}
+
+function alEscribirMontoTransaccionDirecta() {
+    const tipo = document.getElementById('transaccion-tipo')?.value || 'Efectivo USD';
+    const inputMonto = document.getElementById('transaccion-monto');
+    const smallEquiv = document.getElementById('transaccion-monto-equiv');
+    if (!smallEquiv) return;
+
+    const monto = parseFloat(inputMonto?.value) || 0;
+    if (monto <= 0) {
+        smallEquiv.textContent = tipo === 'Efectivo USD' ? 'Equiv: Bs. 0.00' : 'Equiv: $0.00';
+        return;
+    }
+
+    if (tasaActiva <= 0) {
+        smallEquiv.textContent = 'Tasa BCV no disponible';
+        return;
+    }
+
+    if (tipo === 'Efectivo USD') {
+        const equivVES = (monto * tasaActiva).toFixed(2);
+        smallEquiv.innerHTML = `Equiv: <strong style="color:var(--success);">Bs. ${equivVES}</strong> (BCV: ${tasaActiva.toFixed(2)})`;
+    } else {
+        const equivUSD = (monto / tasaActiva).toFixed(2);
+        smallEquiv.innerHTML = `Equiv: <strong style="color:var(--success);">$${equivUSD}</strong> (BCV: ${tasaActiva.toFixed(2)})`;
+    }
+}
+
 function editarTransaccion(id) {
     const tx = transacciones.find(t => t.id === id);
-    if (!tx || tx.estado === 'Pago agregado') return;
+    if (!tx) return;
 
     const cliente = document.getElementById('transaccion-cliente');
     const tipo = document.getElementById('transaccion-tipo');
@@ -619,16 +669,33 @@ function editarTransaccion(id) {
     const editId = document.getElementById('transaccion-edit-id');
 
     if (cliente) cliente.value = tx.clienteId;
-    if (tipo) tipo.value = tx.tipo;
+    if (tipo) {
+        if (tx.tipo === 'Efectivo USD') tipo.value = 'Efectivo USD';
+        else if (tx.tipo === 'Efectivo VES') tipo.value = 'Efectivo VES';
+        else if (tx.tipo.includes('Móvil')) tipo.value = 'Pago Móvil';
+        else tipo.value = 'Transferencia Bancaria';
+    }
     if (referencia) referencia.value = tx.referencia;
-    if (monto) monto.value = Number(normalizarMontoTransaccion(tx.montoVES)).toFixed(2);
+    
+    // Si la transacción se guardó en USD
+    if (tx.tipo === 'Efectivo USD') {
+        if (monto) monto.value = Number(tx.montoUSD || 0).toFixed(2);
+    } else {
+        if (monto) monto.value = Number(normalizarMontoTransaccion(tx.montoVES)).toFixed(2);
+    }
+
     if (editId) editId.value = tx.id;
+
+    alCambiarMetodoTransaccionDirecta();
+
+    const btnCancelar = document.getElementById('btn-cancelar-edicion-tx');
+    if (btnCancelar) btnCancelar.style.display = 'inline-flex';
 
     const form = document.getElementById('form-transaccion');
     const button = form?.querySelector('button[type="submit"]');
-    if (button) button.innerHTML = '<i class="fas fa-rotate"></i> Guardar y Reintentar';
+    if (button) button.innerHTML = '<i class="fas fa-check-circle"></i> Guardar y Aplicar Pago';
 
-    document.getElementById('transaccion-referencia')?.focus();
+    document.getElementById('transaccion-monto')?.focus();
 }
 
 function cancelarEdicionTransaccion() {
@@ -637,292 +704,344 @@ function cancelarEdicionTransaccion() {
     form.reset();
     const editId = document.getElementById('transaccion-edit-id');
     if (editId) editId.value = '';
+    const btnCancelar = document.getElementById('btn-cancelar-edicion-tx');
+    if (btnCancelar) btnCancelar.style.display = 'none';
     const button = form.querySelector('button[type="submit"]');
-    if (button) button.innerHTML = '<i class="fas fa-paper-plane"></i> Registrar y Confirmar';
+    if (button) button.innerHTML = '<i class="fas fa-check-circle"></i> Registrar y Rebajar Deuda';
+    alCambiarMetodoTransaccionDirecta();
 }
 
 function registrarTransaccion(event) {
     event.preventDefault();
-    const clienteId = document.getElementById('transaccion-cliente').value;
-    const tipo = document.getElementById('transaccion-tipo').value;
-    const referencia = referenciaNormalizada(document.getElementById('transaccion-referencia').value);
-    const montoVES = normalizarMontoTransaccion(document.getElementById('transaccion-monto').value);
+    const clienteId = document.getElementById('transaccion-cliente')?.value;
+    const tipo = document.getElementById('transaccion-tipo')?.value || 'Efectivo USD';
+    const refEl = document.getElementById('transaccion-referencia');
+    let referencia = referenciaNormalizada(refEl ? refEl.value : '');
+    const inputMonto = document.getElementById('transaccion-monto');
+    const monto = parseFloat(inputMonto?.value) || 0;
     const editId = document.getElementById('transaccion-edit-id')?.value || null;
 
-    if (!clienteId || !referencia || !Number.isFinite(montoVES) || montoVES <= 0) {
-        alert('Completa cliente, referencia y monto válido.');
+    if (!clienteId) {
+        alert('Por favor selecciona un cliente.');
+        return;
+    }
+    if (!Number.isFinite(monto) || monto <= 0) {
+        alert('Por favor ingresa un monto válido mayor a 0.');
         return;
     }
 
-    // Una referencia conciliada sí es única. Las que están Confirmando/Fallido
-    // pueden corregirse y reutilizarse sin crear falsos duplicados.
-    if (referenciaYaRegistrada(referencia, editId, true)) {
-        alert('Esa referencia ya está conciliada en otra transacción.');
+    const esEfectivo = tipo.includes('Efectivo');
+    if (!referencia) {
+        if (esEfectivo) {
+            referencia = 'Efectivo';
+        } else {
+            alert('Para Pago Móvil o Transferencia Bancaria es necesario ingresar el número de referencia.');
+            if (refEl) refEl.focus();
+            return;
+        }
+    }
+
+    if (!esEfectivo && referenciaYaRegistrada(referencia, editId, true)) {
+        alert(`La referencia "${referencia}" ya está registrada y conciliada en otra transacción.`);
         return;
     }
+
+    const clienteObj = (clientes || []).find(c => c.id === clienteId);
+
+    // Calcular montos USD y VES según la moneda elegida
+    let montoUSD = 0;
+    let montoVES = 0;
+    if (tipo === 'Efectivo USD') {
+        montoUSD = Number(monto.toFixed(2));
+        montoVES = tasaActiva > 0 ? Number((monto * tasaActiva).toFixed(2)) : 0;
+    } else {
+        // Moneda en Bolívares
+        montoVES = Number(monto.toFixed(2));
+        montoUSD = calcularMontoUSDDesdeBs(montoVES);
+    }
+
+    const fechaAhora = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     let tx = editId ? transacciones.find(t => t.id === editId) : null;
+    if (!tx && !esEfectivo) {
+        tx = buscarTransaccionReintentable(referencia);
+    }
 
-    // Si el usuario vuelve a escribir una referencia que ya existe en un registro
-    // no conciliado, reutilizamos ese registro en vez de bloquearlo.
-    if (!tx) tx = buscarTransaccionReintentable(referencia);
-
-    if (tx && (tx.estado === 'Confirmando' || tx.estado === 'Fallido')) {
+    if (tx) {
         tx.clienteId = clienteId;
         tx.tipo = tipo;
         tx.referencia = referencia;
-        tx.montoVES = Number(montoVES.toFixed(2));
-        tx.montoUSD = calcularMontoUSDDesdeBs(tx.montoVES);
+        tx.montoVES = montoVES;
+        tx.montoUSD = montoUSD;
         tx.tasaMomento = tasaActiva;
-        tx.estado = 'Confirmando';
+        tx.fechaVerificacion = fechaAhora;
+        tx.estado = 'Pago agregado';
         tx.verificando = false;
-        tx.observacion = 'Datos corregidos. Esperando nueva verificación.';
+        tx.observacion = 'Abono validado y aplicado directamente por el Administrador.';
     } else {
         tx = {
             id: generarIdTransaccion(),
             clienteId,
             tipo,
             referencia,
-            montoVES: Number(montoVES.toFixed(2)),
-            montoUSD: calcularMontoUSDDesdeBs(montoVES),
+            montoVES,
+            montoUSD,
             tasaMomento: tasaActiva,
-            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            estado: 'Confirmando',
+            fecha: fechaAhora,
+            fechaVerificacion: fechaAhora,
+            estado: 'Pago agregado',
             verificando: false,
-            observacion: 'Referencia registrada. Esperando verificación.'
+            observacion: 'Abono registrado directamente por el Administrador.'
         };
         transacciones.push(tx);
+    }
+
+    // Registrar o actualizar abono directo para rebajar la deuda de inmediato
+    let nuevoAbono = (AppState.abonos || []).find(a => a.transaccionId === tx.id);
+    if (nuevoAbono) {
+        nuevoAbono.montoUSD = montoUSD;
+        nuevoAbono.montoVES = montoVES;
+        nuevoAbono.metodo = tipo;
+        nuevoAbono.referencia = referencia;
+        nuevoAbono.tasaMomento = tasaActiva;
+        nuevoAbono.estado = 'Pago agregado';
+    } else {
+        nuevoAbono = {
+            id: 'A' + ((AppState.abonos || []).length + 1) + '_' + Date.now().toString().slice(-4),
+            transaccionId: tx.id,
+            clienteId,
+            clienteNombre: clienteObj?.nombre || 'Cliente',
+            clienteCedula: clienteObj?.cedula || clienteId,
+            fecha: fechaAhora,
+            montoUSD,
+            montoVES,
+            metodo: tipo,
+            referencia,
+            tasaMomento: tasaActiva,
+            estado: 'Pago agregado'
+        };
+        if (!AppState.abonos) AppState.abonos = [];
+        AppState.abonos.push(nuevoAbono);
+    }
+
+    // Actualizar fecha de último abono del cliente
+    if (clienteObj) {
+        clienteObj.ultimoAbonoFecha = new Date().toISOString();
+        if (window.InventoryApp?.Firebase?.guardarCliente) {
+            window.InventoryApp.Firebase.guardarCliente(clienteObj).catch(() => {});
+        }
+    }
+
+    // Otorgar puntos de fidelización por el pago
+    if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
+        otorgarPuntosPorCompra(clienteId, montoUSD, 'Abono a Cuenta');
+    }
+
+    // Guardar en persistencia local
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Sincronizar en Firestore
+    if (window.InventoryApp?.Firebase) {
+        if (nuevoAbono && typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
+            window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
+                console.warn('[Firestore] Error guardando abono:', err);
+            });
+        }
+        if (typeof window.InventoryApp.Firebase.guardarTransaccion === 'function') {
+            window.InventoryApp.Firebase.guardarTransaccion(tx).catch(err => {
+                console.warn('[Firestore] Error guardando transacción:', err);
+            });
+        }
+        if (typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+            window.InventoryApp.Firebase.guardarPagoPorVerificar({
+                id: tx.id,
+                abonoId: nuevoAbono?.id || tx.id,
+                transaccionId: tx.id,
+                clienteId,
+                clienteNombre: clienteObj?.nombre || 'Cliente',
+                clienteCedula: clienteObj?.cedula || clienteId,
+                montoUSD,
+                totalUSD: montoUSD,
+                montoVES,
+                totalVES: montoVES,
+                metodoPago: tipo,
+                tipoPago: tipo,
+                tipo,
+                referencia,
+                fecha: fechaAhora,
+                fechaISO: new Date().toISOString(),
+                estado: 'APROBADO',
+                tipoRegistro: 'ABONO_DIRECTO_ADMIN',
+                origen: 'Registrado por Administrador'
+            }).catch(() => {});
+        }
     }
 
     cancelarEdicionTransaccion();
     actualizarSelectTransacciones();
     renderizarTransacciones();
-    alert(`Transacción ${tx.estado === 'Confirmando' ? 'registrada en estado Confirmando' : 'actualizada'}. La deuda todavía NO ha cambiado. Pulsa \"Verificar\" en la fila cuando quieras iniciar la conciliación.`);
-}
-
-function actualizarSelectTransacciones() {
-    const select = document.getElementById('transaccion-cliente');
-    if (!select) return;
-    const anterior = select.value;
-    select.innerHTML = clientes.length
-        ? clientes.map(c => `<option value="${c.id}">${escaparHtmlInventario(c.nombre)} · ${escaparHtmlInventario(c.id)}</option>`).join('')
-        : '<option value="">No hay clientes registrados</option>';
-    if (clientes.some(c => c.id === anterior)) select.value = anterior;
-}
-
-function transaccionesPendientesCliente(clienteId) {
-    return transacciones.filter(t => t.clienteId === clienteId && t.estado === 'Confirmando').map(t => ({
-        fecha: t.fecha,
-        concepto: `Pago ${t.tipo}`,
-        detalle: `Ref. ${t.referencia}`,
-        cargoUSD: 0,
-        abonoUSD: 0,
-        montoPagoVES: `Bs. ${Number(t.montoVES || 0).toFixed(2)}`,
-        pendiente: true,
-        estado: 'Confirmando'
-    }));
-}
-
-function obtenerNombreClienteTransaccion(clienteId) {
-    return clientes.find(c => c.id === clienteId)?.nombre || 'Cliente eliminado';
-}
-
-function renderizarTransacciones(filtro = null) {
-    const tbody = document.getElementById('transacciones-body');
-    if (!tbody) return;
-    const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;
-    const normalizado = referenciaNormalizada(texto);
-    const lista = transacciones.slice().reverse().filter(t => !normalizado || referenciaNormalizada(t.referencia).includes(normalizado));
-
-    const pendientes = transacciones.filter(t => t.estado === 'Confirmando').length;
-    const agregados = transacciones.filter(t => t.estado === 'Pago agregado').length;
-    const fallidos = transacciones.filter(t => t.estado === 'Fallido').length;
-    const resumen = document.getElementById('transaccion-resumen');
-    if (resumen) resumen.textContent = `${pendientes} pendiente${pendientes === 1 ? '' : 's'} · ${fallidos} fallido${fallidos === 1 ? '' : 's'} · ${agregados} pago${agregados === 1 ? '' : 's'} agregado${agregados === 1 ? '' : 's'}`;
-
-    if (!lista.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la referencia.</td></tr>';
-        return;
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (clienteSeleccionadoId === clienteId && typeof verDetalleCliente === 'function') {
+        verDetalleCliente(clienteId);
     }
 
-    tbody.innerHTML = lista.map(t => {
-        const cliente = escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId));
-        const estadoClass = t.estado === 'Pago agregado'
-            ? 'transaction-approved'
-            : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
-        const accion = t.estado === 'Pago agregado'
-            ? '<span class="transaction-verified"><i class="fas fa-check-circle"></i> Conciliado</span>'
-            : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
-                <button class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
-            </div>`;
-        return `<tr>
-            <td>${t.fecha}</td>
-            <td>${cliente}</td>
-            <td>${escaparHtmlInventario(t.tipo)}</td>
-            <td><strong>${escaparHtmlInventario(t.referencia)}</strong></td>
-            <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
-            <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
-            <td><span class="transaction-badge ${estadoClass}">${t.estado}</span></td>
-            <td>${accion}</td>
-        </tr>`;
-    }).join('');
-}
-
-function filtrarTransacciones() {
-    renderizarTransacciones(document.getElementById('transaccion-busqueda')?.value || '');
+    const nombreCliente = clienteObj?.nombre || 'el cliente';
+    const msg = `¡Pago registrado! Se han rebajado $${montoUSD.toFixed(2)} (Bs. ${montoVES.toFixed(2)}) de la deuda de ${nombreCliente}.`;
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(msg, 'success');
+    } else {
+        alert(msg);
+    }
 }
 
 function guardarAbono(e) {
     e.preventDefault();
-    const metodo = document.getElementById('abono-metodo').value;
-    const montoIngresado = parseFloat(document.getElementById('abono-monto').value);
+    const metodo = document.getElementById('abono-metodo')?.value || 'Efectivo USD';
+    const montoIngresado = parseFloat(document.getElementById('abono-monto')?.value) || 0;
     const esTransaccion = metodo === 'Transferencia VES' || metodo === 'Pago Móvil VES';
+    const clienteId = clienteSeleccionadoId;
 
-    if (!Number.isFinite(montoIngresado) || montoIngresado <= 0) return alert('Ingresa un monto válido.');
-
-    if (esTransaccion) {
-        const referencia = referenciaNormalizada(document.getElementById('abono-referencia')?.value);
-        if (!referencia) return alert('Ingresa el número de referencia bancaria.');
-        if (referenciaYaRegistrada(referencia)) return alert('Esa referencia ya está registrada.');
-        const tx = {
-            id: generarIdTransaccion(),
-            clienteId: clienteSeleccionadoId,
-            tipo: metodo === 'Pago Móvil VES' ? 'Pago Móvil' : 'Transferencia Bancaria',
-            referencia,
-            montoVES: montoIngresado,
-            montoUSD: calcularMontoUSDDesdeBs(montoIngresado),
-            tasaMomento: tasaActiva,
-            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            estado: 'Confirmando',
-            verificando: false,
-            observacion: 'Referencia registrada. Esperando verificación.'
-        };
-        transacciones.push(tx);
-
-        if (window.InventoryApp && window.InventoryApp.Persistence) {
-            window.InventoryApp.Persistence.guardar(true);
-        }
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarTransaccion === 'function') {
-            window.InventoryApp.Firebase.guardarTransaccion(tx).catch(err => {
-                console.warn('[Firebase] Error al guardar transacción en Firestore:', err);
-            });
-        }
-
-        // Guardar inmediatamente en PagosPorVerificar de Firebase Firestore
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
-            const clienteObj = (clientes || []).find(c => c.id === clienteSeleccionadoId);
-            window.InventoryApp.Firebase.guardarPagoPorVerificar({
-                id: tx.id,
-                pedidoId: tx.id,
-                transaccionId: tx.id,
-                clienteId: clienteSeleccionadoId,
-                clienteNombre: clienteObj ? clienteObj.nombre : clienteSeleccionadoId,
-                clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteSeleccionadoId,
-                montoUSD: tx.montoUSD,
-                totalUSD: tx.montoUSD,
-                montoVES: tx.montoVES,
-                totalVES: tx.montoVES,
-                metodoPago: tx.tipo,
-                tipoPago: tx.tipo,
-                tipo: tx.tipo,
-                referencia: tx.referencia,
-                fecha: tx.fecha,
-                fechaISO: new Date().toISOString(),
-                estado: 'PENDIENTE_VERIFICACION',
-                tipoRegistro: 'TRANSACCION_ABONO',
-                origen: 'Abono / Pago Móvil Registrado'
-            }).catch(err => console.warn('[Firebase] Error al registrar abono en PagosPorVerificar:', err));
-        }
-
-        document.getElementById('abono-monto').value = '';
-        document.getElementById('abono-referencia').value = '';
-        cerrarModalAbono();
-        renderizarTransacciones();
-        verDetalleCliente(clienteSeleccionadoId);
-        alert('Pago registrado como "Confirmando". No se ha reducido la deuda todavía. Debes ir a Tipos de Transacciones y pulsar Verificar para conciliarlo.');
+    if (!clienteId) {
+        alert('No se ha seleccionado ningún cliente.');
         return;
+    }
+
+    if (!Number.isFinite(montoIngresado) || montoIngresado <= 0) {
+        alert('Por favor ingresa un monto válido mayor a 0.');
+        return;
+    }
+
+    let referencia = 'Efectivo';
+    if (esTransaccion) {
+        referencia = referenciaNormalizada(document.getElementById('abono-referencia')?.value);
+        if (!referencia) {
+            alert('Por favor ingresa el número de referencia bancaria o pago móvil.');
+            document.getElementById('abono-referencia')?.focus();
+            return;
+        }
+        if (referenciaYaRegistrada(referencia, null, true)) {
+            alert(`La referencia "${referencia}" ya está conciliada en otra transacción.`);
+            return;
+        }
     }
 
     let montoUSD = 0;
     let montoVES = 0;
     if (metodo === 'Efectivo USD') {
-        montoUSD = montoIngresado;
+        montoUSD = Number(montoIngresado.toFixed(2));
+        montoVES = tasaActiva > 0 ? Number((montoIngresado * tasaActiva).toFixed(2)) : 0;
     } else {
-        montoVES = montoIngresado;
-        montoUSD = calcularMontoUSDDesdeBs(montoIngresado);
+        montoVES = Number(montoIngresado.toFixed(2));
+        montoUSD = calcularMontoUSDDesdeBs(montoVES);
     }
 
-    const clienteObj = clientes.find(c => c.id === clienteSeleccionadoId);
+    const clienteObj = (clientes || []).find(c => c.id === clienteId);
+    const fechaAhora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const tipoTx = metodo === 'Pago Móvil VES' ? 'Pago Móvil' : (metodo === 'Transferencia VES' ? 'Transferencia Bancaria' : metodo);
+
+    // Crear la transacción directa como "Pago agregado"
+    const tx = {
+        id: generarIdTransaccion(),
+        clienteId,
+        tipo: tipoTx,
+        referencia,
+        montoVES,
+        montoUSD,
+        tasaMomento: tasaActiva,
+        fecha: fechaAhora,
+        fechaVerificacion: fechaAhora,
+        estado: 'Pago agregado',
+        verificando: false,
+        observacion: 'Abono registrado desde el perfil del cliente.'
+    };
+    transacciones.push(tx);
+
+    // Crear el abono que reduce la deuda de inmediato
     const nuevoAbono = {
-        id: 'A' + (abonos.length + 1) + '_' + Date.now().toString().slice(-4),
-        clienteId: clienteSeleccionadoId,
+        id: 'A' + ((AppState.abonos || []).length + 1) + '_' + Date.now().toString().slice(-4),
+        transaccionId: tx.id,
+        clienteId,
         clienteNombre: clienteObj?.nombre || 'Cliente',
-        clienteCedula: clienteObj?.cedula || clienteSeleccionadoId,
-        fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        clienteCedula: clienteObj?.cedula || clienteId,
+        fecha: fechaAhora,
         montoUSD,
         montoVES,
-        metodo,
+        metodo: tipoTx,
+        referencia,
         tasaMomento: tasaActiva,
         estado: 'Pago agregado'
     };
-    abonos.push(nuevoAbono);
+    if (!AppState.abonos) AppState.abonos = [];
+    AppState.abonos.push(nuevoAbono);
 
-    // Actualizar fecha de último abono en cliente para pausar penalización por mora
+    // Actualizar fecha de último abono del cliente
     if (clienteObj) {
         clienteObj.ultimoAbonoFecha = new Date().toISOString();
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        if (window.InventoryApp?.Firebase?.guardarCliente) {
             window.InventoryApp.Firebase.guardarCliente(clienteObj).catch(() => {});
         }
     }
 
-    // Fidelización y Gamificación: Otorgar puntos por el monto abonado
+    // Puntos de fidelización
     if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
-        otorgarPuntosPorCompra(clienteSeleccionadoId, montoUSD, 'Abono a Cuenta');
+        otorgarPuntosPorCompra(clienteId, montoUSD, 'Abono a Cuenta');
     }
 
     // Persistir localmente
-    if (window.InventoryApp && window.InventoryApp.Persistence) {
+    if (window.InventoryApp?.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // Guardar abono en Firestore
-    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
-        window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
-            console.warn('[Abonos] Error al guardar abono en Firestore:', err);
-        });
+    // Sincronizar con Firestore
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
+            window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(() => {});
+        }
+        if (typeof window.InventoryApp.Firebase.guardarTransaccion === 'function') {
+            window.InventoryApp.Firebase.guardarTransaccion(tx).catch(() => {});
+        }
+        if (typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+            window.InventoryApp.Firebase.guardarPagoPorVerificar({
+                id: tx.id,
+                abonoId: nuevoAbono.id,
+                transaccionId: tx.id,
+                clienteId,
+                clienteNombre: clienteObj?.nombre || 'Cliente',
+                clienteCedula: clienteObj?.cedula || clienteId,
+                montoUSD,
+                totalUSD: montoUSD,
+                montoVES,
+                totalVES: montoVES,
+                metodoPago: tipoTx,
+                tipoPago: tipoTx,
+                tipo: tipoTx,
+                referencia,
+                fecha: fechaAhora,
+                fechaISO: new Date().toISOString(),
+                estado: 'APROBADO',
+                tipoRegistro: esTransaccion ? 'ABONO_DIRECTO_DIGITAL' : 'ABONO_EFECTIVO',
+                origen: 'Abono Registrado por Administrador'
+            }).catch(() => {});
+        }
     }
 
-    // Registrar en PagosPorVerificar de Firestore
-    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
-        window.InventoryApp.Firebase.guardarPagoPorVerificar({
-            id: nuevoAbono.id,
-            abonoId: nuevoAbono.id,
-            clienteId: clienteSeleccionadoId,
-            clienteNombre: clienteObj?.nombre || 'Cliente',
-            clienteCedula: clienteObj?.cedula || clienteSeleccionadoId,
-            montoUSD: nuevoAbono.montoUSD,
-            totalUSD: nuevoAbono.montoUSD,
-            montoVES: nuevoAbono.montoVES,
-            totalVES: nuevoAbono.montoVES,
-            metodoPago: nuevoAbono.metodo,
-            tipoPago: nuevoAbono.metodo,
-            tipo: nuevoAbono.metodo,
-            referencia: 'Efectivo',
-            fecha: nuevoAbono.fecha,
-            fechaISO: new Date().toISOString(),
-            estado: 'PENDIENTE_VERIFICACION',
-            tipoRegistro: 'ABONO_EFECTIVO',
-            origen: 'Abono en Efectivo'
-        }).catch(err => console.warn('[Abonos] Error al registrar abono en PagosPorVerificar:', err));
-    }
+    const inputMonto = document.getElementById('abono-monto');
+    if (inputMonto) inputMonto.value = '';
+    const inputRef = document.getElementById('abono-referencia');
+    if (inputRef) inputRef.value = '';
 
-    document.getElementById('abono-monto').value = '';
     cerrarModalAbono();
-    verDetalleCliente(clienteSeleccionadoId);
-    renderizarClientes();
-    if (window.InventoryApp && window.InventoryApp.Modal && typeof window.InventoryApp.Modal.toast === 'function') {
-        window.InventoryApp.Modal.toast(`Abono de $${montoUSD.toFixed(2)} registrado correctamente.`, 'success');
+    renderizarTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof verDetalleCliente === 'function') verDetalleCliente(clienteId);
+
+    const msg = `¡Abono de $${montoUSD.toFixed(2)} (Bs. ${montoVES.toFixed(2)}) aplicado con éxito! Deuda rebajada de inmediato.`;
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(msg, 'success');
+    } else {
+        alert(msg);
     }
 }
 
@@ -1397,7 +1516,15 @@ window.renderizarAbonosPendientesReportados = renderizarAbonosPendientesReportad
 window.actualizarBadgesAbonos = actualizarBadgesAbonos;
 window.verificarPenalizacionesPorMoraGlobal = verificarPenalizacionesPorMoraGlobal;
 window.renderizarTransacciones = renderizarTransacciones;
+window.actualizarSelectTransacciones = actualizarSelectTransacciones;
 window.procesarVerificacionTransaccion = procesarVerificacionTransaccion;
+window.registrarTransaccion = registrarTransaccion;
+window.editarTransaccion = editarTransaccion;
+window.cancelarEdicionTransaccion = cancelarEdicionTransaccion;
+window.alCambiarMetodoTransaccionDirecta = alCambiarMetodoTransaccionDirecta;
+window.alEscribirMontoTransaccionDirecta = alEscribirMontoTransaccionDirecta;
+window.filtrarTransacciones = filtrarTransacciones;
+window.limpiarVistaConciliacion = limpiarVistaConciliacion;
 window.guardarAbono = guardarAbono;
 window.abrirModalAbono = abrirModalAbono;
 window.cerrarModalAbono = cerrarModalAbono;

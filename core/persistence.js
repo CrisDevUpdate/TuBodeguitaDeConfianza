@@ -1,15 +1,41 @@
-/* core/persistence.js - Persistencia Híbrida: Firestore Nube + Respaldo Local Continuo */
+/* core/persistence.js - Persistencia Cloud-First: Firestore como Fuente Única de Verdad */
 window.InventoryApp = window.InventoryApp || {};
 
 (function () {
-    const STORAGE_KEY = 'inventoryapp.beta.v1.state';
+    // Clave exclusiva para persistencia de la sesión del usuario (para futuros inicios de sesión)
+    const SESSION_KEY = 'bodeguita_usuario_sesion';
+    const LEGACY_STORAGE_KEY = 'inventoryapp.beta.v1.state';
 
-    const claves = [
-        'productos', 'clientes', 'ventas', 'abonos', 'pagosPorVerificar', 'transacciones', 'carrito',
-        'conteosFisicos', 'auditorias', 'eliminaciones', 'clientesEliminados',
-        'clienteSeleccionadoId', 'nextProductSequence', 'usuarios', 'usuarioActual',
-        'premioMes', 'canjesPremios', 'temporadaInviernoActiva', 'treeProgress'
+    const LLAVES_OBSOLETAS_A_PURGAR = [
+        LEGACY_STORAGE_KEY,
+        'inventoryapp.state',
+        'bodeguita_productos',
+        'bodeguita_clientes',
+        'bodeguita_ventas',
+        'bodeguita_abonos',
+        'bodeguita_transacciones',
+        'bodeguita_auditorias',
+        'bodeguita_conteos',
+        'bodeguita_eliminaciones',
+        'bodeguita_clientes_eliminados',
+        'bodeguita_usuarios'
     ];
+
+    /**
+     * Purga de inmediato cualquier residuo de entidades o transacciones de localStorage.
+     * En localStorage SOLO se permite la sesión del usuario y el caché de imágenes de productos (ImageCache).
+     */
+    function purgarResiduosEntidadesLocalStorage() {
+        try {
+            LLAVES_OBSOLETAS_A_PURGAR.forEach(k => {
+                if (localStorage.getItem(k) !== null) {
+                    localStorage.removeItem(k);
+                }
+            });
+        } catch (e) {
+            console.warn('[Persistence] Aviso al purgar entidades de localStorage:', e);
+        }
+    }
 
     function asegurarUsuarioAdminInicial() {
         if (!AppState.premioMes || typeof AppState.premioMes !== 'object') {
@@ -62,53 +88,113 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * Persiste ÚNICAMENTE la sesión del usuario para futuros inicios de sesión.
+     * Ningún dato de negocio (ventas, abonos, productos, clientes, transacciones) se almacena en localStorage.
+     */
     function guardar(force = false) {
-        // 1. Respaldo inmediato y continuo en localStorage para máxima tolerancia a fallos/offline
         try {
-            const stateToSave = {};
-            claves.forEach(k => {
-                if (AppState[k] !== undefined) {
-                    stateToSave[k] = AppState[k];
-                }
-            });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+            // 1. Persistir o actualizar la sesión del usuario activo
+            if (AppState.usuarioActual) {
+                const sesionMinima = {
+                    id: AppState.usuarioActual.id || AppState.usuarioActual.cedula,
+                    cedula: AppState.usuarioActual.cedula || AppState.usuarioActual.id,
+                    nombre: AppState.usuarioActual.nombre || '',
+                    telefono: AppState.usuarioActual.telefono || '',
+                    email: AppState.usuarioActual.email || '',
+                    rol: AppState.usuarioActual.rol || 'cliente',
+                    estado: AppState.usuarioActual.estado || 'PENDIENTE_APROBACION',
+                    password: AppState.usuarioActual.password || '',
+                    avatar: AppState.usuarioActual.avatar || ''
+                };
+                localStorage.setItem(SESSION_KEY, JSON.stringify(sesionMinima));
+            } else {
+                localStorage.removeItem(SESSION_KEY);
+            }
+
+            // 2. Garantizar que ninguna entidad de negocio quede almacenada en localStorage
+            purgarResiduosEntidadesLocalStorage();
         } catch (e) {
-            console.warn('[Persistence] Error guardando copia en localStorage:', e);
+            console.warn('[Persistence] Error guardando sesión en localStorage:', e);
         }
         return true;
     }
 
+    /**
+     * Carga inicial:
+     * - Restaura ÚNICAMENTE la sesión del usuario para evitar requerir login repetitivo.
+     * - Inicializa el estado de negocio en memoria limpio.
+     * - Todas las colecciones (productos, clientes, ventas, abonos, transacciones, etc.)
+     *   se alimentan y sincronizan en tiempo real directamente desde Firebase Firestore.
+     */
     function cargar() {
-        // Cargar estado local previo como respaldo inmediato
+        // 1. Purgar cualquier dato residual previo de entidades en localStorage
+        purgarResiduosEntidadesLocalStorage();
+
+        // 2. Restaurar únicamente la sesión del usuario guardado
         try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                claves.forEach(k => {
-                    if (parsed[k] !== undefined) {
-                        AppState[k] = parsed[k];
-                    }
-                });
+            const sesionGuardada = localStorage.getItem(SESSION_KEY);
+            if (sesionGuardada) {
+                const usuarioSesion = JSON.parse(sesionGuardada);
+                if (usuarioSesion && (usuarioSesion.cedula || usuarioSesion.id)) {
+                    AppState.usuarioActual = usuarioSesion;
+                }
+            } else {
+                // Compatibilidad de transición: si había una sesión en el storage anterior, extraer solo el usuario y borrar el resto
+                const backupAnterior = localStorage.getItem(LEGACY_STORAGE_KEY);
+                if (backupAnterior) {
+                    try {
+                        const parsed = JSON.parse(backupAnterior);
+                        if (parsed && parsed.usuarioActual) {
+                            AppState.usuarioActual = parsed.usuarioActual;
+                            localStorage.setItem(SESSION_KEY, JSON.stringify(parsed.usuarioActual));
+                        }
+                    } catch {}
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                }
             }
         } catch (e) {
-            console.warn('[Persistence] Error cargando copia local de localStorage:', e);
+            console.warn('[Persistence] Error restaurando sesión desde localStorage:', e);
         }
-        // Garantizar SuperAdmin base
+
+        // 3. Garantizar SuperAdmin base
         asegurarUsuarioAdminInicial();
-        if (!AppState.usuarioActual) {
-            AppState.usuarioActual = null;
+
+        // Si el usuario en sesión no es SuperAdmin, asegurar su presencia en AppState.usuarios
+        if (AppState.usuarioActual && AppState.usuarioActual.id !== 'SuperAdmin') {
+            const existe = (AppState.usuarios || []).find(u => (u.cedula || u.id) === (AppState.usuarioActual.cedula || AppState.usuarioActual.id));
+            if (!existe) {
+                AppState.usuarios.push(AppState.usuarioActual);
+            }
         }
+
+        // 4. Todas las entidades de negocio se inicializan limpias en memoria
+        // para ser provistas fielmente por Firebase Firestore
+        AppState.productos = AppState.productos || [];
+        AppState.clientes = AppState.clientes || [];
+        AppState.ventas = AppState.ventas || [];
+        AppState.abonos = AppState.abonos || [];
+        AppState.pagosPorVerificar = AppState.pagosPorVerificar || [];
+        AppState.transacciones = AppState.transacciones || [];
+        AppState.carrito = [];
+        AppState.clienteSeleccionadoId = null;
+        AppState.conteosFisicos = {};
+        AppState.auditorias = AppState.auditorias || [];
+        AppState.eliminaciones = AppState.eliminaciones || [];
+        AppState.clientesEliminados = AppState.clientesEliminados || [];
+        AppState.canjesPremios = AppState.canjesPremios || [];
+
         return true;
     }
 
     function iniciar() {
-        // 1. Inicializar estado base en memoria y restaurar caché local
+        // 1. Restaurar sesión de usuario y purgar residuos locales de negocio
         cargar();
         
-        // 2. Inicializar conexión a Firebase Firestore
+        // 2. Inicializar conexión directa a Firebase Firestore (Fuente Única de Verdad)
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.init === 'function') {
             window.InventoryApp.Firebase.init().then(() => {
-                console.log('[Persistence] Firebase conectado y datos sincronizados.');
+                console.log('[Persistence] Firebase conectado y datos sincronizados desde Firestore.');
             }).catch(err => {
                 console.warn('[Persistence] Aviso al inicializar Firebase:', err);
             });
@@ -135,13 +221,13 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.nextProductSequence = 1;
         AppState.canjesPremios = [];
         
-        // 2. SuperAdmin intacto con clave 1810
+        // 2. SuperAdmin intacto con credenciales maestras
         asegurarUsuarioAdminInicial();
         AppState.usuarioActual = null;
 
-        // 3. Limpiar localStorage
-        localStorage.removeItem(STORAGE_KEY);
-        guardar(true);
+        // 3. Limpiar sesión y entidades de localStorage
+        localStorage.removeItem(SESSION_KEY);
+        purgarResiduosEntidadesLocalStorage();
 
         // 4. Limpiar en Firestore si está conectado
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.purgarBaseDeDatosCompleta === 'function') {
@@ -152,8 +238,8 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     function limpiarTodo() {
-        localStorage.removeItem(STORAGE_KEY);
-        ultimoSnapshot = '';
+        localStorage.removeItem(SESSION_KEY);
+        purgarResiduosEntidadesLocalStorage();
     }
 
     /**
@@ -468,6 +554,7 @@ window.InventoryApp = window.InventoryApp || {};
         exportarMasterExcel,
         importarMasterExcel,
         asegurarUsuarioAdminInicial,
-        STORAGE_KEY
+        SESSION_KEY,
+        STORAGE_KEY: SESSION_KEY
     };
 })();

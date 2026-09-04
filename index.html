@@ -244,7 +244,7 @@
         <button class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
         <button class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
         <button class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
-            <i class="fas fa-receipt"></i> Tipos de Transacciones
+            <i class="fas fa-hand-holding-dollar"></i> Transacciones / Pagos
             <span id="badge-abonos-desktop" class="badge-pill-counter" style="background:#d97706; color:#ffffff; display:none;">0</span>
         </button>
         <button class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
@@ -700,113 +700,68 @@
         <div class="card transaction-module-card">
             <div class="transaction-module-header">
                 <div>
-                    <h3 style="margin:0;"><i class="fas fa-money-check-dollar"></i> Tipos de Transacciones</h3>
-                    <p style="color:var(--text-muted); margin:6px 0 0;">Registra transferencias y pagos móviles por referencia y controla su conciliación antes de afectar la deuda.</p>
+                    <h3 style="margin:0;"><i class="fas fa-hand-holding-dollar"></i> Registrar Pago / Abono de Cliente</h3>
+                    <p style="color:var(--text-muted); margin:6px 0 0;">Registra pagos directos de clientes (efectivo, pago móvil o transferencia) para rebajar su saldo y deuda al instante.</p>
                 </div>
                 <div class="transaction-status-legend">
-                    <span class="transaction-badge transaction-pending">Confirmando</span>
-                    <span class="transaction-badge transaction-failed">Fallido</span>
-                    <span class="transaction-badge transaction-approved">Pago agregado</span>
+                    <span class="transaction-badge transaction-approved"><i class="fas fa-check-circle"></i> Pago agregado</span>
+                    <span class="transaction-badge transaction-pending"><i class="fas fa-clock"></i> Por verificar</span>
                 </div>
             </div>
 
             <form id="form-transaccion" class="transaction-form" onsubmit="registrarTransaccion(event)">
                 <input type="hidden" id="transaccion-edit-id" value="">
+                
                 <div class="form-group">
-                    <label>Cliente</label>
-                    <select id="transaccion-cliente" required></select>
+                    <label style="font-weight:600; font-size:0.88rem;"><i class="fas fa-user"></i> Cliente</label>
+                    <select id="transaccion-cliente" required class="input-control"></select>
+                    <small id="transaccion-cliente-hint" class="transaction-field-hint">Titular de la cuenta</small>
                 </div>
+                
                 <div class="form-group">
-                    <label>Tipo de Transacción</label>
-                    <select id="transaccion-tipo" required>
-                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                        <option value="Pago Móvil">Pago Móvil</option>
+                    <label style="font-weight:600; font-size:0.88rem;"><i class="fas fa-wallet"></i> Método de Pago</label>
+                    <select id="transaccion-tipo" required class="input-control" onchange="alCambiarMetodoTransaccionDirecta()">
+                        <option value="Efectivo USD">Efectivo ($ USD)</option>
+                        <option value="Efectivo VES">Efectivo (Bs)</option>
+                        <option value="Pago Móvil">Pago Móvil (Bs)</option>
+                        <option value="Transferencia Bancaria">Transferencia Bancaria (Bs)</option>
                     </select>
+                    <small class="transaction-field-hint">Canal y divisa</small>
                 </div>
+                
                 <div class="form-group">
-                    <label>Número de Referencia</label>
-                    <input type="text" id="transaccion-referencia" maxlength="40" placeholder="Ej. 123456789012" autocomplete="off" required>
+                    <label id="lbl-transaccion-monto" style="font-weight:600; font-size:0.88rem;"><i class="fas fa-dollar-sign"></i> Monto ($ USD)</label>
+                    <input type="number" id="transaccion-monto" step="0.01" min="0.01" inputmode="decimal" autocomplete="off" placeholder="0.00" required class="input-control" oninput="alEscribirMontoTransaccionDirecta()">
+                    <small id="transaccion-monto-equiv" class="transaction-field-hint" style="font-weight:600; color:var(--primary-accent);">Equiv: Bs. 0.00</small>
                 </div>
-                <div class="form-group">
-                    <label>Monto (Bs)</label>
-                    <input type="text" id="transaccion-monto" inputmode="decimal" autocomplete="off" placeholder="0.00" required onblur="formatearMontoTransaccion(true)" oninput="normalizarEntradaMontoTransaccion()">
+                
+                <div class="form-group" id="transaccion-referencia-group">
+                    <label id="lbl-transaccion-referencia" style="font-weight:600; font-size:0.88rem;"><i class="fas fa-hashtag"></i> N° de Referencia (opcional)</label>
+                    <input type="text" id="transaccion-referencia" maxlength="40" placeholder="Efectivo (opcional)" autocomplete="off" class="input-control">
+                    <small id="transaccion-referencia-hint" class="transaction-field-hint">Opcional para efectivo</small>
                 </div>
+                
                 <div class="form-group transaction-submit">
-                    <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Registrar</button>
+                    <label class="transaction-submit-spacer" aria-hidden="true">&nbsp;</label>
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <button type="submit" class="btn btn-success" style="flex:1; justify-content:center; padding:11px 16px; font-weight:700; gap:8px;">
+                            <i class="fas fa-check-circle"></i> Registrar y Rebajar Deuda
+                        </button>
+                        <button type="button" id="btn-cancelar-edicion-tx" class="btn btn-outline" style="display:none; padding:11px 14px;" onclick="cancelarEdicionTransaccion()">
+                            Cancelar
+                        </button>
+                    </div>
+                    <small class="transaction-field-hint" style="visibility:hidden;" aria-hidden="true">&nbsp;</small>
                 </div>
             </form>
 
-            <div class="transaction-batch-card">
-                <div class="transaction-batch-header">
-                    <div>
-                        <h4><i class="fas fa-layer-group"></i> Carga múltiple de referencias</h4>
-                        <p>Pega decenas o cientos de transferencias/pagos móviles, o carga un archivo. Una transacción por línea.</p>
-                    </div>
-                    <span class="transaction-batch-hint">Formato: Cliente (ID o Nombre) | Referencia | Monto Bs &nbsp;(Tipo opcional)</span>
-                </div>
-
-                <div class="transaction-batch-upload-row">
-                    <input type="file" id="transaccion-lote-archivo" accept=".csv,.xlsx,.xls" style="display:none;" onchange="manejarArchivoLote(event)">
-                    <button type="button" class="btn btn-outline" onclick="document.getElementById('transaccion-lote-archivo').click()">
-                        <i class="fas fa-file-arrow-up"></i> Cargar archivo (CSV / Excel)
-                    </button>
-                    <small id="transaccion-lote-archivo-nombre">Ningún archivo cargado. También puedes pegar directamente el texto abajo.</small>
-                </div>
-
-                <textarea id="transaccion-lote-input" rows="4" placeholder="30544641 | Pago Móvil | 1010 | 2000
-30544641 | Transferencia Bancaria | 1011 | 1500.00
-OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></textarea>
-
-                <div class="transaction-batch-actions">
-                    <small>Acepta <b>|</b>, tabulaciones (pegado desde Excel) o <b>;</b> como separador. Identifica al cliente por su <b>ID/Cédula</b> o por su <b>Nombre y Apellido</b> (no distingue mayúsculas ni acentos). El tipo (Pago Móvil / Transferencia) es opcional: si no lo indicas, se asume Transferencia Bancaria.</small>
-                    <div class="transaction-batch-actions-buttons">
-                        <button type="button" class="btn btn-outline" onclick="limpiarLoteTransacciones()"><i class="fas fa-broom"></i> Limpiar</button>
-                        <button type="button" class="btn btn-warning" onclick="agregarTransaccionesAlLote()"><i class="fas fa-plus"></i> Agregar al lote</button>
-                    </div>
-                </div>
-
-                <div id="transaccion-lote-preview" class="transaction-batch-preview" style="display:none;">
-                    <div class="transaction-batch-preview-header">
-                        <strong><i class="fas fa-table-list"></i> Vista previa de lo detectado</strong>
-                        <span id="transaccion-lote-preview-resumen"></span>
-                    </div>
-                    <div class="table-responsive transaction-batch-preview-table-wrap">
-                        <table class="transaction-batch-preview-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Cliente</th>
-                                    <th>Tipo</th>
-                                    <th>Referencia</th>
-                                    <th class="num">Monto (Bs)</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transaccion-lote-preview-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="transaction-batch-process">
-                <div>
-                    <strong><i class="fas fa-shield-halved"></i> Verificación por lote</strong>
-                    <p id="transaccion-lote-progreso">Las transacciones en <b>Confirmando</b> esperan aquí hasta que ejecutes la verificación.</p>
-                </div>
-                <button type="button" id="btn-verificar-todas" class="btn btn-success" onclick="verificarTodasLasTransacciones()">
-                    <i class="fas fa-check-double"></i> Verificar todas las pendientes
-                </button>
-            </div>
-
-            <div id="transaccion-lote-resultado" class="transaction-batch-result" style="display:none;"></div>
-
             <div class="transaction-search-row">
                 <div class="form-group" style="flex:1; min-width:240px;">
-                    <label><i class="fas fa-magnifying-glass"></i> Buscar por Referencia</label>
-                    <input type="search" id="transaccion-busqueda" placeholder="Escribe la referencia bancaria..." oninput="filtrarTransacciones()">
+                    <label><i class="fas fa-magnifying-glass"></i> Buscar por Referencia o Cliente</label>
+                    <input type="search" id="transaccion-busqueda" placeholder="Escribe el nombre del cliente o referencia..." oninput="filtrarTransacciones()">
                 </div>
-                <div id="transaccion-resumen" class="transaction-summary">0 pendientes · 0 pagos agregados</div>
-                <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar vista</button>
+                <div id="transaccion-resumen" class="transaction-summary">0 pagos registrados</div>
+                <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
             </div>
 
             <div class="table-responsive">
@@ -1622,7 +1577,7 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
             <div class="form-group transaction-reference-field" id="abono-referencia-group" style="margin-bottom: 12px; display:none;">
                 <label>Número de Referencia</label>
                 <input type="text" id="abono-referencia" maxlength="40" placeholder="Referencia bancaria / pago móvil" autocomplete="off">
-                <small style="color:var(--text-muted);">Quedará en estado <b>Confirmando</b> y no reducirá la deuda hasta ser validado.</small>
+                <small style="color:var(--text-muted);">Se aplicará y rebajará de inmediato la deuda del cliente.</small>
             </div>
             <div class="form-group" style="margin-bottom: 15px;">
                 <label>Equivalente Convertido</label>
@@ -1968,9 +1923,9 @@ OTRO_ID | Pago Móvil | 1012 | 850,50" oninput="previsualizarLoteDebounced()"></
         <i class="fas fa-users"></i>
         <span>Clientes</span>
     </button>
-    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Tipos de Transacciones" style="position:relative;">
-        <i class="fas fa-receipt"></i>
-        <span>Transac.</span>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Pagos y Transacciones" style="position:relative;">
+        <i class="fas fa-hand-holding-dollar"></i>
+        <span>Pagos</span>
         <span id="badge-abonos-mobile" class="badge-dot" style="background:#d97706; display:none;"></span>
     </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">

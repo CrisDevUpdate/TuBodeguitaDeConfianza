@@ -2278,6 +2278,40 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * Guarda la configuración global (Premio del mes, temporada de puntos, secuencias) en Firestore
+     */
+    async function guardarConfiguracionGlobalCloud(configData) {
+        if (!configData || typeof configData !== 'object') return false;
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                await db.collection(COLLECTIONS.CONFIG).doc('global').set(configData, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar configuración global en Firestore:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Registra un canje de premio en Firestore
+     */
+    async function guardarCanjePremioCloud(canje) {
+        if (!canje || !canje.id) return false;
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                await db.collection(COLLECTIONS.CANJES).doc(String(canje.id)).set(canje, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar canje de premio en Firestore:', e);
+            return false;
+        }
+    }
+
+    /**
      * Purgar / Reiniciar base de datos a estado virgen tanto en Firestore como localmente
      */
     async function purgarBaseDeDatosCompletaCloud() {
@@ -2294,7 +2328,9 @@ window.InventoryApp = window.InventoryApp || {};
                     COLLECTIONS.AUDITORIAS,
                     COLLECTIONS.ELIMINACIONES,
                     COLLECTIONS.CLIENTES_ELIMINADOS,
-                    COLLECTIONS.USUARIOS
+                    COLLECTIONS.USUARIOS,
+                    COLLECTIONS.CANJES,
+                    COLLECTIONS.PAGOS_POR_VERIFICAR
                 ];
 
                 for (const colName of coleccionesAPurgar) {
@@ -2524,6 +2560,8 @@ window.InventoryApp = window.InventoryApp || {};
         guardarConfiguracionPersonalizada,
         reproducirSonidoNotificacion: reproducirSonidoNotificacion,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
+        guardarConfiguracionGlobal: guardarConfiguracionGlobalCloud,
+        guardarCanjePremio: guardarCanjePremioCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
     };

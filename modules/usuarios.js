@@ -606,11 +606,15 @@ async function registrarUsuarioDesdeGatewall(e) {
 
         // Si es cliente, registrarlo también en la colección de clientes
         if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === cedula)) {
-            AppState.clientes.push({
+            const nuevoCli = {
                 id: cedula,
                 nombre: nombre,
                 telefono: telefono
-            });
+            };
+            AppState.clientes.push(nuevoCli);
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+            }
         }
 
         AppState.usuarioActual = nuevoUsuario;

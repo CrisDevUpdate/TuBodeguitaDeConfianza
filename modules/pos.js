@@ -279,6 +279,9 @@ async function ejecutarFinalizacionCheckoutPOS() {
         const clienteExistente = clientes.find(c => c.id === clienteId);
         if (clienteExistente) {
             clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
+            }
         }
     }
 

@@ -246,6 +246,7 @@ function switchTab(tabId) {
         } else if (tabId === 'transacciones') {
             if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
             if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+            if (typeof alCambiarMetodoTransaccionDirecta === 'function') alCambiarMetodoTransaccionDirecta();
             if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         } else if (tabId === 'auditoria') {
             if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
