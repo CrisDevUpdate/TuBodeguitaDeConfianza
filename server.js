@@ -11,6 +11,33 @@ const app = express();
 const PORT = 3000;
 const HOST = '0.0.0.0';
 
+// Cargar variables de entorno desde .env si existen
+try {
+  const envPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    envContent.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const key = trimmed.substring(0, eqIdx).trim();
+          const val = trimmed.substring(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+          if (key === 'BLOB_READ_WRITE_TOKEN') {
+            if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_')) {
+              process.env[key] = val;
+            }
+          } else {
+            process.env[key] = val;
+          }
+        }
+      }
+    });
+  }
+} catch (e) {
+  console.warn('[Env] Aviso al leer .env:', e.message);
+}
+
 app.use(cors());
 // Raw parser for direct binary uploads (file streams from Vercel Blob client)
 app.use(express.raw({ type: ['image/*', 'application/octet-stream'], limit: '30mb' }));
@@ -633,34 +660,64 @@ function obtenerVercelBlobToken(req) {
   if (req && req.query && req.query.token) {
     return req.query.token;
   }
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    return process.env.BLOB_READ_WRITE_TOKEN;
-  }
-  // Verificar si existe en archivo .env
+
+  // Verificar si existe en archivo .env primero para tokens válidos
   try {
-    const fs = path;
-    import('fs').then(fsModule => {
-      if (fsModule.existsSync('.env')) {
-        const content = fsModule.readFileSync('.env', 'utf-8');
-        const match = content.match(/BLOB_READ_WRITE_TOKEN\s*=\s*(.+)/);
-        if (match && match[1]) {
-          process.env.BLOB_READ_WRITE_TOKEN = match[1].trim().replace(/^['"]|['"]$/g, '');
+    if (fs.existsSync('.env')) {
+      const content = fs.readFileSync('.env', 'utf-8');
+      const match = content.match(/BLOB_READ_WRITE_TOKEN\s*=\s*(.+)/);
+      if (match && match[1]) {
+        const envVal = match[1].trim().replace(/^['"]|['"]$/g, '');
+        if (envVal.startsWith('vercel_blob_rw_')) {
+          process.env.BLOB_READ_WRITE_TOKEN = envVal;
+          return envVal;
         }
       }
-    }).catch(() => {});
+    }
   } catch (e) {}
 
-  return process.env.BLOB_READ_WRITE_TOKEN || null;
+  if (process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_')) {
+    return process.env.BLOB_READ_WRITE_TOKEN;
+  }
+
+  const fallbackToken = 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
+  return fallbackToken;
 }
 
 // Endpoint de Estado / Diagnóstico de Vercel Blob
 app.get('/api/blob/status', (req, res) => {
   const token = obtenerVercelBlobToken(req);
+  const isValidFormat = Boolean(token && token.startsWith('vercel_blob_rw_'));
+  const isSuspiciousNumeric = Boolean(token && /^\d+$/.test(token));
+
+  let connectionStatus = 'not_configured';
+  let message = 'No se ha configurado BLOB_READ_WRITE_TOKEN.';
+
+  if (token) {
+    if (isSuspiciousNumeric || !isValidFormat) {
+      connectionStatus = 'invalid_token_format';
+      message = `El token configurado ("${token.substring(0, 8)}...", ${token.length} caracteres) no es un token oficial de Vercel Blob. Los tokens de Vercel Blob siempre comienzan con "vercel_blob_rw_".`;
+    } else {
+      connectionStatus = 'configured';
+      message = 'Token con formato válido de Vercel Blob.';
+    }
+  }
+
   res.json({
     success: true,
-    connected: Boolean(token),
-    hasEnvToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
-    tokenPrefix: token ? `${token.substring(0, 10)}...` : null
+    connected: connectionStatus === 'configured',
+    status: connectionStatus,
+    message: message,
+    tokenPrefix: token ? `${token.substring(0, 8)}...` : null,
+    tokenLength: token ? token.length : 0,
+    hasEnvVar: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    instructions: {
+      step1: 'Ingresa a https://vercel.com/dashboard',
+      step2: 'Ve a la pestaña "Storage" y haz clic en "Create Database" o "Create" -> "Blob"',
+      step3: 'Asigna un nombre a tu almacén (ej: "bodeguita-blobs") y haz clic en "Create"',
+      step4: 'Copia el valor de "BLOB_READ_WRITE_TOKEN" (comienza con "vercel_blob_rw_")',
+      step5: 'Pégalo en los Secrets / Variables de entorno del proyecto'
+    }
   });
 });
 
@@ -720,9 +777,13 @@ async function manejarSubidaVercelBlob(req, res) {
     }
 
     const blobToken = obtenerVercelBlobToken(req);
+    let blobErrorDetail = null;
 
     // 1. Si existe BLOB_READ_WRITE_TOKEN, usar la SDK oficial de @vercel/blob
     if (blobToken) {
+      if (!blobToken.startsWith('vercel_blob_rw_')) {
+        console.warn(`[Vercel Blob] AVISO: El token configurado (${blobToken.substring(0, 8)}..., longitud: ${blobToken.length}) no tiene el formato estándar de Vercel Blob ("vercel_blob_rw_...").`);
+      }
       try {
         const { put } = await import('@vercel/blob');
         let blobResult = null;
@@ -745,7 +806,7 @@ async function manejarSubidaVercelBlob(req, res) {
 
         if (blobResult) {
           const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
-          console.log(`[Vercel Blob] Archivo subido exitosamente a la nube: ${blobResult.pathname} (${blobResult.url || viewUrl})`);
+          console.log(`[Vercel Blob] Archivo subido exitosamente a la nube de Vercel: ${blobResult.pathname} (${blobResult.url || viewUrl})`);
           
           return res.json({
             pathname: blobResult.pathname,
@@ -758,7 +819,8 @@ async function manejarSubidaVercelBlob(req, res) {
           });
         }
       } catch (blobErr) {
-        console.error('[Vercel Blob Error]:', blobErr);
+        blobErrorDetail = blobErr.message;
+        console.error('[Vercel Blob Error]:', blobErr.message);
       }
     }
 
@@ -771,7 +833,7 @@ async function manejarSubidaVercelBlob(req, res) {
     fs.writeFileSync(localFilePath, buffer);
 
     const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
-    console.log(`[Blob Storage] Archivo guardado localmente: ${targetFilename} -> ${viewUrl}`);
+    console.log(`[Blob Storage Fallback] Archivo guardado localmente: ${targetFilename} -> ${viewUrl}`);
 
     return res.json({
       pathname: targetFilename,
@@ -781,7 +843,10 @@ async function manejarSubidaVercelBlob(req, res) {
       viewUrl: viewUrl,
       downloadUrl: viewUrl,
       provider: 'local-blob-store',
-      notice: 'Para almacenar en CDN global de Vercel Blob, define BLOB_READ_WRITE_TOKEN en las variables de entorno.'
+      blobError: blobErrorDetail,
+      notice: blobErrorDetail
+        ? `No se pudo conectar a Vercel Blob (${blobErrorDetail}). Se guardó en almacén local.`
+        : 'Para almacenar directamente en el CDN global de Vercel Blob, define BLOB_READ_WRITE_TOKEN en las variables de entorno.'
     });
 
   } catch (err) {
@@ -822,11 +887,24 @@ async function manejarVistaVercelBlob(req, res) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           if (result.blob && result.blob.contentType) {
             res.setHeader('Content-Type', result.blob.contentType);
+          } else if (result.headers && result.headers.get && result.headers.get('content-type')) {
+            res.setHeader('Content-Type', result.headers.get('content-type'));
           }
           res.setHeader('X-Content-Type-Options', 'nosniff');
 
           if (result.stream) {
-            return result.stream.pipe(res);
+            const { Readable } = await import('stream');
+            if (typeof Readable.fromWeb === 'function') {
+              return Readable.fromWeb(result.stream).pipe(res);
+            } else {
+              const reader = result.stream.getReader();
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                res.write(value);
+              }
+              return res.end();
+            }
           }
         }
       } catch (getErr) {

@@ -290,7 +290,11 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        console.log(`[Vercel Blob Storage] Imagen almacenada con éxito: ${finalUrl} (Proveedor: ${newBlob.provider})`);
+        if (newBlob.provider === 'vercel-blob') {
+            console.log(`[Vercel Blob] Imagen almacenada con éxito en la nube de Vercel: ${finalUrl}`);
+        } else {
+            console.warn(`[Almacén Local Fallback] Imagen guardada en almacenamiento local (${finalUrl}). Causa: ${newBlob.blobError || newBlob.notice}`);
+        }
         return {
             url: finalUrl,
             pathname: newBlob.pathname,
