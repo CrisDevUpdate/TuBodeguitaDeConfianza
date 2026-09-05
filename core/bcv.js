@@ -275,9 +275,6 @@ function seleccionarMonedaBCV(moneda) {
 }
 
 function switchTab(tabId) {
-    if (window.InventoryApp?.Helpers?.switchTab) {
-        return window.InventoryApp.Helpers.switchTab(tabId);
-    }
     document.querySelectorAll('.nav-btn, .bottom-nav-item').forEach(b => {
         const onclickAttr = b.getAttribute('onclick') || '';
         const dataTab = b.getAttribute('data-tab');
@@ -288,14 +285,10 @@ function switchTab(tabId) {
         }
     });
     
-    document.querySelectorAll('.view-content').forEach(v => {
-        v.classList.remove('active');
-        v.style.display = 'none';
-    });
+    document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
     const targetView = document.getElementById(tabId);
     if (targetView) {
         targetView.classList.add('active');
-        targetView.style.display = 'block';
         if (window.innerWidth <= 768) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -316,8 +309,6 @@ function switchTab(tabId) {
     } else if (tabId === 'pos' && typeof renderizarPosProductos === 'function') {
         renderizarPosProductos();
         if (typeof renderizarCarrito === 'function') renderizarCarrito();
-    } else if (tabId === 'historial-ventas' && typeof renderizarHistorialVentasAdmin === 'function') {
-        renderizarHistorialVentasAdmin();
     } else if (tabId === 'notificaciones' && typeof renderizarNotificaciones === 'function') {
         renderizarNotificaciones();
     }

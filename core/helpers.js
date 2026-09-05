@@ -259,9 +259,6 @@ function switchTab(tabId) {
             if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         } else if (tabId === 'historial-ventas') {
             if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
-        } else if (tabId === 'notificaciones') {
-            if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
-            if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
         } else if (tabId === 'premio-mes-admin') {
             if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
         } else if (tabId === 'configuracion') {
