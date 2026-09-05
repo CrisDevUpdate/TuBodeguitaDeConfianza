@@ -299,54 +299,30 @@ async function ejecutarFinalizacionCheckoutPOS() {
         });
     }
 
-    // Sincronizar en el Centro de Notificaciones y PagosPorVerificar de Firestore
-    if (metodoPago === 'Crédito') {
-        // Las transacciones a crédito NO requieren verificación/aprobación.
-        // Se refleja de inmediato en el Centro de Notificaciones:
-        if (typeof window.registrarNotificacion === 'function') {
-            window.registrarNotificacion({
-                tipo: 'credito',
-                titulo: 'Crédito Concedido',
-                mensaje: `${clienteObj ? clienteObj.nombre : clienteId} sacó un crédito por $${Number(total).toFixed(2)} (Venta POS #${nuevaVenta.id})`,
-                clienteId: clienteId,
-                clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
-                montoUSD: Number(total),
-                montoVES: Number(totalVES),
-                referenciaId: nuevaVenta.id,
-                destino: {
-                    tab: 'clientes',
-                    subAccion: 'verCliente',
-                    clienteId: clienteId,
-                    idRef: nuevaVenta.id
-                }
-            });
-        }
-    } else {
-        // Solo registrar en PagosPorVerificar si requiere validación bancaria o pago
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
-            window.InventoryApp.Firebase.guardarPagoPorVerificar({
-                id: nuevaVenta.id,
-                pedidoId: nuevaVenta.id,
-                ventaId: nuevaVenta.id,
-                clienteId: clienteId,
-                clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
-                clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
-                totalUSD: total,
-                montoUSD: total,
-                totalVES: totalVES,
-                montoVES: totalVES,
-                metodoPago: metodoPago,
-                tipoPago: metodoPago,
-                tipo: metodoPago,
-                referencia: referencia || (metodoPago.includes('Efectivo') ? 'Efectivo en caja POS' : 'N/A'),
-                items: itemsVendidos,
-                fecha: nuevaVenta.fecha,
-                fechaISO: new Date().toISOString(),
-                estado: 'PENDIENTE_VERIFICACION',
-                tipoRegistro: 'VENTA_POS',
-                origen: 'POS Mostrador'
-            }).catch(() => {});
-        }
+    // Sincronizar venta en PagosPorVerificar de Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
+        window.InventoryApp.Firebase.guardarPagoPorVerificar({
+            id: nuevaVenta.id,
+            pedidoId: nuevaVenta.id,
+            ventaId: nuevaVenta.id,
+            clienteId: clienteId,
+            clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+            clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
+            totalUSD: total,
+            montoUSD: total,
+            totalVES: totalVES,
+            montoVES: totalVES,
+            metodoPago: metodoPago,
+            tipoPago: metodoPago,
+            tipo: metodoPago,
+            referencia: referencia || (metodoPago.includes('Efectivo') ? 'Efectivo en caja POS' : 'N/A'),
+            items: itemsVendidos,
+            fecha: nuevaVenta.fecha,
+            fechaISO: new Date().toISOString(),
+            estado: 'PENDIENTE_VERIFICACION',
+            tipoRegistro: 'VENTA_POS',
+            origen: 'POS Mostrador'
+        }).catch(() => {});
     }
 
     // Sincronizar con backend local si está disponible

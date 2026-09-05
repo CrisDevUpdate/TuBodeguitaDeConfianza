@@ -309,8 +309,6 @@ function switchTab(tabId) {
     } else if (tabId === 'pos' && typeof renderizarPosProductos === 'function') {
         renderizarPosProductos();
         if (typeof renderizarCarrito === 'function') renderizarCarrito();
-    } else if (tabId === 'notificaciones' && typeof renderizarNotificaciones === 'function') {
-        renderizarNotificaciones();
     }
 }
 
