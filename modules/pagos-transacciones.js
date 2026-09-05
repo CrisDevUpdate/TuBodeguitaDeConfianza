@@ -1236,7 +1236,13 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
     }
 
     // Registrar notificación dirigida exclusivamente al Cliente informando que el admin aprobó su transacción
-    const montoMsg = montoDisplay;
+    const { esDivisa: esDivisaAbn, montoUSD: usdFmtVal, montoVES: vesFmtVal } = typeof sanitizarAbonoMonedas === 'function'
+        ? sanitizarAbonoMonedas(abono, tasaActiva)
+        : { esDivisa: String(abono.formaPago || abono.metodo || '').includes('USD'), montoUSD: Number(abono.montoUSD || 0), montoVES: Number(abono.montoVES || 0) };
+
+    const bsStr = vesFmtVal.toLocaleString('es-VE', { minimumFractionDigits: 2 });
+    const usdStr = usdFmtVal.toFixed(2);
+    const montoMsg = esDivisaAbn ? `$${usdStr} USD` : `Bs. ${bsStr}`;
     const refStr = abono.referencia ? ` (Ref: ${abono.referencia})` : '';
 
     if (typeof window.registrarNotificacion === 'function') {
