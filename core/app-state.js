@@ -4,7 +4,7 @@
  * event handlers (onclick/onsubmit). This preserves the existing UI contract.
  */
 window.InventoryApp = window.InventoryApp || {};
-const AppState = window.InventoryApp.state = {
+const AppState = window.AppState = window.InventoryApp.state = {
     tasaActiva: 0,
     tasaUSD_BCV: 0,
     tasaEUR_BCV: 0,

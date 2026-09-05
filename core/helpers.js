@@ -181,9 +181,10 @@ function switchTab(tabId) {
     if (!tabId) return;
 
     // Control estricto de acceso RBAC por rol
-    const usuario = window.AppState?.usuarioActual;
-    const rol = (usuario?.rol || 'cliente').toLowerCase();
-    const esAdmin = rol === 'admin' || rol === 'superadmin';
+    const usuario = window.AppState?.usuarioActual || window.usuarioActual || (window.InventoryApp && window.InventoryApp.state && window.InventoryApp.state.usuarioActual);
+    const idDoc = (usuario?.cedula || usuario?.id || '').toString();
+    const rol = (usuario?.rol || '').toLowerCase();
+    const esAdmin = rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario?.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
     const esVendedor = rol === 'vendedor';
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
 
@@ -191,7 +192,7 @@ function switchTab(tabId) {
         if (esVendedor && !vendedorAllowedTabs.includes(tabId)) {
             console.warn(`[RBAC] Acceso denegado a la pestaña ${tabId} para el rol Vendedor.`);
             tabId = 'pos';
-        } else if (!esVendedor && !tabId.startsWith('cliente-') && tabId !== 'notificaciones') {
+        } else if (!esVendedor && usuario && !tabId.startsWith('cliente-') && tabId !== 'notificaciones') {
             console.warn(`[RBAC] Acceso denegado a la pestaña administrativa ${tabId} para el rol Cliente.`);
             tabId = 'cliente-catalogo';
         }

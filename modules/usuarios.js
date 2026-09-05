@@ -87,7 +87,8 @@ function verificarGatewall() {
  */
 function configurarVistasPorRol(usuario) {
     const rol = (usuario.rol || 'cliente').toLowerCase();
-    const esAdmin = rol === 'admin' || rol === 'superadmin';
+    const idDoc = (usuario.cedula || usuario.id || '').toString();
+    const esAdmin = rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
     const esVendedor = rol === 'vendedor';
     const esCliente = !esAdmin && !esVendedor;
 
@@ -99,7 +100,12 @@ function configurarVistasPorRol(usuario) {
     // Configurar visibilidad en barra de navegación superior de escritorio
     document.querySelectorAll('#main-nav-tabs .nav-btn').forEach(btn => {
         const tab = btn.getAttribute('data-tab');
-        if (!tab) return;
+        if (!tab) {
+            if (btn.classList.contains('nav-cliente-only') || btn.id === 'btn-cliente-nav-cart') {
+                btn.style.display = esCliente ? '' : 'none';
+            }
+            return;
+        }
 
         if (esAdmin) {
             btn.style.display = tab.startsWith('cliente-') ? 'none' : '';

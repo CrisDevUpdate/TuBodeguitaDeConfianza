@@ -274,55 +274,6 @@ function seleccionarMonedaBCV(moneda) {
     actualizarVistaTasaBCV();
 }
 
-function switchTab(tabId) {
-    if (window.InventoryApp?.Helpers?.switchTab) {
-        return window.InventoryApp.Helpers.switchTab(tabId);
-    }
-    document.querySelectorAll('.nav-btn, .bottom-nav-item').forEach(b => {
-        const onclickAttr = b.getAttribute('onclick') || '';
-        const dataTab = b.getAttribute('data-tab');
-        if (dataTab === tabId || onclickAttr.includes(`'${tabId}'`) || onclickAttr.includes(`"${tabId}"`)) {
-            b.classList.add('active');
-        } else {
-            b.classList.remove('active');
-        }
-    });
-    
-    document.querySelectorAll('.view-content').forEach(v => {
-        v.classList.remove('active');
-        v.style.display = 'none';
-    });
-    const targetView = document.getElementById(tabId);
-    if (targetView) {
-        targetView.classList.add('active');
-        targetView.style.display = 'block';
-        if (window.innerWidth <= 768) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    }
-
-    // Disparadores de renderizado según la vista
-    if (tabId === 'cliente-catalogo' && typeof renderizarCatalogoCliente === 'function') {
-        renderizarCatalogoCliente();
-        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
-    } else if (tabId === 'cliente-cuenta' && typeof renderizarEstadoCuentaCliente === 'function') {
-        renderizarEstadoCuentaCliente();
-    } else if (tabId === 'cliente-premio' && typeof renderizarPremioMesCliente === 'function') {
-        renderizarPremioMesCliente();
-    } else if (tabId === 'premio-mes-admin' && typeof renderizarConfiguradorPremioAdmin === 'function') {
-        renderizarConfiguradorPremioAdmin();
-    } else if (tabId === 'usuarios' && typeof renderizarUsuarios === 'function') {
-        renderizarUsuarios();
-    } else if (tabId === 'pos' && typeof renderizarPosProductos === 'function') {
-        renderizarPosProductos();
-        if (typeof renderizarCarrito === 'function') renderizarCarrito();
-    } else if (tabId === 'historial-ventas' && typeof renderizarHistorialVentasAdmin === 'function') {
-        renderizarHistorialVentasAdmin();
-    } else if (tabId === 'notificaciones' && typeof renderizarNotificaciones === 'function') {
-        renderizarNotificaciones();
-    }
-}
-
 // Modal de configuración manual
 function abrirModalTasaManual() {
     const modal = document.getElementById('modal-tasa-manual');
@@ -409,4 +360,3 @@ window.cerrarModalTasaManual = cerrarModalTasaManual;
 window.guardarTasaManualDesdeModal = guardarTasaManualDesdeModal;
 window.restaurarAutoSincronizacionBCV = restaurarAutoSincronizacionBCV;
 window.seleccionarMonedaBCV = seleccionarMonedaBCV;
-window.switchTab = switchTab;

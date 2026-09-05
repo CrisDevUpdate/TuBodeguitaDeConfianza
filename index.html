@@ -244,47 +244,47 @@
     <!-- NAVEGACIÓN PRINCIPAL DINÁMICA POR ROL (ADMIN VS CLIENTE) -->
     <div class="nav-tabs" id="main-nav-tabs">
         <!-- Pestañas EXCLUSIVAS de Administrador -->
-        <button class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
-        <button class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
-        <button class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
-        <button class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
+        <button type="button" class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
             <i class="fas fa-hand-holding-dollar"></i> Transacciones / Pagos
             <span id="badge-abonos-desktop" class="badge-pill-counter" style="background:#d97706; color:#ffffff; display:none;">0</span>
         </button>
-        <button class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
-        <button class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
+        <button type="button" class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
             <i class="fas fa-user-shield"></i> Usuarios & Aprobación
             <span id="badge-pendientes-desktop" class="badge-pill-counter" style="display:none;">0</span>
         </button>
-        <button class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
+        <button type="button" class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
             <i class="fas fa-chart-line"></i> Historial de Ventas
             <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff;">0</span>
         </button>
-        <button class="nav-btn nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')">
+        <button type="button" class="nav-btn nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')">
             <i class="fas fa-bell"></i> Notificaciones
             <span id="badge-notificaciones-desktop" class="badge-pill-counter" style="background:#ef4444; color:#ffffff; display:none;">0</span>
         </button>
-        <button class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
+        <button type="button" class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
             <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
         </button>
-        <button class="nav-btn nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')">
+        <button type="button" class="nav-btn nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')">
             <i class="fas fa-gear"></i> Configuración
         </button>
 
         <!-- Pestañas EXCLUSIVAS de Cliente -->
-        <button class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
             <i class="fas fa-store"></i> Catálogo de Productos
         </button>
-        <button class="nav-btn nav-cliente-only" id="btn-cliente-nav-cart" onclick="abrirModalCarritoCliente()">
+        <button type="button" class="nav-btn nav-cliente-only" id="btn-cliente-nav-cart" onclick="abrirModalCarritoCliente()">
             <i class="fas fa-shopping-cart"></i> Mi Carrito (<span id="cliente-carrito-count">0</span>)
         </button>
-        <button class="nav-btn nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')">
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')">
             <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
         </button>
-        <button class="nav-btn nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')">
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')">
             <i class="fas fa-trophy" style="color:#f59e0b;"></i> Mis Puntos & Premios
         </button>
-        <button class="nav-btn nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')">
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')">
             <i class="fas fa-user-gear" style="color:var(--primary-accent);"></i> Mi Perfil & Ajustes
         </button>
     </div>
