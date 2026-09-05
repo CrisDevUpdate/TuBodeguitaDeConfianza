@@ -1270,35 +1270,6 @@ window.InventoryApp = window.InventoryApp || {};
                                     if (typeof alertFn === 'function') {
                                         alertFn('¡Abono Aprobado!', `Tu abono de $${Number(abn.montoUSD || 0).toFixed(2)} ha sido validado y conciliado por el Administrador. Tu saldo ha sido actualizado y tus puntos liberados.`, 'success');
                                     }
-
-                                    // Registrar notificación en el centro de notificaciones del cliente
-                                    if (typeof window.registrarNotificacion === 'function') {
-                                        const esDivisa = String(abn.formaPago || abn.metodo || '').includes('USD');
-                                        const bsStr = Number(abn.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
-                                        const usdStr = Number(abn.montoUSD || 0).toFixed(2);
-                                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
-                                        const refStr = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
-
-                                        window.registrarNotificacion({
-                                            id: 'notif_aprob_abn_' + idDoc,
-                                            tipo: 'aprobacion',
-                                            subTipo: 'aprobacion_admin',
-                                            titulo: 'Transacción Aprobada',
-                                            mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
-                                            clienteId: abn.clienteId || idSesion,
-                                            clienteNombre: usuarioSesion.nombre || abn.clienteNombre,
-                                            montoUSD: Number(abn.montoUSD || 0),
-                                            montoVES: Number(abn.montoVES || 0),
-                                            referenciaId: idDoc,
-                                            paraCliente: true,
-                                            paraAdmin: false,
-                                            destino: {
-                                                tab: 'cliente-cuenta',
-                                                subAccion: 'verAbono',
-                                                idRef: idDoc
-                                            }
-                                        });
-                                    }
                                 } else if (abn.estado === 'RECHAZADO') {
                                     const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                     if (typeof notifFn === 'function') {
@@ -1395,38 +1366,6 @@ window.InventoryApp = window.InventoryApp || {};
                                     if (typeof notifFn === 'function') {
                                         notifFn(`🔔 <strong>¡Nuevo Pago por Verificar!</strong> ${clienteNom} registró venta/pago de $${montoFmt} vía <strong>${metodoNom}</strong>${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 15000);
                                     }
-                                }
-                            }
-                        }
-
-                        // Si es el cliente y el administrador aprobó su transacción de pago
-                        if (change.type === 'modified' && (pago.estado === 'APROBADO' || pago.estado === 'Confirmado')) {
-                            const usuarioSesion = window.AppState?.usuarioActual;
-                            const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
-                            const pCli = String(pago.clienteId || pago.clienteCedula || '').trim();
-                            if (usuarioSesion && (pCli === idSesion || pCli === usuarioSesion.cedula)) {
-                                if (typeof window.registrarNotificacion === 'function') {
-                                    const esDivisa = String(pago.metodoPago || pago.tipoPago || '').includes('USD');
-                                    const bsStr = Number(pago.totalVES || pago.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
-                                    const usdStr = Number(pago.totalUSD || pago.montoUSD || pago.total || 0).toFixed(2);
-                                    const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
-                                    const refStr = pago.referencia && pago.referencia !== 'N/A' ? ` (Ref: ${pago.referencia})` : '';
-
-                                    window.registrarNotificacion({
-                                        id: 'notif_aprob_pag_' + idDoc,
-                                        tipo: 'aprobacion',
-                                        subTipo: 'aprobacion_admin',
-                                        titulo: 'Transacción Aprobada',
-                                        mensaje: `El Administrador aprobó tu pago de ${montoMsg}${refStr}. Tu transacción ha sido validada con éxito.`,
-                                        clienteId: idSesion,
-                                        clienteNombre: usuarioSesion.nombre || pago.clienteNombre,
-                                        montoUSD: Number(pago.totalUSD || pago.montoUSD || 0),
-                                        montoVES: Number(pago.totalVES || pago.montoVES || 0),
-                                        referenciaId: idDoc,
-                                        paraCliente: true,
-                                        paraAdmin: false,
-                                        destino: { tab: 'cliente-cuenta', subAccion: 'verAbono', idRef: idDoc }
-                                    });
                                 }
                             }
                         }

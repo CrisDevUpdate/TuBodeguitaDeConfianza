@@ -191,7 +191,7 @@ function switchTab(tabId) {
         if (esVendedor && !vendedorAllowedTabs.includes(tabId)) {
             console.warn(`[RBAC] Acceso denegado a la pestaña ${tabId} para el rol Vendedor.`);
             tabId = 'pos';
-        } else if (!esVendedor && !tabId.startsWith('cliente-') && tabId !== 'notificaciones') {
+        } else if (!esVendedor && !tabId.startsWith('cliente-')) {
             console.warn(`[RBAC] Acceso denegado a la pestaña administrativa ${tabId} para el rol Cliente.`);
             tabId = 'cliente-catalogo';
         }

@@ -1227,35 +1227,6 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
         }
     }
 
-    // Registrar notificación dirigida exclusivamente al Cliente informando que el admin aprobó su transacción
-    if (typeof window.registrarNotificacion === 'function') {
-        const esDivisa = String(abono.formaPago || abono.metodo || '').includes('USD');
-        const bsStr = Number(abono.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
-        const usdStr = Number(abono.montoUSD || 0).toFixed(2);
-        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
-        const refStr = abono.referencia ? ` (Ref: ${abono.referencia})` : '';
-
-        window.registrarNotificacion({
-            id: 'notif_aprob_abn_' + abono.id,
-            tipo: 'aprobacion',
-            subTipo: 'aprobacion_admin',
-            titulo: 'Transacción Aprobada',
-            mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
-            clienteId: abono.clienteId,
-            clienteNombre: abono.clienteNombre,
-            montoUSD: Number(abono.montoUSD || 0),
-            montoVES: Number(abono.montoVES || 0),
-            referenciaId: abono.id,
-            paraCliente: true,
-            paraAdmin: false,
-            destino: {
-                tab: 'cliente-cuenta',
-                subAccion: 'verAbono',
-                idRef: abono.id
-            }
-        });
-    }
-
     // 6. Refrescar vistas
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
@@ -1518,31 +1489,19 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // 5. Registrar en Centro de Notificaciones (Dirigido al Cliente)
+    // 5. Registrar en Centro de Notificaciones
     if (typeof window.registrarNotificacion === 'function') {
         const clienteNom = item.clienteNombre || item.clienteId || 'Cliente';
-        const montoUSD = Number(item.totalUSD || item.montoUSD || item.total || 0);
-        const montoVES = Number(item.totalVES || item.montoVES || 0);
-        const esDivisa = String(item.metodoPago || item.tipoPago || '').includes('USD');
-        const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
-        const usdStr = montoUSD.toFixed(2);
-        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
-        const refStr = item.referencia && item.referencia !== 'N/A' ? ` (Ref: ${item.referencia})` : '';
-
+        const monto = Number(item.totalUSD || item.montoUSD || 0);
         window.registrarNotificacion({
-            id: 'notif_aprob_pag_' + id,
-            tipo: 'aprobacion',
-            subTipo: 'aprobacion_admin',
-            titulo: 'Transacción Aprobada',
-            mensaje: `El Administrador aprobó tu pago de ${montoMsg}${refStr}. Tu transacción ha sido validada con éxito.`,
-            clienteId: item.clienteId || item.clienteCedula,
+            tipo: 'pago',
+            titulo: 'Pago Aprobado y Conciliado',
+            mensaje: `El pago #${id} por $${monto.toFixed(2)} de ${clienteNom} fue verificado y aprobado.`,
+            clienteId: item.clienteId,
             clienteNombre: clienteNom,
-            montoUSD: montoUSD,
-            montoVES: montoVES,
+            montoUSD: monto,
             referenciaId: id,
-            paraCliente: true,
-            paraAdmin: false,
-            destino: { tab: 'cliente-cuenta', subAccion: 'verAbono', idRef: id }
+            destino: { tab: 'transacciones', subAccion: 'verPago', idRef: id }
         });
     }
 
