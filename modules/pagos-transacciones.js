@@ -1128,6 +1128,39 @@ function guardarAbono(e) {
     renderizarTransacciones();
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof verDetalleCliente === 'function') verDetalleCliente(clienteId);
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
+    // Registrar en Centro de Notificaciones
+    if (typeof window.registrarNotificacion === 'function') {
+        const nomCliente = clienteObj?.nombre || clienteId;
+        const esDivisa = metodo === 'Efectivo USD';
+        const bsFmt = Number(montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const usdFmt = Number(montoUSD || 0).toFixed(2);
+        const refStr = referencia && referencia !== 'Efectivo' ? ` - Ref: ${referencia}` : '';
+        const msgNotif = esDivisa
+            ? `${nomCliente} agregó un pago en divisas de $${usdFmt} USD (${tipoTx}${refStr})`
+            : `${nomCliente} agregó un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${tipoTx}${refStr})`;
+
+        window.registrarNotificacion({
+            tipo: 'pago',
+            titulo: 'Abono Registrado',
+            mensaje: msgNotif,
+            clienteId: clienteId,
+            clienteNombre: nomCliente,
+            montoUSD: Number(montoUSD),
+            montoVES: Number(montoVES),
+            referenciaId: nuevoAbono.id,
+            destino: {
+                tab: 'transacciones',
+                subAccion: 'verPago',
+                idRef: nuevoAbono.id,
+                clienteId: clienteId
+            }
+        });
+    }
 
     const msg = `¡Abono de $${montoUSD.toFixed(2)} (Bs. ${montoVES.toFixed(2)}) aplicado con éxito! Deuda rebajada de inmediato.`;
     if (window.InventoryApp?.Modal?.toast) {
@@ -1199,6 +1232,10 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
     if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Abono de $${Number(abono.montoUSD).toFixed(2)} aprobado y conciliado exitosamente.`, 'success');
@@ -1280,6 +1317,21 @@ function obtenerPagosPendientesUnificados() {
                 if (refNorm && refNorm !== 'sin ref' && refNorm !== 'n/a') {
                     refsProcesadas.add(refNorm);
                 }
+
+                const metodoStr = a.formaPago || a.metodo || 'Abono';
+                const esDivisaUSD = String(metodoStr).includes('USD') || String(metodoStr).includes('Divisa');
+                const tasaVal = Number(a.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+                let usd = Number(a.montoUSD || a.monto || 0);
+                let ves = Number(a.montoVES || 0);
+                // Sanación de datos: si un pago en Bolívares se guardó erróneamente con el monto en Bs asignado a USD
+                if (!esDivisaUSD && usd >= 50 && ves > usd * 10 && tasaVal > 0) {
+                    ves = usd;
+                    usd = Number((ves / tasaVal).toFixed(2));
+                } else if (!esDivisaUSD && (!ves || ves === 0) && tasaVal > 0) {
+                    ves = usd * tasaVal;
+                }
+
                 unificados.push({
                     id: a.id,
                     abonoId: a.id,
@@ -1288,11 +1340,12 @@ function obtenerPagosPendientesUnificados() {
                     fecha: a.fecha || '',
                     clienteId: a.clienteId,
                     clienteNombre: a.clienteNombre || a.clienteId,
-                    metodo: a.formaPago || a.metodo || 'Abono',
+                    metodo: metodoStr,
                     referencia: a.referencia || 'Sin Ref',
                     nota: a.nota || a.comentario || '',
-                    montoUSD: Number(a.montoUSD || a.monto || 0),
-                    montoVES: Number(a.montoVES || 0)
+                    montoUSD: usd,
+                    montoVES: ves,
+                    esDivisaUSD
                 });
             }
         }
@@ -1328,6 +1381,19 @@ function obtenerPagosPendientesUnificados() {
                 ? p.items.map(it => `${it.cantidad}x ${it.nombre || it.productoId}`).join(', ') 
                 : (p.nota || p.origen || 'Venta o pago');
 
+            const metodoStr = p.metodoPago || p.tipoPago || p.tipo || 'Pago Móvil / Transferencia';
+            const esDivisaUSD = String(metodoStr).includes('USD') || String(metodoStr).includes('Divisa');
+            const tasaVal = Number(p.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+            let usd = Number(p.totalUSD || p.montoUSD || p.total || 0);
+            let ves = Number(p.totalVES || p.montoVES || 0);
+            if (!esDivisaUSD && usd >= 50 && ves > usd * 10 && tasaVal > 0) {
+                ves = usd;
+                usd = Number((ves / tasaVal).toFixed(2));
+            } else if (!esDivisaUSD && (!ves || ves === 0) && tasaVal > 0) {
+                ves = usd * tasaVal;
+            }
+
             unificados.push({
                 id: p.id,
                 abonoId: p.abonoId || null,
@@ -1336,11 +1402,12 @@ function obtenerPagosPendientesUnificados() {
                 fecha: p.fecha || '',
                 clienteId: p.clienteId || p.clienteCedula,
                 clienteNombre: p.clienteNombre || p.clienteId,
-                metodo: p.metodoPago || p.tipoPago || p.tipo || 'Pago Móvil / Transferencia',
+                metodo: metodoStr,
                 referencia: p.referencia || 'N/A',
                 nota: itemsTexto,
-                montoUSD: Number(p.totalUSD || p.montoUSD || p.total || 0),
-                montoVES: Number(p.totalVES || p.montoVES || 0)
+                montoUSD: usd,
+                montoVES: ves,
+                esDivisaUSD
             });
         }
     });
@@ -1439,6 +1506,13 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
     }
 
     renderizarAbonosPendientesReportados();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+
     if (window.InventoryApp?.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Pago #${id} verificado y aprobado con éxito.`, 'success');
     }
@@ -1575,13 +1649,22 @@ function renderizarAbonosPendientesReportados() {
                             <th style="padding:8px; text-align:left;">Cliente</th>
                             <th style="padding:8px; text-align:left;">Método</th>
                             <th style="padding:8px; text-align:left;">Detalle / Nota</th>
-                            <th style="padding:8px; text-align:right;">Monto ($)</th>
-                            <th style="padding:8px; text-align:right;">Monto (Bs)</th>
+                            <th style="padding:8px; text-align:right;">Monto Registrado</th>
+                            <th style="padding:8px; text-align:right;">Equivalente</th>
                             <th style="padding:8px; text-align:center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${unificados.map(u => `
+                        ${unificados.map(u => {
+                            const esDivisa = u.esDivisaUSD;
+                            const montoPrincipal = esDivisa 
+                                ? `$${u.montoUSD.toFixed(2)} USD` 
+                                : `Bs. ${u.montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            const montoEquivalente = esDivisa
+                                ? (u.montoVES > 0 ? `Bs. ${u.montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '—')
+                                : `$${u.montoUSD.toFixed(2)} USD`;
+
+                            return `
                             <tr style="border-bottom:1px solid #fef3c7; background:rgba(255,255,255,0.7);">
                                 <td style="padding:8px; white-space:nowrap;">${u.fecha || ''}</td>
                                 <td style="padding:8px;">
@@ -1598,8 +1681,8 @@ function renderizarAbonosPendientesReportados() {
                                 <td style="padding:8px; max-width:200px; font-size:0.8rem; color:#475569;" title="${u.nota || ''}">
                                     <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${u.nota || 'Abono a cuenta'}</div>
                                 </td>
-                                <td style="padding:8px; text-align:right; font-weight:700; color:var(--primary-accent);">$${u.montoUSD.toFixed(2)}</td>
-                                <td style="padding:8px; text-align:right; font-weight:600; color:#16a34a;">Bs. ${u.montoVES.toFixed(2)}</td>
+                                <td style="padding:8px; text-align:right; font-weight:700; color:var(--primary-accent);">${montoPrincipal}</td>
+                                <td style="padding:8px; text-align:right; font-weight:600; color:#16a34a;">${montoEquivalente}</td>
                                 <td style="padding:8px; text-align:center; white-space:nowrap;">
                                     <button type="button" class="btn btn-sm btn-success" onclick="aprobarPagoOVerificacionUnificado('${u.id}')" style="padding:6px 12px; margin-right:4px; font-weight:700;">
                                         <i class="fas fa-check"></i> Aprobar
@@ -1609,7 +1692,8 @@ function renderizarAbonosPendientesReportados() {
                                     </button>
                                 </td>
                             </tr>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>

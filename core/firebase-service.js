@@ -1186,15 +1186,15 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newVentas);
-                    if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
-                        AppState.ventas = newVentas;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
-                    }
+                const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const hash = calcularHashColeccion(newVentas);
+                if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
+                    lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
+                    AppState.ventas = newVentas;
+                    guardarCacheLocal();
+                    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+                    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+                    solicitarRefrescoVistasDebounced();
                 }
             }, err => manejarErrorListener('ventas', err));
             syncListeners.push(unsubVentas);
@@ -1538,6 +1538,14 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+        if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+        if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
     }
 
     // =========================================================================

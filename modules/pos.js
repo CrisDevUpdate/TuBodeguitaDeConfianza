@@ -304,12 +304,14 @@ async function ejecutarFinalizacionCheckoutPOS() {
         // Las transacciones a crédito NO requieren verificación/aprobación.
         // Se refleja de inmediato en el Centro de Notificaciones:
         if (typeof window.registrarNotificacion === 'function') {
+            const nomCliente = clienteObj ? clienteObj.nombre : clienteId;
+            const bsStr = Number(totalVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
             window.registrarNotificacion({
                 tipo: 'credito',
                 titulo: 'Crédito Concedido',
-                mensaje: `${clienteObj ? clienteObj.nombre : clienteId} sacó un crédito por $${Number(total).toFixed(2)} (Venta POS #${nuevaVenta.id})`,
+                mensaje: `${nomCliente} sacó un crédito por Bs. ${bsStr} ($${Number(total).toFixed(2)} USD) (Venta POS #${nuevaVenta.id})`,
                 clienteId: clienteId,
-                clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+                clienteNombre: nomCliente,
                 montoUSD: Number(total),
                 montoVES: Number(totalVES),
                 referenciaId: nuevaVenta.id,
@@ -370,6 +372,10 @@ async function ejecutarFinalizacionCheckoutPOS() {
     renderizarClientes();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
     if (typeof showCustomToast === 'function') {
         showCustomToast(`Venta #${nuevaVenta.id} completada exitosamente ($${total.toFixed(2)})`, 'success');

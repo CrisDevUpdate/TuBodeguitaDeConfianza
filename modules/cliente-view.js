@@ -810,10 +810,11 @@ async function ejecutarCompraConfirmadaCliente() {
         // Las transacciones a crédito NO requieren verificación/aprobación.
         // Se refleja de inmediato en el Centro de Notificaciones:
         if (typeof window.registrarNotificacion === 'function') {
+            const bsStr = Number(totalVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
             window.registrarNotificacion({
                 tipo: 'credito',
                 titulo: 'Crédito Concedido',
-                mensaje: `${usuario.nombre} sacó un crédito por $${Number(totalUSD).toFixed(2)} (Pedido #${nuevoPedidoId})`,
+                mensaje: `${usuario.nombre} sacó un crédito por Bs. ${bsStr} ($${Number(totalUSD).toFixed(2)} USD) (Pedido #${nuevoPedidoId})`,
                 clienteId: clienteCedula,
                 clienteNombre: usuario.nombre,
                 montoUSD: Number(totalUSD),
@@ -859,10 +860,16 @@ async function ejecutarCompraConfirmadaCliente() {
             });
         }
         if (typeof window.registrarNotificacion === 'function') {
+            const esDivisa = String(tipoPago).includes('USD') || String(tipoPago).includes('Divisa');
+            const bsStr = Number(totalVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+            const msgPago = esDivisa
+                ? `${usuario.nombre} reportó un pago en divisas de $${Number(totalUSD).toFixed(2)} USD (${tipoPago} - Ref: ${referencia || 'N/A'})`
+                : `${usuario.nombre} reportó un pago de Bs. ${bsStr} ($${Number(totalUSD).toFixed(2)} USD) (${tipoPago} - Ref: ${referencia || 'N/A'})`;
+
             window.registrarNotificacion({
                 tipo: 'pago',
                 titulo: 'Nuevo Pago Reportado',
-                mensaje: `${usuario.nombre} reportó un pago de $${Number(totalUSD).toFixed(2)} (${tipoPago} - Ref: ${referencia || 'N/A'})`,
+                mensaje: msgPago,
                 clienteId: clienteCedula,
                 clienteNombre: usuario.nombre,
                 montoUSD: Number(totalUSD),
@@ -928,6 +935,9 @@ async function ejecutarCompraConfirmadaCliente() {
     if (typeof renderizarInventario === 'function') renderizarInventario();
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
     // 10. Pantalla de Éxito y Agradecimiento (WhatsApp 100% Opcional, SIN redirección automática)
     mostrarModalConfirmacionPedido(datosPedidoCompletado);
@@ -1205,7 +1215,7 @@ async function renderizarEstadoCuentaCliente() {
                             <th>Fecha</th>
                             <th>Método de Pago</th>
                             <th>Referencia</th>
-                            <th class="num">Monto ($)</th>
+                            <th class="num">Monto Registrado</th>
                             <th style="text-align:center;">Estado</th>
                         </tr>
                     </thead>
@@ -1215,12 +1225,36 @@ async function renderizarEstadoCuentaCliente() {
                         ` : todosAbonosCliente.slice().reverse().map(a => {
                             const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
                             const esRechazado = a.estado === 'RECHAZADO';
+                            const metodoStr = String(a.formaPago || a.metodo || '');
+                            const esDivisaUSD = metodoStr.includes('USD') || metodoStr.includes('Divisa');
+                            const tasaAbono = Number(a.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+                            // Corrección automática si se guardó un monto en Bolívares como si fuesen dólares
+                            let usdVal = Number(a.montoUSD || 0);
+                            let vesVal = Number(a.montoVES || 0);
+                            if (!esDivisaUSD && usdVal >= 50 && vesVal > usdVal * 10 && tasaAbono > 0) {
+                                vesVal = usdVal;
+                                usdVal = Number((vesVal / tasaAbono).toFixed(2));
+                            } else if (!esDivisaUSD && (!vesVal || vesVal === 0) && tasaAbono > 0) {
+                                vesVal = usdVal * tasaAbono;
+                            }
+
+                            const montoPrincipal = esDivisaUSD
+                                ? `$${usdVal.toFixed(2)} USD`
+                                : `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            const montoSecundario = esDivisaUSD
+                                ? (vesVal > 0 ? `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '')
+                                : `$${usdVal.toFixed(2)} USD`;
+
                             return `
                                 <tr>
                                     <td>${a.fecha}</td>
                                     <td>${a.formaPago || a.metodo || 'Transferencia / Pago Móvil'}</td>
                                     <td><code>${a.referencia || 'N/A'}</code>${a.nota ? `<br><small style="color:var(--text-muted); font-style:italic;">Nota: ${a.nota}</small>` : ''}</td>
-                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : 'var(--success)')};">$${Number(a.montoUSD || 0).toFixed(2)}</td>
+                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : 'var(--success)')};">
+                                        <div>${montoPrincipal}</div>
+                                        ${montoSecundario ? `<small style="color:var(--text-muted); font-size:0.75rem; font-weight:normal; display:block;">(equiv. ${montoSecundario})</small>` : ''}
+                                    </td>
                                     <td style="text-align:center;">
                                         ${esPendiente 
                                             ? '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> En Verificación</span>' 
@@ -1298,21 +1332,23 @@ function abrirModalReportarPagoCliente() {
 
             <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:600;">Monto a Abonar en Dólares ($ USD) <span style="color:var(--danger);">*</span></label>
-                    <input type="number" id="abono-cli-monto-usd" step="0.01" min="0.5" class="form-control" placeholder="0.00" required oninput="calcularEquivalenteAbonoCliente(this.value)">
-                    <small style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:3px;">
-                        Equivalente BCV: <strong id="abono-cli-monto-ves-preview" style="color:#16a34a;">Bs. 0.00</strong> (Tasa: ${tasa > 0 ? tasa.toFixed(2) : '—'})
-                    </small>
+                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <select id="abono-cli-metodo" class="form-control" required onchange="alCambiarMetodoAbonoCliente()">
+                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (VES)</option>
+                        <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
+                        <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
+                        <option value="Efectivo USD">💵 Efectivo Divisas ($ USD)</option>
+                    </select>
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago <span style="color:var(--danger);">*</span></label>
-                    <select id="abono-cli-metodo" class="form-control" required>
-                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (VES)</option>
-                        <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
-                        <option value="Efectivo USD">💵 Efectivo ($ USD)</option>
-                        <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
-                    </select>
+                    <label id="abono-cli-monto-label" style="font-size:0.85rem; font-weight:600;">
+                        Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>
+                    </label>
+                    <input type="number" id="abono-cli-monto" step="0.01" min="0.01" class="form-control" placeholder="Ej: 1000.00" required oninput="calcularEquivalenteAbonoCliente(this.value)">
+                    <small id="abono-cli-conversion-text" style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:4px;">
+                        Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})
+                    </small>
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
@@ -1322,11 +1358,11 @@ function abrirModalReportarPagoCliente() {
 
                 <div class="form-group" style="margin-bottom:16px;">
                     <label style="font-size:0.85rem; font-weight:600;">Nota u Observación (Opcional)</label>
-                    <input type="text" id="abono-cli-nota" class="form-control" placeholder="Ej: Pago de abono semanal">
+                    <input type="text" id="abono-cli-nota" class="form-control" placeholder="Ej: Abono de cuenta semanal">
                 </div>
 
                 <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px; font-size:0.82rem; color:#1e40af; margin-bottom:16px;">
-                    <i class="fas fa-info-circle"></i> Tu pago quedará registrado en estado <b>PENDIENTE DE CONFIRMACIÓN</b>. Al ser aprobado por el Administrador, se descontará de tu deuda y sumará a tu récord de pagos puntuales.
+                    <i class="fas fa-info-circle"></i> Tu pago quedará registrado en estado <b>PENDIENTE DE CONFIRMACIÓN</b>. Al ser verificado por el Administrador, se descontará de tu deuda y sumará a tu récord de pagos puntuales.
                 </div>
 
                 <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -1346,20 +1382,54 @@ function copiarDatosBancariosCompletos() {
     const texto = `Coordenadas Bancarias Tu Bodeguita:\nBanco: Bancamiga (0172)\nRIF: V-30544641\nTeléfono: 0412-1234567`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(texto).then(() => {
-            if (window.InventoryApp.Modal?.toast) window.InventoryApp.Modal.toast('📋 Coordenadas bancarias copiadas al portapapeles', 'success');
+            if (window.InventoryApp?.Modal?.toast) window.InventoryApp.Modal.toast('📋 Coordenadas bancarias copiadas al portapapeles', 'success');
         });
-    } else {
-        alert('Coordenadas Bancarias:\n' + texto);
+    } else if (typeof window.showToast === 'function') {
+        window.showToast('📋 Coordenadas bancarias: Bancamiga 0172 / V-30544641 / 0412-1234567', 'info');
     }
 }
 
-function calcularEquivalenteAbonoCliente(usdVal) {
-    const previewEl = document.getElementById('abono-cli-monto-ves-preview');
+function alCambiarMetodoAbonoCliente() {
+    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
+    const labelEl = document.getElementById('abono-cli-monto-label');
+    const inputEl = document.getElementById('abono-cli-monto');
+    const textEl = document.getElementById('abono-cli-conversion-text');
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const montoUSD = parseFloat(usdVal) || 0;
-    const montoVES = tasa > 0 ? (montoUSD * tasa) : 0;
-    if (previewEl) {
-        previewEl.textContent = `Bs. ${montoVES.toFixed(2)}`;
+    const esDivisa = metodo === 'Efectivo USD';
+
+    if (esDivisa) {
+        if (labelEl) labelEl.innerHTML = 'Monto a Abonar en Divisas ($ USD) <span style="color:var(--danger);">*</span>';
+        if (inputEl) inputEl.placeholder = 'Ej: 20.00';
+        if (textEl) {
+            textEl.innerHTML = `Equivalente en Bolívares: <strong id="abono-cli-conversion-preview" style="color:#16a34a;">Bs. 0.00</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`;
+        }
+    } else {
+        if (labelEl) labelEl.innerHTML = 'Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>';
+        if (inputEl) inputEl.placeholder = 'Ej: 1000.00';
+        if (textEl) {
+            textEl.innerHTML = `Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`;
+        }
+    }
+
+    if (inputEl && inputEl.value) {
+        calcularEquivalenteAbonoCliente(inputEl.value);
+    }
+}
+
+function calcularEquivalenteAbonoCliente(val) {
+    const previewEl = document.getElementById('abono-cli-conversion-preview');
+    if (!previewEl) return;
+    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
+    const esDivisa = metodo === 'Efectivo USD';
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const monto = parseFloat(val) || 0;
+
+    if (esDivisa) {
+        const montoVES = tasa > 0 ? (monto * tasa) : 0;
+        previewEl.textContent = `Bs. ${montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } else {
+        const montoUSD = tasa > 0 ? (monto / tasa) : 0;
+        previewEl.textContent = `$${montoUSD.toFixed(2)} USD`;
     }
 }
 
@@ -1375,13 +1445,14 @@ async function procesarReportePagoCliente() {
     const usuario = AppState.usuarioActual;
     if (!usuario) return;
 
-    const montoUSD = parseFloat(document.getElementById('abono-cli-monto-usd')?.value);
-    const metodo = document.getElementById('abono-cli-metodo')?.value;
+    const montoIngresado = parseFloat(document.getElementById('abono-cli-monto')?.value);
+    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
     const referencia = document.getElementById('abono-cli-referencia')?.value.trim();
     const nota = document.getElementById('abono-cli-nota')?.value.trim() || '';
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const esDivisasUSD = (metodo === 'Efectivo USD');
 
-    if (isNaN(montoUSD) || montoUSD <= 0) {
+    if (isNaN(montoIngresado) || montoIngresado <= 0) {
         if (window.InventoryApp.Modal?.alert) {
             window.InventoryApp.Modal.alert('Monto Inválido', 'Por favor ingresa un monto válido a abonar.', 'warning');
         }
@@ -1395,6 +1466,17 @@ async function procesarReportePagoCliente() {
         return;
     }
 
+    // Calcular montos en Bolívares (VES) y Divisas ($ USD) según la moneda del método de pago
+    let montoUSD = 0;
+    let montoVES = 0;
+    if (esDivisasUSD) {
+        montoUSD = Number(montoIngresado.toFixed(2));
+        montoVES = tasa > 0 ? Number((montoUSD * tasa).toFixed(2)) : 0;
+    } else {
+        montoVES = Number(montoIngresado.toFixed(2));
+        montoUSD = tasa > 0 ? Number((montoVES / tasa).toFixed(2)) : 0;
+    }
+
     const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const nuevoAbono = {
         id: `ABN_${Date.now()}`,
@@ -1402,10 +1484,11 @@ async function procesarReportePagoCliente() {
         clienteNombre: String(usuario.nombre || usuario.cedula || 'Cliente').trim(),
         clienteCedula: String(usuario.cedula || usuario.id || '').trim(),
         montoUSD: montoUSD,
-        montoVES: tasa > 0 ? (montoUSD * tasa) : 0,
+        montoVES: montoVES,
         tasaMomento: tasa,
-        formaPago: metodo || 'Transferencia / Pago Móvil',
-        metodo: metodo || 'Transferencia / Pago Móvil',
+        formaPago: metodo,
+        metodo: metodo,
+        esDivisasUSD: esDivisasUSD,
         referencia: String(referencia || '').trim(),
         nota: String(nota || '').trim(),
         fecha: fechaHora,
@@ -1475,13 +1558,21 @@ async function procesarReportePagoCliente() {
     // Registrar en el Centro de Notificaciones
     if (typeof window.registrarNotificacion === 'function') {
         const nomCliente = nuevoAbono.clienteNombre || AppState.usuarioActual?.nombre || 'Cliente';
+        const bsFmt = Number(nuevoAbono.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const usdFmt = Number(nuevoAbono.montoUSD || 0).toFixed(2);
+        const refStr = referencia ? ` - Ref: ${referencia}` : '';
+
+        const mensajeNotif = esDivisasUSD
+            ? `${nomCliente} agregó un pago en divisas de $${usdFmt} USD (${nuevoAbono.metodo}${refStr})`
+            : `${nomCliente} agregó un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${nuevoAbono.metodo}${refStr})`;
+
         window.registrarNotificacion({
             tipo: 'pago',
             titulo: 'Abono Reportado',
-            mensaje: `${nomCliente} agregó un pago de $${Number(montoUSD).toFixed(2)} (${nuevoAbono.metodo} - Ref: ${referencia || 'N/A'})`,
+            mensaje: mensajeNotif,
             clienteId: nuevoAbono.clienteId,
             clienteNombre: nomCliente,
-            montoUSD: Number(montoUSD),
+            montoUSD: Number(nuevoAbono.montoUSD || 0),
             montoVES: Number(nuevoAbono.montoVES || 0),
             referenciaId: nuevoAbono.id,
             destino: {
@@ -1512,7 +1603,12 @@ async function procesarReportePagoCliente() {
     }
 
     if (window.InventoryApp.Modal?.toast) {
-        window.InventoryApp.Modal.toast(`✅ Tu abono de $${montoUSD.toFixed(2)} fue reportado con éxito (Ref: ${referencia}) y está pendiente de verificación.`, 'success');
+        const bsFmt = Number(nuevoAbono.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const usdFmt = Number(nuevoAbono.montoUSD || 0).toFixed(2);
+        const toastMsg = esDivisasUSD
+            ? `✅ Tu abono en divisas de $${usdFmt} USD fue reportado con éxito (Ref: ${referencia}) y está en verificación.`
+            : `✅ Tu abono de Bs. ${bsFmt} ($${usdFmt} USD) fue reportado con éxito (Ref: ${referencia}) y está en verificación.`;
+        window.InventoryApp.Modal.toast(toastMsg, 'success');
     }
 }
 
