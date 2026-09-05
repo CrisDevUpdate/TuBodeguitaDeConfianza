@@ -864,7 +864,7 @@ async function ejecutarCompraConfirmadaCliente() {
             const bsStr = Number(totalVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
             const msgPago = esDivisa
                 ? `${usuario.nombre} reportó un pago en divisas de $${Number(totalUSD).toFixed(2)} USD (${tipoPago} - Ref: ${referencia || 'N/A'})`
-                : `${usuario.nombre} reportó un pago de Bs. ${bsStr} ($${Number(totalUSD).toFixed(2)} USD) (${tipoPago} - Ref: ${referencia || 'N/A'})`;
+                : `${usuario.nombre} reportó un pago de Bs. ${bsStr} (${tipoPago} - Ref: ${referencia || 'N/A'})`;
 
             window.registrarNotificacion({
                 tipo: 'pago',
@@ -1054,12 +1054,24 @@ async function renderizarEstadoCuentaCliente() {
     const abonosAprobados = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
     const todosAbonosCliente = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id));
 
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    // Sanar y sumar abonos conciliados
+    let totalAbonadoUSD = 0;
+    let totalAbonadoVES = 0;
+    abonosAprobados.forEach(a => {
+        const { montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function' 
+            ? sanitizarAbonoMonedas(a, tasa) 
+            : { montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+        totalAbonadoUSD += montoUSD;
+        totalAbonadoVES += montoVES;
+    });
+    totalAbonadoUSD = Number(totalAbonadoUSD.toFixed(2));
+    totalAbonadoVES = Number(totalAbonadoVES.toFixed(2));
+
     const totalCompradoUSD = ventasCliente.reduce((sum, v) => sum + Number(v.total || 0), 0);
     const totalCreditoUSD = ventasCliente.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalAbonadoUSD = abonosAprobados.reduce((sum, a) => sum + Number(a.montoUSD || 0), 0);
     const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
-
-    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const saldoDeudaVES = tasa > 0 ? (saldoDeudaUSD * tasa) : 0;
     const totalCompradoVES = tasa > 0 ? (totalCompradoUSD * tasa) : 0;
     const esSolvente = saldoDeudaUSD <= 0.01;
@@ -1116,9 +1128,9 @@ async function renderizarEstadoCuentaCliente() {
             <div class="stat-card" style="border-left:4px solid #16a34a;">
                 <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-receipt"></i></div>
                 <div class="stat-info">
-                    <span class="stat-label">Total Abonado ($)</span>
+                    <span class="stat-label">Total Abonado</span>
                     <h3 class="stat-value">$${totalAbonadoUSD.toFixed(2)}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">${abonosAprobados.length} pagos conciliados</small>
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Bs. ${totalAbonadoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} (${abonosAprobados.length} pagos)</small>
                 </div>
             </div>
 
@@ -1225,42 +1237,42 @@ async function renderizarEstadoCuentaCliente() {
                         ` : todosAbonosCliente.slice().reverse().map(a => {
                             const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
                             const esRechazado = a.estado === 'RECHAZADO';
-                            const metodoStr = String(a.formaPago || a.metodo || '');
-                            const esDivisaUSD = metodoStr.includes('USD') || metodoStr.includes('Divisa');
                             const tasaAbono = Number(a.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
-                            // Corrección automática si se guardó un monto en Bolívares como si fuesen dólares
-                            let usdVal = Number(a.montoUSD || 0);
-                            let vesVal = Number(a.montoVES || 0);
-                            if (!esDivisaUSD && usdVal >= 50 && vesVal > usdVal * 10 && tasaAbono > 0) {
-                                vesVal = usdVal;
-                                usdVal = Number((vesVal / tasaAbono).toFixed(2));
-                            } else if (!esDivisaUSD && (!vesVal || vesVal === 0) && tasaAbono > 0) {
-                                vesVal = usdVal * tasaAbono;
-                            }
+                            const { esDivisa, montoUSD: usdVal, montoVES: vesVal } = typeof sanitizarAbonoMonedas === 'function'
+                                ? sanitizarAbonoMonedas(a, tasaAbono)
+                                : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
 
-                            const montoPrincipal = esDivisaUSD
+                            const montoPrincipal = esDivisa
                                 ? `$${usdVal.toFixed(2)} USD`
                                 : `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                            const montoSecundario = esDivisaUSD
+                            const montoSecundario = esDivisa
                                 ? (vesVal > 0 ? `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '')
-                                : `$${usdVal.toFixed(2)} USD`;
+                                : '';
+
+                            const metodoTxt = a.formaPago || a.metodo || 'Pago Móvil / Transferencia';
+                            const badgeMoneda = esDivisa
+                                ? '<span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.72rem; margin-top:3px; display:inline-block; font-weight:600;">💵 Divisas ($ USD)</span>'
+                                : '<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.72rem; margin-top:3px; display:inline-block; font-weight:600;">🇻🇪 Bolívares (Bs. VES)</span>';
 
                             return `
                                 <tr>
                                     <td>${a.fecha}</td>
-                                    <td>${a.formaPago || a.metodo || 'Transferencia / Pago Móvil'}</td>
+                                    <td>
+                                        <div><strong>${metodoTxt}</strong></div>
+                                        ${badgeMoneda}
+                                    </td>
                                     <td><code>${a.referencia || 'N/A'}</code>${a.nota ? `<br><small style="color:var(--text-muted); font-style:italic;">Nota: ${a.nota}</small>` : ''}</td>
-                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : 'var(--success)')};">
-                                        <div>${montoPrincipal}</div>
+                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : (esDivisa ? 'var(--success)' : 'var(--primary-accent)'))};">
+                                        <div style="font-size:0.98rem;">${montoPrincipal}</div>
                                         ${montoSecundario ? `<small style="color:var(--text-muted); font-size:0.75rem; font-weight:normal; display:block;">(equiv. ${montoSecundario})</small>` : ''}
                                     </td>
                                     <td style="text-align:center;">
                                         ${esPendiente 
                                             ? '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> En Verificación</span>' 
                                             : (esRechazado 
-                                                ? '<span class="badge-status" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;"><i class="fas fa-times-circle"></i> Rechazado</span>'
-                                                : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Aprobado</span>')}
+                                                ? '<span class="badge-status" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;"><i class="fas fa-times-circle"></i> Rechazado</span>' 
+                                                : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Pago agregado</span>')}
                                     </td>
                                 </tr>
                             `;
@@ -1376,6 +1388,7 @@ function abrirModalReportarPagoCliente() {
     `;
 
     modal.classList.add('active');
+    alCambiarMetodoAbonoCliente();
 }
 
 function copiarDatosBancariosCompletos() {
@@ -1395,7 +1408,7 @@ function alCambiarMetodoAbonoCliente() {
     const inputEl = document.getElementById('abono-cli-monto');
     const textEl = document.getElementById('abono-cli-conversion-text');
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const esDivisa = metodo === 'Efectivo USD';
+    const esDivisa = metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa');
 
     if (esDivisa) {
         if (labelEl) labelEl.innerHTML = 'Monto a Abonar en Divisas ($ USD) <span style="color:var(--danger);">*</span>';
@@ -1420,7 +1433,7 @@ function calcularEquivalenteAbonoCliente(val) {
     const previewEl = document.getElementById('abono-cli-conversion-preview');
     if (!previewEl) return;
     const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
-    const esDivisa = metodo === 'Efectivo USD';
+    const esDivisa = metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa');
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const monto = parseFloat(val) || 0;
 
@@ -1450,7 +1463,7 @@ async function procesarReportePagoCliente() {
     const referencia = document.getElementById('abono-cli-referencia')?.value.trim();
     const nota = document.getElementById('abono-cli-nota')?.value.trim() || '';
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const esDivisasUSD = (metodo === 'Efectivo USD');
+    const esDivisasUSD = (metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa'));
 
     if (isNaN(montoIngresado) || montoIngresado <= 0) {
         if (window.InventoryApp.Modal?.alert) {
@@ -1489,6 +1502,7 @@ async function procesarReportePagoCliente() {
         formaPago: metodo,
         metodo: metodo,
         esDivisasUSD: esDivisasUSD,
+        monedaOriginal: esDivisasUSD ? 'USD' : 'VES',
         referencia: String(referencia || '').trim(),
         nota: String(nota || '').trim(),
         fecha: fechaHora,
@@ -1537,6 +1551,8 @@ async function procesarReportePagoCliente() {
             metodoPago: nuevoAbono.metodo,
             tipoPago: nuevoAbono.metodo,
             tipo: nuevoAbono.metodo,
+            esDivisasUSD: nuevoAbono.esDivisasUSD,
+            monedaOriginal: nuevoAbono.monedaOriginal,
             referencia: nuevoAbono.referencia || 'N/A',
             fecha: nuevoAbono.fecha,
             fechaISO: new Date().toISOString(),
@@ -1564,7 +1580,7 @@ async function procesarReportePagoCliente() {
 
         const mensajeNotif = esDivisasUSD
             ? `${nomCliente} agregó un pago en divisas de $${usdFmt} USD (${nuevoAbono.metodo}${refStr})`
-            : `${nomCliente} agregó un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${nuevoAbono.metodo}${refStr})`;
+            : `${nomCliente} agregó un pago de Bs. ${bsFmt} (${nuevoAbono.metodo}${refStr})`;
 
         window.registrarNotificacion({
             tipo: 'pago',
@@ -1607,7 +1623,7 @@ async function procesarReportePagoCliente() {
         const usdFmt = Number(nuevoAbono.montoUSD || 0).toFixed(2);
         const toastMsg = esDivisasUSD
             ? `✅ Tu abono en divisas de $${usdFmt} USD fue reportado con éxito (Ref: ${referencia}) y está en verificación.`
-            : `✅ Tu abono de Bs. ${bsFmt} ($${usdFmt} USD) fue reportado con éxito (Ref: ${referencia}) y está en verificación.`;
+            : `✅ Tu abono de Bs. ${bsFmt} fue reportado con éxito (Ref: ${referencia}) y está en verificación.`;
         window.InventoryApp.Modal.toast(toastMsg, 'success');
     }
 }

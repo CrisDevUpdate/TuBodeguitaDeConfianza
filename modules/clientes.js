@@ -147,13 +147,20 @@ function calcularEstadoFinancieroCliente(clienteId) {
     const ventasCli = ventas.filter(v => v.clienteId === clienteId);
     // Solo los abonos aprobados impactan la deuda. Los pagos en Confirmando
     // permanecen visibles como conciliación, pero no se contabilizan.
-    const abonosCli = abonos.filter(a => a.clienteId === clienteId && (a.estado === 'Pago agregado' || !a.estado));
+    const abonosCli = abonos.filter(a => a.clienteId === clienteId && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
 
     const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || 0), 0);
     const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalAbonadoUSD = abonosCli.reduce((sum, a) => sum + Number(a.montoUSD || 0), 0);
+    
+    let totalAbonadoUSD = 0;
+    abonosCli.forEach(a => {
+        const { montoUSD } = typeof sanitizarAbonoMonedas === 'function'
+            ? sanitizarAbonoMonedas(a, tasaActiva)
+            : { montoUSD: Number(a.montoUSD || 0) };
+        totalAbonadoUSD += montoUSD;
+    });
 
-    const saldoDeudaUSD = totalCreditoUSD - totalAbonadoUSD;
+    const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
 
     return {
         totalCompradoUSD,
@@ -335,14 +342,20 @@ function verDetalleCliente(id) {
     });
 
     abonos.filter(a => a.clienteId === id).forEach(a => {
-        const aprobado = a.estado === 'Pago agregado' || !a.estado;
+        const aprobado = a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado;
+        const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+            ? sanitizarAbonoMonedas(a, tasaActiva)
+            : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+
+        const nombreMetodo = a.formaPago || a.metodo || 'Abono';
+        const badgeMoneda = esDivisa ? ' (Divisas $)' : ' (Bs. VES)';
         transacciones.push({
             fecha: a.fecha,
-            concepto: aprobado ? `Abono / Pago` : `Pago (${a.estado})`,
-            detalle: a.referencia ? `${a.metodo} · Ref. ${a.referencia}` : a.metodo,
+            concepto: aprobado ? `Abono / Pago${badgeMoneda}` : `Pago (${a.estado})${badgeMoneda}`,
+            detalle: a.referencia && a.referencia !== 'N/A' && a.referencia !== 'Sin Ref' ? `${nombreMetodo} · Ref. ${a.referencia}` : nombreMetodo,
             cargoUSD: 0,
-            abonoUSD: aprobado ? Number(a.montoUSD || 0) : 0,
-            montoPagoVES: a.montoVES > 0 ? `Bs. ${Number(a.montoVES).toFixed(2)}` : '-',
+            abonoUSD: aprobado ? montoUSD : 0,
+            montoPagoVES: montoVES > 0 ? `Bs. ${Number(montoVES).toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '-',
             pendiente: !aprobado
         });
     });

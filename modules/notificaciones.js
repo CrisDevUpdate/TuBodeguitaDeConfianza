@@ -22,6 +22,79 @@
     }
 
     /**
+     * Verifica si el usuario en sesión es Administrador o SuperAdmin
+     */
+    function esUsuarioAdmin() {
+        const usuario = window.AppState?.usuarioActual;
+        if (!usuario) return false;
+        const rol = String(usuario.rol || '').trim().toLowerCase();
+        return rol === 'admin' || rol === 'superadmin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin';
+    }
+
+    /**
+     * Verifica si el usuario en sesión es Cliente
+     */
+    function esUsuarioCliente() {
+        const usuario = window.AppState?.usuarioActual;
+        if (!usuario) return false;
+        const rol = String(usuario.rol || '').trim().toLowerCase();
+        return rol === 'cliente' || (!esUsuarioAdmin() && rol !== 'vendedor');
+    }
+
+    /**
+     * Retorna exclusivamente las notificaciones permitidas para el usuario en sesión activa.
+     * Regla estricta del sistema:
+     * "Los clientes sólo deben llegarles la notificación que el admin aprobó su transacción,
+     * no todas las notificaciones que le llegan al admin"
+     */
+    function obtenerNotificacionesParaUsuarioActual() {
+        const usuario = window.AppState?.usuarioActual;
+        if (!usuario) return [];
+        const lista = Array.isArray(AppState.notificaciones) ? AppState.notificaciones : [];
+
+        if (esUsuarioAdmin()) {
+            // El administrador ve las notificaciones de gestión (pagos reportados, ventas, créditos, auditorías, etc.)
+            // No se le llena la pantalla con notificaciones dirigidas exclusivamente al cliente individual
+            return lista.filter(n => n.paraCliente !== true || n.paraAdmin === true);
+        }
+
+        if (esUsuarioCliente()) {
+            const miCedula = String(usuario.cedula || usuario.id || '').trim().toLowerCase();
+            const miNombre = String(usuario.nombre || '').trim().toLowerCase();
+
+            return lista.filter(n => {
+                const notifClienteId = String(n.clienteId || n.clienteCedula || '').trim().toLowerCase();
+                const notifClienteNom = String(n.clienteNombre || '').trim().toLowerCase();
+                const esMio = (notifClienteId && notifClienteId === miCedula) || 
+                              (notifClienteNom && notifClienteNom === miNombre);
+
+                if (!esMio) return false;
+
+                // Debe ser estrictamente una notificación de aprobación de su transacción
+                const esAprobacion = n.tipo === 'aprobacion' || 
+                                     n.subTipo === 'aprobacion_admin' || 
+                                     n.tipo === 'pago_aprobado' ||
+                                     (String(n.titulo || '').toLowerCase().includes('aprobad') && !String(n.titulo || '').toLowerCase().includes('pendiente')) ||
+                                     (String(n.mensaje || '').toLowerCase().includes('aprobó') || String(n.mensaje || '').toLowerCase().includes('aprobado') || String(n.mensaje || '').toLowerCase().includes('conciliado'));
+
+                // Excluir cualquier alerta administrativa (créditos dados, reportes pendientes, comentarios, inventario)
+                const esAlertaAdmin = n.tipo === 'credito' || 
+                                      n.tipo === 'inventario' || 
+                                      n.tipo === 'sistema' ||
+                                      n.tipo === 'comentario' ||
+                                      String(n.titulo || '').toLowerCase().includes('reportado') ||
+                                      String(n.titulo || '').toLowerCase().includes('pendiente') ||
+                                      String(n.titulo || '').toLowerCase().includes('nuevo pago');
+
+                return esAprobacion && !esAlertaAdmin;
+            });
+        }
+
+        // Otros roles (vendedores)
+        return lista.filter(n => n.paraCliente !== true);
+    }
+
+    /**
      * Registra una nueva notificación en el sistema y sincroniza
      */
     function registrarNotificacion(datos) {
@@ -31,10 +104,12 @@
             AppState.notificaciones = [];
         }
 
+        const esAprob = datos.tipo === 'aprobacion' || datos.subTipo === 'aprobacion_admin';
         const nuevaNotif = {
             id: datos.id || ('notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
-            tipo: datos.tipo || 'sistema', // 'pago', 'credito', 'comentario', 'venta', 'inventario', 'sistema'
-            titulo: datos.titulo || 'Notificación del Sistema',
+            tipo: datos.tipo || 'sistema', // 'aprobacion', 'pago', 'credito', 'comentario', 'venta', 'inventario', 'sistema'
+            subTipo: datos.subTipo || (esAprob ? 'aprobacion_admin' : null),
+            titulo: datos.titulo || (esAprob ? 'Transacción Aprobada' : 'Notificación del Sistema'),
             mensaje: datos.mensaje,
             clienteId: datos.clienteId || null,
             clienteNombre: datos.clienteNombre || null,
@@ -43,8 +118,10 @@
             referenciaId: datos.referenciaId || null,
             fecha: datos.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
             timestamp: datos.timestamp || Date.now(),
-            leida: false,
-            destino: datos.destino || { tab: 'pos' }
+            leida: datos.leida !== undefined ? Boolean(datos.leida) : false,
+            paraCliente: datos.paraCliente !== undefined ? Boolean(datos.paraCliente) : esAprob,
+            paraAdmin: datos.paraAdmin !== undefined ? Boolean(datos.paraAdmin) : !esAprob,
+            destino: datos.destino || (esAprob ? { tab: 'cliente-cuenta' } : { tab: 'pos' })
         };
 
         // Evitar duplicados idénticos en menos de 5 segundos
@@ -100,24 +177,28 @@
     }
 
     /**
-     * Marca todas las notificaciones como leídas
+     * Marca todas las notificaciones del usuario actual como leídas
      */
     function marcarTodasNotificacionesLeidas() {
-        if (!Array.isArray(AppState.notificaciones) || AppState.notificaciones.length === 0) return;
-        AppState.notificaciones.forEach(n => { n.leida = true; });
+        const listaUsuario = obtenerNotificacionesParaUsuarioActual();
+        if (listaUsuario.length === 0) return;
+
+        listaUsuario.forEach(n => { 
+            n.leida = true; 
+            if (window.InventoryApp?.Firebase?.marcarNotificacionLeida) {
+                window.InventoryApp.Firebase.marcarNotificacionLeida(n.id).catch(() => {});
+            }
+        });
 
         if (window.InventoryApp?.Persistence?.guardar) {
             window.InventoryApp.Persistence.guardar(true);
-        }
-        if (window.InventoryApp?.Firebase?.marcarTodasNotificacionesLeidas) {
-            window.InventoryApp.Firebase.marcarTodasNotificacionesLeidas().catch(() => {});
         }
 
         actualizarBadgesNotificaciones();
         renderizarNotificaciones(filtroActivo);
 
         if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast('Todas las notificaciones han sido marcadas como leídas', 'success');
+            window.InventoryApp.Modal.toast('Todas tus notificaciones han sido marcadas como leídas', 'success');
         }
     }
 
@@ -141,13 +222,15 @@
     }
 
     /**
-     * Limpia todas las notificaciones que ya fueron leídas
+     * Limpia todas las notificaciones que ya fueron leídas del usuario actual
      */
     function limpiarNotificacionesLeidas() {
         if (!Array.isArray(AppState.notificaciones)) return;
-        const inicial = AppState.notificaciones.length;
-        AppState.notificaciones = AppState.notificaciones.filter(n => !n.leida);
-        const removidas = inicial - AppState.notificaciones.length;
+        const listaUsuario = obtenerNotificacionesParaUsuarioActual();
+        const idsAEliminar = new Set(listaUsuario.filter(n => n.leida).map(n => n.id));
+        if (idsAEliminar.size === 0) return;
+
+        AppState.notificaciones = AppState.notificaciones.filter(n => !idsAEliminar.has(n.id));
 
         if (window.InventoryApp?.Persistence?.guardar) {
             window.InventoryApp.Persistence.guardar(true);
@@ -157,7 +240,7 @@
         renderizarNotificaciones(filtroActivo);
 
         if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast(`Se eliminaron ${removidas} notificación(es) leída(s)`, 'info');
+            window.InventoryApp.Modal.toast(`Se eliminaron ${idsAEliminar.size} notificación(es) leída(s)`, 'info');
         }
     }
 
@@ -171,6 +254,22 @@
 
         // 1. Marcar como leída
         marcarNotificacionLeida(id, true);
+
+        // Si es cliente, llevarlo directamente a su estado de cuenta para ver la deuda rebajada y el abono
+        if (esUsuarioCliente()) {
+            if (typeof switchTab === 'function') {
+                switchTab('cliente-cuenta');
+            }
+            setTimeout(() => {
+                if (typeof window.renderizarEstadoCuentaCliente === 'function') {
+                    window.renderizarEstadoCuentaCliente();
+                }
+            }, 100);
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Consultando tu estado de cuenta actualizado', 'info');
+            }
+            return;
+        }
 
         const destino = notif.destino || {};
         const tab = destino.tab || 'pos';
@@ -377,9 +476,10 @@
 
     /**
      * Actualiza los contadores y badges visuales de notificaciones en el header y navbar
+     * respetando el rol del usuario (clientes sólo cuentan sus transacciones aprobadas).
      */
     function actualizarBadgesNotificaciones() {
-        const lista = Array.isArray(AppState.notificaciones) ? AppState.notificaciones : [];
+        const lista = obtenerNotificacionesParaUsuarioActual();
         const noLeidas = lista.filter(n => !n.leida).length;
 
         const badgeDesk = document.getElementById('badge-notificaciones-desktop');
@@ -416,11 +516,65 @@
     /**
      * Si la lista de notificaciones está vacía, genera automáticamente notificaciones
      * a partir del historial real para que el usuario nunca vea una pantalla en blanco.
+     * Si el usuario es Cliente: ÚNICAMENTE se generan notificaciones de aprobación de sus transacciones.
      */
     function generarNotificacionesInicialesSiVacio() {
         if (!Array.isArray(AppState.notificaciones)) {
             AppState.notificaciones = [];
         }
+
+        const usuario = window.AppState?.usuarioActual;
+
+        // Caso CLIENTE: Nunca generar alertas de negocio general (créditos, inventario, comentarios).
+        if (esUsuarioCliente() && usuario) {
+            const miId = String(usuario.cedula || usuario.id || '').trim().toLowerCase();
+            const yaTiene = AppState.notificaciones.some(n => {
+                const cId = String(n.clienteId || n.clienteCedula || '').trim().toLowerCase();
+                return cId === miId && (n.tipo === 'aprobacion' || n.subTipo === 'aprobacion_admin');
+            });
+
+            // Si no tiene notificaciones de aprobación previas, buscar en sus abonos aprobados
+            if (!yaTiene) {
+                const abonos = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+                abonos.forEach(a => {
+                    const cId = String(a.clienteId || '').trim().toLowerCase();
+                    const estado = String(a.estado || '').toLowerCase();
+                    if (cId === miId && (estado === 'pago agregado' || estado === 'confirmado')) {
+                        const ts = a.fechaAprobacion ? new Date(a.fechaAprobacion).getTime() : (a.fecha ? new Date(a.fecha).getTime() : Date.now());
+                        const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                            ? sanitizarAbonoMonedas(a, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
+                            : { esDivisa: String(a.formaPago || a.metodo || '').includes('USD'), montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+                        const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                        const usdStr = montoUSD.toFixed(2);
+                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                        const refStr = a.referencia ? ` (Ref: ${a.referencia})` : '';
+
+                        AppState.notificaciones.push({
+                            id: 'notif_aprob_abn_hist_' + a.id,
+                            tipo: 'aprobacion',
+                            subTipo: 'aprobacion_admin',
+                            titulo: 'Transacción Aprobada',
+                            mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
+                            clienteId: usuario.cedula || usuario.id,
+                            clienteNombre: usuario.nombre || usuario.id,
+                            montoUSD: montoUSD,
+                            montoVES: montoVES,
+                            esDivisasUSD: esDivisa,
+                            referenciaId: a.id,
+                            fecha: a.fechaAprobacion || a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
+                            timestamp: isNaN(ts) ? Date.now() : ts,
+                            leida: true,
+                            paraCliente: true,
+                            paraAdmin: false,
+                            destino: { tab: 'cliente-cuenta', subAccion: 'verAbono', idRef: a.id }
+                        });
+                    }
+                });
+            }
+            return;
+        }
+
+        // Caso ADMINISTRADOR / GESTIÓN:
         if (AppState.notificaciones.length > 0) return;
 
         const notifs = [];
@@ -444,6 +598,8 @@
                     fecha: v.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                     timestamp: isNaN(ts) ? Date.now() : ts,
                     leida: true,
+                    paraAdmin: true,
+                    paraCliente: false,
                     destino: {
                         tab: 'clientes',
                         subAccion: 'verCliente',
@@ -463,19 +619,29 @@
             const metodo = a.formaPago || a.metodo || 'Abono';
             const ref = a.referencia ? ` (Ref: ${a.referencia})` : '';
 
+            const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                ? sanitizarAbonoMonedas(a, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
+                : { esDivisa: String(metodo).includes('USD'), montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+            const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
+            const usdStr = montoUSD.toFixed(2);
+            const textoMonto = esDivisa ? `en divisas de $${usdStr} USD` : `de Bs. ${bsStr}`;
+
             notifs.push({
                 id: 'notif_init_abn_' + a.id,
                 tipo: 'pago',
                 titulo: 'Abono Registrado',
-                mensaje: `${nombre} agregó un pago de $${Number(a.montoUSD || 0).toFixed(2)} [${metodo}${ref}]`,
+                mensaje: `${nombre} agregó un pago ${textoMonto} [${metodo}${ref}]`,
                 clienteId: a.clienteId,
                 clienteNombre: nombre,
-                montoUSD: Number(a.montoUSD || 0),
-                montoVES: Number(a.montoVES || 0),
+                montoUSD: montoUSD,
+                montoVES: montoVES,
+                esDivisasUSD: esDivisa,
                 referenciaId: a.id,
                 fecha: a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                 timestamp: isNaN(ts) ? Date.now() : ts,
                 leida: true,
+                paraAdmin: true,
+                paraCliente: false,
                 destino: {
                     tab: 'transacciones',
                     subAccion: 'verPago',
@@ -497,6 +663,8 @@
                     fecha: a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                     timestamp: isNaN(ts) ? Date.now() + 100 : ts + 100,
                     leida: true,
+                    paraAdmin: true,
+                    paraCliente: false,
                     destino: {
                         tab: 'transacciones',
                         subAccion: 'verComentario',
@@ -522,6 +690,8 @@
                     fecha: e.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                     timestamp: isNaN(ts) ? Date.now() : ts,
                     leida: true,
+                    paraAdmin: true,
+                    paraCliente: false,
                     destino: {
                         tab: 'inventario',
                         subAccion: 'verInventario'
@@ -538,6 +708,7 @@
 
     /**
      * Renderiza la vista principal del Centro de Notificaciones
+     * adaptada estrictamente al perfil del usuario autenticado.
      */
     function renderizarNotificaciones(filtro = 'todas') {
         filtroActivo = filtro;
@@ -546,9 +717,127 @@
 
         generarNotificacionesInicialesSiVacio();
 
-        const lista = Array.isArray(AppState.notificaciones) ? AppState.notificaciones : [];
+        const lista = obtenerNotificacionesParaUsuarioActual();
         const total = lista.length;
         const noLeidas = lista.filter(n => !n.leida).length;
+
+        // ==========================================
+        // VISTA DEDICADA PARA EL PERFIL CLIENTE
+        // ==========================================
+        if (esUsuarioCliente()) {
+            let listaFiltrada = lista;
+            if (filtro === 'no_leidas') {
+                listaFiltrada = lista.filter(n => !n.leida);
+            }
+
+            contenedor.innerHTML = `
+                <div class="card" style="margin-bottom:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="display:inline-flex; width:40px; height:40px; border-radius:10px; background:#dcfce7; color:#16a34a; align-items:center; justify-content:center; font-size:1.25rem;">
+                                <i class="fas fa-circle-check"></i>
+                            </span>
+                            <div>
+                                <h2 style="margin:0; font-size:1.35rem; color:var(--text-main);">Tus Notificaciones</h2>
+                                <small style="color:var(--text-muted);">Avisos de transacciones y abonos aprobados por la administración</small>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cliente-cuenta')">
+                                <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cliente-catalogo')">
+                                <i class="fas fa-store"></i> Ver Productos
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="marcarTodasNotificacionesLeidas()" ${noLeidas === 0 ? 'disabled' : ''}>
+                                <i class="fas fa-check-double"></i> Marcar todas leídas
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros sencillos para cliente -->
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:14px;">
+                        <button type="button" class="btn btn-sm ${filtro === 'todas' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('todas')">
+                            Todas (${total})
+                        </button>
+                        <button type="button" class="btn btn-sm ${filtro === 'no_leidas' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('no_leidas')">
+                            Nuevas (${noLeidas})
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Listado de notificaciones de aprobación -->
+                <div id="lista-notificaciones-container" style="display:flex; flex-direction:column; gap:10px;">
+                    ${listaFiltrada.length === 0 ? `
+                        <div class="card" style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                            <i class="fas fa-bell-slash" style="font-size:2.8rem; color:var(--border-color); margin-bottom:12px;"></i>
+                            <h4 style="margin:0; color:var(--text-main); font-size:1.1rem;">No tienes notificaciones pendientes</h4>
+                            <p style="margin:6px 0 16px; font-size:0.88rem;">Te avisaremos aquí inmediatamente cuando el Administrador apruebe tus abonos o compras.</p>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cliente-cuenta')">
+                                <i class="fas fa-arrow-left"></i> Ir a Mi Estado de Cuenta
+                            </button>
+                        </div>
+                    ` : listaFiltrada.map(n => {
+                        const tiempoRel = formatearTiempoRelativo(n.timestamp);
+                        const noLeidaClase = !n.leida ? 'background:#f0fdf4; border-left:4px solid #16a34a; font-weight:600;' : 'background:var(--bg-card); border-left:4px solid #16a34a;';
+
+                        return `
+                            <div class="card notificacion-card-item" 
+                                 onclick="irANotificacion('${n.id}')"
+                                 style="margin:0; padding:14px 18px; cursor:pointer; transition:all 0.18s ease; ${noLeidaClase} position:relative; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; justify-content:space-between; align-items:center; gap:14px;"
+                                 onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';"
+                                 onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)';">
+                                
+                                <div style="display:flex; align-items:flex-start; gap:14px; flex:1;">
+                                    <div style="width:40px; height:40px; border-radius:10px; background:#dcfce7; color:#16a34a; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; margin-top:2px;">
+                                        <i class="fas fa-circle-check"></i>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                                            <span style="background:#dcfce7; color:#16a34a; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
+                                                TRANSACCIÓN APROBADA
+                                            </span>
+                                            <span style="font-size:0.8rem; color:var(--text-muted);">
+                                                <i class="fas fa-clock" style="font-size:0.75rem; margin-right:3px;"></i> ${tiempoRel} • ${n.fecha}
+                                            </span>
+                                            ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;" title="Nueva"></span>` : ''}
+                                        </div>
+                                        <div style="font-size:0.95rem; color:var(--text-main); margin-bottom:4px; line-height:1.4;">
+                                            ${n.mensaje}
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
+                                            ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas')) 
+                                                ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>` 
+                                                : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
+                                            ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                                    <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none; color:#16a34a; border-color:#86efac;">
+                                        <span>Ver Estado de Cuenta</span>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </span>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline" 
+                                            onclick="eliminarNotificacion('${n.id}', event)" 
+                                            title="Eliminar notificación" 
+                                            style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            return;
+        }
+
+        // ==========================================
+        // VISTA ADMINISTRADOR / GESTIÓN DEL NEGOCIO
+        // ==========================================
         const countPagos = lista.filter(n => n.tipo === 'pago').length;
         const countCreditos = lista.filter(n => n.tipo === 'credito').length;
         const countComentarios = lista.filter(n => n.tipo === 'comentario').length;
@@ -564,6 +853,13 @@
 
         // Definición de estilos y badges por tipo
         const configTipos = {
+            aprobacion: {
+                label: 'Aprobación',
+                icon: 'fa-circle-check',
+                color: '#16a34a',
+                bgBadge: '#dcfce7',
+                borderLeft: '#16a34a'
+            },
             pago: {
                 label: 'Pago / Abono',
                 icon: 'fa-hand-holding-dollar',
@@ -697,8 +993,9 @@
                                     </div>
                                     <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
                                         ${n.clienteNombre ? `<span><i class="fas fa-user" style="margin-right:4px;"></i> ${n.clienteNombre}</span>` : ''}
-                                        ${n.montoUSD > 0 ? `<span style="color:var(--primary-accent); font-weight:700;">$${n.montoUSD.toFixed(2)}</span>` : ''}
-                                        ${n.montoVES > 0 ? `<span style="color:#16a34a; font-weight:600;">Bs. ${n.montoVES.toFixed(2)}</span>` : ''}
+                                        ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas'))
+                                            ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>`
+                                            : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
                                         ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
                                     </div>
                                 </div>

@@ -1542,6 +1542,11 @@ function actualizarUIUsuarioActual() {
         const esAdmin = rolUsuario === 'admin' || rolUsuario === 'superadmin';
         btnEditarTasaManual.style.display = esAdmin ? 'inline-flex' : 'none';
     }
+
+    // Actualizar badges y centro de notificaciones respetando el rol del usuario en sesión
+    if (typeof window.actualizarBadgesNotificaciones === 'function') {
+        window.actualizarBadgesNotificaciones();
+    }
 }
 
 /**
