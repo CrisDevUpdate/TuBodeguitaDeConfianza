@@ -282,59 +282,6 @@ function switchTab(tabId) {
         console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
     }
 }
-/**
- * Normaliza y sanea montos en Bolívares (VES) y Divisas ($ USD) para cualquier transacción o abono.
- * Garantiza que métodos en Bolívares (Pago Móvil, Transferencias, Efectivo VES) nunca se confundan
- * ni se almacenen/muestren como dólares, sanando datos históricos guardados erróneamente.
- */
-function sanitizarAbonoMonedas(a, tasaParam = 0) {
-    if (!a) return { esDivisa: false, montoUSD: 0, montoVES: 0 };
-    const metodo = String(a.formaPago || a.metodo || a.metodoPago || a.tipoPago || a.tipo || '').trim();
-    const esDivisa = a.esDivisasUSD === true || a.monedaOriginal === 'USD' || ((!a.monedaOriginal && a.esDivisasUSD !== false) && (metodo.includes('USD') || metodo.includes('Divisa')));
-    const t = Number(a.tasaMomento || tasaParam || window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
-
-    let usd = Number(a.montoUSD || a.totalUSD || 0);
-    let ves = Number(a.montoVES || a.totalVES || 0);
-
-    if (esDivisa) {
-        if (usd <= 0 && ves > 0 && t > 0) {
-            usd = Number((ves / t).toFixed(2));
-        } else if (ves <= 0 && usd > 0 && t > 0) {
-            ves = Number((usd * t).toFixed(2));
-        }
-    } else {
-        // Método en Bolívares: Pago Móvil, Transferencia Bancaria, Efectivo VES
-        if (a.monedaOriginal === 'VES') {
-            // Creado con la nueva lógica: montoVES es el monto base en Bs
-            if (ves <= 0 && usd > 0 && t > 0) {
-                ves = Number((usd * t).toFixed(2));
-            } else if (usd <= 0 && ves > 0 && t > 0) {
-                usd = Number((ves / t).toFixed(2));
-            }
-        } else {
-            // Histórico / Legacy:
-            // Si se guardó montoUSD inflado (ej: 500) y montoVES = 500 * tasa (ej: 403,500)
-            if (t > 0 && usd >= 50 && ves > (usd * 10)) {
-                ves = usd;
-                usd = Number((ves / t).toFixed(2));
-            } else if (ves <= 0 && usd > 0) {
-                // Si solo vino usd (ej: 500) para un método en bolívares
-                ves = usd;
-                usd = t > 0 ? Number((ves / t).toFixed(2)) : 0;
-            } else if (usd <= 0 && ves > 0 && t > 0) {
-                usd = Number((ves / t).toFixed(2));
-            }
-        }
-    }
-
-    return {
-        esDivisa,
-        montoUSD: isNaN(usd) ? 0 : Number(usd.toFixed(2)),
-        montoVES: isNaN(ves) ? 0 : Number(ves.toFixed(2))
-    };
-}
-window.sanitizarAbonoMonedas = sanitizarAbonoMonedas;
-
 window.switchTab = switchTab;
 
 window.InventoryApp.Helpers = Object.freeze({
@@ -345,6 +292,5 @@ window.InventoryApp.Helpers = Object.freeze({
     fechaHoraActual,
     calcularHashSha256,
     verificarPasswordHash,
-    sanitizarAbonoMonedas,
     switchTab
 });

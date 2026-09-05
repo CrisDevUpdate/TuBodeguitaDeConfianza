@@ -1273,12 +1273,10 @@ window.InventoryApp = window.InventoryApp || {};
 
                                     // Registrar notificación en el centro de notificaciones del cliente
                                     if (typeof window.registrarNotificacion === 'function') {
-                                        const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-                                            ? sanitizarAbonoMonedas(abn, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
-                                            : { esDivisa: String(abn.formaPago || abn.metodo || '').includes('USD'), montoUSD: Number(abn.montoUSD || 0), montoVES: Number(abn.montoVES || 0) };
-                                        const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
-                                        const usdStr = montoUSD.toFixed(2);
-                                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                                        const esDivisa = String(abn.formaPago || abn.metodo || '').includes('USD');
+                                        const bsStr = Number(abn.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                                        const usdStr = Number(abn.montoUSD || 0).toFixed(2);
+                                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
                                         const refStr = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
 
                                         window.registrarNotificacion({
@@ -1289,8 +1287,8 @@ window.InventoryApp = window.InventoryApp || {};
                                             mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
                                             clienteId: abn.clienteId || idSesion,
                                             clienteNombre: usuarioSesion.nombre || abn.clienteNombre,
-                                            montoUSD: montoUSD,
-                                            montoVES: montoVES,
+                                            montoUSD: Number(abn.montoUSD || 0),
+                                            montoVES: Number(abn.montoVES || 0),
                                             referenciaId: idDoc,
                                             paraCliente: true,
                                             paraAdmin: false,
@@ -1390,15 +1388,12 @@ window.InventoryApp = window.InventoryApp || {};
                                 if (esAdminSesion) {
                                     reproducirSonidoNotificacion();
                                     const clienteNom = pago.clienteNombre || pago.clienteCedula || pago.clienteId || 'Cliente';
-                                    const { esDivisa: esDivisaP, montoUSD: usdP, montoVES: vesP } = typeof sanitizarAbonoMonedas === 'function'
-                                        ? sanitizarAbonoMonedas(pago, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
-                                        : { esDivisa: String(pago.metodoPago || pago.tipoPago || '').includes('USD'), montoUSD: Number(pago.totalUSD || pago.montoUSD || 0), montoVES: Number(pago.totalVES || pago.montoVES || 0) };
-                                    const montoFmt = esDivisaP ? `$${usdP.toFixed(2)} USD` : `Bs. ${vesP.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`;
+                                    const montoFmt = Number(pago.totalUSD || pago.montoUSD || pago.total || 0).toFixed(2);
                                     const metodoNom = pago.metodoPago || pago.tipoPago || pago.tipo || 'Pago';
                                     const refFmt = pago.referencia && pago.referencia !== 'N/A' ? ` (Ref: ${pago.referencia})` : '';
                                     const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                     if (typeof notifFn === 'function') {
-                                        notifFn(`🔔 <strong>¡Nuevo Pago por Verificar!</strong> ${clienteNom} registró pago de ${montoFmt} vía <strong>${metodoNom}</strong>${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 15000);
+                                        notifFn(`🔔 <strong>¡Nuevo Pago por Verificar!</strong> ${clienteNom} registró venta/pago de $${montoFmt} vía <strong>${metodoNom}</strong>${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 15000);
                                     }
                                 }
                             }
@@ -1411,12 +1406,10 @@ window.InventoryApp = window.InventoryApp || {};
                             const pCli = String(pago.clienteId || pago.clienteCedula || '').trim();
                             if (usuarioSesion && (pCli === idSesion || pCli === usuarioSesion.cedula)) {
                                 if (typeof window.registrarNotificacion === 'function') {
-                                    const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-                                        ? sanitizarAbonoMonedas(pago, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
-                                        : { esDivisa: String(pago.metodoPago || pago.tipoPago || '').includes('USD'), montoUSD: Number(pago.totalUSD || pago.montoUSD || 0), montoVES: Number(pago.totalVES || pago.montoVES || 0) };
-                                    const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
-                                    const usdStr = montoUSD.toFixed(2);
-                                    const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                                    const esDivisa = String(pago.metodoPago || pago.tipoPago || '').includes('USD');
+                                    const bsStr = Number(pago.totalVES || pago.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                                    const usdStr = Number(pago.totalUSD || pago.montoUSD || pago.total || 0).toFixed(2);
+                                    const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
                                     const refStr = pago.referencia && pago.referencia !== 'N/A' ? ` (Ref: ${pago.referencia})` : '';
 
                                     window.registrarNotificacion({
@@ -1427,8 +1420,8 @@ window.InventoryApp = window.InventoryApp || {};
                                         mensaje: `El Administrador aprobó tu pago de ${montoMsg}${refStr}. Tu transacción ha sido validada con éxito.`,
                                         clienteId: idSesion,
                                         clienteNombre: usuarioSesion.nombre || pago.clienteNombre,
-                                        montoUSD: montoUSD,
-                                        montoVES: montoVES,
+                                        montoUSD: Number(pago.totalUSD || pago.montoUSD || 0),
+                                        montoVES: Number(pago.totalVES || pago.montoVES || 0),
                                         referenciaId: idDoc,
                                         paraCliente: true,
                                         paraAdmin: false,

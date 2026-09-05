@@ -541,12 +541,10 @@
                     const estado = String(a.estado || '').toLowerCase();
                     if (cId === miId && (estado === 'pago agregado' || estado === 'confirmado')) {
                         const ts = a.fechaAprobacion ? new Date(a.fechaAprobacion).getTime() : (a.fecha ? new Date(a.fecha).getTime() : Date.now());
-                        const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-                            ? sanitizarAbonoMonedas(a, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
-                            : { esDivisa: String(a.formaPago || a.metodo || '').includes('USD'), montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
-                        const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
-                        const usdStr = montoUSD.toFixed(2);
-                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                        const esDivisa = String(a.formaPago || a.metodo || '').includes('USD');
+                        const bsStr = Number(a.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                        const usdStr = Number(a.montoUSD || 0).toFixed(2);
+                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr} ($${usdStr} USD)`;
                         const refStr = a.referencia ? ` (Ref: ${a.referencia})` : '';
 
                         AppState.notificaciones.push({
@@ -557,9 +555,8 @@
                             mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
                             clienteId: usuario.cedula || usuario.id,
                             clienteNombre: usuario.nombre || usuario.id,
-                            montoUSD: montoUSD,
-                            montoVES: montoVES,
-                            esDivisasUSD: esDivisa,
+                            montoUSD: Number(a.montoUSD || 0),
+                            montoVES: Number(a.montoVES || 0),
                             referenciaId: a.id,
                             fecha: a.fechaAprobacion || a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                             timestamp: isNaN(ts) ? Date.now() : ts,
@@ -619,23 +616,15 @@
             const metodo = a.formaPago || a.metodo || 'Abono';
             const ref = a.referencia ? ` (Ref: ${a.referencia})` : '';
 
-            const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-                ? sanitizarAbonoMonedas(a, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
-                : { esDivisa: String(metodo).includes('USD'), montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
-            const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
-            const usdStr = montoUSD.toFixed(2);
-            const textoMonto = esDivisa ? `en divisas de $${usdStr} USD` : `de Bs. ${bsStr}`;
-
             notifs.push({
                 id: 'notif_init_abn_' + a.id,
                 tipo: 'pago',
                 titulo: 'Abono Registrado',
-                mensaje: `${nombre} agregó un pago ${textoMonto} [${metodo}${ref}]`,
+                mensaje: `${nombre} agregó un pago de $${Number(a.montoUSD || 0).toFixed(2)} [${metodo}${ref}]`,
                 clienteId: a.clienteId,
                 clienteNombre: nombre,
-                montoUSD: montoUSD,
-                montoVES: montoVES,
-                esDivisasUSD: esDivisa,
+                montoUSD: Number(a.montoUSD || 0),
+                montoVES: Number(a.montoVES || 0),
                 referenciaId: a.id,
                 fecha: a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                 timestamp: isNaN(ts) ? Date.now() : ts,
@@ -806,9 +795,8 @@
                                             ${n.mensaje}
                                         </div>
                                         <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
-                                            ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas')) 
-                                                ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>` 
-                                                : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
+                                            ${n.montoVES > 0 ? `<span style="color:#16a34a; font-weight:700;">Bs. ${n.montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>` : ''}
+                                            ${n.montoUSD > 0 ? `<span style="color:var(--primary-accent); font-weight:600;">($${n.montoUSD.toFixed(2)} USD)</span>` : ''}
                                             ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
                                         </div>
                                     </div>
@@ -993,9 +981,8 @@
                                     </div>
                                     <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
                                         ${n.clienteNombre ? `<span><i class="fas fa-user" style="margin-right:4px;"></i> ${n.clienteNombre}</span>` : ''}
-                                        ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas'))
-                                            ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>`
-                                            : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
+                                        ${n.montoUSD > 0 ? `<span style="color:var(--primary-accent); font-weight:700;">$${n.montoUSD.toFixed(2)}</span>` : ''}
+                                        ${n.montoVES > 0 ? `<span style="color:#16a34a; font-weight:600;">Bs. ${n.montoVES.toFixed(2)}</span>` : ''}
                                         ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
                                     </div>
                                 </div>

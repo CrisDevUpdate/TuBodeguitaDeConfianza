@@ -45,7 +45,7 @@ export default function CustomerPayments({
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState(BANK_CONFIGS[0].id);
-  const [amountEntered, setAmountEntered] = useState('');
+  const [amountUSD, setAmountUSD] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Pago Móvil VES');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -56,18 +56,8 @@ export default function CustomerPayments({
     return BANK_CONFIGS.find(b => b.id === selectedBankId) || BANK_CONFIGS[0];
   }, [selectedBankId]);
 
-  const isDivisa = paymentMethod === 'Efectivo USD' || paymentMethod.includes('USD') || paymentMethod.includes('Divisa');
-  const numericEntered = parseFloat(amountEntered) || 0;
-
-  const numericUSD = isDivisa 
-    ? numericEntered 
-    : (exchangeRate > 0 ? (numericEntered / exchangeRate) : 0);
-  const numericVES = isDivisa 
-    ? (exchangeRate > 0 ? (numericEntered * exchangeRate) : 0) 
-    : numericEntered;
-
-  const equivalentVES = numericVES.toFixed(2);
-  const equivalentUSD = numericUSD.toFixed(2);
+  const numericUSD = parseFloat(amountUSD) || 0;
+  const equivalentVES = (numericUSD * (exchangeRate || 0)).toFixed(2);
   const deudaUSD = Number(clientAccount?.saldoDeudorUSD || 0);
 
   const copyToClipboard = async (text, key) => {
@@ -96,15 +86,13 @@ export default function CustomerPayments({
       `• Cédula/RIF: ${selectedBank.cedula}\n` +
       `• Nro. Cuenta: ${selectedBank.cuenta}\n` +
       `• Titular: ${selectedBank.titular}\n` +
-      (isDivisa 
-        ? `• Monto: $${numericUSD.toFixed(2)} USD (Equiv. Bs. ${equivalentVES})`
-        : `• Monto: Bs. ${numericVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} (Equiv. $${equivalentUSD} USD)`);
+      `• Monto: $${numericUSD > 0 ? numericUSD.toFixed(2) : '0.00'} (Bs. ${equivalentVES})`;
     copyToClipboard(fullText, 'ALL');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (numericEntered <= 0) {
+    if (numericUSD <= 0) {
       alert('Por favor ingresa un monto válido a abonar.');
       return;
     }
@@ -119,14 +107,11 @@ export default function CustomerPayments({
         id: `ABN_${Date.now()}`,
         clienteId: currentUser?.cedula || currentUser?.id,
         clienteNombre: currentUser?.nombre || 'Cliente',
-        montoUSD: Number(numericUSD.toFixed(2)),
-        montoVES: Number(numericVES.toFixed(2)),
-        esDivisasUSD: isDivisa,
-        monedaOriginal: isDivisa ? 'USD' : 'VES',
+        montoUSD: numericUSD,
+        montoVES: parseFloat(equivalentVES) || 0,
         tasaMomento: exchangeRate,
         banco: selectedBank.nombre,
         formaPago: paymentMethod,
-        metodo: paymentMethod,
         referencia: referenceNumber.trim(),
         nota: notes.trim(),
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -139,13 +124,10 @@ export default function CustomerPayments({
       }
 
       setIsModalOpen(false);
-      setAmountEntered('');
+      setAmountUSD('');
       setReferenceNumber('');
       setNotes('');
-      const alertMsg = isDivisa 
-        ? `¡Abono en divisas de $${numericUSD.toFixed(2)} USD reportado con éxito!` 
-        : `¡Abono de Bs. ${numericVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} reportado con éxito!`;
-      alert(`${alertMsg} Se encuentra en verificación.`);
+      alert(`¡Abono de $${numericUSD.toFixed(2)} reportado con éxito! Se encuentra en verificación.`);
     } catch (err) {
       alert('Error al reportar abono: ' + (err.message || err));
     } finally {
@@ -340,6 +322,25 @@ export default function CustomerPayments({
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Monto en Dólares ($ USD) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.5"
+                  value={amountUSD}
+                  onChange={(e) => setAmountUSD(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', fontWeight: '700', boxSizing: 'border-box' }}
+                />
+                <small style={{ color: '#16a34a', fontWeight: '700', display: 'block', marginTop: '4px' }}>
+                  Equivalente a pagar: Bs. {equivalentVES} (Tasa: {exchangeRate > 0 ? exchangeRate.toFixed(2) : '—'})
+                </small>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                   Forma de Pago Utilizada *
                 </label>
                 <select
@@ -347,32 +348,11 @@ export default function CustomerPayments({
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', boxSizing: 'border-box' }}
                 >
-                  <option value="Pago Móvil VES">📱 Pago Móvil (Bs. VES)</option>
-                  <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (Bs. VES)</option>
+                  <option value="Pago Móvil VES">📱 Pago Móvil (VES)</option>
+                  <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
                   <option value="Efectivo USD">💵 Efectivo ($ USD)</option>
                   <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
                 </select>
-              </div>
-
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                  {isDivisa ? 'Monto a Abonar en Divisas ($ USD) *' : 'Monto a Abonar en Bolívares (Bs. VES) *'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amountEntered}
-                  onChange={(e) => setAmountEntered(e.target.value)}
-                  placeholder={isDivisa ? 'Ej: 20.00' : 'Ej: 1000.00'}
-                  required
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', fontWeight: '700', boxSizing: 'border-box' }}
-                />
-                <small style={{ color: isDivisa ? '#16a34a' : '#0284c7', fontWeight: '700', display: 'block', marginTop: '4px' }}>
-                  {isDivisa 
-                    ? `Equivalente en Bolívares: Bs. ${equivalentVES} (Tasa: ${exchangeRate > 0 ? exchangeRate.toFixed(2) : '—'})`
-                    : `Equivalente en Divisas ($ USD): $${equivalentUSD} USD (Tasa: ${exchangeRate > 0 ? exchangeRate.toFixed(2) : '—'})`}
-                </small>
               </div>
 
               <div style={{ marginBottom: '14px' }}>
