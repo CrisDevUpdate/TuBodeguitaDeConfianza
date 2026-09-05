@@ -206,7 +206,7 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>) <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
         } else {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';

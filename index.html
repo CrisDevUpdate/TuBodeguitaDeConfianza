@@ -205,6 +205,10 @@
                         </span>
                     </div>
                 </div>
+                <button type="button" class="btn-icon-tasa" id="btn-header-notificaciones" onclick="switchTab('notificaciones')" title="Centro de Notificaciones" style="margin-left:6px; color:#f59e0b; position:relative;">
+                    <i class="fas fa-bell"></i>
+                    <span id="badge-header-notificaciones" class="badge-pill-counter" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:#ffffff; font-size:0.65rem; padding:1px 5px; display:none;">0</span>
+                </button>
                 <button type="button" class="btn-icon-tasa" onclick="event.stopPropagation(); cerrarSesionUsuario();" title="Cerrar sesión" style="margin-left:6px; color:#f87171;">
                     <i class="fas fa-power-off"></i>
                 </button>
@@ -255,6 +259,10 @@
         <button class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
             <i class="fas fa-chart-line"></i> Historial de Ventas
             <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff;">0</span>
+        </button>
+        <button class="nav-btn nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')">
+            <i class="fas fa-bell"></i> Notificaciones
+            <span id="badge-notificaciones-desktop" class="badge-pill-counter" style="background:#ef4444; color:#ffffff; display:none;">0</span>
         </button>
         <button class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
             <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
@@ -527,7 +535,12 @@
         </div>
 
         <div class="card">
-            <h3>Listado de Inventario</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                <h3 style="margin:0;">Listado de Inventario</h3>
+                <button type="button" class="btn btn-outline" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="font-size:0.85rem; padding:6px 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
+                    <i class="fas fa-cloud" style="color:#0284c7;"></i> Ver Fotos en Vercel Blob
+                </button>
+            </div>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -1317,6 +1330,11 @@
         </div>
     </div>
 
+    <!-- VISTA 7B2: CENTRO DE NOTIFICACIONES -->
+    <div id="notificaciones" class="view-content">
+        <!-- Renderizado dinámicamente por renderizarNotificaciones() en modules/notificaciones.js -->
+    </div>
+
     <!-- VISTA 7C (ADMIN): CONFIGURACIÓN GENERAL DEL SISTEMA & REINICIO DE FÁBRICA -->
     <div id="configuracion" class="view-content">
         <!-- Renderizado dinámicamente por renderizarConfiguracionAdmin() en modules/configuracion.js -->
@@ -1731,6 +1749,13 @@
                 </small>
             </div>
 
+            <div class="form-group" id="cliente-grupo-comentario" style="margin-bottom:16px;">
+                <label for="cliente-pago-comentario">
+                    <i class="fas fa-comment-dots" style="color:#0284c7;"></i> Comentario u Observación para la Tienda (Opcional)
+                </label>
+                <input type="text" id="cliente-pago-comentario" maxlength="120" placeholder="Ej: Entregar por la tarde, cambio para $20, etc." style="background:#f8fafc;">
+            </div>
+
             <!-- Botones de Acción: WhatsApp directo y Confirmar Compra -->
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button type="button" class="btn btn-block" onclick="abrirWhatsAppComprobante()" 
@@ -1941,6 +1966,11 @@
         <i class="fas fa-chart-line"></i>
         <span>Ventas</span>
     </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')" aria-label="Notificaciones" style="position:relative;">
+        <i class="fas fa-bell"></i>
+        <span>Notif</span>
+        <span id="badge-notificaciones-mobile" class="badge-dot" style="background:#ef4444; display:none;"></span>
+    </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')" aria-label="Premio del Mes Config">
         <i class="fas fa-gift"></i>
         <span>Premio</span>
@@ -1997,6 +2027,7 @@
 <script src="modules/cliente-view.js?v=4.2.0"></script>
 <script src="modules/historial-ventas.js?v=4.2.0"></script>
 <script src="modules/usuarios.js?v=4.2.0"></script>
+<script src="modules/notificaciones.js?v=4.2.0"></script>
 <script src="modules/configuracion.js?v=4.2.0"></script>
 <script src="app.js?v=4.2.0"></script>
 </body>

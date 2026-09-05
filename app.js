@@ -54,6 +54,11 @@
         if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
         if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
 
+        // Módulo de Notificaciones en Vivo
+        if (typeof sanitizarAbonosConMonedaInvertida === 'function') sanitizarAbonosConMonedaInvertida();
+        if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+        if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
         // Módulos de Gamificación, Premio del Mes y Experiencia Cliente
         if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
         if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();

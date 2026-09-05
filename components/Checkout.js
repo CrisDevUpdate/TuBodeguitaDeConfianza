@@ -248,30 +248,54 @@ class PosCheckoutManager {
             });
         }
 
-        // Registrar en PagosPorVerificar de Firestore
-        if (window.InventoryApp?.Firebase?.guardarPagoPorVerificar) {
-            window.InventoryApp.Firebase.guardarPagoPorVerificar({
-                id: nuevaVenta.id,
-                pedidoId: nuevaVenta.id,
-                ventaId: nuevaVenta.id,
-                clienteId: clienteId,
-                clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
-                clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
-                totalUSD: totalUSD,
-                montoUSD: totalUSD,
-                totalVES: totalVES,
-                montoVES: totalVES,
-                metodoPago: metodo,
-                tipoPago: metodo,
-                tipo: metodo,
-                referencia: referencia || (metodo.includes('Efectivo') ? 'Efectivo en caja POS' : (metodo === 'Crédito' ? 'Crédito' : 'N/A')),
-                items: nuevaVenta.items,
-                fecha: nuevaVenta.fecha,
-                fechaISO: new Date().toISOString(),
-                estado: 'PENDIENTE_VERIFICACION',
-                tipoRegistro: 'VENTA_POS',
-                origen: 'POS Mostrador'
-            }).catch(err => console.warn('[Checkout] Error al guardar en PagosPorVerificar:', err));
+        // Sincronizar en el Centro de Notificaciones y PagosPorVerificar de Firestore
+        if (metodo === 'Crédito') {
+            // Las transacciones a crédito NO requieren verificación/aprobación.
+            // Se refleja de inmediato en el Centro de Notificaciones:
+            if (typeof window.registrarNotificacion === 'function') {
+                window.registrarNotificacion({
+                    tipo: 'credito',
+                    titulo: 'Crédito Concedido',
+                    mensaje: `${clienteObj ? clienteObj.nombre : clienteId} sacó un crédito por $${Number(totalUSD).toFixed(2)} (Pedido #${nuevaVenta.id})`,
+                    clienteId: clienteId,
+                    clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+                    montoUSD: Number(totalUSD),
+                    montoVES: Number(totalVES),
+                    referenciaId: nuevaVenta.id,
+                    destino: {
+                        tab: 'clientes',
+                        subAccion: 'verCliente',
+                        clienteId: clienteId,
+                        idRef: nuevaVenta.id
+                    }
+                });
+            }
+        } else {
+            // Solo registrar en PagosPorVerificar si requiere validación bancaria o pago
+            if (window.InventoryApp?.Firebase?.guardarPagoPorVerificar) {
+                window.InventoryApp.Firebase.guardarPagoPorVerificar({
+                    id: nuevaVenta.id,
+                    pedidoId: nuevaVenta.id,
+                    ventaId: nuevaVenta.id,
+                    clienteId: clienteId,
+                    clienteNombre: clienteObj ? clienteObj.nombre : clienteId,
+                    clienteCedula: clienteObj ? (clienteObj.cedula || clienteObj.id) : clienteId,
+                    totalUSD: totalUSD,
+                    montoUSD: totalUSD,
+                    totalVES: totalVES,
+                    montoVES: totalVES,
+                    metodoPago: metodo,
+                    tipoPago: metodo,
+                    tipo: metodo,
+                    referencia: referencia || (metodo.includes('Efectivo') ? 'Efectivo en caja POS' : 'N/A'),
+                    items: nuevaVenta.items,
+                    fecha: nuevaVenta.fecha,
+                    fechaISO: new Date().toISOString(),
+                    estado: 'PENDIENTE_VERIFICACION',
+                    tipoRegistro: 'VENTA_POS',
+                    origen: 'POS Mostrador'
+                }).catch(err => console.warn('[Checkout] Error al guardar en PagosPorVerificar:', err));
+            }
         }
 
         // 3. Acreditar Puntos si la compra es de contado y la temporada está activa

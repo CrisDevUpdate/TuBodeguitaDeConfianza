@@ -1186,15 +1186,15 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newVentas);
-                    if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
-                        AppState.ventas = newVentas;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
-                    }
+                const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const hash = calcularHashColeccion(newVentas);
+                if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
+                    lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
+                    AppState.ventas = newVentas;
+                    guardarCacheLocal();
+                    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+                    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+                    solicitarRefrescoVistasDebounced();
                 }
             }, err => manejarErrorListener('ventas', err));
             syncListeners.push(unsubVentas);
@@ -1269,6 +1269,37 @@ window.InventoryApp = window.InventoryApp || {};
                                     const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
                                     if (typeof alertFn === 'function') {
                                         alertFn('¡Abono Aprobado!', `Tu abono de $${Number(abn.montoUSD || 0).toFixed(2)} ha sido validado y conciliado por el Administrador. Tu saldo ha sido actualizado y tus puntos liberados.`, 'success');
+                                    }
+
+                                    // Registrar notificación en el centro de notificaciones del cliente
+                                    if (typeof window.registrarNotificacion === 'function') {
+                                        const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                                            ? sanitizarAbonoMonedas(abn, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
+                                            : { esDivisa: String(abn.formaPago || abn.metodo || '').includes('USD'), montoUSD: Number(abn.montoUSD || 0), montoVES: Number(abn.montoVES || 0) };
+                                        const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                                        const usdStr = montoUSD.toFixed(2);
+                                        const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                                        const refStr = abn.referencia ? ` (Ref: ${abn.referencia})` : '';
+
+                                        window.registrarNotificacion({
+                                            id: 'notif_aprob_abn_' + idDoc,
+                                            tipo: 'aprobacion',
+                                            subTipo: 'aprobacion_admin',
+                                            titulo: 'Transacción Aprobada',
+                                            mensaje: `El Administrador aprobó tu abono de ${montoMsg}${refStr}. Tu deuda fue rebajada con éxito.`,
+                                            clienteId: abn.clienteId || idSesion,
+                                            clienteNombre: usuarioSesion.nombre || abn.clienteNombre,
+                                            montoUSD: montoUSD,
+                                            montoVES: montoVES,
+                                            referenciaId: idDoc,
+                                            paraCliente: true,
+                                            paraAdmin: false,
+                                            destino: {
+                                                tab: 'cliente-cuenta',
+                                                subAccion: 'verAbono',
+                                                idRef: idDoc
+                                            }
+                                        });
                                     }
                                 } else if (abn.estado === 'RECHAZADO') {
                                     const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
@@ -1359,13 +1390,50 @@ window.InventoryApp = window.InventoryApp || {};
                                 if (esAdminSesion) {
                                     reproducirSonidoNotificacion();
                                     const clienteNom = pago.clienteNombre || pago.clienteCedula || pago.clienteId || 'Cliente';
-                                    const montoFmt = Number(pago.totalUSD || pago.montoUSD || pago.total || 0).toFixed(2);
+                                    const { esDivisa: esDivisaP, montoUSD: usdP, montoVES: vesP } = typeof sanitizarAbonoMonedas === 'function'
+                                        ? sanitizarAbonoMonedas(pago, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
+                                        : { esDivisa: String(pago.metodoPago || pago.tipoPago || '').includes('USD'), montoUSD: Number(pago.totalUSD || pago.montoUSD || 0), montoVES: Number(pago.totalVES || pago.montoVES || 0) };
+                                    const montoFmt = esDivisaP ? `$${usdP.toFixed(2)} USD` : `Bs. ${vesP.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`;
                                     const metodoNom = pago.metodoPago || pago.tipoPago || pago.tipo || 'Pago';
                                     const refFmt = pago.referencia && pago.referencia !== 'N/A' ? ` (Ref: ${pago.referencia})` : '';
                                     const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                     if (typeof notifFn === 'function') {
-                                        notifFn(`🔔 <strong>¡Nuevo Pago por Verificar!</strong> ${clienteNom} registró venta/pago de $${montoFmt} vía <strong>${metodoNom}</strong>${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 15000);
+                                        notifFn(`🔔 <strong>¡Nuevo Pago por Verificar!</strong> ${clienteNom} registró pago de ${montoFmt} vía <strong>${metodoNom}</strong>${refFmt}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 15000);
                                     }
+                                }
+                            }
+                        }
+
+                        // Si es el cliente y el administrador aprobó su transacción de pago
+                        if (change.type === 'modified' && (pago.estado === 'APROBADO' || pago.estado === 'Confirmado')) {
+                            const usuarioSesion = window.AppState?.usuarioActual;
+                            const idSesion = String(usuarioSesion?.id || usuarioSesion?.cedula || '').trim();
+                            const pCli = String(pago.clienteId || pago.clienteCedula || '').trim();
+                            if (usuarioSesion && (pCli === idSesion || pCli === usuarioSesion.cedula)) {
+                                if (typeof window.registrarNotificacion === 'function') {
+                                    const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                                        ? sanitizarAbonoMonedas(pago, AppState.tasaActiva || AppState.tasaUSD_BCV || 0)
+                                        : { esDivisa: String(pago.metodoPago || pago.tipoPago || '').includes('USD'), montoUSD: Number(pago.totalUSD || pago.montoUSD || 0), montoVES: Number(pago.totalVES || pago.montoVES || 0) };
+                                    const bsStr = montoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 });
+                                    const usdStr = montoUSD.toFixed(2);
+                                    const montoMsg = esDivisa ? `$${usdStr} USD` : `Bs. ${bsStr}`;
+                                    const refStr = pago.referencia && pago.referencia !== 'N/A' ? ` (Ref: ${pago.referencia})` : '';
+
+                                    window.registrarNotificacion({
+                                        id: 'notif_aprob_pag_' + idDoc,
+                                        tipo: 'aprobacion',
+                                        subTipo: 'aprobacion_admin',
+                                        titulo: 'Transacción Aprobada',
+                                        mensaje: `El Administrador aprobó tu pago de ${montoMsg}${refStr}. Tu transacción ha sido validada con éxito.`,
+                                        clienteId: idSesion,
+                                        clienteNombre: usuarioSesion.nombre || pago.clienteNombre,
+                                        montoUSD: montoUSD,
+                                        montoVES: montoVES,
+                                        referenciaId: idDoc,
+                                        paraCliente: true,
+                                        paraAdmin: false,
+                                        destino: { tab: 'cliente-cuenta', subAccion: 'verAbono', idRef: idDoc }
+                                    });
                                 }
                             }
                         }
@@ -1538,6 +1606,14 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+        if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+        if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
     }
 
     // =========================================================================

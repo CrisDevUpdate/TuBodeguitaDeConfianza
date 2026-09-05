@@ -48,6 +48,7 @@ const AppState = window.InventoryApp.state = {
         descripcion: 'Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
     },
     canjesPremios: [],
+    notificaciones: [],
     nextProductSequence: 1
 };
 
@@ -55,7 +56,7 @@ const legacyGlobals = [
     'tasaActiva','tasaUSD_BCV','tasaEUR_BCV','fechaTasaBCV','monedaSeleccionada',
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
-    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios'
+    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
