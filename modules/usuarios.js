@@ -1144,40 +1144,57 @@ function cerrarModalSelectorAvatar() {
 }
 
 function crearModalSelectorAvatarDOM() {
-    const modalDiv = document.createElement('div');
+    let modalDiv = document.getElementById('modal-selector-avatar');
+    if (modalDiv) return;
+
+    modalDiv = document.createElement('div');
     modalDiv.id = 'modal-selector-avatar';
     modalDiv.className = 'modal';
     modalDiv.innerHTML = `
         <div class="modal-content" style="max-width: 500px; padding: 24px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h3 style="margin:0; font-size:1.2rem; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-user-circle" style="color:var(--primary-accent);"></i> Personalizar mi Avatar
+                    <i class="fas fa-user-circle" style="color:var(--primary-accent);"></i> Foto de Perfil & Avatar
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalSelectorAvatar()"><i class="fas fa-times"></i></button>
             </div>
 
             <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
-                Elige uno de nuestros avatares prediseñados o sube tu propia foto de perfil (se adaptará automáticamente a 150×150 px).
+                Personaliza tu foto de perfil. Tu imagen se guardará de forma permanente y segura en tu almacenamiento en la nube de <strong>Vercel Blob</strong>.
             </p>
 
+            <!-- Preview del Avatar Actual -->
+            <div id="avatar-preview-container" style="display:flex; align-items:center; gap:16px; margin-bottom:20px; padding:12px 16px; background:var(--bg-card); border-radius:12px; border:1px solid var(--border-light);">
+                <div id="avatar-current-preview" style="width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#e2e8f0; border:2px solid var(--primary-accent); font-size:2rem;">
+                    <i class="fas fa-user" style="color:#64748b; font-size:1.5rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);" id="avatar-preview-name">Tu Perfil</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Sincronizado con Vercel Blob & Firestore</div>
+                </div>
+            </div>
+
             <!-- Grid de Presets -->
-            <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Avatares Prediseñados:</div>
+            <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">O elige un avatar prediseñado:</div>
             <div id="avatar-presets-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:20px;"></div>
 
-            <!-- Subida Personalizada -->
+            <!-- Subida Personalizada a Vercel Blob -->
             <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">O sube una foto personalizada:</div>
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Sube tu propia foto de perfil:</div>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <input type="file" id="avatar-custom-file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="procesarSubidaAvatar(event)">
-                    <button type="button" class="btn btn-outline" onclick="document.getElementById('avatar-custom-file').click()" style="flex:1;">
-                        <i class="fas fa-upload"></i> Subir Foto (JPG / PNG / WEBP)
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('avatar-custom-file').click()" style="flex:1;">
+                        <i class="fas fa-camera"></i> Subir Foto (JPG / PNG / WEBP)
                     </button>
-                    <button type="button" class="btn btn-secondary" onclick="restablecerAvatarPorDefecto()">
-                        <i class="fas fa-rotate-left"></i> Por defecto
+                    <button type="button" class="btn btn-secondary" onclick="restablecerAvatarPorDefecto()" title="Restablecer avatar inicial">
+                        <i class="fas fa-rotate-left"></i> Restablecer
                     </button>
                 </div>
-                <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:6px;">
-                    * Tu imagen se recortará y optimizará automáticamente en tu navegador a 150x150 píxeles.
+                
+                <div id="avatar-upload-status" style="margin-top:12px; display:none; padding:10px; border-radius:8px; font-size:0.85rem; text-align:center;"></div>
+
+                <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:8px;">
+                    <i class="fas fa-cloud-arrow-up" style="color:var(--primary-accent);"></i> Almacenamiento conectado automáticamente con Vercel Blob y sincronizado con tu cuenta.
                 </small>
             </div>
         </div>
@@ -1189,6 +1206,25 @@ function renderizarGridAvataresPresets() {
     const grid = document.getElementById('avatar-presets-grid');
     if (!grid) return;
     const actual = AppState.usuarioActual?.avatar || '';
+
+    // Actualizar preview en el modal
+    const previewEl = document.getElementById('avatar-current-preview');
+    const nameEl = document.getElementById('avatar-preview-name');
+    if (nameEl && AppState.usuarioActual) {
+        nameEl.textContent = AppState.usuarioActual.nombre || AppState.usuarioActual.cedula || 'Tu Perfil';
+    }
+    if (previewEl) {
+        if (actual) {
+            if (actual.startsWith('data:image') || actual.startsWith('http') || actual.startsWith('/api/')) {
+                const url = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(actual) : actual;
+                previewEl.innerHTML = `<img src="${url}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+            } else {
+                previewEl.innerHTML = `<span style="font-size:2rem;">${actual}</span>`;
+            }
+        } else {
+            previewEl.innerHTML = `<i class="fas fa-user" style="color:#64748b; font-size:1.5rem;"></i>`;
+        }
+    }
 
     grid.innerHTML = PRESETS_AVATARES.map(p => `
         <button type="button" onclick="seleccionarAvatarPreset('${p.icon}')" 
@@ -1205,6 +1241,12 @@ function seleccionarAvatarPreset(icono) {
     if (!usuario) return;
 
     usuario.avatar = icono;
+    const idUser = usuario.cedula || usuario.id;
+    const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+    if (userIdx !== -1) {
+        AppState.usuarios[userIdx].avatar = icono;
+    }
+
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(usuario);
@@ -1212,8 +1254,13 @@ function seleccionarAvatarPreset(icono) {
 
     actualizarUIUsuarioActual();
     cerrarModalSelectorAvatar();
+    if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
     if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
     if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+    
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast('Avatar actualizado con éxito', 'success');
+    }
 }
 
 function restablecerAvatarPorDefecto() {
@@ -1221,6 +1268,12 @@ function restablecerAvatarPorDefecto() {
     if (!usuario) return;
 
     usuario.avatar = null;
+    const idUser = usuario.cedula || usuario.id;
+    const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+    if (userIdx !== -1) {
+        AppState.usuarios[userIdx].avatar = null;
+    }
+
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(usuario);
@@ -1228,7 +1281,13 @@ function restablecerAvatarPorDefecto() {
 
     actualizarUIUsuarioActual();
     cerrarModalSelectorAvatar();
+    if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
     if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+    if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast('Avatar restablecido por defecto', 'info');
+    }
 }
 
 function procesarSubidaAvatar(event) {
@@ -1236,59 +1295,103 @@ function procesarSubidaAvatar(event) {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-        alert('Por favor selecciona un archivo de imagen válido (.jpg, .png o .webp).');
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Por favor selecciona una imagen válida (.jpg, .png o .webp).', 'warning');
+        } else {
+            alert('Por favor selecciona una imagen válida (.jpg, .png o .webp).');
+        }
         return;
+    }
+
+    const statusEl = document.getElementById('avatar-upload-status');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(37, 99, 235, 0.1)';
+        statusEl.style.color = 'var(--primary-accent)';
+        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando imagen y sincronizando con Vercel Blob...`;
     }
 
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
         img.onload = async function() {
-            // Resize to exact 180x180 square center-crop
-            const canvas = document.createElement('canvas');
-            canvas.width = 180;
-            canvas.height = 180;
-            const ctx = canvas.getContext('2d');
-
-            const minDim = Math.min(img.width, img.height);
-            const startX = (img.width - minDim) / 2;
-            const startY = (img.height - minDim) / 2;
-
-            ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 180, 180);
-
-            const dataUrl = canvas.toDataURL('image/webp', 0.88);
-            
-            const usuario = AppState.usuarioActual;
-            if (!usuario) return;
-
-            // 1. Asignar temporalmente y actualizar UI de inmediato
-            usuario.avatar = dataUrl;
-            actualizarUIUsuarioActual();
-            cerrarModalSelectorAvatar();
-
-            // 2. Subir a Vercel Blob (@vercel/blob) y guardar solo la URL en Firestore
             try {
-                if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                    const idUser = usuario.cedula || usuario.id || 'user';
-                    const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(dataUrl, 'avatars', `avatar_${idUser}_${Date.now()}.webp`);
-                    if (resultado && resultado.url) {
-                        usuario.avatar = resultado.url;
-                        console.log('[Usuarios] Avatar persistido en Vercel Blob:', resultado.url);
-                    }
+                // Resize y centrado cuadrado exacto a 180x180 px en formato WebP optimizado
+                const canvas = document.createElement('canvas');
+                canvas.width = 180;
+                canvas.height = 180;
+                const ctx = canvas.getContext('2d');
+
+                const minDim = Math.min(img.width, img.height);
+                const startX = (img.width - minDim) / 2;
+                const startY = (img.height - minDim) / 2;
+
+                ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 180, 180);
+
+                const dataUrl = canvas.toDataURL('image/webp', 0.88);
+                
+                const usuario = AppState.usuarioActual;
+                if (!usuario) return;
+
+                // 1. Asignar de inmediato a nivel local para feedback instantáneo
+                usuario.avatar = dataUrl;
+                const idUser = usuario.cedula || usuario.id || 'user';
+                const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+                if (userIdx !== -1) {
+                    AppState.usuarios[userIdx].avatar = dataUrl;
                 }
-            } catch (blobErr) {
-                console.warn('[Usuarios] Aviso al subir avatar a Vercel Blob, usando copia local:', blobErr);
-            }
 
-            // 3. Persistir en Firestore (solo la URL) y localStorage
-            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
-            if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-                window.InventoryApp.Firebase.guardarUsuario(usuario);
-            }
+                // Refrescar todas las pantallas abiertas
+                actualizarUIUsuarioActual();
+                if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
+                if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+                if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
 
-            actualizarUIUsuarioActual();
-            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+                // 2. Subir binario a Vercel Blob a través de la API segura del backend
+                let finalUrl = dataUrl;
+                try {
+                    if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                        const filename = `avatar_${idUser}_${Date.now()}.webp`;
+                        const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(dataUrl, 'avatars', filename);
+                        if (resultado && (resultado.url || resultado.pathname)) {
+                            finalUrl = resultado.url || (resultado.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resultado.pathname)}` : dataUrl);
+                            usuario.avatar = finalUrl;
+                            if (userIdx !== -1) {
+                                AppState.usuarios[userIdx].avatar = finalUrl;
+                            }
+                            console.log('[Usuarios] Avatar persistido en Vercel Blob:', finalUrl);
+                        }
+                    }
+                } catch (blobErr) {
+                    console.warn('[Usuarios] Aviso al subir avatar a Vercel Blob, manteniendo copia optimizada:', blobErr);
+                }
+
+                // 3. Persistir en Firestore y localStorage
+                if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+                if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+                    window.InventoryApp.Firebase.guardarUsuario(usuario);
+                }
+
+                // 4. Refrescar todas las vistas con la URL final de Vercel Blob
+                actualizarUIUsuarioActual();
+                if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
+                if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+                if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+
+                if (window.InventoryApp?.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('¡Foto de perfil actualizada y guardada con éxito en Vercel Blob!', 'success');
+                }
+
+                cerrarModalSelectorAvatar();
+            } catch (err) {
+                console.error('[Usuarios] Error al procesar imagen de perfil:', err);
+                if (window.InventoryApp?.Modal?.toast) {
+                    window.InventoryApp.Modal.toast('Error al actualizar foto: ' + err.message, 'danger');
+                }
+            } finally {
+                if (event.target) event.target.value = '';
+                if (statusEl) statusEl.style.display = 'none';
+            }
         };
         img.src = e.target.result;
     };
@@ -1392,6 +1495,16 @@ function renderizarUsuarios(busqueda = '') {
         }
 
         const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
+        const uAvatar = u.avatar || '';
+        let uAvatarHtml = '';
+        if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
+            const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
+            uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+        } else if (uAvatar) {
+            uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
+        } else {
+            uAvatarHtml = `<span style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem;"><i class="fas fa-user"></i></span>`;
+        }
 
         return `
             <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
@@ -1400,8 +1513,13 @@ function renderizarUsuarios(busqueda = '') {
                     ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
                 </td>
                 <td>
-                    <div style="font-weight:600; color:var(--text-main);">${u.nombre}</div>
-                    <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${uAvatarHtml}
+                        <div>
+                            <div style="font-weight:600; color:var(--text-main);">${u.nombre}</div>
+                            <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+                        </div>
+                    </div>
                 </td>
                 <td>
                     <div style="display:flex; align-items:center; gap:6px;">
@@ -1521,7 +1639,8 @@ function actualizarUIUsuarioActual() {
     if (avatarMini) {
         if (usuario.avatar) {
             if (usuario.avatar.startsWith('data:image') || usuario.avatar.startsWith('http') || usuario.avatar.startsWith('/api/')) {
-                avatarMini.innerHTML = `<img src="${usuario.avatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(usuario.avatar) : usuario.avatar;
+                avatarMini.innerHTML = `<img src="${urlFinal}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
             } else {
                 avatarMini.innerHTML = `<span style="font-size:1.15rem;">${usuario.avatar}</span>`;
             }
@@ -1531,6 +1650,17 @@ function actualizarUIUsuarioActual() {
         avatarMini.title = 'Haz clic para cambiar tu foto o avatar';
         avatarMini.onclick = (e) => {
             e.stopPropagation();
+            abrirModalSelectorAvatar();
+        };
+    }
+
+    // Permitir clic en el badge del usuario para personalizar avatar
+    const sessionBadge = document.getElementById('btn-user-session-header');
+    if (sessionBadge && !sessionBadge.dataset.avatarBound) {
+        sessionBadge.dataset.avatarBound = 'true';
+        sessionBadge.style.cursor = 'pointer';
+        sessionBadge.onclick = (e) => {
+            if (e.target.closest('button')) return;
             abrirModalSelectorAvatar();
         };
     }

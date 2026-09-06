@@ -788,33 +788,40 @@ async function manejarSubidaVercelBlob(req, res) {
         const { put } = await import('@vercel/blob');
         let blobResult = null;
 
-        // Intentar primero con access: 'private' (como se indica en la documentación oficial compartida)
+        // Intentar con access: 'private' y allowOverwrite: true (requerido por stores privados de Vercel Blob)
         try {
           blobResult = await put(targetFilename, buffer, {
             access: 'private',
             token: blobToken,
-            contentType: contentType
+            contentType: contentType,
+            allowOverwrite: true
           });
         } catch (privErr) {
-          console.warn(`[Vercel Blob] put 'private' no disponible (${privErr.message}), intentando con access: 'public'...`);
-          blobResult = await put(targetFilename, buffer, {
-            access: 'public',
-            token: blobToken,
-            contentType: contentType
-          });
+          // Si el almacén fuera público o se requiere fallback de acceso
+          if (privErr.message && (privErr.message.includes('public') || privErr.message.includes('access'))) {
+            blobResult = await put(targetFilename, buffer, {
+              access: 'public',
+              token: blobToken,
+              contentType: contentType,
+              allowOverwrite: true
+            });
+          } else {
+            throw privErr;
+          }
         }
 
         if (blobResult) {
           const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
-          console.log(`[Vercel Blob] Archivo subido exitosamente a la nube de Vercel: ${blobResult.pathname} (${blobResult.url || viewUrl})`);
+          console.log(`[Vercel Blob] Archivo subido exitosamente a la nube de Vercel: ${blobResult.pathname} (${viewUrl})`);
           
           return res.json({
             pathname: blobResult.pathname,
             contentType: blobResult.contentType || contentType,
             contentDisposition: blobResult.contentDisposition || `inline; filename="${path.basename(blobResult.pathname)}"`,
-            url: blobResult.url || viewUrl,
+            url: viewUrl,
+            rawDirectUrl: blobResult.url,
             viewUrl: viewUrl,
-            downloadUrl: blobResult.downloadUrl || blobResult.url || viewUrl,
+            downloadUrl: viewUrl,
             provider: 'vercel-blob'
           });
         }
@@ -862,7 +869,19 @@ async function manejarVistaVercelBlob(req, res) {
       return res.status(400).json({ error: 'Missing pathname query parameter' });
     }
 
-    const cleanPath = String(pathname).replace(/^\/+/, '');
+    let cleanPath = String(pathname).trim();
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      try {
+        cleanPath = new URL(cleanPath).pathname.replace(/^\/+/, '');
+      } catch (e) {}
+    } else {
+      cleanPath = cleanPath.replace(/^\/+/, '');
+    }
+    cleanPath = cleanPath.split('?')[0];
+    try {
+      cleanPath = decodeURIComponent(cleanPath);
+    } catch (e) {}
+
     const blobToken = obtenerVercelBlobToken(req);
 
     // 1. Intentar servir desde Vercel Blob con la SDK oficial (@vercel/blob get())
@@ -884,11 +903,15 @@ async function manejarVistaVercelBlob(req, res) {
         }
 
         if (result && (result.statusCode === 200 || result.stream || result.blob)) {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
           if (result.blob && result.blob.contentType) {
             res.setHeader('Content-Type', result.blob.contentType);
           } else if (result.headers && result.headers.get && result.headers.get('content-type')) {
             res.setHeader('Content-Type', result.headers.get('content-type'));
+          } else {
+            const ext = path.extname(cleanPath).toLowerCase();
+            const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
+            res.setHeader('Content-Type', mime);
           }
           res.setHeader('X-Content-Type-Options', 'nosniff');
 
@@ -919,7 +942,7 @@ async function manejarVistaVercelBlob(req, res) {
       const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
       res.setHeader('Content-Type', mime);
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
       return fs.createReadStream(localFilePath).pipe(res);
     }
 

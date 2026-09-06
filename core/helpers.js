@@ -49,6 +49,30 @@ function fechaHoraActual() {
 }
 
 /**
+ * Normaliza URLs de imágenes de Vercel Blob.
+ * Si la URL pertenece a un store privado de Vercel Blob (que daría error 403 al navegador directo),
+ * la convierte automáticamente al proxy seguro autenticado /api/avatar/view.
+ */
+function normalizarUrlBlob(url) {
+    if (!url || typeof url !== 'string') return '';
+    const str = url.trim();
+    if (!str) return '';
+    if (str.includes('.private.blob.vercel-storage.com/')) {
+        try {
+            const parsed = new URL(str);
+            const pathname = parsed.pathname.replace(/^\/+/, '');
+            return `/api/avatar/view?pathname=${encodeURIComponent(pathname)}`;
+        } catch (e) {
+            const idx = str.indexOf('.private.blob.vercel-storage.com/');
+            const sub = str.substring(idx + '.private.blob.vercel-storage.com/'.length).split('?')[0];
+            return `/api/avatar/view?pathname=${encodeURIComponent(sub)}`;
+        }
+    }
+    return str;
+}
+window.normalizarUrlBlob = normalizarUrlBlob;
+
+/**
  * Implementación de SHA-256 estándar pura y robusta (funciona en cualquier navegador y contexto http/https/iframe)
  */
 function sha256Sync(ascii) {

@@ -122,8 +122,13 @@ window.InventoryApp = window.InventoryApp || {};
     async function obtenerUrlConCache(url, fallback = '') {
         if (!url) return fallback;
 
+        // Normalizar URLs privadas de Vercel Blob para que no den error 403
+        if (typeof normalizarUrlBlob === 'function') {
+            url = normalizarUrlBlob(url);
+        }
+
         // Si es un emoji o preset corto
-        if (url.length < 10 || (!url.startsWith('http') && !url.startsWith('data:'))) {
+        if (url.length < 10 || (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/api/'))) {
             return url;
         }
 

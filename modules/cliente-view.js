@@ -1636,7 +1636,17 @@ function renderizarPerfilCliente() {
     const usuario = AppState.usuarioActual;
     if (!container || !usuario) return;
 
-    const avatarUrl = usuario.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const rawAvatar = usuario.avatar || '';
+    const avatarEsImagen = rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image') || rawAvatar.startsWith('/api/');
+    let avatarMarkup = '';
+    if (avatarEsImagen) {
+        const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawAvatar) : rawAvatar;
+        avatarMarkup = `<img src="${urlFinal}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';">`;
+    } else if (rawAvatar) {
+        avatarMarkup = `<div style="width: 84px; height: 84px; border-radius: 50%; border: 3px solid var(--primary-accent); display: flex; align-items: center; justify-content: center; font-size: 2.6rem; background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">${rawAvatar}</div>`;
+    } else {
+        avatarMarkup = `<img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">`;
+    }
     const puntos = typeof obtenerPuntosCliente === 'function' ? obtenerPuntosCliente(usuario.cedula || usuario.id) : (usuario.puntos || 0);
 
     container.innerHTML = `
@@ -1644,9 +1654,9 @@ function renderizarPerfilCliente() {
             <!-- Tarjeta de Identidad de Perfil -->
             <div class="card" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-main)); border: 1px solid var(--border-light); padding: 24px; position: relative;">
                 <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                    <div style="position: relative;">
-                        <img src="${avatarUrl}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalSelectorAvatar()" style="position: absolute; bottom: 0; right: 0; border-radius: 50%; width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Cambiar Avatar">
+                    <div style="position: relative; cursor: pointer;" onclick="abrirModalSelectorAvatar()" title="Haz clic para cambiar tu foto de perfil">
+                        ${avatarMarkup}
+                        <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); abrirModalSelectorAvatar();" style="position: absolute; bottom: 0; right: 0; border-radius: 50%; width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Cambiar Avatar">
                             <i class="fas fa-camera" style="font-size: 0.75rem;"></i>
                         </button>
                     </div>
