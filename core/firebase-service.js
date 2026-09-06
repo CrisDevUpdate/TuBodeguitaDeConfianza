@@ -1169,6 +1169,21 @@ window.InventoryApp = window.InventoryApp || {};
                     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
                         asegurarSincronizacionUsuariosAClientes();
                     }
+                    if (AppState.usuarioActual) {
+                        const curId = String(AppState.usuarioActual.cedula || AppState.usuarioActual.id || '').toUpperCase();
+                        const uInCloud = newUsuarios.find(u => String(u.cedula || u.id || '').toUpperCase() === curId);
+                        if (uInCloud) {
+                            if (uInCloud.avatar && !String(AppState.usuarioActual.avatar || '').startsWith('data:')) {
+                                AppState.usuarioActual.avatar = uInCloud.avatar;
+                            }
+                            if (uInCloud.nombre) AppState.usuarioActual.nombre = uInCloud.nombre;
+                            if (uInCloud.rol) AppState.usuarioActual.rol = uInCloud.rol;
+                            if (uInCloud.estado) AppState.usuarioActual.estado = uInCloud.estado;
+                            if (typeof actualizarUIUsuarioActual === 'function') {
+                                actualizarUIUsuarioActual();
+                            }
+                        }
+                    }
                     guardarCacheLocal();
                     if (typeof actualizarBadgesUsuarios === 'function') {
                         actualizarBadgesUsuarios();
@@ -2309,18 +2324,13 @@ window.InventoryApp = window.InventoryApp || {};
                     try {
                         if (window.InventoryApp && window.InventoryApp.ImageCache) {
                             const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(avatarUrl, 'avatars', `avatar_${id}_${Date.now()}.webp`);
-                            if (resBlob && resBlob.url) {
-                                avatarUrl = resBlob.url;
-                                usuario.avatar = resBlob.url;
-                            } else {
-                                avatarUrl = '';
+                            if (resBlob && (resBlob.url || resBlob.pathname)) {
+                                avatarUrl = resBlob.url || `/api/avatar/view?pathname=${encodeURIComponent(resBlob.pathname)}`;
+                                usuario.avatar = avatarUrl;
                             }
-                        } else {
-                            avatarUrl = '';
                         }
                     } catch (e) {
-                        console.warn('[Firebase] No fue posible subir avatar a Vercel Blob; omitiendo base64 en Firestore:', e);
-                        avatarUrl = '';
+                        console.warn('[Firebase] Aviso al subir avatar a Vercel Blob desde guardarUsuario:', e);
                     }
                 }
 

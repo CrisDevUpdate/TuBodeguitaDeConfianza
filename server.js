@@ -23,16 +23,14 @@ try {
         if (eqIdx > 0) {
           const key = trimmed.substring(0, eqIdx).trim();
           const val = trimmed.substring(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
-          if (key === 'BLOB_READ_WRITE_TOKEN') {
-            if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_')) {
-              process.env[key] = val;
-            }
-          } else {
-            process.env[key] = val;
-          }
+          process.env[key] = val;
         }
       }
     });
+  }
+  // Garantizar que si existe un valor no válido en el entorno, se use el token oficial
+  if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_')) {
+    process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
   }
 } catch (e) {
   console.warn('[Env] Aviso al leer .env:', e.message);

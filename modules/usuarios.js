@@ -1165,7 +1165,7 @@ function crearModalSelectorAvatarDOM() {
 
             <!-- Preview del Avatar Actual -->
             <div id="avatar-preview-container" style="display:flex; align-items:center; gap:16px; margin-bottom:20px; padding:12px 16px; background:var(--bg-card); border-radius:12px; border:1px solid var(--border-light);">
-                <div id="avatar-current-preview" style="width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#e2e8f0; border:2px solid var(--primary-accent); font-size:2rem;">
+                <div id="avatar-current-preview" style="width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#e2e8f0; border:2px solid var(--primary-accent); font-size:2rem; flex-shrink:0;">
                     <i class="fas fa-user" style="color:#64748b; font-size:1.5rem;"></i>
                 </div>
                 <div>
@@ -1175,17 +1175,30 @@ function crearModalSelectorAvatarDOM() {
             </div>
 
             <!-- Grid de Presets -->
-            <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">O elige un avatar prediseñado:</div>
+            <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Elige un avatar prediseñado:</div>
             <div id="avatar-presets-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:20px;"></div>
 
             <!-- Subida Personalizada a Vercel Blob -->
             <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
-                <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Sube tu propia foto de perfil:</div>
+                <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:10px;">O sube tu propia foto desde tu dispositivo:</div>
+                
+                <!-- Zona Drop / Selector de Archivo -->
+                <div id="avatar-drop-zone" style="border: 2px dashed var(--primary-accent); border-radius: 12px; padding: 18px 14px; text-align: center; background: rgba(37, 99, 235, 0.03); cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px;"
+                    onclick="document.getElementById('avatar-custom-file').click()">
+                    <i class="fas fa-cloud-arrow-up" style="font-size: 1.8rem; color: var(--primary-accent); margin-bottom: 6px; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-main); margin-bottom: 4px;">
+                        Haz clic aquí o arrastra tu foto a esta casilla
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        Formatos: JPG, PNG, WEBP, GIF (Se optimiza y almacena en Vercel Blob)
+                    </div>
+                    <input type="file" id="avatar-custom-file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp" style="display:none;" onchange="procesarSubidaAvatar(event)" onclick="this.value=''">
+                </div>
+
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <input type="file" id="avatar-custom-file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="procesarSubidaAvatar(event)">
-                    <button type="button" class="btn btn-primary" onclick="document.getElementById('avatar-custom-file').click()" style="flex:1;">
-                        <i class="fas fa-camera"></i> Subir Foto (JPG / PNG / WEBP)
-                    </button>
+                    <label for="avatar-custom-file" class="btn btn-primary" style="flex:1; cursor:pointer; margin:0; display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <i class="fas fa-camera"></i> Seleccionar Imagen
+                    </label>
                     <button type="button" class="btn btn-secondary" onclick="restablecerAvatarPorDefecto()" title="Restablecer avatar inicial">
                         <i class="fas fa-rotate-left"></i> Restablecer
                     </button>
@@ -1193,13 +1206,42 @@ function crearModalSelectorAvatarDOM() {
                 
                 <div id="avatar-upload-status" style="margin-top:12px; display:none; padding:10px; border-radius:8px; font-size:0.85rem; text-align:center;"></div>
 
-                <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:8px;">
-                    <i class="fas fa-cloud-arrow-up" style="color:var(--primary-accent);"></i> Almacenamiento conectado automáticamente con Vercel Blob y sincronizado con tu cuenta.
+                <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:10px;">
+                    <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento seguro en la nube conectado con Vercel Blob Storage privado.
                 </small>
             </div>
         </div>
     `;
     document.body.appendChild(modalDiv);
+
+    // Eventos drag and drop para la zona de carga
+    setTimeout(() => {
+        const dropZone = document.getElementById('avatar-drop-zone');
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = 'rgba(37, 99, 235, 0.12)';
+                    dropZone.style.borderColor = '#1d4ed8';
+                }, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = 'rgba(37, 99, 235, 0.03)';
+                    dropZone.style.borderColor = 'var(--primary-accent)';
+                }, false);
+            });
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files.length > 0) {
+                    procesarSubidaAvatar(dt.files[0]);
+                }
+            }, false);
+        }
+    }, 100);
 }
 
 function renderizarGridAvataresPresets() {
@@ -1241,8 +1283,8 @@ function seleccionarAvatarPreset(icono) {
     if (!usuario) return;
 
     usuario.avatar = icono;
-    const idUser = usuario.cedula || usuario.id;
-    const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+    const idUser = String(usuario.cedula || usuario.id || '');
+    const userIdx = (AppState.usuarios || []).findIndex(u => String(u.cedula || u.id || '').toUpperCase() === idUser.toUpperCase());
     if (userIdx !== -1) {
         AppState.usuarios[userIdx].avatar = icono;
     }
@@ -1253,6 +1295,7 @@ function seleccionarAvatarPreset(icono) {
     }
 
     actualizarUIUsuarioActual();
+    renderizarGridAvataresPresets();
     cerrarModalSelectorAvatar();
     if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
     if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
@@ -1268,8 +1311,8 @@ function restablecerAvatarPorDefecto() {
     if (!usuario) return;
 
     usuario.avatar = null;
-    const idUser = usuario.cedula || usuario.id;
-    const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+    const idUser = String(usuario.cedula || usuario.id || '');
+    const userIdx = (AppState.usuarios || []).findIndex(u => String(u.cedula || u.id || '').toUpperCase() === idUser.toUpperCase());
     if (userIdx !== -1) {
         AppState.usuarios[userIdx].avatar = null;
     }
@@ -1280,6 +1323,7 @@ function restablecerAvatarPorDefecto() {
     }
 
     actualizarUIUsuarioActual();
+    renderizarGridAvataresPresets();
     cerrarModalSelectorAvatar();
     if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
     if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
@@ -1290,11 +1334,19 @@ function restablecerAvatarPorDefecto() {
     }
 }
 
-function procesarSubidaAvatar(event) {
-    const file = event.target.files && event.target.files[0];
+function procesarSubidaAvatar(fileOrEvent) {
+    let file = null;
+    if (fileOrEvent instanceof File) {
+        file = fileOrEvent;
+    } else if (fileOrEvent && fileOrEvent.target && fileOrEvent.target.files) {
+        file = fileOrEvent.target.files[0];
+    } else if (fileOrEvent && fileOrEvent.dataTransfer && fileOrEvent.dataTransfer.files) {
+        file = fileOrEvent.dataTransfer.files[0];
+    }
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    const esTipoImagen = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|gif|bmp|heic|avif)$/i.test(file.name || '');
+    if (!esTipoImagen) {
         if (window.InventoryApp?.Modal?.toast) {
             window.InventoryApp.Modal.toast('Por favor selecciona una imagen válida (.jpg, .png o .webp).', 'warning');
         } else {
@@ -1312,8 +1364,20 @@ function procesarSubidaAvatar(event) {
     }
 
     const reader = new FileReader();
+    reader.onerror = function() {
+        if (statusEl) statusEl.style.display = 'none';
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('No se pudo leer el archivo seleccionado.', 'danger');
+        }
+    };
     reader.onload = function(e) {
         const img = new Image();
+        img.onerror = function() {
+            if (statusEl) statusEl.style.display = 'none';
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('El archivo no es una imagen reconocible.', 'danger');
+            }
+        };
         img.onload = async function() {
             try {
                 // Resize y centrado cuadrado exacto a 180x180 px en formato WebP optimizado
@@ -1328,21 +1392,27 @@ function procesarSubidaAvatar(event) {
 
                 ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, 180, 180);
 
-                const dataUrl = canvas.toDataURL('image/webp', 0.88);
+                let dataUrl = '';
+                try {
+                    dataUrl = canvas.toDataURL('image/webp', 0.88);
+                } catch (webpErr) {
+                    dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+                }
                 
                 const usuario = AppState.usuarioActual;
                 if (!usuario) return;
 
-                // 1. Asignar de inmediato a nivel local para feedback instantáneo
+                // 1. Asignar de inmediato a nivel local para feedback visual instantáneo
                 usuario.avatar = dataUrl;
-                const idUser = usuario.cedula || usuario.id || 'user';
-                const userIdx = (AppState.usuarios || []).findIndex(u => (u.cedula || u.id) === idUser);
+                const idUser = String(usuario.cedula || usuario.id || 'user');
+                const userIdx = (AppState.usuarios || []).findIndex(u => String(u.cedula || u.id || '').toUpperCase() === idUser.toUpperCase());
                 if (userIdx !== -1) {
                     AppState.usuarios[userIdx].avatar = dataUrl;
                 }
 
-                // Refrescar todas las pantallas abiertas
+                // Refrescar modal e interfaces abiertas de inmediato
                 actualizarUIUsuarioActual();
+                renderizarGridAvataresPresets();
                 if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
                 if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
                 if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
@@ -1359,7 +1429,7 @@ function procesarSubidaAvatar(event) {
                             if (userIdx !== -1) {
                                 AppState.usuarios[userIdx].avatar = finalUrl;
                             }
-                            console.log('[Usuarios] Avatar persistido en Vercel Blob:', finalUrl);
+                            console.log('[Usuarios] Avatar persistido en Vercel Blob exitosamente:', finalUrl);
                         }
                     }
                 } catch (blobErr) {
@@ -1374,23 +1444,38 @@ function procesarSubidaAvatar(event) {
 
                 // 4. Refrescar todas las vistas con la URL final de Vercel Blob
                 actualizarUIUsuarioActual();
+                renderizarGridAvataresPresets();
                 if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
                 if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
                 if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+
+                if (statusEl) {
+                    statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
+                    statusEl.style.color = '#059669';
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ¡Foto guardada exitosamente en Vercel Blob!`;
+                }
 
                 if (window.InventoryApp?.Modal?.toast) {
                     window.InventoryApp.Modal.toast('¡Foto de perfil actualizada y guardada con éxito en Vercel Blob!', 'success');
                 }
 
-                cerrarModalSelectorAvatar();
+                setTimeout(() => {
+                    cerrarModalSelectorAvatar();
+                    if (statusEl) statusEl.style.display = 'none';
+                }, 600);
             } catch (err) {
                 console.error('[Usuarios] Error al procesar imagen de perfil:', err);
+                if (statusEl) {
+                    statusEl.style.background = 'rgba(239, 68, 68, 0.1)';
+                    statusEl.style.color = '#dc2626';
+                    statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${err.message}`;
+                }
                 if (window.InventoryApp?.Modal?.toast) {
                     window.InventoryApp.Modal.toast('Error al actualizar foto: ' + err.message, 'danger');
                 }
             } finally {
-                if (event.target) event.target.value = '';
-                if (statusEl) statusEl.style.display = 'none';
+                const fileInput = document.getElementById('avatar-custom-file');
+                if (fileInput) fileInput.value = '';
             }
         };
         img.src = e.target.result;
