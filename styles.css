@@ -3132,3 +3132,37 @@ body.dark-theme .winter-joke-box {
     border-color: #0284c7 !important;
     color: #7dd3fc !important;
 }
+
+.btn-modal-close {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    cursor: pointer;
+    color: #334155;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    transform: scale(1.05);
+}
+
+body.dark-theme .btn-modal-close {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+body.dark-theme .btn-modal-close:hover {
+    background: #334155;
+    color: #ffffff;
+}
+

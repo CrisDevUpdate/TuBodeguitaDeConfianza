@@ -1786,6 +1786,13 @@ function guardarAjustesPerfilCliente() {
         window.InventoryApp.Persistence.guardar(true);
     }
 
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+    if (cInState && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(cInState);
+    }
+
     actualizarUIUsuarioActual();
     renderizarPerfilCliente();
 
@@ -1825,6 +1832,10 @@ function cambiarPasswordPerfilCliente() {
 
     if (window.InventoryApp.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
+    }
+
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        window.InventoryApp.Firebase.guardarUsuario(usuario);
     }
 
     document.getElementById('perfil-cli-pwd-actual').value = '';

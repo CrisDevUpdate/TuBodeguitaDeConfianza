@@ -225,6 +225,30 @@ if (window.InventoryApp) window.InventoryApp.esUsuarioAdmin = esUsuarioAdmin;
 function switchTab(tabId) {
     if (!tabId) return;
 
+    // Control de Acceso por Rol Estricto (RBAC) en Navegación
+    const usuarioActual = window.AppState?.usuarioActual;
+    if (usuarioActual) {
+        const rol = (usuarioActual.rol || 'cliente').toLowerCase();
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : (rol === 'admin' || rol === 'superadmin');
+        const esVendedor = !esAdmin && rol === 'vendedor';
+
+        if (!esAdmin) {
+            const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
+            if (esVendedor) {
+                if (!vendedorAllowed.includes(tabId)) {
+                    console.warn(`[switchTab] Acceso restringido a "${tabId}" para perfil vendedor.`);
+                    tabId = 'pos';
+                }
+            } else {
+                // Perfil Cliente: acceso estrictamente limitado a vistas de cliente
+                if (!tabId.startsWith('cliente-') && tabId !== 'notificaciones') {
+                    console.warn(`[switchTab] Acceso restringido a "${tabId}" para perfil cliente.`);
+                    tabId = 'cliente-catalogo';
+                }
+            }
+        }
+    }
+
     const targetView = document.getElementById(tabId);
     if (!targetView) {
         console.warn(`[switchTab] No se encontró la vista con ID: "${tabId}"`);

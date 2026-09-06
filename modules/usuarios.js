@@ -180,14 +180,14 @@ function configurarVistasPorRol(usuario) {
             }, 600);
         }
     } else if (esVendedor) {
-        if (!activeTab || !vendedorAllowedTabs.includes(activeTab)) {
+        if (!activeView || !vendedorAllowedTabs.includes(activeView)) {
             switchTab('pos');
         }
         if (typeof renderizarPos === 'function') renderizarPos();
         if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
         // Cliente
-        if (!activeTab || !activeTab.startsWith('cliente-')) {
+        if (!activeView || !activeView.startsWith('cliente-')) {
             switchTab('cliente-catalogo');
         }
         if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
@@ -1134,13 +1134,17 @@ function abrirModalSelectorAvatar() {
     }
     if (modal) {
         modal.classList.add('active');
+        modal.style.display = 'flex';
         renderizarGridAvataresPresets();
     }
 }
 
 function cerrarModalSelectorAvatar() {
     const modal = document.getElementById('modal-selector-avatar');
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    }
 }
 
 function crearModalSelectorAvatarDOM() {
@@ -1150,13 +1154,16 @@ function crearModalSelectorAvatarDOM() {
     modalDiv = document.createElement('div');
     modalDiv.id = 'modal-selector-avatar';
     modalDiv.className = 'modal';
+    modalDiv.style.display = 'none';
     modalDiv.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; padding: 24px;">
+        <div class="modal-content" style="max-width: 500px; padding: 24px; position: relative;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h3 style="margin:0; font-size:1.2rem; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-user-circle" style="color:var(--primary-accent);"></i> Foto de Perfil & Avatar
                 </h3>
-                <button type="button" class="btn-icon-tasa" onclick="cerrarModalSelectorAvatar()"><i class="fas fa-times"></i></button>
+                <button type="button" class="btn-modal-close" onclick="cerrarModalSelectorAvatar()" title="Cerrar ventana" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; font-size:1.15rem; cursor:pointer; color:#334155; transition:all 0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
 
             <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
@@ -1210,9 +1217,36 @@ function crearModalSelectorAvatarDOM() {
                     <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento seguro en la nube conectado con Vercel Blob Storage privado.
                 </small>
             </div>
+
+            <!-- Footer de Botones de Cierre Explícitos -->
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModalSelectorAvatar()" style="min-width:100px;">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="cerrarModalSelectorAvatar()" style="min-width:120px; font-weight:700;">
+                    <i class="fas fa-check"></i> Listo
+                </button>
+            </div>
         </div>
     `;
     document.body.appendChild(modalDiv);
+
+    // Cerrar al hacer clic fuera del contenido del modal
+    modalDiv.addEventListener('click', (e) => {
+        if (e.target === modalDiv) {
+            cerrarModalSelectorAvatar();
+        }
+    });
+
+    // Cerrar con tecla Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            const m = document.getElementById('modal-selector-avatar');
+            if (m && (m.classList.contains('active') || m.style.display === 'flex')) {
+                cerrarModalSelectorAvatar();
+            }
+        }
+    });
 
     // Eventos drag and drop para la zona de carga
     setTimeout(() => {
@@ -1494,17 +1528,95 @@ function cerrarSesionUsuario() {
 
 /**
  * Cambia la sesión activa a otro usuario (para administración/simulación)
+ * Asegura la segregación completa de permisos sin escalada de privilegios.
  */
 function cambiarSesionUsuario(cedula) {
     const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
     if (!usuario) return;
 
+    // Si el usuario actual es admin, guardar sesión original para permitir retorno fácil
+    const adminActual = AppState.usuarioActual;
+    const esAdminActual = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(adminActual) : (adminActual?.rol === 'admin');
+    if (esAdminActual) {
+        try {
+            sessionStorage.setItem('sesion_admin_simulador', JSON.stringify({
+                id: adminActual.id || adminActual.cedula || 'SuperAdmin',
+                cedula: adminActual.cedula || adminActual.id || 'SuperAdmin',
+                nombre: adminActual.nombre || 'Administrador',
+                rol: 'admin'
+            }));
+        } catch (e) {}
+    }
+
     AppState.usuarioActual = usuario;
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
     verificarGatewall();
-    renderizarUsuarios();
+
+    if (window.InventoryApp?.Theme && typeof window.InventoryApp.Theme.init === 'function') {
+        window.InventoryApp.Theme.init();
+    }
+
+    const esAdminNuevo = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : (usuario.rol === 'admin');
+    if (esAdminNuevo) {
+        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+    } else {
+        // Modo Cliente o Vendedor: no renderizar panel admin, redirigir a su vista autorizada
+        if (usuario.rol === 'cliente') {
+            switchTab('cliente-catalogo');
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+            if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+            if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Sesión de Cliente activada: <strong>${usuario.nombre || usuario.cedula}</strong> (Permisos de cliente)`, 'info', 6000);
+            }
+        } else if (usuario.rol === 'vendedor') {
+            switchTab('pos');
+            if (typeof renderizarPos === 'function') renderizarPos();
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Sesión de Vendedor activada: <strong>${usuario.nombre || usuario.cedula}</strong>`, 'info', 6000);
+            }
+        }
+    }
 }
+window.cambiarSesionUsuario = cambiarSesionUsuario;
+
+/**
+ * Permite al administrador regresar instantáneamente a su sesión de administración
+ */
+function volverASesionAdmin() {
+    let superAdmin = (AppState.usuarios || []).find(u => {
+        const id = String(u.id || u.cedula || '').toUpperCase();
+        return id === 'SUPERADMIN' || (u.email && u.email.toLowerCase() === 'superadmin@tubodeguita.com');
+    });
+
+    if (!superAdmin) {
+        superAdmin = {
+            id: 'SuperAdmin',
+            cedula: 'SuperAdmin',
+            nombre: 'SuperAdmin',
+            rol: 'admin',
+            estado: 'ACTIVO'
+        };
+    }
+
+    AppState.usuarioActual = superAdmin;
+    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+    try { sessionStorage.removeItem('sesion_admin_simulador'); } catch (e) {}
+
+    verificarGatewall();
+    if (window.InventoryApp?.Theme && typeof window.InventoryApp.Theme.init === 'function') {
+        window.InventoryApp.Theme.init();
+    }
+    switchTab('pos');
+    if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast('Has regresado al modo Administrador', 'success');
+    }
+}
+window.volverASesionAdmin = volverASesionAdmin;
 
 /**
  * Filtra la tabla de usuarios del panel administrativo
@@ -1773,6 +1885,17 @@ function actualizarUIUsuarioActual() {
     if (btnEditarTasaManual) {
         const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : true;
         btnEditarTasaManual.style.display = esAdmin ? 'inline-flex' : 'none';
+    }
+
+    // Botón para volver a sesión de administrador si se está simulando/usando un cliente o vendedor
+    const btnVolverAdmin = document.getElementById('btn-volver-admin');
+    if (btnVolverAdmin) {
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : false;
+        let tieneSimulador = false;
+        try {
+            tieneSimulador = !!sessionStorage.getItem('sesion_admin_simulador');
+        } catch (e) {}
+        btnVolverAdmin.style.display = (!esAdmin && tieneSimulador) ? 'inline-flex' : 'none';
     }
 
     // Actualizar badges y centro de notificaciones respetando el rol del usuario en sesión
