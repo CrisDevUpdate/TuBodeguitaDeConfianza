@@ -24,10 +24,20 @@ function verificarGatewall() {
 
     // Verificar si el usuario actual sigue existiendo en el estado del sistema
     if (usuario) {
-        const idDoc = usuario.cedula || usuario.id;
-        const esSuperAdmin = idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
-        if (!esSuperAdmin && Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
-            const usuarioEnMemoria = AppState.usuarios.find(u => (u.cedula || u.id) === idDoc || (u.email && u.email.toLowerCase() === (usuario.email || '').toLowerCase()));
+        const idDoc = String(usuario.cedula || usuario.id || '').trim().toUpperCase();
+        const esSuperAdmin = idDoc === 'SUPERADMIN' || (usuario.nombre || '').toUpperCase() === 'SUPERADMIN' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
+        if (esSuperAdmin) {
+            usuario.id = 'SuperAdmin';
+            usuario.cedula = 'SuperAdmin';
+            usuario.nombre = 'SuperAdmin';
+            usuario.rol = 'admin';
+            usuario.estado = 'ACTIVO';
+            AppState.usuarioActual = usuario;
+        } else if (Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
+            const usuarioEnMemoria = AppState.usuarios.find(u => 
+                String(u.cedula || u.id || '').trim().toUpperCase() === idDoc || 
+                (u.email && u.email.toLowerCase() === (usuario.email || '').toLowerCase())
+            );
             if (!usuarioEnMemoria) {
                 // El usuario ya no existe en el sistema
                 AppState.usuarioActual = null;
@@ -88,8 +98,10 @@ function verificarGatewall() {
 function configurarVistasPorRol(usuario) {
     const rol = (usuario.rol || 'cliente').toLowerCase();
     const idDoc = (usuario.cedula || usuario.id || '').toString();
-    const esAdmin = rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
-    const esVendedor = rol === 'vendedor';
+    const esAdmin = typeof esUsuarioAdmin === 'function' 
+        ? esUsuarioAdmin(usuario) 
+        : (rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com');
+    const esVendedor = !esAdmin && rol === 'vendedor';
     const esCliente = !esAdmin && !esVendedor;
 
     // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio, Configuración)
@@ -135,11 +147,13 @@ function configurarVistasPorRol(usuario) {
     // Encabezado y badges
     actualizarUIUsuarioActual();
 
-    // Redirección segura según el rol actual si la pestaña activa está restringida
-    const activeTab = document.querySelector('.nav-btn.active')?.getAttribute('data-tab');
+    // Determinar la vista actualmente visible en el DOM
+    const activeView = document.querySelector('.view-content.active')?.id || 
+                       document.querySelector('#main-nav-tabs .nav-btn.active')?.getAttribute('data-tab') ||
+                       document.querySelector('#mobile-bottom-nav .bottom-nav-item.active')?.getAttribute('data-tab');
     
     if (esAdmin) {
-        if (!activeTab || activeTab.startsWith('cliente-')) {
+        if (!activeView || activeView.startsWith('cliente-')) {
             switchTab('pos');
         }
         if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
@@ -826,10 +840,9 @@ async function registrarUsuario(e) {
 
     // Si quien está registrando ya es un administrador activo, conservar intacta su sesión
     const usuarioActual = AppState.usuarioActual;
-    const rolActual = String(usuarioActual?.rol || '').trim().toLowerCase();
     const esAdminSesion = Boolean(
         usuarioActual &&
-        (rolActual === 'admin' || rolActual === 'superadmin' || usuarioActual.id === 'SuperAdmin' || usuarioActual.cedula === 'SuperAdmin') &&
+        (typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : true) &&
         usuarioActual.estado === 'ACTIVO'
     );
 
@@ -1536,16 +1549,14 @@ function actualizarUIUsuarioActual() {
     // Botón de Estado de Persistencia/Nube solo visible para Administradores
     const persistenciaStatusEl = document.getElementById('persistencia-status');
     if (persistenciaStatusEl) {
-        const rolUsuario = (usuario.rol || '').toLowerCase();
-        const esAdmin = rolUsuario === 'admin' || rolUsuario === 'superadmin';
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : true;
         persistenciaStatusEl.style.display = esAdmin ? 'flex' : 'none';
     }
 
     // Botón de Edición Manual de Tasa solo visible para Administradores
     const btnEditarTasaManual = document.getElementById('btn-editar-tasa-manual');
     if (btnEditarTasaManual) {
-        const rolUsuario = (usuario.rol || '').toLowerCase();
-        const esAdmin = rolUsuario === 'admin' || rolUsuario === 'superadmin';
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : true;
         btnEditarTasaManual.style.display = esAdmin ? 'inline-flex' : 'none';
     }
 

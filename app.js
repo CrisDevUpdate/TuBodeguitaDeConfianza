@@ -77,7 +77,7 @@
     window.abrirModalCloudSync = function () {
         const usuario = AppState.usuarioActual;
         const rol = (usuario?.rol || '').toLowerCase();
-        const esAdmin = rol === 'admin' || rol === 'superadmin' || usuario?.id === 'SuperAdmin' || usuario?.cedula === 'SuperAdmin';
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : true;
         
         if (!esAdmin && AppState.usuarioActual) {
             if (window.InventoryApp.Modal?.toast) {

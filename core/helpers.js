@@ -177,25 +177,34 @@ function verificarPasswordHash(inputPassword, storedPasswordOrHash) {
     return false;
 }
 
+/**
+ * Comprueba de forma infalible si un usuario tiene privilegios de Administrador.
+ * Reconoce al SuperAdmin por ID, cédula, nombre o correo (independiente de mayúsculas/minúsculas),
+ * así como los roles 'admin', 'superadmin' y 'administrador'.
+ */
+function esUsuarioAdmin(usuario) {
+    if (!usuario) return true; // Si no hay usuario en sesión, permitir navegación sin bloquear
+    const id = String(usuario.id || '').trim().toUpperCase();
+    const ced = String(usuario.cedula || '').trim().toUpperCase();
+    const nom = String(usuario.nombre || '').trim().toUpperCase();
+    const mail = String(usuario.email || '').trim().toLowerCase();
+    const r = String(usuario.rol || '').trim().toLowerCase();
+
+    if (id === 'SUPERADMIN' || ced === 'SUPERADMIN' || nom === 'SUPERADMIN' || mail === 'superadmin@tubodeguita.com') {
+        return true;
+    }
+    return r === 'admin' || r === 'superadmin' || r === 'administrador';
+}
+window.esUsuarioAdmin = esUsuarioAdmin;
+if (window.InventoryApp) window.InventoryApp.esUsuarioAdmin = esUsuarioAdmin;
+
 function switchTab(tabId) {
     if (!tabId) return;
 
-    // Control estricto de acceso RBAC por rol
-    const usuario = window.AppState?.usuarioActual || window.usuarioActual || (window.InventoryApp && window.InventoryApp.state && window.InventoryApp.state.usuarioActual);
-    const idDoc = (usuario?.cedula || usuario?.id || '').toString();
-    const rol = (usuario?.rol || '').toLowerCase();
-    const esAdmin = rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario?.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
-    const esVendedor = rol === 'vendedor';
-    const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
-
-    if (!esAdmin) {
-        if (esVendedor && !vendedorAllowedTabs.includes(tabId)) {
-            console.warn(`[RBAC] Acceso denegado a la pestaña ${tabId} para el rol Vendedor.`);
-            tabId = 'pos';
-        } else if (!esVendedor && usuario && !tabId.startsWith('cliente-') && tabId !== 'notificaciones') {
-            console.warn(`[RBAC] Acceso denegado a la pestaña administrativa ${tabId} para el rol Cliente.`);
-            tabId = 'cliente-catalogo';
-        }
+    const targetView = document.getElementById(tabId);
+    if (!targetView) {
+        console.warn(`[switchTab] No se encontró la vista con ID: "${tabId}"`);
+        return;
     }
     
     // Ocultar todas las vistas
@@ -206,14 +215,8 @@ function switchTab(tabId) {
     });
 
     // Mostrar la vista seleccionada
-    const targetView = document.getElementById(tabId);
-    if (targetView) {
-        targetView.classList.add('active');
-        targetView.style.display = 'block';
-        if (tabId === 'notificaciones' && typeof window.renderizarNotificaciones === 'function') {
-            window.renderizarNotificaciones();
-        }
-    }
+    targetView.classList.add('active');
+    targetView.style.display = 'block';
 
     // Actualizar botones de navegación desktop
     const allNavButtons = document.querySelectorAll('#main-nav-tabs .nav-btn');
@@ -234,6 +237,16 @@ function switchTab(tabId) {
             btn.classList.remove('active');
         }
     });
+
+    // Desplazamiento suave al inicio
+    try {
+        const mainContainer = document.getElementById('app-main-container');
+        if (mainContainer && typeof mainContainer.scrollTo === 'function') {
+            mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    } catch {}
 
     // Re-renderizado seguro según la pestaña activa
     try {
@@ -258,8 +271,10 @@ function switchTab(tabId) {
             if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
         } else if (tabId === 'usuarios') {
             if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+            if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
         } else if (tabId === 'historial-ventas') {
             if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+            if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         } else if (tabId === 'notificaciones') {
             if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
             if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
@@ -347,5 +362,6 @@ window.InventoryApp.Helpers = Object.freeze({
     calcularHashSha256,
     verificarPasswordHash,
     sanitizarAbonoMonedas,
-    switchTab
+    switchTab,
+    esUsuarioAdmin
 });

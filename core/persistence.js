@@ -96,14 +96,18 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             // 1. Persistir o actualizar la sesión del usuario activo
             if (AppState.usuarioActual) {
+                const esSuper = typeof esUsuarioAdmin === 'function' 
+                    ? esUsuarioAdmin(AppState.usuarioActual)
+                    : ((AppState.usuarioActual.id || '').toUpperCase() === 'SUPERADMIN' || (AppState.usuarioActual.cedula || '').toUpperCase() === 'SUPERADMIN');
+                
                 const sesionMinima = {
                     id: AppState.usuarioActual.id || AppState.usuarioActual.cedula,
                     cedula: AppState.usuarioActual.cedula || AppState.usuarioActual.id,
                     nombre: AppState.usuarioActual.nombre || '',
                     telefono: AppState.usuarioActual.telefono || '',
                     email: AppState.usuarioActual.email || '',
-                    rol: AppState.usuarioActual.rol || 'cliente',
-                    estado: AppState.usuarioActual.estado || 'PENDIENTE_APROBACION',
+                    rol: esSuper ? 'admin' : (AppState.usuarioActual.rol || 'cliente'),
+                    estado: esSuper ? 'ACTIVO' : (AppState.usuarioActual.estado || 'PENDIENTE_APROBACION'),
                     password: AppState.usuarioActual.password || '',
                     avatar: AppState.usuarioActual.avatar || ''
                 };
@@ -137,6 +141,13 @@ window.InventoryApp = window.InventoryApp || {};
             if (sesionGuardada) {
                 const usuarioSesion = JSON.parse(sesionGuardada);
                 if (usuarioSesion && (usuarioSesion.cedula || usuarioSesion.id)) {
+                    const esSuper = typeof esUsuarioAdmin === 'function' 
+                        ? esUsuarioAdmin(usuarioSesion) 
+                        : ((usuarioSesion.id || '').toUpperCase() === 'SUPERADMIN' || (usuarioSesion.cedula || '').toUpperCase() === 'SUPERADMIN');
+                    if (esSuper) {
+                        usuarioSesion.rol = 'admin';
+                        usuarioSesion.estado = 'ACTIVO';
+                    }
                     AppState.usuarioActual = usuarioSesion;
                 }
             } else {
