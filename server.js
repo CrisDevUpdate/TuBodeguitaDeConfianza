@@ -740,6 +740,8 @@ async function manejarSubidaVercelBlob(req, res) {
     } else if (requestedFolder && !targetFilename.includes('/')) {
       targetFilename = `${requestedFolder}/${targetFilename}`;
     }
+    // Evitar carpetas duplicadas (ej: productos/productos/ -> productos/)
+    targetFilename = targetFilename.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
 
     // Obtener buffer binario
     let buffer = null;
@@ -816,11 +818,13 @@ async function manejarSubidaVercelBlob(req, res) {
           blobResult = await intentarSubidaConToken(blobToken);
         } catch (firstErr) {
           console.warn('[Vercel Blob] Primer intento con token falló:', firstErr.message);
-          // Si el token provisto era de header/query y falló, reintentar con el token del servidor
-          const serverToken = process.env.BLOB_READ_WRITE_TOKEN || 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
-          if (serverToken && serverToken !== blobToken) {
+          // Si el token provisto era de header/query y falló, reintentar con el token seguro del servidor
+          const validMasterToken = (process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_'))
+            ? process.env.BLOB_READ_WRITE_TOKEN
+            : 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
+          if (validMasterToken && validMasterToken !== blobToken) {
             console.log('[Vercel Blob] Reintentando con token seguro del servidor...');
-            blobResult = await intentarSubidaConToken(serverToken);
+            blobResult = await intentarSubidaConToken(validMasterToken);
           } else {
             throw firstErr;
           }
@@ -901,6 +905,8 @@ async function manejarVistaVercelBlob(req, res) {
     try {
       cleanPath = decodeURIComponent(cleanPath);
     } catch (e) {}
+    // Evitar carpetas duplicadas (ej: productos/productos/ -> productos/)
+    cleanPath = cleanPath.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
 
     const blobToken = obtenerVercelBlobToken(req);
 
@@ -966,7 +972,16 @@ async function manejarVistaVercelBlob(req, res) {
       return fs.createReadStream(localFilePath).pipe(res);
     }
 
-    return res.status(404).send('Not found');
+    // 3. Si no existe en ningún almacén, responder con SVG de producto elegante para evitar iconos rotos en el navegador
+    res.status(404);
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'no-cache, no-store');
+    return res.send(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="24" height="24" fill="#f8fafc" rx="4"/>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+      <line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>`);
   } catch (err) {
     console.error('[Blob View Error]:', err);
     res.status(500).json({ error: err.message });

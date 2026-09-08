@@ -72,6 +72,7 @@ function cambiarImagenProducto(event) {
 
 function eliminarImagenProducto(event) {
     if (event) event.stopPropagation();
+    imagenDataUrlLocal = '';
     productoImagenTemporal = '';
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
@@ -103,6 +104,7 @@ function manejarDropImagenProducto(event) {
 
 let estaSubiendoImagenProducto = false;
 let promesaSubidaImagen = null;
+let imagenDataUrlLocal = ''; // Almacén en memoria para previsualización inmediata sin parpadeos ni errores
 
 async function procesarImagenProducto(archivo) {
     if (!archivo.type || !archivo.type.startsWith('image/')) {
@@ -118,19 +120,31 @@ async function procesarImagenProducto(archivo) {
     const dropzone = document.getElementById('product-image-dropzone');
     const lector = new FileReader();
     lector.onload = () => {
+        // 1. Mostrar de inmediato la imagen original seleccionada con 100% fidelidad
+        const rawDataUrl = lector.result;
+        imagenDataUrlLocal = rawDataUrl;
+        productoImagenTemporal = rawDataUrl;
+        actualizarVistaImagenProducto('subiendo');
+
+        // 2. Optimizar con canvas en segundo plano para envío eficiente
         const imagen = new Image();
         imagen.onload = async () => {
-            const maxDimension = 900;
-            const escala = Math.min(1, maxDimension / Math.max(imagen.width, imagen.height));
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(1, Math.round(imagen.width * escala));
-            canvas.height = Math.max(1, Math.round(imagen.height * escala));
-            const contexto = canvas.getContext('2d');
-            contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
-            
-            const optimizadoDataUrl = canvas.toDataURL('image/webp', 0.85);
-            productoImagenTemporal = optimizadoDataUrl;
-            actualizarVistaImagenProducto('subiendo');
+            let optimizadoDataUrl = rawDataUrl;
+            try {
+                const maxDimension = 900;
+                const escala = Math.min(1, maxDimension / Math.max(imagen.width, imagen.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(imagen.width * escala));
+                canvas.height = Math.max(1, Math.round(imagen.height * escala));
+                const contexto = canvas.getContext('2d');
+                contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
+                const webpUrl = canvas.toDataURL('image/webp', 0.85);
+                if (webpUrl && webpUrl.length > 50 && !webpUrl.endsWith('data:,')) {
+                    optimizadoDataUrl = webpUrl;
+                }
+            } catch (canvasErr) {
+                console.warn('[Productos] Optimización canvas omitida, usando original:', canvasErr);
+            }
 
             // Subir a Vercel Blob
             try {
@@ -158,8 +172,28 @@ async function procesarImagenProducto(archivo) {
                 if (dropzone) dropzone.classList.remove('uploading-blob');
             }
         };
-        imagen.onerror = () => alert('No fue posible procesar la imagen seleccionada.');
-        imagen.src = lector.result;
+        imagen.onerror = () => {
+            console.warn('[Productos] Error cargando imagen para optimizar, subiendo original.');
+            estaSubiendoImagenProducto = true;
+            if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                const nombreBlob = `prod_${Date.now()}.webp`;
+                promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(rawDataUrl, 'productos', nombreBlob)
+                    .then(res => {
+                        if (res && (res.viewUrl || res.url)) {
+                            productoImagenTemporal = res.viewUrl || res.url;
+                            actualizarVistaImagenProducto('completado');
+                        }
+                    })
+                    .catch(err => {
+                        actualizarVistaImagenProducto('error', err.message);
+                    })
+                    .finally(() => {
+                        estaSubiendoImagenProducto = false;
+                        promesaSubidaImagen = null;
+                    });
+            }
+        };
+        imagen.src = rawDataUrl;
     };
     lector.onerror = () => alert('No fue posible leer la imagen seleccionada.');
     lector.readAsDataURL(archivo);
@@ -172,20 +206,30 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
     const img = document.getElementById('prod-imagen-preview');
     const dropzone = document.getElementById('product-image-dropzone');
 
-    const tieneImagen = Boolean(productoImagenTemporal);
+    const tieneImagen = Boolean(productoImagenTemporal || imagenDataUrlLocal);
     if (empty) empty.hidden = tieneImagen;
     if (preview) preview.hidden = !tieneImagen;
     if (actions) actions.hidden = !tieneImagen;
-    if (img) img.src = tieneImagen ? productoImagenTemporal : '';
+
+    const fuenteImagen = imagenDataUrlLocal || productoImagenTemporal || '';
+    if (img) {
+        img.src = fuenteImagen;
+        img.onerror = () => {
+            console.warn('[Productos] Error visualizando imagen en preview:', img.src);
+            if (!imagenDataUrlLocal) {
+                img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='24' height='24' fill='%23f8fafc' rx='4'/%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'/%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'/%3E%3C/svg%3E";
+            }
+        };
+    }
     if (dropzone) dropzone.classList.toggle('has-image', tieneImagen);
 
-    // Indicador visual de estado Vercel Blob
+    // Indicador visual de estado Vercel Blob (ubicado fuera de la previsualización para no deformarla)
     let statusBadge = document.getElementById('product-blob-status-badge');
-    if (!statusBadge && preview) {
+    if (!statusBadge && dropzone && dropzone.parentNode) {
         statusBadge = document.createElement('div');
         statusBadge.id = 'product-blob-status-badge';
-        statusBadge.style.cssText = 'margin-top:6px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; padding:4px 8px; border-radius:6px;';
-        preview.appendChild(statusBadge);
+        statusBadge.style.cssText = 'margin-top:8px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border-radius:6px;';
+        dropzone.parentNode.insertBefore(statusBadge, dropzone.nextSibling);
     }
 
     if (statusBadge) {
@@ -201,12 +245,12 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#fee2e2';
             statusBadge.style.color = '#b91c1c';
-            statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (reintentando...)';
+            statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (se guardará copia local)';
         } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/blob/view') || productoImagenTemporal.includes('/api/avatar/view'))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>) <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>)';
         } else {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
@@ -221,6 +265,7 @@ function resetearFormularioProducto() {
     if (id) id.value = '';
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
+    imagenDataUrlLocal = '';
     productoImagenTemporal = '';
     actualizarVistaImagenProducto();
     const stockInput = document.getElementById('prod-stock');
@@ -365,6 +410,7 @@ function editarProducto(id) {
     document.getElementById('prod-descripcion').value = p.descripcion ?? p.description ?? '';
     document.getElementById('prod-contenido').value = p.contenido ?? p.medida ?? p.presentacion ?? '';
 
+    imagenDataUrlLocal = '';
     productoImagenTemporal = p.imagen || '';
     actualizarVistaImagenProducto();
 
@@ -420,7 +466,7 @@ function renderizarInventario() {
             <td>
                 <div class="inventory-product-cell">
                     <div class="inventory-product-thumb">
-                        ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
+                        ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%2394a3b8\\' stroke-width=\\'1.5\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'%3E%3Crect width=\\'24\\' height=\\'24\\' fill=\\'%23f8fafc\\' rx=\\'4\\'/%3E%3Cpath d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/%3E%3Cpolyline points=\\'3.27 6.96 12 12.01 20.73 6.96\\'/%3E%3Cline x1=\\'12\\' y1=\\'22.08\\' x2=\\'12\\' y2=\\'12\\'/%3E%3C/svg%3E';">` : '<i class="fas fa-box-open"></i>'}
                     </div>
                     <div>
                         <div class="inventory-product-name">${p.nombre}</div>

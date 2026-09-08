@@ -295,10 +295,12 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // Asegurar prefijo de carpeta
-        if (folder && !cleanFilename.startsWith(`${folder}/`)) {
+        // Asegurar prefijo de carpeta sin duplicaciones
+        cleanFilename = String(cleanFilename).replace(/\\/g, '/').replace(/^\/+/, '');
+        if (folder && !cleanFilename.includes('/')) {
             cleanFilename = `${folder}/${cleanFilename}`;
         }
+        cleanFilename = cleanFilename.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
 
         const headers = {};
         const savedToken = localStorage.getItem('bodeguita_blob_token');
