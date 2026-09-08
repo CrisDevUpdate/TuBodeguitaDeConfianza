@@ -147,6 +147,7 @@ async function procesarImagenProducto(archivo) {
             }
 
             // Subir a Vercel Blob
+            let errorSubidaBlob = null;
             try {
                 estaSubiendoImagenProducto = true;
                 if (dropzone) dropzone.classList.add('uploading-blob');
@@ -158,38 +159,37 @@ async function procesarImagenProducto(archivo) {
                     if (resultado && (resultado.viewUrl || resultado.url)) {
                         productoImagenTemporal = resultado.viewUrl || resultado.url;
                         console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito:', productoImagenTemporal);
-                        actualizarVistaImagenProducto('completado');
-                    } else {
-                        actualizarVistaImagenProducto('listo');
                     }
                 }
             } catch (blobErr) {
                 console.warn('[Productos] Aviso al subir a Vercel Blob:', blobErr);
-                actualizarVistaImagenProducto('error', blobErr.message);
+                errorSubidaBlob = blobErr.message;
             } finally {
                 estaSubiendoImagenProducto = false;
                 promesaSubidaImagen = null;
                 if (dropzone) dropzone.classList.remove('uploading-blob');
+                actualizarVistaImagenProducto(errorSubidaBlob ? 'error' : 'completado');
             }
         };
         imagen.onerror = () => {
             console.warn('[Productos] Error cargando imagen para optimizar, subiendo original.');
             estaSubiendoImagenProducto = true;
+            let errorSubida = null;
             if (window.InventoryApp && window.InventoryApp.ImageCache) {
                 const nombreBlob = `prod_${Date.now()}.webp`;
                 promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(rawDataUrl, 'productos', nombreBlob)
                     .then(res => {
                         if (res && (res.viewUrl || res.url)) {
                             productoImagenTemporal = res.viewUrl || res.url;
-                            actualizarVistaImagenProducto('completado');
                         }
                     })
                     .catch(err => {
-                        actualizarVistaImagenProducto('error', err.message);
+                        errorSubida = err.message;
                     })
                     .finally(() => {
                         estaSubiendoImagenProducto = false;
                         promesaSubidaImagen = null;
+                        actualizarVistaImagenProducto(errorSubida ? 'error' : 'completado');
                     });
             }
         };
@@ -236,7 +236,7 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
         if (!tieneImagen) {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
-        } else if (estadoBlob === 'subiendo' || estaSubiendoImagenProducto) {
+        } else if (estadoBlob === 'subiendo' || (estaSubiendoImagenProducto && estadoBlob !== 'completado' && estadoBlob !== 'error')) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#e0f2fe';
             statusBadge.style.color = '#0369a1';
@@ -246,11 +246,11 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.background = '#fee2e2';
             statusBadge.style.color = '#b91c1c';
             statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (se guardará copia local)';
-        } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/blob/view') || productoImagenTemporal.includes('/api/avatar/view'))) {
+        } else if (estadoBlob === 'completado' || (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/blob/view') || productoImagenTemporal.includes('/api/avatar/view')))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>)';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Imagen vinculada en Vercel Blob (carpeta: <strong>productos/</strong>)';
         } else {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
@@ -296,10 +296,17 @@ async function guardarProducto(e) {
             const resSubida = await promesaSubidaImagen;
             if (resSubida && (resSubida.viewUrl || resSubida.url)) {
                 productoImagenTemporal = resSubida.viewUrl || resSubida.url;
-                actualizarVistaImagenProducto('completado');
             }
         } catch (err) {
             console.warn('[Productos] Espera de subida:', err);
+        } finally {
+            estaSubiendoImagenProducto = false;
+            promesaSubidaImagen = null;
+            actualizarVistaImagenProducto('completado');
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalBtnHtml;
+            }
         }
     }
 
