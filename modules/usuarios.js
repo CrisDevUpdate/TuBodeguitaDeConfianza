@@ -1534,6 +1534,11 @@ function cambiarSesionUsuario(cedula) {
     const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
     if (!usuario) return;
 
+    // Asegurar que si el usuario no tiene rol explícito sea cliente
+    if (!usuario.rol) {
+        usuario.rol = 'cliente';
+    }
+
     // Si el usuario actual es admin, guardar sesión original para permitir retorno fácil
     const adminActual = AppState.usuarioActual;
     const esAdminActual = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(adminActual) : (adminActual?.rol === 'admin');
@@ -1567,6 +1572,7 @@ function cambiarSesionUsuario(cedula) {
             if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
             if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
             if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+            if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
             if (window.InventoryApp?.Modal?.toast) {
                 window.InventoryApp.Modal.toast(`Sesión de Cliente activada: <strong>${usuario.nombre || usuario.cedula}</strong> (Permisos de cliente)`, 'info', 6000);
             }
@@ -1608,12 +1614,12 @@ function volverASesionAdmin() {
     if (window.InventoryApp?.Theme && typeof window.InventoryApp.Theme.init === 'function') {
         window.InventoryApp.Theme.init();
     }
-    switchTab('pos');
+    switchTab('usuarios');
     if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
     if (typeof renderizarClientes === 'function') renderizarClientes();
 
     if (window.InventoryApp?.Modal?.toast) {
-        window.InventoryApp.Modal.toast('Has regresado al modo Administrador', 'success');
+        window.InventoryApp.Modal.toast('Has regresado al modo Administrador. Configuraciones guardadas con éxito.', 'success');
     }
 }
 window.volverASesionAdmin = volverASesionAdmin;

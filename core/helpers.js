@@ -207,12 +207,13 @@ function verificarPasswordHash(inputPassword, storedPasswordOrHash) {
  * así como los roles 'admin', 'superadmin' y 'administrador'.
  */
 function esUsuarioAdmin(usuario) {
-    if (!usuario) return true; // Si no hay usuario en sesión, permitir navegación sin bloquear
-    const id = String(usuario.id || '').trim().toUpperCase();
-    const ced = String(usuario.cedula || '').trim().toUpperCase();
-    const nom = String(usuario.nombre || '').trim().toUpperCase();
-    const mail = String(usuario.email || '').trim().toLowerCase();
-    const r = String(usuario.rol || '').trim().toLowerCase();
+    const user = usuario || window.AppState?.usuarioActual;
+    if (!user) return false;
+    const id = String(user.id || '').trim().toUpperCase();
+    const ced = String(user.cedula || '').trim().toUpperCase();
+    const nom = String(user.nombre || '').trim().toUpperCase();
+    const mail = String(user.email || '').trim().toLowerCase();
+    const r = String(user.rol || '').trim().toLowerCase();
 
     if (id === 'SUPERADMIN' || ced === 'SUPERADMIN' || nom === 'SUPERADMIN' || mail === 'superadmin@tubodeguita.com') {
         return true;

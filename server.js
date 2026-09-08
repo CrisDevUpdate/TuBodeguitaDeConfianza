@@ -786,25 +786,39 @@ async function manejarSubidaVercelBlob(req, res) {
         const { put } = await import('@vercel/blob');
         let blobResult = null;
 
-        // Intentar con access: 'private' y allowOverwrite: true (requerido por stores privados de Vercel Blob)
-        try {
-          blobResult = await put(targetFilename, buffer, {
-            access: 'private',
-            token: blobToken,
-            contentType: contentType,
-            allowOverwrite: true
-          });
-        } catch (privErr) {
-          // Si el almacén fuera público o se requiere fallback de acceso
-          if (privErr.message && (privErr.message.includes('public') || privErr.message.includes('access'))) {
-            blobResult = await put(targetFilename, buffer, {
-              access: 'public',
-              token: blobToken,
+        // Función interna para intentar subir con un token dado
+        const intentarSubidaConToken = async (tokenParaUsar) => {
+          try {
+            return await put(targetFilename, buffer, {
+              access: 'private',
+              token: tokenParaUsar,
               contentType: contentType,
               allowOverwrite: true
             });
-          } else {
+          } catch (privErr) {
+            if (privErr.message && (privErr.message.includes('public') || privErr.message.includes('access'))) {
+              return await put(targetFilename, buffer, {
+                access: 'public',
+                token: tokenParaUsar,
+                contentType: contentType,
+                allowOverwrite: true
+              });
+            }
             throw privErr;
+          }
+        };
+
+        try {
+          blobResult = await intentarSubidaConToken(blobToken);
+        } catch (firstErr) {
+          console.warn('[Vercel Blob] Primer intento con token falló:', firstErr.message);
+          // Si el token provisto era de header/query y falló, reintentar con el token del servidor
+          const serverToken = process.env.BLOB_READ_WRITE_TOKEN || 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
+          if (serverToken && serverToken !== blobToken) {
+            console.log('[Vercel Blob] Reintentando con token seguro del servidor...');
+            blobResult = await intentarSubidaConToken(serverToken);
+          } else {
+            throw firstErr;
           }
         }
 

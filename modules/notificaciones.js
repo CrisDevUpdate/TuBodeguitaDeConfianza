@@ -25,6 +25,9 @@
      * Verifica si el usuario en sesión es Administrador o SuperAdmin
      */
     function esUsuarioAdmin() {
+        if (typeof window.esUsuarioAdmin === 'function') {
+            return window.esUsuarioAdmin(window.AppState?.usuarioActual);
+        }
         const usuario = window.AppState?.usuarioActual;
         if (!usuario) return false;
         const rol = String(usuario.rol || '').trim().toLowerCase();
