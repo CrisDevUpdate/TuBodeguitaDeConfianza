@@ -281,59 +281,61 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        let response;
-        try {
-            if (blobToSend) {
-                headers['Content-Type'] = contentType;
+        let response = null;
+
+        // Intento 1: Si hay un objeto Blob binario, subir como stream binario
+        if (blobToSend) {
+            try {
+                const binHeaders = { ...headers, 'Content-Type': contentType };
                 response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
                     method: 'POST',
-                    headers: headers,
+                    headers: binHeaders,
                     body: blobToSend
                 });
-            } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-                headers['Content-Type'] = 'application/json';
-                response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
-                });
-            } else {
-                throw new Error('Formato de imagen inválido o no soportado para subir a Blob.');
-            }
-        } catch (fetchErr) {
-            if (headers['x-blob-token']) {
-                console.warn('[ImageCache] Intento con token local falló, reintentando con token del servidor...', fetchErr.message);
-                delete headers['x-blob-token'];
-                try { localStorage.removeItem('bodeguita_blob_token'); } catch (e) {}
-                if (blobToSend) {
-                    response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                        method: 'POST',
-                        headers: headers,
-                        body: blobToSend
-                    });
-                }
-            } else {
-                throw fetchErr;
+            } catch (binErr) {
+                console.warn('[ImageCache] Subida binaria no completó, se intentará vía JSON:', binErr.message);
+                response = null;
             }
         }
 
-        // Si la respuesta falló con x-blob-token, reintentar con el token del servidor
-        if (response && !response.ok && headers['x-blob-token']) {
-            console.warn('[ImageCache] Respuesta fallida con token de header, reintentando con token seguro del servidor...');
-            delete headers['x-blob-token'];
-            try { localStorage.removeItem('bodeguita_blob_token'); } catch (e) {}
-            if (blobToSend) {
+        // Intento 2: Si la subida binaria no respondió o no fue OK, y tenemos dataUrl, enviar vía JSON seguro
+        if ((!response || !response.ok) && typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+            try {
+                const jsonHeaders = { ...headers, 'Content-Type': 'application/json' };
                 response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
                     method: 'POST',
-                    headers: headers,
-                    body: blobToSend
-                });
-            } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-                response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                    method: 'POST',
-                    headers: headers,
+                    headers: jsonHeaders,
                     body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
                 });
+            } catch (jsonErr) {
+                console.warn('[ImageCache] Subida JSON no completó:', jsonErr.message);
+                response = null;
+            }
+        }
+
+        // Si falló y teníamos un header de token custom de localStorage, reintentar con el token seguro del servidor
+        if ((!response || !response.ok) && headers['x-blob-token']) {
+            console.warn('[ImageCache] Reintentando subida con token maestro del servidor...');
+            try { localStorage.removeItem('bodeguita_blob_token'); } catch (e) {}
+
+            if (blobToSend) {
+                try {
+                    response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': contentType },
+                        body: blobToSend
+                    });
+                } catch (e) {}
+            }
+
+            if ((!response || !response.ok) && typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+                try {
+                    response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
+                    });
+                } catch (e) {}
             }
         }
 

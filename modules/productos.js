@@ -248,7 +248,11 @@ async function guardarProducto(e) {
             btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizando subida a Blob...';
         }
         try {
-            await promesaSubidaImagen;
+            const resSubida = await promesaSubidaImagen;
+            if (resSubida && (resSubida.viewUrl || resSubida.url)) {
+                productoImagenTemporal = resSubida.viewUrl || resSubida.url;
+                actualizarVistaImagenProducto('completado');
+            }
         } catch (err) {
             console.warn('[Productos] Espera de subida:', err);
         }
