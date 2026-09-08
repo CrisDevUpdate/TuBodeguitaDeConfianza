@@ -202,7 +202,7 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.background = '#fee2e2';
             statusBadge.style.color = '#b91c1c';
             statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (reintentando...)';
-        } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/avatar/view'))) {
+        } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/blob/view') || productoImagenTemporal.includes('/api/avatar/view'))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
@@ -276,9 +276,9 @@ async function guardarProducto(e) {
                 }
             }
         } catch (uploadErr) {
-            console.warn('[Productos] Aviso al subir imagen a Vercel Blob en guardado:', uploadErr);
+            console.error('[Productos] Error al subir imagen a Vercel Blob en guardado:', uploadErr);
             if (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast) {
-                window.InventoryApp.Modal.toast('Aviso: La imagen no pudo vincularse a Vercel Blob en este momento.', 'warning');
+                window.InventoryApp.Modal.toast(`Aviso de imagen: ${uploadErr.message || 'No pudo vincularse a Blob en este momento.'}`, 'warning');
             }
         } finally {
             if (btnSave) {

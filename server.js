@@ -728,14 +728,18 @@ if (!fs.existsSync(BLOB_LOCAL_DIR)) {
 async function manejarSubidaVercelBlob(req, res) {
   try {
     const filenameParam = req.query.filename || (req.body && typeof req.body === 'object' && req.body.filename);
-    const requestedFolder = (req.body && typeof req.body === 'object' && req.body.folder) || 'uploads';
+    const requestedFolder = (req.body && typeof req.body === 'object' && req.body.folder) || (req.query.folder) || '';
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 7);
 
-    // Determinar nombre y ruta
-    let targetFilename = filenameParam ? filenameParam.replace(/\\/g, '/') : `${requestedFolder}/${timestamp}_${randomSuffix}.webp`;
-    // Asegurar que no tenga dobles barras o inicio con barra
-    targetFilename = targetFilename.replace(/^\/+/, '');
+    // Determinar nombre y ruta sin anidamientos redundantes
+    let targetFilename = filenameParam ? String(filenameParam).replace(/\\/g, '/').replace(/^\/+/, '') : '';
+    if (!targetFilename) {
+      const folder = requestedFolder || 'uploads';
+      targetFilename = `${folder}/${timestamp}_${randomSuffix}.webp`;
+    } else if (requestedFolder && !targetFilename.includes('/')) {
+      targetFilename = `${requestedFolder}/${targetFilename}`;
+    }
 
     // Obtener buffer binario
     let buffer = null;
@@ -823,7 +827,8 @@ async function manejarSubidaVercelBlob(req, res) {
         }
 
         if (blobResult) {
-          const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
+          const viewUrl = `/api/blob/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
+          const avatarUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
           console.log(`[Vercel Blob] Archivo subido exitosamente a la nube de Vercel: ${blobResult.pathname} (${viewUrl})`);
           
           return res.json({
@@ -833,6 +838,7 @@ async function manejarSubidaVercelBlob(req, res) {
             url: viewUrl,
             rawDirectUrl: blobResult.url,
             viewUrl: viewUrl,
+            avatarUrl: avatarUrl,
             downloadUrl: viewUrl,
             provider: 'vercel-blob'
           });
@@ -851,7 +857,8 @@ async function manejarSubidaVercelBlob(req, res) {
     }
     fs.writeFileSync(localFilePath, buffer);
 
-    const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
+    const viewUrl = `/api/blob/view?pathname=${encodeURIComponent(targetFilename)}`;
+    const avatarUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
     console.log(`[Blob Storage Fallback] Archivo guardado localmente: ${targetFilename} -> ${viewUrl}`);
 
     return res.json({
@@ -860,6 +867,7 @@ async function manejarSubidaVercelBlob(req, res) {
       contentDisposition: `inline; filename="${path.basename(targetFilename)}"`,
       url: viewUrl,
       viewUrl: viewUrl,
+      avatarUrl: avatarUrl,
       downloadUrl: viewUrl,
       provider: 'local-blob-store',
       blobError: blobErrorDetail,
