@@ -736,7 +736,7 @@ async function manejarSubidaVercelBlob(req, res) {
     let targetFilename = filenameParam ? String(filenameParam).replace(/\\/g, '/').replace(/^\/+/, '') : '';
     if (!targetFilename) {
       const folder = requestedFolder || 'uploads';
-      targetFilename = `${folder}/${timestamp}_${randomSuffix}.webp`;
+      targetFilename = `${folder}/${timestamp}_${randomSuffix}.png`;
     } else if (requestedFolder && !targetFilename.includes('/')) {
       targetFilename = `${requestedFolder}/${targetFilename}`;
     }
@@ -745,11 +745,11 @@ async function manejarSubidaVercelBlob(req, res) {
 
     // Obtener buffer binario
     let buffer = null;
-    let contentType = 'image/webp';
+    let contentType = 'image/png';
 
     if (Buffer.isBuffer(req.body) && req.body.length > 0) {
       buffer = req.body;
-      contentType = req.headers['content-type'] || 'image/webp';
+      contentType = req.headers['content-type'] || 'image/png';
     } else if (req.body && typeof req.body === 'object' && req.body.fileData) {
       const fileData = req.body.fileData;
       if (typeof fileData === 'string' && fileData.startsWith('data:')) {
@@ -908,6 +908,20 @@ async function manejarVistaVercelBlob(req, res) {
     // Evitar carpetas duplicadas (ej: productos/productos/ -> productos/)
     cleanPath = cleanPath.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
 
+    // Lista de rutas alternativas a verificar si la principal no se encuentra (ej: cambio .webp <-> .png o referencias históricas)
+    const pathsToTry = [cleanPath];
+    if (cleanPath.endsWith('.webp')) {
+      pathsToTry.push(cleanPath.replace(/\.webp$/, '.png'));
+    } else if (cleanPath.endsWith('.png')) {
+      pathsToTry.push(cleanPath.replace(/\.png$/, '.webp'));
+    }
+    if (cleanPath.includes('1788841497237')) {
+      pathsToTry.push('productos/prod_P3_migrado.png', 'productos/prod_P3_migrado.webp');
+    }
+    if (cleanPath.includes('1788911458110')) {
+      pathsToTry.push('productos/prod_P4_migrado.png', 'productos/prod_P4_migrado.webp');
+    }
+
     const blobToken = obtenerVercelBlobToken(req);
 
     // 1. Intentar servir desde Vercel Blob con la SDK oficial (@vercel/blob get())
@@ -915,17 +929,26 @@ async function manejarVistaVercelBlob(req, res) {
       try {
         const { get } = await import('@vercel/blob');
         let result = null;
+        let matchedPath = cleanPath;
 
-        try {
-          result = await get(cleanPath, {
-            access: 'private',
-            token: blobToken
-          });
-        } catch (e) {
-          result = await get(cleanPath, {
-            access: 'public',
-            token: blobToken
-          });
+        for (const candidatePath of pathsToTry) {
+          try {
+            result = await get(candidatePath, {
+              access: 'private',
+              token: blobToken
+            });
+          } catch (e) {
+            try {
+              result = await get(candidatePath, {
+                access: 'public',
+                token: blobToken
+              });
+            } catch (e2) {}
+          }
+          if (result && (result.statusCode === 200 || result.stream || result.blob)) {
+            matchedPath = candidatePath;
+            break;
+          }
         }
 
         if (result && (result.statusCode === 200 || result.stream || result.blob)) {
@@ -935,7 +958,7 @@ async function manejarVistaVercelBlob(req, res) {
           } else if (result.headers && result.headers.get && result.headers.get('content-type')) {
             res.setHeader('Content-Type', result.headers.get('content-type'));
           } else {
-            const ext = path.extname(cleanPath).toLowerCase();
+            const ext = path.extname(matchedPath).toLowerCase();
             const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
             res.setHeader('Content-Type', mime);
           }
@@ -962,14 +985,16 @@ async function manejarVistaVercelBlob(req, res) {
     }
 
     // 2. Intentar servir desde el almacén local persistente
-    const localFilePath = path.join(BLOB_LOCAL_DIR, cleanPath);
-    if (fs.existsSync(localFilePath)) {
-      const ext = path.extname(cleanPath).toLowerCase();
-      const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
-      res.setHeader('Content-Type', mime);
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-      return fs.createReadStream(localFilePath).pipe(res);
+    for (const candidatePath of pathsToTry) {
+      const localFilePath = path.join(BLOB_LOCAL_DIR, candidatePath);
+      if (fs.existsSync(localFilePath)) {
+        const ext = path.extname(candidatePath).toLowerCase();
+        const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
+        res.setHeader('Content-Type', mime);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+        return fs.createReadStream(localFilePath).pipe(res);
+      }
     }
 
     // 3. Si no existe en ningún almacén, responder con SVG de producto elegante para evitar iconos rotos en el navegador

@@ -1661,7 +1661,7 @@ window.InventoryApp = window.InventoryApp || {};
                 if (imagenUrl.startsWith('data:')) {
                     try {
                         if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
+                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.png`);
                             if (resBlob && (resBlob.viewUrl || resBlob.url)) {
                                 imagenUrl = resBlob.viewUrl || resBlob.url;
                                 producto.imagen = imagenUrl;

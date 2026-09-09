@@ -235,15 +235,16 @@ window.InventoryApp = window.InventoryApp || {};
 
         let blobToSend = null;
         let dataUrlString = null;
-        let contentType = 'image/webp';
+        let contentType = 'image/png';
         let cleanFilename = filename ? String(filename).replace(/\\/g, '/').replace(/^\/+/, '') : '';
 
         // Extraer formato y preparar tanto blob binario como dataUrl para máxima compatibilidad
         if (fileOrDataUrl instanceof File) {
             blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/webp';
+            contentType = fileOrDataUrl.type || 'image/png';
             if (!cleanFilename) {
-                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.webp`}`;
+                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
+                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.${ext}`}`;
             }
             try {
                 dataUrlString = await new Promise((resolve, reject) => {
@@ -257,9 +258,9 @@ window.InventoryApp = window.InventoryApp || {};
             }
         } else if (fileOrDataUrl instanceof Blob) {
             blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/webp';
+            contentType = fileOrDataUrl.type || 'image/png';
             if (!cleanFilename) {
-                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
             }
             try {
@@ -277,7 +278,7 @@ window.InventoryApp = window.InventoryApp || {};
             try {
                 const parts = fileOrDataUrl.split(',');
                 const mimeMatch = parts[0].match(/:(.*?);/);
-                contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
+                contentType = mimeMatch ? mimeMatch[1] : 'image/png';
                 const bstr = atob(parts[1]);
                 let n = bstr.length;
                 const u8arr = new Uint8Array(n);
@@ -290,7 +291,7 @@ window.InventoryApp = window.InventoryApp || {};
                 blobToSend = null;
             }
             if (!cleanFilename) {
-                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
             }
         }

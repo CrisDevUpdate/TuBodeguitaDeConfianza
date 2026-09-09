@@ -138,9 +138,10 @@ async function procesarImagenProducto(archivo) {
                 canvas.height = Math.max(1, Math.round(imagen.height * escala));
                 const contexto = canvas.getContext('2d');
                 contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
-                const webpUrl = canvas.toDataURL('image/webp', 0.85);
-                if (webpUrl && webpUrl.length > 50 && !webpUrl.endsWith('data:,')) {
-                    optimizadoDataUrl = webpUrl;
+                // Guardar en formato PNG estándar para visualización y miniaturas en Vercel Blob
+                const pngUrl = canvas.toDataURL('image/png');
+                if (pngUrl && pngUrl.length > 50 && !pngUrl.endsWith('data:,')) {
+                    optimizadoDataUrl = pngUrl;
                 }
             } catch (canvasErr) {
                 console.warn('[Productos] Optimización canvas omitida, usando original:', canvasErr);
@@ -153,12 +154,12 @@ async function procesarImagenProducto(archivo) {
                 if (dropzone) dropzone.classList.add('uploading-blob');
 
                 if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                    const nombreBlob = `prod_${Date.now()}.webp`;
+                    const nombreBlob = `prod_${Date.now()}.png`;
                     promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(optimizadoDataUrl, 'productos', nombreBlob);
                     const resultado = await promesaSubidaImagen;
                     if (resultado && (resultado.viewUrl || resultado.url)) {
                         productoImagenTemporal = resultado.viewUrl || resultado.url;
-                        console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito:', productoImagenTemporal);
+                        console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito (.png):', productoImagenTemporal);
                     }
                 }
             } catch (blobErr) {
@@ -176,7 +177,7 @@ async function procesarImagenProducto(archivo) {
             estaSubiendoImagenProducto = true;
             let errorSubida = null;
             if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                const nombreBlob = `prod_${Date.now()}.webp`;
+                const nombreBlob = `prod_${Date.now()}.png`;
                 promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(rawDataUrl, 'productos', nombreBlob)
                     .then(res => {
                         if (res && (res.viewUrl || res.url)) {
@@ -319,11 +320,11 @@ async function guardarProducto(e) {
         }
         try {
             if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.webp`);
+                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.png`);
                 if (resultado && (resultado.viewUrl || resultado.url)) {
                     imagenFinal = resultado.viewUrl || resultado.url;
                     productoImagenTemporal = imagenFinal;
-                    console.log('[Productos] Imagen subida y asociada a Vercel Blob:', imagenFinal);
+                    console.log('[Productos] Imagen subida y asociada a Vercel Blob (.png):', imagenFinal);
                     actualizarVistaImagenProducto('completado');
                 }
             }
