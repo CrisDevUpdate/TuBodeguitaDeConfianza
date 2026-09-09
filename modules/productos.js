@@ -468,13 +468,15 @@ function renderizarInventario() {
     if (gananciaUsd) gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
     if (gananciaBs) gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
 
-    tbody.innerHTML = productos.map(p => `
+    tbody.innerHTML = productos.map(p => {
+        const prodImg = typeof normalizarUrlBlob === 'function' && p.imagen ? normalizarUrlBlob(p.imagen) : p.imagen;
+        return `
         <tr>
             <td>${p.codigo}</td>
             <td>
                 <div class="inventory-product-cell">
                     <div class="inventory-product-thumb">
-                        ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%2394a3b8\\' stroke-width=\\'1.5\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'%3E%3Crect width=\\'24\\' height=\\'24\\' fill=\\'%23f8fafc\\' rx=\\'4\\'/%3E%3Cpath d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/%3E%3Cpolyline points=\\'3.27 6.96 12 12.01 20.73 6.96\\'/%3E%3Cline x1=\\'12\\' y1=\\'22.08\\' x2=\\'12\\' y2=\\'12\\'/%3E%3C/svg%3E';">` : '<i class="fas fa-box-open"></i>'}
+                        ${prodImg ? `<img src="${prodImg}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%2394a3b8\\' stroke-width=\\'1.5\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'%3E%3Crect width=\\'24\\' height=\\'24\\' fill=\\'%23f8fafc\\' rx=\\'4\\'/%3E%3Cpath d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/%3E%3Cpolyline points=\\'3.27 6.96 12 12.01 20.73 6.96\\'/%3E%3Cline x1=\\'12\\' y1=\\'22.08\\' x2=\\'12\\' y2=\\'12\\'/%3E%3C/svg%3E';">` : '<i class="fas fa-box-open"></i>'}
                     </div>
                     <div>
                         <div class="inventory-product-name">${p.nombre}</div>
@@ -493,7 +495,7 @@ function renderizarInventario() {
                 <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
             </td>
         </tr>
-    `).join('');
+    `;}).join('');
 
     renderizarHistorialEliminaciones();
     renderizarResumenPerdidasEconomicas();

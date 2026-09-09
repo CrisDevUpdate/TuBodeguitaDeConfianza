@@ -58,15 +58,18 @@ function normalizarUrlBlob(url) {
     const str = url.trim();
     if (!str) return '';
     if (str.includes('.private.blob.vercel-storage.com/')) {
+        let pathname = '';
         try {
             const parsed = new URL(str);
-            const pathname = parsed.pathname.replace(/^\/+/, '');
-            return `/api/avatar/view?pathname=${encodeURIComponent(pathname)}`;
+            pathname = parsed.pathname.replace(/^\/+/, '');
         } catch (e) {
             const idx = str.indexOf('.private.blob.vercel-storage.com/');
-            const sub = str.substring(idx + '.private.blob.vercel-storage.com/'.length).split('?')[0];
-            return `/api/avatar/view?pathname=${encodeURIComponent(sub)}`;
+            pathname = str.substring(idx + '.private.blob.vercel-storage.com/'.length).split('?')[0];
         }
+        try { pathname = decodeURIComponent(pathname); } catch (e) {}
+        pathname = pathname.replace(/^(productos\/)+/, 'productos/').replace(/^(avatars\/)+/, 'avatars/').replace(/^(uploads\/)+/, 'uploads/');
+        const endpoint = pathname.startsWith('productos/') ? '/api/blob/view' : '/api/avatar/view';
+        return `${endpoint}?pathname=${encodeURIComponent(pathname)}`;
     }
     return str;
 }
