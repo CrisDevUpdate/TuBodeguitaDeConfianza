@@ -119,6 +119,8 @@ export async function servirVistaBlob(req, res) {
             mimeType = ext === '.png' ? 'image/png' : (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
           }
           res.setHeader('Content-Type', mimeType);
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
 
           if (result.stream) {
             const chunks = [];
