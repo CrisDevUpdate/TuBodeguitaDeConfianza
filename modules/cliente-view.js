@@ -236,7 +236,8 @@ function renderizarCatalogoCliente() {
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const stock = Number(p.stock || 0);
             const agotado = stock <= 0;
-            const imagenSrc = p.imagen || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+            const rawImg = p.imagen;
+            const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
             return `
                 <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''}" id="cli-card-${p.id}">

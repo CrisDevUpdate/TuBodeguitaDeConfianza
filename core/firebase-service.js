@@ -882,9 +882,9 @@ window.InventoryApp = window.InventoryApp || {};
             // Productos
             AppState.productos.forEach(p => {
                 const ref = db.collection(COLLECTIONS.PRODUCTOS).doc(String(p.id));
-                // Asegurar que nunca se guarden cadenas base64 gigantes en Firestore
+                // Conservar la imagen optimizada (solo omitir si fuera una cadena excesivamente pesada > 400KB)
                 let safeImagen = p.imagen || '';
-                if (safeImagen.startsWith('data:')) {
+                if (safeImagen.startsWith('data:') && safeImagen.length > 400000) {
                     safeImagen = '';
                 }
                 batch.set(ref, {
@@ -1661,18 +1661,16 @@ window.InventoryApp = window.InventoryApp || {};
                     try {
                         if (window.InventoryApp && window.InventoryApp.ImageCache) {
                             const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
-                            if (resBlob && resBlob.url) {
-                                imagenUrl = resBlob.url;
-                                producto.imagen = resBlob.url;
-                            } else {
-                                imagenUrl = '';
+                            if (resBlob && (resBlob.url || resBlob.viewUrl || resBlob.pathname)) {
+                                imagenUrl = resBlob.viewUrl || resBlob.url || (resBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resBlob.pathname)}` : imagenUrl);
+                                producto.imagen = imagenUrl;
                             }
-                        } else {
-                            imagenUrl = '';
                         }
                     } catch (e) {
-                        console.warn('[Firebase] No fue posible subir a Vercel Blob; omitiendo base64 en Firestore:', e);
-                        imagenUrl = '';
+                        // Siguiendo los principios de la foto de perfil:
+                        // No borramos la imagen a vacío (''), sino que conservamos la imagen optimizada
+                        // para que Firestore la persista y se visualice en el teléfono.
+                        console.warn('[Firebase] Aviso al subir producto a Vercel Blob desde guardarProducto, manteniendo copia optimizada:', e);
                     }
                 }
 
