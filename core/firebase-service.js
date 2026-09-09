@@ -773,18 +773,11 @@ window.InventoryApp = window.InventoryApp || {};
             if (snapUsuarios) {
                 if (!snapUsuarios.empty) {
                     const cloudUsuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const mapUsuarios = new Map();
-                    cloudUsuarios.forEach(u => mapUsuarios.set(String(u.id || u.cedula).toUpperCase(), u));
-                    (AppState.usuarios || []).forEach(localU => {
-                        const k = String(localU.id || localU.cedula).toUpperCase();
-                        if (!mapUsuarios.has(k)) {
-                            mapUsuarios.set(k, localU);
-                            guardarUsuarioCloud(localU).catch(() => {});
-                        }
-                    });
-                    AppState.usuarios = Array.from(mapUsuarios.values());
-                } else if (Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
-                    AppState.usuarios.forEach(u => guardarUsuarioCloud(u).catch(() => {}));
+                    // Firestore es la ÚNICA fuente de verdad para usuarios.
+                    // Jamás subimos usuarios locales desconocidos a Firestore para evitar revivir cuentas eliminadas.
+                    AppState.usuarios = cloudUsuarios;
+                } else {
+                    AppState.usuarios = [];
                 }
             }
 
@@ -823,15 +816,42 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }
 
-            // Validar si el usuario en sesión activa actual todavía existe en la base de datos
+            // Validar si el usuario en sesión activa actual todavía existe en la base de datos de Firestore
             if (AppState.usuarioActual) {
-                const idActual = AppState.usuarioActual.cedula || AppState.usuarioActual.id;
-                const esSuperAdmin = idActual === 'SuperAdmin' || (AppState.usuarioActual.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
-                const existeEnNube = (AppState.usuarios || []).some(u => (u.cedula || u.id) === idActual || (u.email && u.email.toLowerCase() === (AppState.usuarioActual.email || '').toLowerCase()));
-                if (!existeEnNube && !esSuperAdmin) {
-                    console.warn('[Sync Nube] El usuario de la sesión actual no existe en Firestore. Cerrando sesión.');
+                const idActual = String(AppState.usuarioActual.cedula || AppState.usuarioActual.id || '').toUpperCase();
+                const esSuperAdmin = idActual === 'SUPERADMIN' || (AppState.usuarioActual.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
+                const usuarioEnNube = (AppState.usuarios || []).find(u => 
+                    String(u.cedula || u.id || '').toUpperCase() === idActual || 
+                    (u.email && u.email.toLowerCase() === (AppState.usuarioActual.email || '').toLowerCase())
+                );
+
+                if (!usuarioEnNube && !esSuperAdmin) {
+                    console.warn('[Sync Nube] La cuenta del usuario en sesión activa ya no existe en Firestore. Cerrando sesión de inmediato.');
                     AppState.usuarioActual = null;
+                    try {
+                        localStorage.removeItem('bodeguita_usuario_sesion');
+                        localStorage.removeItem('bodeguita_inventario_v2_cache');
+                    } catch {}
+                    if (typeof verificarGatewall === 'function') verificarGatewall();
+                    if (typeof renderizarGatewall === 'function') renderizarGatewall();
+                } else if (usuarioEnNube && !esSuperAdmin) {
+                    if (usuarioEnNube.estado !== 'ACTIVO') {
+                        AppState.usuarioActual = { ...AppState.usuarioActual, ...usuarioEnNube };
+                        if (typeof verificarGatewall === 'function') verificarGatewall();
+                        if (typeof renderizarGatewall === 'function') renderizarGatewall();
+                    } else {
+                        AppState.usuarioActual = { ...AppState.usuarioActual, ...usuarioEnNube };
+                    }
                 }
+            }
+
+            // Guardar respaldo en base de datos local del navegador (IndexedDB) para carga instantánea
+            if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                window.InventoryApp.ImageCache.guardarCatalogoLocal(AppState.productos || []);
+                const urlsAPrecargar = [];
+                (AppState.productos || []).forEach(p => { if (p && p.imagen) urlsAPrecargar.push(p.imagen); });
+                (AppState.usuarios || []).forEach(u => { if (u && u.avatar) urlsAPrecargar.push(u.avatar); });
+                window.InventoryApp.ImageCache.precargarImagenes(urlsAPrecargar);
             }
 
             // Guardar respaldo en localStorage
@@ -1171,9 +1191,23 @@ window.InventoryApp = window.InventoryApp || {};
                     }
                     if (AppState.usuarioActual) {
                         const curId = String(AppState.usuarioActual.cedula || AppState.usuarioActual.id || '').toUpperCase();
-                        const uInCloud = newUsuarios.find(u => String(u.cedula || u.id || '').toUpperCase() === curId);
-                        if (uInCloud) {
-                            if (uInCloud.avatar && !String(AppState.usuarioActual.avatar || '').startsWith('data:')) {
+                        const esSuper = curId === 'SUPERADMIN' || (AppState.usuarioActual.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
+                        const uInCloud = newUsuarios.find(u => 
+                            String(u.cedula || u.id || '').toUpperCase() === curId || 
+                            (u.email && u.email.toLowerCase() === (AppState.usuarioActual.email || '').toLowerCase())
+                        );
+
+                        if (!uInCloud && !esSuper) {
+                            console.warn('[Firebase Realtime] La cuenta activa ya no existe en Firestore. Cerrando sesión de inmediato.');
+                            AppState.usuarioActual = null;
+                            try {
+                                localStorage.removeItem('bodeguita_usuario_sesion');
+                                localStorage.removeItem('bodeguita_inventario_v2_cache');
+                            } catch {}
+                            if (typeof verificarGatewall === 'function') verificarGatewall();
+                            if (typeof renderizarGatewall === 'function') renderizarGatewall();
+                        } else if (uInCloud) {
+                            if (uInCloud.avatar) {
                                 AppState.usuarioActual.avatar = uInCloud.avatar;
                             }
                             if (uInCloud.nombre) AppState.usuarioActual.nombre = uInCloud.nombre;
@@ -1181,6 +1215,10 @@ window.InventoryApp = window.InventoryApp || {};
                             if (uInCloud.estado) AppState.usuarioActual.estado = uInCloud.estado;
                             if (typeof actualizarUIUsuarioActual === 'function') {
                                 actualizarUIUsuarioActual();
+                            }
+                            if (uInCloud.estado !== 'ACTIVO' && !esSuper) {
+                                if (typeof verificarGatewall === 'function') verificarGatewall();
+                                if (typeof renderizarGatewall === 'function') renderizarGatewall();
                             }
                         }
                     }
@@ -1656,22 +1694,10 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 let imagenUrl = producto.imagen || '';
-                // Si la imagen está en formato base64/dataURI, asegurar su subida a Vercel Blob
-                if (imagenUrl.startsWith('data:')) {
-                    try {
-                        if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
-                            if (resBlob && (resBlob.url || resBlob.viewUrl || resBlob.pathname)) {
-                                imagenUrl = resBlob.viewUrl || resBlob.url || (resBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resBlob.pathname)}` : imagenUrl);
-                                producto.imagen = imagenUrl;
-                            }
-                        }
-                    } catch (e) {
-                        // Siguiendo los principios de la foto de perfil:
-                        // No borramos la imagen a vacío (''), sino que conservamos la imagen optimizada
-                        // para que Firestore la persista y se visualice en el teléfono.
-                        console.warn('[Firebase] Aviso al subir producto a Vercel Blob desde guardarProducto, manteniendo copia optimizada:', e);
-                    }
+                // Almacenar en la base de datos local del navegador (IndexedDB) para acceso offline instantáneo
+                if (window.InventoryApp && window.InventoryApp.ImageCache && imagenUrl) {
+                    window.InventoryApp.ImageCache.guardarImagen(`prod_${producto.id}`, imagenUrl).catch(() => {});
+                    window.InventoryApp.ImageCache.guardarImagen(imagenUrl, imagenUrl).catch(() => {});
                 }
 
                 const docRef = db.collection(COLLECTIONS.PRODUCTOS).doc(String(producto.id));
@@ -2318,18 +2344,10 @@ window.InventoryApp = window.InventoryApp || {};
 
             if (db) {
                 let avatarUrl = usuario.avatar || '';
-                if (avatarUrl.startsWith('data:')) {
-                    try {
-                        if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(avatarUrl, 'avatars', `avatar_${id}_${Date.now()}.webp`);
-                            if (resBlob && (resBlob.url || resBlob.pathname)) {
-                                avatarUrl = resBlob.url || `/api/avatar/view?pathname=${encodeURIComponent(resBlob.pathname)}`;
-                                usuario.avatar = avatarUrl;
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('[Firebase] Aviso al subir avatar a Vercel Blob desde guardarUsuario:', e);
-                    }
+                // Almacenar en la base de datos local del navegador (IndexedDB) para acceso offline instantáneo
+                if (window.InventoryApp && window.InventoryApp.ImageCache && avatarUrl) {
+                    window.InventoryApp.ImageCache.guardarImagen(`user_${id}`, avatarUrl).catch(() => {});
+                    window.InventoryApp.ImageCache.guardarImagen(avatarUrl, avatarUrl).catch(() => {});
                 }
 
                 const docRef = db.collection(COLLECTIONS.USUARIOS).doc(String(id));

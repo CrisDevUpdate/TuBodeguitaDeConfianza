@@ -42,6 +42,10 @@ function verificarGatewall() {
                 // El usuario ya no existe en el sistema
                 AppState.usuarioActual = null;
                 usuario = null;
+                try {
+                    localStorage.removeItem('bodeguita_usuario_sesion');
+                    localStorage.removeItem('bodeguita_inventario_v2_cache');
+                } catch {}
                 if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
             } else {
                 // Mantener estado y rol sincronizados
@@ -1167,7 +1171,7 @@ function crearModalSelectorAvatarDOM() {
             </div>
 
             <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
-                Personaliza tu foto de perfil. Tu imagen se guardará de forma permanente y segura en tu almacenamiento en la nube de <strong>Vercel Blob</strong>.
+                Personaliza tu foto de perfil. Tu imagen se optimiza y almacena de forma segura en la base de datos de tu navegador y en Firestore.
             </p>
 
             <!-- Preview del Avatar Actual -->
@@ -1177,7 +1181,7 @@ function crearModalSelectorAvatarDOM() {
                 </div>
                 <div>
                     <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);" id="avatar-preview-name">Tu Perfil</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Sincronizado con Vercel Blob & Firestore</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Sincronizado con Firestore & Base de datos local</div>
                 </div>
             </div>
 
@@ -1185,7 +1189,7 @@ function crearModalSelectorAvatarDOM() {
             <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Elige un avatar prediseñado:</div>
             <div id="avatar-presets-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:20px;"></div>
 
-            <!-- Subida Personalizada a Vercel Blob -->
+            <!-- Subida Personalizada -->
             <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
                 <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:10px;">O sube tu propia foto desde tu dispositivo:</div>
                 
@@ -1197,7 +1201,7 @@ function crearModalSelectorAvatarDOM() {
                         Haz clic aquí o arrastra tu foto a esta casilla
                     </div>
                     <div style="font-size: 0.78rem; color: var(--text-muted);">
-                        Formatos: JPG, PNG, WEBP, GIF (Se optimiza y almacena en Vercel Blob)
+                        Formatos: JPG, PNG, WEBP, GIF (Se optimiza y almacena de inmediato)
                     </div>
                     <input type="file" id="avatar-custom-file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp" style="display:none;" onchange="procesarSubidaAvatar(event)" onclick="this.value=''">
                 </div>
@@ -1214,7 +1218,7 @@ function crearModalSelectorAvatarDOM() {
                 <div id="avatar-upload-status" style="margin-top:12px; display:none; padding:10px; border-radius:8px; font-size:0.85rem; text-align:center;"></div>
 
                 <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:10px;">
-                    <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento seguro en la nube conectado con Vercel Blob Storage privado.
+                    <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento optimizado localmente en tu navegador y respaldado en la nube.
                 </small>
             </div>
 
@@ -1394,7 +1398,7 @@ function procesarSubidaAvatar(fileOrEvent) {
         statusEl.style.display = 'block';
         statusEl.style.background = 'rgba(37, 99, 235, 0.1)';
         statusEl.style.color = 'var(--primary-accent)';
-        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando imagen y sincronizando con Vercel Blob...`;
+        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando imagen y guardando...`;
     }
 
     const reader = new FileReader();
@@ -1451,32 +1455,19 @@ function procesarSubidaAvatar(fileOrEvent) {
                 if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
                 if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
 
-                // 2. Subir binario a Vercel Blob a través de la API segura del backend
-                let finalUrl = dataUrl;
-                try {
-                    if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                        const filename = `avatar_${idUser}_${Date.now()}.webp`;
-                        const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(dataUrl, 'avatars', filename);
-                        if (resultado && (resultado.url || resultado.pathname)) {
-                            finalUrl = resultado.url || (resultado.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resultado.pathname)}` : dataUrl);
-                            usuario.avatar = finalUrl;
-                            if (userIdx !== -1) {
-                                AppState.usuarios[userIdx].avatar = finalUrl;
-                            }
-                            console.log('[Usuarios] Avatar persistido en Vercel Blob exitosamente:', finalUrl);
-                        }
-                    }
-                } catch (blobErr) {
-                    console.warn('[Usuarios] Aviso al subir avatar a Vercel Blob, manteniendo copia optimizada:', blobErr);
+                // Guardar de inmediato en la base de datos local (IndexedDB)
+                if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                    window.InventoryApp.ImageCache.guardarImagen(`user_${idUser}`, dataUrl).catch(() => {});
+                    window.InventoryApp.ImageCache.guardarImagen(dataUrl, dataUrl).catch(() => {});
                 }
 
-                // 3. Persistir en Firestore y localStorage
+                // Persistir en Firestore y localStorage
                 if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
                 if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
                     window.InventoryApp.Firebase.guardarUsuario(usuario);
                 }
 
-                // 4. Refrescar todas las vistas con la URL final de Vercel Blob
+                // Refrescar todas las vistas
                 actualizarUIUsuarioActual();
                 renderizarGridAvataresPresets();
                 if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
@@ -1486,11 +1477,11 @@ function procesarSubidaAvatar(fileOrEvent) {
                 if (statusEl) {
                     statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
                     statusEl.style.color = '#059669';
-                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ¡Foto guardada exitosamente en Vercel Blob!`;
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ¡Foto de perfil guardada con éxito!`;
                 }
 
                 if (window.InventoryApp?.Modal?.toast) {
-                    window.InventoryApp.Modal.toast('¡Foto de perfil actualizada y guardada con éxito en Vercel Blob!', 'success');
+                    window.InventoryApp.Modal.toast('¡Foto de perfil actualizada y guardada con éxito!', 'success');
                 }
 
                 setTimeout(() => {

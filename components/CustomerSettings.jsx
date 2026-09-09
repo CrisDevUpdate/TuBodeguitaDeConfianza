@@ -129,43 +129,34 @@ export default function CustomerSettings({
     }
 
     setIsUploading(true);
-    setSaveToast('Subiendo y optimizando imagen...');
+    setSaveToast('Guardando y optimizando imagen...');
 
     try {
-      // Subida directa al endpoint de Vercel Blob usando el stream binario
-      const cleanExt = file.name.split('.').pop() || 'jpg';
-      const targetFilename = `avatars/avatar_${currentUser?.cedula || currentUser?.id || 'user'}_${Date.now()}.${cleanExt}`;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const finalUrl = e.target.result;
+        setAvatarUrl(finalUrl);
 
-      const response = await fetch(
-        `/api/avatar/upload?filename=${encodeURIComponent(targetFilename)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': file.type || 'image/jpeg' },
-          body: file,
+        if (window.InventoryApp && window.InventoryApp.ImageCache) {
+          window.InventoryApp.ImageCache.guardarImagen(`user_${currentUser?.cedula || currentUser?.id}`, finalUrl).catch(() => {});
         }
-      );
+        localStorage.setItem(`app_avatar_${currentUser?.cedula || currentUser?.id}`, finalUrl);
 
-      if (!response.ok) {
-        throw new Error('Error al comunicar con el servicio de Vercel Blob');
-      }
+        if (typeof onUpdateAvatar === 'function') {
+          await onUpdateAvatar(finalUrl);
+        }
 
-      const newBlob = await response.json();
-      const finalUrl = newBlob.url || (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.downloadUrl);
-
-      setAvatarUrl(finalUrl);
-
-      // Guardar en caché local
-      localStorage.setItem(`app_avatar_${currentUser?.cedula || currentUser?.id}`, finalUrl);
-
-      if (typeof onUpdateAvatar === 'function') {
-        await onUpdateAvatar(finalUrl);
-      }
-
-      setSaveToast('¡Foto de perfil actualizada en Vercel Blob!');
-      setTimeout(() => setSaveToast(null), 3000);
+        setSaveToast('¡Foto de perfil actualizada exitosamente!');
+        setTimeout(() => setSaveToast(null), 3000);
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        alert('Error al leer el archivo seleccionado');
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       alert('Error al procesar la imagen: ' + err.message);
-    } finally {
       setIsUploading(false);
     }
   };

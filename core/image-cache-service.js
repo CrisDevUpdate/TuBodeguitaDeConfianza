@@ -1,12 +1,12 @@
 /**
  * core/image-cache-service.js
- * Arquitectura de Almacenamiento Híbrido: Vercel Blob + Firestore + Cache Local
+ * Motor de Base de Datos Local (IndexedDB) y Caché de Alto Rendimiento para Imágenes y Catálogo
  * 
  * Funcionalidades:
- * 1. Subida segura a Vercel Blob (@vercel/blob) vía endpoint `/api/upload/blob`.
- * 2. Persistencia en Firestore: Solo URLs livianas (ahorro masivo de espacio en BD).
- * 3. Caché de Alto Rendimiento en IndexedDB / LocalStorage: Lectura prioritaria local,
- *    cero peticiones repetidas a la red, minimizando costos y solicitudes a la API.
+ * 1. Almacenamiento en IndexedDB del navegador (sin límites de 5MB de localStorage, soporta cientos de MB).
+ * 2. Guarda imágenes optimizadas de productos y avatares directamente en el dispositivo del usuario.
+ * 3. Carga instantánea (0ms) en visitas recurrentes y soporte sin conexión (Modo Offline).
+ * 4. Precarga inteligente en segundo plano sin consumo de red repetitivo.
  */
 
 window.InventoryApp = window.InventoryApp || {};
@@ -14,22 +14,23 @@ window.InventoryApp = window.InventoryApp || {};
 (function() {
     'use strict';
 
-    const DB_NAME = 'TuBodeguita_BlobCache_DB';
-    const DB_VERSION = 1;
-    const STORE_NAME = 'cached_images';
-    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días de vigencia de caché
+    const DB_NAME = 'TuBodeguita_BrowserDB';
+    const DB_VERSION = 2;
+    const STORE_IMAGES = 'imagenes_cache';
+    const STORE_CATALOG = 'catalogo_cache';
+    const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días de persistencia local
 
     let dbPromise = null;
-    const memoryBlobUrlMap = new Map(); // Mapeo en memoria de URL -> ObjectURL
+    const memoryCacheMap = new Map(); // Mapeo ultrarrápido en RAM: clave -> dataUrl / objectUrl
 
     /**
-     * Inicializa la base de datos IndexedDB para almacenamiento de imágenes binarias
+     * Inicializa y abre la base de datos IndexedDB del navegador
      */
     function obtenerDB() {
         if (!dbPromise) {
-            dbPromise = new Promise((resolve, reject) => {
+            dbPromise = new Promise((resolve) => {
                 if (!window.indexedDB) {
-                    console.warn('[ImageCache] IndexedDB no soportado en este navegador. Usando memoria/localStorage.');
+                    console.warn('[ImageCache] IndexedDB no soportado en este navegador. Usando memoria temporal.');
                     resolve(null);
                     return;
                 }
@@ -38,8 +39,11 @@ window.InventoryApp = window.InventoryApp || {};
 
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, { keyPath: 'url' });
+                    if (!db.objectStoreNames.contains(STORE_IMAGES)) {
+                        db.createObjectStore(STORE_IMAGES, { keyPath: 'key' });
+                    }
+                    if (!db.objectStoreNames.contains(STORE_CATALOG)) {
+                        db.createObjectStore(STORE_CATALOG, { keyPath: 'id' });
                     }
                 };
 
@@ -57,159 +61,166 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * Guarda una imagen en el caché local (IndexedDB)
+     * Guarda una imagen en la base de datos IndexedDB local
      */
-    async function guardarEnCacheLocal(url, blobOrDataUrl, contentType = 'image/webp') {
-        if (!url) return;
+    async function guardarImagen(key, dataOrBlob, contentType = 'image/webp') {
+        if (!key || !dataOrBlob) return;
+
+        // Guardar en RAM de forma inmediata para acceso sincrónico
+        if (typeof dataOrBlob === 'string') {
+            memoryCacheMap.set(key, dataOrBlob);
+        }
 
         try {
             const db = await obtenerDB();
-            if (!db) {
-                // Fallback a localStorage si es texto dataURL corto
-                if (typeof blobOrDataUrl === 'string' && blobOrDataUrl.length < 500000) {
-                    try {
-                        localStorage.setItem(`img_cache_${btoa(url).substring(0, 32)}`, blobOrDataUrl);
-                    } catch (e) {
-                        console.warn('[ImageCache] LocalStorage lleno');
-                    }
-                }
-                return;
-            }
+            if (!db) return;
 
-            let blobToStore;
-            if (blobOrDataUrl instanceof Blob) {
-                blobToStore = blobOrDataUrl;
-            } else if (typeof blobOrDataUrl === 'string' && blobOrDataUrl.startsWith('data:')) {
-                const parts = blobOrDataUrl.split(',');
-                const mime = parts[0].match(/:(.*?);/)?.[1] || contentType;
-                const binary = atob(parts[1]);
-                const array = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    array[i] = binary.charCodeAt(i);
-                }
-                blobToStore = new Blob([array], { type: mime });
-            } else {
-                return;
+            let dataToStore = dataOrBlob;
+            let blobType = contentType;
+
+            if (dataOrBlob instanceof Blob) {
+                blobType = dataOrBlob.type || contentType;
             }
 
             const record = {
-                url: url,
-                blob: blobToStore,
-                contentType: blobToStore.type || contentType,
+                key: String(key),
+                data: dataToStore,
+                contentType: blobType,
                 timestamp: Date.now(),
                 expiresAt: Date.now() + CACHE_TTL_MS
             };
 
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
+            const tx = db.transaction(STORE_IMAGES, 'readwrite');
+            const store = tx.objectStore(STORE_IMAGES);
             store.put(record);
 
-            // Crear y memorizar ObjectURL
-            if (memoryBlobUrlMap.has(url)) {
-                URL.revokeObjectURL(memoryBlobUrlMap.get(url));
-            }
-            const objectUrl = URL.createObjectURL(blobToStore);
-            memoryBlobUrlMap.set(url, objectUrl);
-
         } catch (err) {
-            console.warn('[ImageCache] Error guardando en caché local:', err);
+            console.warn('[ImageCache] Error guardando imagen en IndexedDB:', err);
         }
     }
 
     /**
-     * Obtiene una imagen desde el caché local; si no existe, la descarga y la almacena
+     * Recupera una imagen desde la memoria RAM o IndexedDB
      */
-    async function obtenerUrlConCache(url, fallback = '') {
-        if (!url) return fallback;
+    async function obtenerImagen(key) {
+        if (!key) return null;
 
-        // Normalizar URLs privadas de Vercel Blob para que no den error 403
-        if (typeof normalizarUrlBlob === 'function') {
-            url = normalizarUrlBlob(url);
+        // 1. Verificar si ya está en RAM
+        if (memoryCacheMap.has(key)) {
+            return memoryCacheMap.get(key);
         }
 
-        // Si es un emoji o preset corto
-        if (url.length < 10 || (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/api/'))) {
-            return url;
-        }
-
-        // Si ya tenemos un ObjectURL activo en memoria para esta URL
-        if (memoryBlobUrlMap.has(url)) {
-            return memoryBlobUrlMap.get(url);
-        }
-
-        // 1. Consultar IndexedDB local
+        // 2. Consultar IndexedDB
         try {
             const db = await obtenerDB();
             if (db) {
-                const cachedRecord = await new Promise((resolve) => {
-                    const tx = db.transaction(STORE_NAME, 'readonly');
-                    const store = tx.objectStore(STORE_NAME);
-                    const req = store.get(url);
+                const record = await new Promise((resolve) => {
+                    const tx = db.transaction(STORE_IMAGES, 'readonly');
+                    const store = tx.objectStore(STORE_IMAGES);
+                    const req = store.get(String(key));
                     req.onsuccess = () => resolve(req.result);
                     req.onerror = () => resolve(null);
                 });
 
-                if (cachedRecord && cachedRecord.blob && cachedRecord.expiresAt > Date.now()) {
-                    const objUrl = URL.createObjectURL(cachedRecord.blob);
-                    memoryBlobUrlMap.set(url, objUrl);
-                    return objUrl;
+                if (record && record.data) {
+                    let resultSrc = record.data;
+                    if (record.data instanceof Blob) {
+                        resultSrc = URL.createObjectURL(record.data);
+                    }
+                    memoryCacheMap.set(key, resultSrc);
+                    return resultSrc;
                 }
             }
         } catch (e) {
-            console.warn('[ImageCache] Error leyendo caché local:', e);
+            console.warn('[ImageCache] Error obteniendo imagen de IndexedDB:', e);
         }
 
-        // Si es DataURL, guardarlo en caché y retornarlo
-        if (url.startsWith('data:')) {
-            guardarEnCacheLocal(url, url).catch(() => {});
+        return null;
+    }
+
+    /**
+     * Obtiene una URL o Data URL con respaldo de caché local
+     */
+    async function obtenerUrlConCache(url, fallback = '') {
+        if (!url) return fallback;
+
+        // Normalizar si viniera de alguna ruta anterior
+        if (typeof normalizarUrlBlob === 'function') {
+            url = normalizarUrlBlob(url);
+        }
+
+        // Si es emoji o preset muy corto
+        if (url.length < 10 || (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/api/'))) {
             return url;
         }
 
-        // 2. Si no está en caché o expiró, descargar una sola vez de la red y guardar en caché local
-        try {
-            const res = await fetch(url, { mode: 'cors', cache: 'default' });
-            if (res.ok) {
-                const blob = await res.blob();
-                await guardarEnCacheLocal(url, blob, blob.type);
-                if (memoryBlobUrlMap.has(url)) {
-                    return memoryBlobUrlMap.get(url);
+        // Si ya está en RAM
+        if (memoryCacheMap.has(url)) {
+            return memoryCacheMap.get(url);
+        }
+
+        // Si es una dataURL válida, guardarla de inmediato en IndexedDB para no perderla
+        if (url.startsWith('data:')) {
+            guardarImagen(url, url).catch(() => {});
+            memoryCacheMap.set(url, url);
+            return url;
+        }
+
+        // Consultar IndexedDB
+        const localCached = await obtenerImagen(url);
+        if (localCached) {
+            return localCached;
+        }
+
+        // Si es URL externa de red, descargar una sola vez y almacenar en IndexedDB
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            try {
+                const res = await fetch(url, { mode: 'cors', cache: 'default' });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    await guardarImagen(url, blob, blob.type);
+                    const objUrl = URL.createObjectURL(blob);
+                    memoryCacheMap.set(url, objUrl);
+                    return objUrl;
                 }
+            } catch (netErr) {
+                console.warn('[ImageCache] Aviso descargando imagen externa:', netErr.message);
             }
-        } catch (netErr) {
-            console.warn('[ImageCache] Fallo al descargar imagen de red, usando URL directa:', netErr.message);
         }
 
         return url;
     }
 
     /**
-     * Aplica de forma optimizada una imagen a un elemento <img> utilizando el caché local prioritario
+     * Aplica la imagen al elemento <img> usando lectura instantánea de IndexedDB/RAM
      */
-    async function aplicarImagenConCache(imgElement, url, fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60') {
+    async function aplicarImagenConCache(imgElement, keyOrUrl, fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60') {
         if (!imgElement) return;
 
-        if (!url) {
+        if (!keyOrUrl) {
             imgElement.src = fallback;
             return;
         }
 
-        // Si es emoji o preset
-        if (!url.startsWith('http') && !url.startsWith('data:')) {
-            imgElement.src = fallback;
+        // Carga inmediata si está en memoria RAM
+        if (memoryCacheMap.has(keyOrUrl)) {
+            imgElement.src = memoryCacheMap.get(keyOrUrl);
             return;
         }
 
-        // Cargar instantáneamente desde memoria si está listo
-        if (memoryBlobUrlMap.has(url)) {
-            imgElement.src = memoryBlobUrlMap.get(url);
+        // Si es una Data URL directa, asignarla al instante
+        if (typeof keyOrUrl === 'string' && keyOrUrl.startsWith('data:')) {
+            imgElement.src = keyOrUrl;
+            memoryCacheMap.set(keyOrUrl, keyOrUrl);
+            guardarImagen(keyOrUrl, keyOrUrl).catch(() => {});
             return;
         }
 
-        // Resolver vía caché local con transición suave
+        // Buscar en IndexedDB
         try {
-            const cachedSrc = await obtenerUrlConCache(url, fallback);
+            const cached = await obtenerUrlConCache(keyOrUrl, fallback);
             if (imgElement) {
-                imgElement.src = cachedSrc;
+                imgElement.src = cached || fallback;
             }
         } catch {
             if (imgElement) imgElement.src = fallback;
@@ -217,123 +228,64 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * Sube un archivo / imagen a Vercel Blob (@vercel/blob) a través del backend seguro
-     * y la almacena inmediatamente en el caché local.
+     * Guarda el catálogo completo de productos localmente en IndexedDB para carga instantánea
      */
-    async function subirImagenVercelBlob(fileOrDataUrl, folder = 'productos', filename = '') {
-        if (!fileOrDataUrl) throw new Error('Se requiere un archivo o Data URL para subir.');
+    async function guardarCatalogoLocal(productos = []) {
+        if (!Array.isArray(productos)) return;
+        try {
+            const db = await obtenerDB();
+            if (!db) return;
 
-        // Si ya es una URL persistida en Vercel Blob o web
-        if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://') || fileOrDataUrl.startsWith('/api/avatar/view') || fileOrDataUrl.startsWith('/api/blob/view'))) {
-            return { url: fileOrDataUrl, pathname: fileOrDataUrl, provider: 'vercel-blob' };
-        }
+            const record = {
+                id: 'productos_actuales',
+                items: productos,
+                total: productos.length,
+                timestamp: Date.now()
+            };
 
-        let blobToSend = null;
-        let contentType = 'image/webp';
-        let cleanFilename = filename;
+            const tx = db.transaction(STORE_CATALOG, 'readwrite');
+            const store = tx.objectStore(STORE_CATALOG);
+            store.put(record);
 
-        if (fileOrDataUrl instanceof File) {
-            blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/webp';
-            if (!cleanFilename) {
-                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.webp`}`;
-            }
-        } else if (fileOrDataUrl instanceof Blob) {
-            blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/webp';
-            if (!cleanFilename) {
-                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
-                cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
-            }
-        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-            try {
-                const parts = fileOrDataUrl.split(',');
-                const mimeMatch = parts[0].match(/:(.*?);/);
-                contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
-                const bstr = atob(parts[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n);
+            // Almacenar también individualmente las imágenes en IndexedDB
+            productos.forEach(p => {
+                if (p && p.imagen && p.imagen.startsWith('data:')) {
+                    guardarImagen(`prod_${p.id}`, p.imagen).catch(() => {});
+                    guardarImagen(p.imagen, p.imagen).catch(() => {});
                 }
-                blobToSend = new Blob([u8arr], { type: contentType });
-            } catch (atobErr) {
-                console.warn('[ImageCache] Decodificación binaria en cliente falló, se enviará vía payload seguro:', atobErr);
-                blobToSend = null;
-            }
-            if (!cleanFilename) {
-                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
-                cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
-            }
-        }
-
-        if (!cleanFilename.includes('/')) {
-            cleanFilename = `${folder}/${cleanFilename}`;
-        }
-
-        const headers = {};
-        const savedToken = localStorage.getItem('bodeguita_blob_token');
-        if (savedToken) {
-            if (savedToken.startsWith('vercel_blob_rw_')) {
-                headers['x-blob-token'] = savedToken;
-            } else {
-                localStorage.removeItem('bodeguita_blob_token');
-            }
-        }
-
-        let response;
-        if (blobToSend) {
-            headers['Content-Type'] = contentType;
-            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                method: 'POST',
-                headers: headers,
-                body: blobToSend
             });
-        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-            headers['Content-Type'] = 'application/json';
-            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
-            });
-        } else {
-            throw new Error('Formato de imagen inválido o no soportado para subir a Blob.');
+        } catch (e) {
+            console.warn('[ImageCache] Error guardando catálogo en IndexedDB:', e);
         }
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Error en servidor de subida: ${errText}`);
-        }
-
-        const newBlob = await response.json();
-        const finalUrl = (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.url) || newBlob.downloadUrl;
-
-        // Guardar de inmediato en el caché local para evitar cualquier descarga futura
-        if (blobToSend) {
-            await guardarEnCacheLocal(finalUrl, blobToSend, contentType);
-            if (newBlob.pathname) {
-                const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}`;
-                await guardarEnCacheLocal(viewUrl, blobToSend, contentType);
-            }
-        }
-
-        if (newBlob.provider === 'vercel-blob') {
-            console.log(`[Vercel Blob] Imagen almacenada con éxito en la nube de Vercel: ${finalUrl}`);
-        } else {
-            console.warn(`[Almacén Local Fallback] Imagen guardada en almacenamiento local (${finalUrl}). Causa: ${newBlob.blobError || newBlob.notice}`);
-        }
-        return {
-            success: true,
-            url: finalUrl,
-            pathname: newBlob.pathname,
-            viewUrl: newBlob.viewUrl || finalUrl,
-            blobUrl: newBlob.url || '',
-            provider: newBlob.provider
-        };
     }
 
     /**
-     * Precarga en segundo plano una lista de URLs de imágenes para poblar el caché local
+     * Recupera el catálogo de productos local desde IndexedDB
+     */
+    async function obtenerCatalogoLocal() {
+        try {
+            const db = await obtenerDB();
+            if (!db) return null;
+
+            const record = await new Promise((resolve) => {
+                const tx = db.transaction(STORE_CATALOG, 'readonly');
+                const store = tx.objectStore(STORE_CATALOG);
+                const req = store.get('productos_actuales');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+
+            if (record && Array.isArray(record.items)) {
+                return record.items;
+            }
+        } catch (e) {
+            console.warn('[ImageCache] Error leyendo catálogo local:', e);
+        }
+        return null;
+    }
+
+    /**
+     * Precarga en segundo plano las imágenes para asegurar que todo esté en IndexedDB
      */
     function precargarImagenes(urls = []) {
         if (!Array.isArray(urls) || urls.length === 0) return;
@@ -347,69 +299,104 @@ window.InventoryApp = window.InventoryApp || {};
         };
 
         if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(ejecutarPrecarga, { timeout: 3000 });
+            window.requestIdleCallback(ejecutarPrecarga, { timeout: 4000 });
         } else {
-            setTimeout(ejecutarPrecarga, 1000);
+            setTimeout(ejecutarPrecarga, 1500);
         }
     }
 
     /**
-     * Limpia el almacenamiento en caché local
+     * Limpia la base de datos local IndexedDB
      */
     async function limpiarCacheLocal() {
         try {
             const db = await obtenerDB();
             if (db) {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                tx.objectStore(STORE_NAME).clear();
+                const tx = db.transaction([STORE_IMAGES, STORE_CATALOG], 'readwrite');
+                tx.objectStore(STORE_IMAGES).clear();
+                tx.objectStore(STORE_CATALOG).clear();
             }
-            memoryBlobUrlMap.forEach(url => URL.revokeObjectURL(url));
-            memoryBlobUrlMap.clear();
-            console.log('[ImageCache] Caché local de imágenes limpiado con éxito.');
+            memoryCacheMap.clear();
+            console.log('[ImageCache] Base de datos local (IndexedDB) limpiada con éxito.');
             return true;
         } catch (e) {
-            console.warn('[ImageCache] Error limpiando caché:', e);
+            console.warn('[ImageCache] Error limpiando IndexedDB:', e);
             return false;
         }
     }
 
     /**
-     * Obtiene estadísticas del uso de caché local
+     * Obtiene estadísticas del uso de almacenamiento en IndexedDB
      */
     async function obtenerEstadisticasCache() {
         try {
             const db = await obtenerDB();
-            if (!db) return { totalImagenes: 0, itemsEnMemoria: memoryBlobUrlMap.size };
+            if (!db) return { totalImagenes: 0, itemsEnMemoria: memoryCacheMap.size };
 
             const total = await new Promise((resolve) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const req = tx.objectStore(STORE_NAME).count();
+                const tx = db.transaction(STORE_IMAGES, 'readonly');
+                const req = tx.objectStore(STORE_IMAGES).count();
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => resolve(0);
             });
 
             return {
                 totalImagenes: total,
-                itemsEnMemoria: memoryBlobUrlMap.size,
-                ttlDias: 7
+                itemsEnMemoria: memoryCacheMap.size,
+                tipo: 'IndexedDB (Almacenamiento Local del Navegador)'
             };
         } catch {
-            return { totalImagenes: 0, itemsEnMemoria: memoryBlobUrlMap.size };
+            return { totalImagenes: 0, itemsEnMemoria: memoryCacheMap.size, tipo: 'IndexedDB' };
         }
     }
 
-    // Exportar servicio en el namespace de la aplicación
+    /**
+     * Función de compatibilidad transparente (sustituye subida a Vercel Blob)
+     * Procesa y almacena directamente en IndexedDB
+     */
+    async function subirImagenVercelBlob(fileOrDataUrl, folder = 'productos', filename = '') {
+        if (!fileOrDataUrl) return { success: true, url: '' };
+
+        let dataUrlResult = fileOrDataUrl;
+        if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+            dataUrlResult = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(fileOrDataUrl);
+            });
+        }
+
+        const cleanKey = filename || `${folder}_${Date.now()}`;
+        if (dataUrlResult && typeof dataUrlResult === 'string') {
+            await guardarImagen(cleanKey, dataUrlResult);
+            await guardarImagen(dataUrlResult, dataUrlResult);
+        }
+
+        return {
+            success: true,
+            url: dataUrlResult,
+            viewUrl: dataUrlResult,
+            pathname: cleanKey,
+            provider: 'indexeddb'
+        };
+    }
+
+    // Exportar módulo en el espacio de nombres de la aplicación
     window.InventoryApp.ImageCache = {
-        subirImagenVercelBlob,
+        guardarImagen,
+        obtenerImagen,
+        guardarEnCacheLocal: guardarImagen,
         obtenerUrlConCache,
         aplicarImagenConCache,
-        guardarEnCacheLocal,
+        guardarCatalogoLocal,
+        obtenerCatalogoLocal,
         precargarImagenes,
         limpiarCacheLocal,
-        obtenerEstadisticasCache
+        obtenerEstadisticasCache,
+        subirImagenVercelBlob
     };
 
-    // Alias conveniente
     window.InventoryApp.BlobStorage = window.InventoryApp.ImageCache;
 
 })();
