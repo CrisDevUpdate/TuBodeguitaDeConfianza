@@ -224,61 +224,32 @@ window.InventoryApp = window.InventoryApp || {};
         if (!fileOrDataUrl) throw new Error('Se requiere un archivo o Data URL para subir.');
 
         // Si ya es una URL persistida en Vercel Blob o web
-        if (typeof fileOrDataUrl === 'string' && (
-            fileOrDataUrl.startsWith('http://') || 
-            fileOrDataUrl.startsWith('https://') || 
-            fileOrDataUrl.startsWith('/api/blob/view') || 
-            fileOrDataUrl.startsWith('/api/avatar/view')
-        )) {
-            return { url: fileOrDataUrl, pathname: fileOrDataUrl, viewUrl: fileOrDataUrl, provider: 'vercel-blob' };
+        if (typeof fileOrDataUrl === 'string' && (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://') || fileOrDataUrl.startsWith('/api/avatar/view') || fileOrDataUrl.startsWith('/api/blob/view'))) {
+            return { url: fileOrDataUrl, pathname: fileOrDataUrl, provider: 'vercel-blob' };
         }
 
         let blobToSend = null;
-        let dataUrlString = null;
-        let contentType = 'image/png';
-        let cleanFilename = filename ? String(filename).replace(/\\/g, '/').replace(/^\/+/, '') : '';
+        let contentType = 'image/webp';
+        let cleanFilename = filename;
 
-        // Extraer formato y preparar tanto blob binario como dataUrl para máxima compatibilidad
         if (fileOrDataUrl instanceof File) {
             blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/png';
+            contentType = fileOrDataUrl.type || 'image/webp';
             if (!cleanFilename) {
-                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
-                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.${ext}`}`;
-            }
-            try {
-                dataUrlString = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(fileOrDataUrl);
-                });
-            } catch (e) {
-                dataUrlString = null;
+                cleanFilename = `${folder}/${fileOrDataUrl.name || `file_${Date.now()}.webp`}`;
             }
         } else if (fileOrDataUrl instanceof Blob) {
             blobToSend = fileOrDataUrl;
-            contentType = fileOrDataUrl.type || 'image/png';
+            contentType = fileOrDataUrl.type || 'image/webp';
             if (!cleanFilename) {
-                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
+                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
             }
-            try {
-                dataUrlString = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(fileOrDataUrl);
-                });
-            } catch (e) {
-                dataUrlString = null;
-            }
         } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-            dataUrlString = fileOrDataUrl;
             try {
                 const parts = fileOrDataUrl.split(',');
                 const mimeMatch = parts[0].match(/:(.*?);/);
-                contentType = mimeMatch ? mimeMatch[1] : 'image/png';
+                contentType = mimeMatch ? mimeMatch[1] : 'image/webp';
                 const bstr = atob(parts[1]);
                 let n = bstr.length;
                 const u8arr = new Uint8Array(n);
@@ -287,21 +258,18 @@ window.InventoryApp = window.InventoryApp || {};
                 }
                 blobToSend = new Blob([u8arr], { type: contentType });
             } catch (atobErr) {
-                console.warn('[ImageCache] Decodificación binaria en cliente omitida:', atobErr.message);
+                console.warn('[ImageCache] Decodificación binaria en cliente falló, se enviará vía payload seguro:', atobErr);
                 blobToSend = null;
             }
             if (!cleanFilename) {
-                const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : contentType.includes('webp') ? 'webp' : 'png';
+                const ext = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
                 cleanFilename = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
             }
         }
 
-        // Asegurar prefijo de carpeta sin duplicaciones
-        cleanFilename = String(cleanFilename).replace(/\\/g, '/').replace(/^\/+/, '');
-        if (folder && !cleanFilename.includes('/')) {
+        if (!cleanFilename.includes('/')) {
             cleanFilename = `${folder}/${cleanFilename}`;
         }
-        cleanFilename = cleanFilename.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
 
         const headers = {};
         const savedToken = localStorage.getItem('bodeguita_blob_token');
@@ -313,96 +281,39 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        const endpoints = ['/api/blob/upload', '/api/upload/blob', '/api/avatar/upload'];
-        let response = null;
-        let lastErrorText = '';
-
-        // Función auxiliar para intentar una subida específica
-        const intentarSubida = async (endpoint, useJson, customHeaders = {}) => {
-            const urlConQuery = `${endpoint}?filename=${encodeURIComponent(cleanFilename)}`;
-            if (useJson && dataUrlString) {
-                return await fetch(urlConQuery, {
-                    method: 'POST',
-                    headers: {
-                        ...customHeaders,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        fileData: dataUrlString,
-                        contentType: contentType,
-                        filename: cleanFilename,
-                        folder: folder
-                    })
-                });
-            } else if (blobToSend) {
-                return await fetch(urlConQuery, {
-                    method: 'POST',
-                    headers: {
-                        ...customHeaders,
-                        'Content-Type': contentType
-                    },
-                    body: blobToSend
-                });
-            }
-            return null;
-        };
-
-        // Ciclo 1: Intentar en cada endpoint disponible, primero con JSON (más robusto contra problemas de red/iframe), luego con binario
-        for (const ep of endpoints) {
-            try {
-                // Intento JSON primero
-                if (dataUrlString) {
-                    response = await intentarSubida(ep, true, headers);
-                    if (response && response.ok) break;
-                }
-                // Intento binario si JSON no tuvo éxito
-                if ((!response || !response.ok) && blobToSend) {
-                    response = await intentarSubida(ep, false, headers);
-                    if (response && response.ok) break;
-                }
-            } catch (networkErr) {
-                console.warn(`[ImageCache] Error de red en ${ep}:`, networkErr.message);
-                lastErrorText = networkErr.message;
-            }
+        let response;
+        if (blobToSend) {
+            headers['Content-Type'] = contentType;
+            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                method: 'POST',
+                headers: headers,
+                body: blobToSend
+            });
+        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+            headers['Content-Type'] = 'application/json';
+            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
+            });
+        } else {
+            throw new Error('Formato de imagen inválido o no soportado para subir a Blob.');
         }
 
-        // Ciclo 2: Si falló y teníamos token local, remover token y reintentar con el token maestro del servidor
-        if ((!response || !response.ok) && headers['x-blob-token']) {
-            console.warn('[ImageCache] Reintentando subida con token maestro del servidor...');
-            try { localStorage.removeItem('bodeguita_blob_token'); } catch (e) {}
-
-            for (const ep of endpoints) {
-                try {
-                    if (dataUrlString) {
-                        response = await intentarSubida(ep, true, {});
-                        if (response && response.ok) break;
-                    }
-                    if ((!response || !response.ok) && blobToSend) {
-                        response = await intentarSubida(ep, false, {});
-                        if (response && response.ok) break;
-                    }
-                } catch (netErr) {
-                    console.warn(`[ImageCache] Fallo en reintento en ${ep}:`, netErr.message);
-                }
-            }
-        }
-
-        if (!response || !response.ok) {
-            const errText = response ? await response.text() : (lastErrorText || 'Sin respuesta del servidor de subida');
+        if (!response.ok) {
+            const errText = await response.text();
             throw new Error(`Error en servidor de subida: ${errText}`);
         }
 
         const newBlob = await response.json();
-        const finalUrl = newBlob.viewUrl || (newBlob.pathname ? `/api/blob/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.url) || newBlob.downloadUrl;
+        const finalUrl = (newBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}` : newBlob.url) || newBlob.downloadUrl;
 
         // Guardar de inmediato en el caché local para evitar cualquier descarga futura
         if (blobToSend) {
             await guardarEnCacheLocal(finalUrl, blobToSend, contentType);
             if (newBlob.pathname) {
-                const blobViewUrl = `/api/blob/view?pathname=${encodeURIComponent(newBlob.pathname)}`;
-                const avatarViewUrl = `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}`;
-                await guardarEnCacheLocal(blobViewUrl, blobToSend, contentType);
-                await guardarEnCacheLocal(avatarViewUrl, blobToSend, contentType);
+                const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(newBlob.pathname)}`;
+                await guardarEnCacheLocal(viewUrl, blobToSend, contentType);
             }
         }
 
@@ -411,12 +322,11 @@ window.InventoryApp = window.InventoryApp || {};
         } else {
             console.warn(`[Almacén Local Fallback] Imagen guardada en almacenamiento local (${finalUrl}). Causa: ${newBlob.blobError || newBlob.notice}`);
         }
-
         return {
             success: true,
             url: finalUrl,
             pathname: newBlob.pathname,
-            viewUrl: finalUrl,
+            viewUrl: newBlob.viewUrl || finalUrl,
             blobUrl: newBlob.url || '',
             provider: newBlob.provider
         };

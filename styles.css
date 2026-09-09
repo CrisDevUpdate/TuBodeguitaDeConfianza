@@ -717,7 +717,7 @@ th {
     -webkit-backdrop-filter: blur(4px);
     justify-content: center;
     align-items: flex-end;
-    z-index: 100001 !important;
+    z-index: 1050;
     padding: 0;
     overflow-y: auto;
     box-sizing: border-box;

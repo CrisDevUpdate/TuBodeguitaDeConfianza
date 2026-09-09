@@ -1656,19 +1656,23 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 let imagenUrl = producto.imagen || '';
-                // Si la imagen ya viene con URL de Blob o CDN, se preserva íntegramente.
-                // Si por alguna razón vino en formato dataURI (base64) no procesado, se asegura su subida a Blob sin borrar la imagen.
+                // Si la imagen está en formato base64/dataURI, asegurar su subida a Vercel Blob
                 if (imagenUrl.startsWith('data:')) {
                     try {
                         if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.png`);
-                            if (resBlob && (resBlob.viewUrl || resBlob.url)) {
-                                imagenUrl = resBlob.viewUrl || resBlob.url;
-                                producto.imagen = imagenUrl;
+                            const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
+                            if (resBlob && resBlob.url) {
+                                imagenUrl = resBlob.url;
+                                producto.imagen = resBlob.url;
+                            } else {
+                                imagenUrl = '';
                             }
+                        } else {
+                            imagenUrl = '';
                         }
                     } catch (e) {
-                        console.warn('[Firebase] Aviso al subir imagen a Vercel Blob desde servicio cloud:', e);
+                        console.warn('[Firebase] No fue posible subir a Vercel Blob; omitiendo base64 en Firestore:', e);
+                        imagenUrl = '';
                     }
                 }
 

@@ -728,28 +728,22 @@ if (!fs.existsSync(BLOB_LOCAL_DIR)) {
 async function manejarSubidaVercelBlob(req, res) {
   try {
     const filenameParam = req.query.filename || (req.body && typeof req.body === 'object' && req.body.filename);
-    const requestedFolder = (req.body && typeof req.body === 'object' && req.body.folder) || (req.query.folder) || '';
+    const requestedFolder = (req.body && typeof req.body === 'object' && req.body.folder) || 'uploads';
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 7);
 
-    // Determinar nombre y ruta sin anidamientos redundantes
-    let targetFilename = filenameParam ? String(filenameParam).replace(/\\/g, '/').replace(/^\/+/, '') : '';
-    if (!targetFilename) {
-      const folder = requestedFolder || 'uploads';
-      targetFilename = `${folder}/${timestamp}_${randomSuffix}.png`;
-    } else if (requestedFolder && !targetFilename.includes('/')) {
-      targetFilename = `${requestedFolder}/${targetFilename}`;
-    }
-    // Evitar carpetas duplicadas (ej: productos/productos/ -> productos/)
-    targetFilename = targetFilename.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
+    // Determinar nombre y ruta
+    let targetFilename = filenameParam ? filenameParam.replace(/\\/g, '/') : `${requestedFolder}/${timestamp}_${randomSuffix}.webp`;
+    // Asegurar que no tenga dobles barras o inicio con barra
+    targetFilename = targetFilename.replace(/^\/+/, '');
 
     // Obtener buffer binario
     let buffer = null;
-    let contentType = 'image/png';
+    let contentType = 'image/webp';
 
     if (Buffer.isBuffer(req.body) && req.body.length > 0) {
       buffer = req.body;
-      contentType = req.headers['content-type'] || 'image/png';
+      contentType = req.headers['content-type'] || 'image/webp';
     } else if (req.body && typeof req.body === 'object' && req.body.fileData) {
       const fileData = req.body.fileData;
       if (typeof fileData === 'string' && fileData.startsWith('data:')) {
@@ -792,47 +786,30 @@ async function manejarSubidaVercelBlob(req, res) {
         const { put } = await import('@vercel/blob');
         let blobResult = null;
 
-        // Función interna para intentar subir con un token dado
-        const intentarSubidaConToken = async (tokenParaUsar) => {
-          try {
-            return await put(targetFilename, buffer, {
-              access: 'private',
-              token: tokenParaUsar,
+        // Intentar con access: 'private' y allowOverwrite: true (requerido por stores privados de Vercel Blob)
+        try {
+          blobResult = await put(targetFilename, buffer, {
+            access: 'private',
+            token: blobToken,
+            contentType: contentType,
+            allowOverwrite: true
+          });
+        } catch (privErr) {
+          // Si el almacén fuera público o se requiere fallback de acceso
+          if (privErr.message && (privErr.message.includes('public') || privErr.message.includes('access'))) {
+            blobResult = await put(targetFilename, buffer, {
+              access: 'public',
+              token: blobToken,
               contentType: contentType,
               allowOverwrite: true
             });
-          } catch (privErr) {
-            if (privErr.message && (privErr.message.includes('public') || privErr.message.includes('access'))) {
-              return await put(targetFilename, buffer, {
-                access: 'public',
-                token: tokenParaUsar,
-                contentType: contentType,
-                allowOverwrite: true
-              });
-            }
-            throw privErr;
-          }
-        };
-
-        try {
-          blobResult = await intentarSubidaConToken(blobToken);
-        } catch (firstErr) {
-          console.warn('[Vercel Blob] Primer intento con token falló:', firstErr.message);
-          // Si el token provisto era de header/query y falló, reintentar con el token seguro del servidor
-          const validMasterToken = (process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_'))
-            ? process.env.BLOB_READ_WRITE_TOKEN
-            : 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
-          if (validMasterToken && validMasterToken !== blobToken) {
-            console.log('[Vercel Blob] Reintentando con token seguro del servidor...');
-            blobResult = await intentarSubidaConToken(validMasterToken);
           } else {
-            throw firstErr;
+            throw privErr;
           }
         }
 
         if (blobResult) {
-          const viewUrl = `/api/blob/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
-          const avatarUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
+          const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blobResult.pathname)}`;
           console.log(`[Vercel Blob] Archivo subido exitosamente a la nube de Vercel: ${blobResult.pathname} (${viewUrl})`);
           
           return res.json({
@@ -842,7 +819,6 @@ async function manejarSubidaVercelBlob(req, res) {
             url: viewUrl,
             rawDirectUrl: blobResult.url,
             viewUrl: viewUrl,
-            avatarUrl: avatarUrl,
             downloadUrl: viewUrl,
             provider: 'vercel-blob'
           });
@@ -861,8 +837,7 @@ async function manejarSubidaVercelBlob(req, res) {
     }
     fs.writeFileSync(localFilePath, buffer);
 
-    const viewUrl = `/api/blob/view?pathname=${encodeURIComponent(targetFilename)}`;
-    const avatarUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
+    const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(targetFilename)}`;
     console.log(`[Blob Storage Fallback] Archivo guardado localmente: ${targetFilename} -> ${viewUrl}`);
 
     return res.json({
@@ -871,7 +846,6 @@ async function manejarSubidaVercelBlob(req, res) {
       contentDisposition: `inline; filename="${path.basename(targetFilename)}"`,
       url: viewUrl,
       viewUrl: viewUrl,
-      avatarUrl: avatarUrl,
       downloadUrl: viewUrl,
       provider: 'local-blob-store',
       blobError: blobErrorDetail,
@@ -905,22 +879,6 @@ async function manejarVistaVercelBlob(req, res) {
     try {
       cleanPath = decodeURIComponent(cleanPath);
     } catch (e) {}
-    // Evitar carpetas duplicadas (ej: productos/productos/ -> productos/)
-    cleanPath = cleanPath.replace(/^(productos\/)+/, 'productos/').replace(/^(uploads\/)+/, 'uploads/');
-
-    // Lista de rutas alternativas a verificar si la principal no se encuentra (ej: cambio .webp <-> .png o referencias históricas)
-    const pathsToTry = [cleanPath];
-    if (cleanPath.endsWith('.webp')) {
-      pathsToTry.push(cleanPath.replace(/\.webp$/, '.png'));
-    } else if (cleanPath.endsWith('.png')) {
-      pathsToTry.push(cleanPath.replace(/\.png$/, '.webp'));
-    }
-    if (cleanPath.includes('1788841497237')) {
-      pathsToTry.push('productos/prod_P3_migrado.png', 'productos/prod_P3_migrado.webp');
-    }
-    if (cleanPath.includes('1788911458110')) {
-      pathsToTry.push('productos/prod_P4_migrado.png', 'productos/prod_P4_migrado.webp');
-    }
 
     const blobToken = obtenerVercelBlobToken(req);
 
@@ -929,26 +887,17 @@ async function manejarVistaVercelBlob(req, res) {
       try {
         const { get } = await import('@vercel/blob');
         let result = null;
-        let matchedPath = cleanPath;
 
-        for (const candidatePath of pathsToTry) {
-          try {
-            result = await get(candidatePath, {
-              access: 'private',
-              token: blobToken
-            });
-          } catch (e) {
-            try {
-              result = await get(candidatePath, {
-                access: 'public',
-                token: blobToken
-              });
-            } catch (e2) {}
-          }
-          if (result && (result.statusCode === 200 || result.stream || result.blob)) {
-            matchedPath = candidatePath;
-            break;
-          }
+        try {
+          result = await get(cleanPath, {
+            access: 'private',
+            token: blobToken
+          });
+        } catch (e) {
+          result = await get(cleanPath, {
+            access: 'public',
+            token: blobToken
+          });
         }
 
         if (result && (result.statusCode === 200 || result.stream || result.blob)) {
@@ -958,7 +907,7 @@ async function manejarVistaVercelBlob(req, res) {
           } else if (result.headers && result.headers.get && result.headers.get('content-type')) {
             res.setHeader('Content-Type', result.headers.get('content-type'));
           } else {
-            const ext = path.extname(matchedPath).toLowerCase();
+            const ext = path.extname(cleanPath).toLowerCase();
             const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
             res.setHeader('Content-Type', mime);
           }
@@ -985,28 +934,17 @@ async function manejarVistaVercelBlob(req, res) {
     }
 
     // 2. Intentar servir desde el almacén local persistente
-    for (const candidatePath of pathsToTry) {
-      const localFilePath = path.join(BLOB_LOCAL_DIR, candidatePath);
-      if (fs.existsSync(localFilePath)) {
-        const ext = path.extname(candidatePath).toLowerCase();
-        const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
-        res.setHeader('Content-Type', mime);
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        return fs.createReadStream(localFilePath).pipe(res);
-      }
+    const localFilePath = path.join(BLOB_LOCAL_DIR, cleanPath);
+    if (fs.existsSync(localFilePath)) {
+      const ext = path.extname(cleanPath).toLowerCase();
+      const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
+      res.setHeader('Content-Type', mime);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+      return fs.createReadStream(localFilePath).pipe(res);
     }
 
-    // 3. Si no existe en ningún almacén, responder con SVG de producto elegante para evitar iconos rotos en el navegador
-    res.status(404);
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'no-cache, no-store');
-    return res.send(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect width="24" height="24" fill="#f8fafc" rx="4"/>
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-      <line x1="12" y1="22.08" x2="12" y2="12"/>
-    </svg>`);
+    return res.status(404).send('Not found');
   } catch (err) {
     console.error('[Blob View Error]:', err);
     res.status(500).json({ error: err.message });

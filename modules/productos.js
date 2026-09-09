@@ -72,7 +72,6 @@ function cambiarImagenProducto(event) {
 
 function eliminarImagenProducto(event) {
     if (event) event.stopPropagation();
-    imagenDataUrlLocal = '';
     productoImagenTemporal = '';
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
@@ -104,7 +103,6 @@ function manejarDropImagenProducto(event) {
 
 let estaSubiendoImagenProducto = false;
 let promesaSubidaImagen = null;
-let imagenDataUrlLocal = ''; // Almacén en memoria para previsualización inmediata sin parpadeos ni errores
 
 async function procesarImagenProducto(archivo) {
     if (!archivo.type || !archivo.type.startsWith('image/')) {
@@ -120,81 +118,48 @@ async function procesarImagenProducto(archivo) {
     const dropzone = document.getElementById('product-image-dropzone');
     const lector = new FileReader();
     lector.onload = () => {
-        // 1. Mostrar de inmediato la imagen original seleccionada con 100% fidelidad
-        const rawDataUrl = lector.result;
-        imagenDataUrlLocal = rawDataUrl;
-        productoImagenTemporal = rawDataUrl;
-        actualizarVistaImagenProducto('subiendo');
-
-        // 2. Optimizar con canvas en segundo plano para envío eficiente
         const imagen = new Image();
         imagen.onload = async () => {
-            let optimizadoDataUrl = rawDataUrl;
-            try {
-                const maxDimension = 900;
-                const escala = Math.min(1, maxDimension / Math.max(imagen.width, imagen.height));
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.max(1, Math.round(imagen.width * escala));
-                canvas.height = Math.max(1, Math.round(imagen.height * escala));
-                const contexto = canvas.getContext('2d');
-                contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
-                // Guardar en formato PNG estándar para visualización y miniaturas en Vercel Blob
-                const pngUrl = canvas.toDataURL('image/png');
-                if (pngUrl && pngUrl.length > 50 && !pngUrl.endsWith('data:,')) {
-                    optimizadoDataUrl = pngUrl;
-                }
-            } catch (canvasErr) {
-                console.warn('[Productos] Optimización canvas omitida, usando original:', canvasErr);
-            }
+            const maxDimension = 900;
+            const escala = Math.min(1, maxDimension / Math.max(imagen.width, imagen.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(imagen.width * escala));
+            canvas.height = Math.max(1, Math.round(imagen.height * escala));
+            const contexto = canvas.getContext('2d');
+            contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
+            
+            const optimizadoDataUrl = canvas.toDataURL('image/webp', 0.85);
+            productoImagenTemporal = optimizadoDataUrl;
+            actualizarVistaImagenProducto('subiendo');
 
             // Subir a Vercel Blob
-            let errorSubidaBlob = null;
             try {
                 estaSubiendoImagenProducto = true;
                 if (dropzone) dropzone.classList.add('uploading-blob');
 
                 if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                    const nombreBlob = `prod_${Date.now()}.png`;
+                    const nombreBlob = `prod_${Date.now()}.webp`;
                     promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(optimizadoDataUrl, 'productos', nombreBlob);
                     const resultado = await promesaSubidaImagen;
                     if (resultado && (resultado.viewUrl || resultado.url)) {
                         productoImagenTemporal = resultado.viewUrl || resultado.url;
-                        console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito (.png):', productoImagenTemporal);
+                        console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito:', productoImagenTemporal);
+                        actualizarVistaImagenProducto('completado');
+                    } else {
+                        actualizarVistaImagenProducto('listo');
                     }
                 }
             } catch (blobErr) {
                 console.warn('[Productos] Aviso al subir a Vercel Blob:', blobErr);
-                errorSubidaBlob = blobErr.message;
+                actualizarVistaImagenProducto('error', blobErr.message);
             } finally {
                 estaSubiendoImagenProducto = false;
                 promesaSubidaImagen = null;
                 if (dropzone) dropzone.classList.remove('uploading-blob');
-                actualizarVistaImagenProducto(errorSubidaBlob ? 'error' : 'completado');
             }
         };
-        imagen.onerror = () => {
-            console.warn('[Productos] Error cargando imagen para optimizar, subiendo original.');
-            estaSubiendoImagenProducto = true;
-            let errorSubida = null;
-            if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                const nombreBlob = `prod_${Date.now()}.png`;
-                promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(rawDataUrl, 'productos', nombreBlob)
-                    .then(res => {
-                        if (res && (res.viewUrl || res.url)) {
-                            productoImagenTemporal = res.viewUrl || res.url;
-                        }
-                    })
-                    .catch(err => {
-                        errorSubida = err.message;
-                    })
-                    .finally(() => {
-                        estaSubiendoImagenProducto = false;
-                        promesaSubidaImagen = null;
-                        actualizarVistaImagenProducto(errorSubida ? 'error' : 'completado');
-                    });
-            }
-        };
-        imagen.src = rawDataUrl;
+        imagen.onerror = () => alert('No fue posible procesar la imagen seleccionada.');
+        imagen.src = lector.result;
     };
     lector.onerror = () => alert('No fue posible leer la imagen seleccionada.');
     lector.readAsDataURL(archivo);
@@ -207,37 +172,27 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
     const img = document.getElementById('prod-imagen-preview');
     const dropzone = document.getElementById('product-image-dropzone');
 
-    const tieneImagen = Boolean(productoImagenTemporal || imagenDataUrlLocal);
+    const tieneImagen = Boolean(productoImagenTemporal);
     if (empty) empty.hidden = tieneImagen;
     if (preview) preview.hidden = !tieneImagen;
     if (actions) actions.hidden = !tieneImagen;
-
-    const fuenteImagen = imagenDataUrlLocal || productoImagenTemporal || '';
-    if (img) {
-        img.src = fuenteImagen;
-        img.onerror = () => {
-            console.warn('[Productos] Error visualizando imagen en preview:', img.src);
-            if (!imagenDataUrlLocal) {
-                img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='24' height='24' fill='%23f8fafc' rx='4'/%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'/%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'/%3E%3C/svg%3E";
-            }
-        };
-    }
+    if (img) img.src = tieneImagen ? productoImagenTemporal : '';
     if (dropzone) dropzone.classList.toggle('has-image', tieneImagen);
 
-    // Indicador visual de estado Vercel Blob (ubicado fuera de la previsualización para no deformarla)
+    // Indicador visual de estado Vercel Blob
     let statusBadge = document.getElementById('product-blob-status-badge');
-    if (!statusBadge && dropzone && dropzone.parentNode) {
+    if (!statusBadge && preview) {
         statusBadge = document.createElement('div');
         statusBadge.id = 'product-blob-status-badge';
-        statusBadge.style.cssText = 'margin-top:8px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border-radius:6px;';
-        dropzone.parentNode.insertBefore(statusBadge, dropzone.nextSibling);
+        statusBadge.style.cssText = 'margin-top:6px; font-size:0.75rem; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; padding:4px 8px; border-radius:6px;';
+        preview.appendChild(statusBadge);
     }
 
     if (statusBadge) {
         if (!tieneImagen) {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
-        } else if (estadoBlob === 'subiendo' || (estaSubiendoImagenProducto && estadoBlob !== 'completado' && estadoBlob !== 'error')) {
+        } else if (estadoBlob === 'subiendo' || estaSubiendoImagenProducto) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#e0f2fe';
             statusBadge.style.color = '#0369a1';
@@ -246,12 +201,12 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#fee2e2';
             statusBadge.style.color = '#b91c1c';
-            statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (se guardará copia local)';
-        } else if (estadoBlob === 'completado' || (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/blob/view') || productoImagenTemporal.includes('/api/avatar/view')))) {
+            statusBadge.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al subir a Blob (reintentando...)';
+        } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/avatar/view'))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Imagen vinculada en Vercel Blob (carpeta: <strong>productos/</strong>)';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>) <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
         } else {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
@@ -266,7 +221,6 @@ function resetearFormularioProducto() {
     if (id) id.value = '';
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
-    imagenDataUrlLocal = '';
     productoImagenTemporal = '';
     actualizarVistaImagenProducto();
     const stockInput = document.getElementById('prod-stock');
@@ -294,20 +248,9 @@ async function guardarProducto(e) {
             btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizando subida a Blob...';
         }
         try {
-            const resSubida = await promesaSubidaImagen;
-            if (resSubida && (resSubida.viewUrl || resSubida.url)) {
-                productoImagenTemporal = resSubida.viewUrl || resSubida.url;
-            }
+            await promesaSubidaImagen;
         } catch (err) {
             console.warn('[Productos] Espera de subida:', err);
-        } finally {
-            estaSubiendoImagenProducto = false;
-            promesaSubidaImagen = null;
-            actualizarVistaImagenProducto('completado');
-            if (btnSave) {
-                btnSave.disabled = false;
-                btnSave.innerHTML = originalBtnHtml;
-            }
         }
     }
 
@@ -320,18 +263,18 @@ async function guardarProducto(e) {
         }
         try {
             if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.png`);
+                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.webp`);
                 if (resultado && (resultado.viewUrl || resultado.url)) {
                     imagenFinal = resultado.viewUrl || resultado.url;
                     productoImagenTemporal = imagenFinal;
-                    console.log('[Productos] Imagen subida y asociada a Vercel Blob (.png):', imagenFinal);
+                    console.log('[Productos] Imagen subida y asociada a Vercel Blob:', imagenFinal);
                     actualizarVistaImagenProducto('completado');
                 }
             }
         } catch (uploadErr) {
-            console.error('[Productos] Error al subir imagen a Vercel Blob en guardado:', uploadErr);
+            console.warn('[Productos] Aviso al subir imagen a Vercel Blob en guardado:', uploadErr);
             if (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast) {
-                window.InventoryApp.Modal.toast(`Aviso de imagen: ${uploadErr.message || 'No pudo vincularse a Blob en este momento.'}`, 'warning');
+                window.InventoryApp.Modal.toast('Aviso: La imagen no pudo vincularse a Vercel Blob en este momento.', 'warning');
             }
         } finally {
             if (btnSave) {
@@ -418,7 +361,6 @@ function editarProducto(id) {
     document.getElementById('prod-descripcion').value = p.descripcion ?? p.description ?? '';
     document.getElementById('prod-contenido').value = p.contenido ?? p.medida ?? p.presentacion ?? '';
 
-    imagenDataUrlLocal = '';
     productoImagenTemporal = p.imagen || '';
     actualizarVistaImagenProducto();
 
@@ -468,15 +410,13 @@ function renderizarInventario() {
     if (gananciaUsd) gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
     if (gananciaBs) gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
 
-    tbody.innerHTML = productos.map(p => {
-        const prodImg = typeof normalizarUrlBlob === 'function' && p.imagen ? normalizarUrlBlob(p.imagen) : p.imagen;
-        return `
+    tbody.innerHTML = productos.map(p => `
         <tr>
             <td>${p.codigo}</td>
             <td>
                 <div class="inventory-product-cell">
                     <div class="inventory-product-thumb">
-                        ${prodImg ? `<img src="${prodImg}" alt="${p.nombre}" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%2394a3b8\\' stroke-width=\\'1.5\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'%3E%3Crect width=\\'24\\' height=\\'24\\' fill=\\'%23f8fafc\\' rx=\\'4\\'/%3E%3Cpath d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/%3E%3Cpolyline points=\\'3.27 6.96 12 12.01 20.73 6.96\\'/%3E%3Cline x1=\\'12\\' y1=\\'22.08\\' x2=\\'12\\' y2=\\'12\\'/%3E%3C/svg%3E';">` : '<i class="fas fa-box-open"></i>'}
+                        ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
                     </div>
                     <div>
                         <div class="inventory-product-name">${p.nombre}</div>
@@ -495,7 +435,7 @@ function renderizarInventario() {
                 <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
             </td>
         </tr>
-    `;}).join('');
+    `).join('');
 
     renderizarHistorialEliminaciones();
     renderizarResumenPerdidasEconomicas();

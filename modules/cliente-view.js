@@ -236,8 +236,7 @@ function renderizarCatalogoCliente() {
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const stock = Number(p.stock || 0);
             const agotado = stock <= 0;
-            const rawImg = p.imagen || '';
-            const imagenSrc = (typeof normalizarUrlBlob === 'function' && rawImg ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+            const imagenSrc = p.imagen || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
             return `
                 <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''}" id="cli-card-${p.id}">
@@ -1650,29 +1649,8 @@ function renderizarPerfilCliente() {
     }
     const puntos = typeof obtenerPuntosCliente === 'function' ? obtenerPuntosCliente(usuario.cedula || usuario.id) : (usuario.puntos || 0);
 
-    let tieneSimulador = false;
-    try {
-        tieneSimulador = !!sessionStorage.getItem('sesion_admin_simulador');
-    } catch (e) {}
-
     container.innerHTML = `
         <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
-            ${tieneSimulador ? `
-                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08)); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);">
-                    <div style="flex: 1; min-width: 240px;">
-                        <strong style="color: #b45309; display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
-                            <i class="fas fa-shield-halved" style="font-size: 1.1rem;"></i> Modo de Configuración de Cliente (Simulador)
-                        </strong>
-                        <div style="font-size: 0.83rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
-                            Estás configurando el perfil de <strong>${escaparHtmlInventario(usuario.nombre)}</strong>. Puedes cambiar su foto de perfil, datos y tema. Todas las configuraciones se guardan permanentemente en la nube (Firestore y Vercel Blob).
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-warning" onclick="volverASesionAdmin()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; white-space: nowrap;">
-                        <i class="fas fa-arrow-left"></i> Volver a Modo Admin
-                    </button>
-                </div>
-            ` : ''}
-
             <!-- Tarjeta de Identidad de Perfil -->
             <div class="card" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-main)); border: 1px solid var(--border-light); padding: 24px; position: relative;">
                 <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
