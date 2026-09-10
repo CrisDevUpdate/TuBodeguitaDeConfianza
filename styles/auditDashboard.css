@@ -1,0 +1,917 @@
+/* ==========================================================================
+   AUDIT DASHBOARD & PHYSICAL INVENTORY SYSTEM (INDUSTRIAL SPEC)
+   /styles/auditDashboard.css
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CONTENEDOR MAESTRO & LAYOUT INDUSTRIAL
+   -------------------------------------------------------------------------- */
+.audit-dashboard {
+  --audit-primary: #3b82f6;
+  --audit-primary-light: rgba(59, 130, 246, 0.08);
+  --audit-success: #10b981;
+  --audit-success-light: rgba(16, 185, 129, 0.08);
+  --audit-danger: #ef4444;
+  --audit-danger-light: rgba(239, 68, 68, 0.08);
+  --audit-indigo: #6366f1;
+  --audit-indigo-light: rgba(99, 102, 241, 0.08);
+  --audit-warning: #f59e0b;
+  --audit-slate-50: #f8fafc;
+  --audit-slate-100: #f1f5f9;
+  --audit-slate-200: #e2e8f0;
+  --audit-slate-300: #cbd5e1;
+  --audit-slate-400: #94a3b8;
+  --audit-slate-500: #64748b;
+  --audit-slate-700: #334155;
+  --audit-slate-800: #1e293b;
+  --audit-slate-900: #0f172a;
+  --audit-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5rem 0 2rem 0;
+  color: var(--audit-slate-800);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   2. MÉTRICAS SUPERIORES (KPI STRIP - GLASSMORPHISM / SOFT-CARD)
+   -------------------------------------------------------------------------- */
+.audit-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.audit-kpi-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.85) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+}
+
+.audit-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  border-color: rgba(203, 213, 225, 1);
+}
+
+.audit-kpi-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.875rem;
+  flex-shrink: 0;
+  font-size: 1.35rem;
+  transition: transform 0.25s ease;
+}
+
+.audit-kpi-card:hover .audit-kpi-icon-wrap {
+  transform: scale(1.08);
+}
+
+/* Iconos temáticos */
+.audit-kpi-icon-wrap.primary {
+  background: var(--audit-primary-light);
+  color: var(--audit-primary);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.audit-kpi-icon-wrap.success {
+  background: var(--audit-success-light);
+  color: var(--audit-success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.audit-kpi-icon-wrap.danger {
+  background: var(--audit-danger-light);
+  color: var(--audit-danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.audit-kpi-icon-wrap.indigo {
+  background: var(--audit-indigo-light);
+  color: var(--audit-indigo);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.audit-kpi-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.audit-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--audit-slate-500);
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audit-kpi-value {
+  font-family: var(--audit-font-mono);
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--audit-slate-900);
+}
+
+.audit-kpi-value.primary { color: var(--audit-primary); }
+.audit-kpi-value.success { color: var(--audit-success); }
+.audit-kpi-value.danger { color: var(--audit-danger); }
+.audit-kpi-value.indigo { color: var(--audit-indigo); }
+
+.audit-kpi-subtext {
+  font-size: 0.75rem;
+  color: var(--audit-slate-400);
+  margin-top: 0.2rem;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   3. BARRA DE ACCIONES Y ENTRADA DE DATOS (COMMAND BAR FLOTANTE)
+   -------------------------------------------------------------------------- */
+.audit-command-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
+  background: #ffffff;
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 1.15rem;
+  padding: 0.875rem 1.15rem;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+}
+
+.audit-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+.audit-input-icon-left {
+  position: absolute;
+  left: 0.875rem;
+  color: var(--audit-slate-400);
+  font-size: 0.95rem;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audit-input-field {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0 2.5rem 0 2.45rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--audit-slate-800);
+  background: var(--audit-slate-50);
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 0.75rem;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.audit-input-field::placeholder {
+  color: var(--audit-slate-400);
+  font-weight: 400;
+}
+
+.audit-input-field:focus {
+  background: #ffffff;
+  border-color: var(--audit-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Badge de Atajo ↵ Enter */
+.audit-shortcut-badge {
+  position: absolute;
+  right: 0.75rem;
+  font-family: var(--audit-font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--audit-slate-500);
+  background: var(--audit-slate-200);
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.375rem;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Botón de limpiar filtro */
+.audit-clear-btn {
+  position: absolute;
+  right: 0.65rem;
+  background: transparent;
+  border: none;
+  color: var(--audit-slate-400);
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s ease;
+}
+
+.audit-clear-btn:hover {
+  background: var(--audit-slate-200);
+  color: var(--audit-slate-700);
+}
+
+/* Botón Principal Gradiente Esmeralda */
+.audit-btn-apply-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  height: 2.75rem;
+  padding: 0 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.28);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.audit-btn-apply-all:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38);
+  background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+}
+
+.audit-btn-apply-all:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.audit-btn-apply-all:disabled {
+  opacity: 0.55;
+  background: var(--audit-slate-300);
+  border-color: var(--audit-slate-300);
+  color: var(--audit-slate-500);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   4. TABLA DE CONCILIACIÓN EN TIEMPO REAL
+   -------------------------------------------------------------------------- */
+.audit-table-card {
+  background: #ffffff;
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 1.15rem;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.audit-table-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--audit-slate-200);
+  background: #ffffff;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.audit-table-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--audit-slate-900);
+  margin: 0;
+}
+
+.audit-table-title i {
+  color: var(--audit-primary);
+}
+
+.audit-table-counter {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--audit-slate-500);
+  background: var(--audit-slate-100);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--audit-slate-200);
+}
+
+.audit-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+/* Encabezado suave bg-slate-50/80 */
+.audit-table thead th {
+  background: rgba(248, 250, 252, 0.88);
+  backdrop-filter: blur(8px);
+  color: var(--audit-slate-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--audit-slate-200);
+  white-space: nowrap;
+}
+
+.audit-table thead th.text-center { text-align: center; }
+.audit-table thead th.text-right { text-align: right; }
+
+/* Filas con hover sutil */
+.audit-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.audit-table tbody tr:hover {
+  background-color: rgba(248, 250, 252, 0.75);
+}
+
+.audit-table tbody td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--audit-slate-100);
+  font-size: 0.875rem;
+  color: var(--audit-slate-700);
+}
+
+.audit-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Columna Código: Badge Monospace */
+.audit-badge-code {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--audit-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--audit-slate-700);
+  background: var(--audit-slate-100);
+  border: 1px solid var(--audit-slate-300);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* Columna Producto: Miniatura 36x36 px + Nombre */
+.audit-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.audit-thumb-wrap {
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--audit-slate-100);
+  border: 1px solid var(--audit-slate-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--audit-slate-400);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.audit-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.audit-product-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.audit-product-name {
+  font-weight: 700;
+  color: var(--audit-slate-900);
+  line-height: 1.3;
+}
+
+.audit-product-sub {
+  font-size: 0.75rem;
+  color: var(--audit-slate-400);
+  margin-top: 0.1rem;
+}
+
+/* Stock Digital (Caja Neutra) */
+.audit-digital-stock-badge {
+  display: inline-block;
+  font-family: var(--audit-font-mono);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--audit-slate-700);
+  background: var(--audit-slate-100);
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  text-align: center;
+  min-width: 2.8rem;
+}
+
+/* Input Stock Físico (Borde Reactivo) */
+.audit-physical-input {
+  width: 5rem;
+  height: 2.35rem;
+  text-align: center;
+  font-family: var(--audit-font-mono);
+  font-weight: 800;
+  font-size: 0.95rem;
+  border-radius: 0.5rem;
+  outline: none;
+  background: #ffffff;
+  border: 2px solid var(--audit-slate-300);
+  color: var(--audit-slate-800);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.audit-physical-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+/* Bordes reactivos condicionales */
+.audit-physical-input.reactive-neutral {
+  border-color: var(--audit-slate-300);
+}
+
+.audit-physical-input.reactive-match {
+  border-color: var(--audit-success);
+  background: rgba(16, 185, 129, 0.05);
+  color: #065f46;
+}
+
+.audit-physical-input.reactive-deficit {
+  border-color: var(--audit-danger);
+  background: rgba(239, 68, 68, 0.05);
+  color: #991b1b;
+}
+
+.audit-physical-input.reactive-surplus {
+  border-color: var(--audit-primary);
+  background: rgba(59, 130, 246, 0.05);
+  color: #1e40af;
+}
+
+/* Badge de Diferencia Dinámica */
+.audit-diff-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font-family: var(--audit-font-mono);
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  min-width: 2.75rem;
+  white-space: nowrap;
+}
+
+.audit-diff-badge.empty {
+  color: var(--audit-slate-400);
+  background: transparent;
+  font-weight: 500;
+}
+
+.audit-diff-badge.match {
+  color: var(--audit-slate-600);
+  background: var(--audit-slate-100);
+  border: 1px solid var(--audit-slate-200);
+}
+
+.audit-diff-badge.deficit {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.audit-diff-badge.surplus {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+/* Píldora de Estado con Animación de Pulso Sutil */
+.audit-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.audit-status-pill.pending {
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  animation: audit-pulse-subtle 2s infinite ease-in-out;
+}
+
+.audit-status-pill.pending::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d97706;
+}
+
+.audit-status-pill.adjusted {
+  color: #1e40af;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+}
+
+.audit-status-pill.conforme {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+@keyframes audit-pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(0.97);
+  }
+}
+
+/* Botón de Acción Compacto "Aplicar" con micro-interacción */
+.audit-btn-apply-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #b45309;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.audit-btn-apply-row:hover:not(:disabled) {
+  background: #f59e0b;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.25);
+}
+
+.audit-btn-apply-row:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+.audit-btn-apply-row:disabled {
+  opacity: 0.45;
+  border-color: var(--audit-slate-200);
+  background: var(--audit-slate-100);
+  color: var(--audit-slate-400);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. SECCIÓN "RESUMEN DE PÉRDIDAS Y RECUPERACIÓN" (FINANCIAL AUDIT)
+   -------------------------------------------------------------------------- */
+.audit-financial-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  box-shadow: 0 6px 24px -3px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.audit-financial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--audit-slate-100);
+}
+
+.audit-financial-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.audit-financial-titles h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--audit-slate-900);
+  margin: 0;
+}
+
+.audit-financial-titles p {
+  font-size: 0.85rem;
+  color: var(--audit-slate-500);
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.45;
+}
+
+/* Badge de Estado Financiero */
+.audit-financial-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.audit-financial-status-badge.healthy {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.audit-financial-status-badge.critical {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Tarjetas de Balance con Barra Superior de Color */
+.audit-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.audit-balance-item {
+  position: relative;
+  background: var(--audit-slate-50);
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.15rem 1rem 1.15rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.audit-balance-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.05);
+  background: #ffffff;
+}
+
+/* Barra superior de color (sustituye el borde lateral simple) */
+.audit-balance-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--top-bar-color, var(--audit-slate-300));
+}
+
+.audit-balance-item.top-danger { --top-bar-color: #ef4444; }
+.audit-balance-item.top-warning { --top-bar-color: #f59e0b; }
+.audit-balance-item.top-success { --top-bar-color: #10b981; }
+.audit-balance-item.top-primary { --top-bar-color: #3b82f6; }
+.audit-balance-item.top-slate { --top-bar-color: #64748b; }
+
+.audit-balance-item-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--audit-slate-500);
+  line-height: 1.3;
+}
+
+/* Formato de Moneda Grande con Decimales Atenuados */
+.audit-currency-display {
+  display: flex;
+  align-items: baseline;
+  font-family: var(--audit-font-mono);
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--audit-slate-900);
+  line-height: 1.1;
+}
+
+.audit-currency-display.danger { color: #dc2626; }
+.audit-currency-display.success { color: #16a34a; }
+.audit-currency-display.primary { color: #2563eb; }
+
+.audit-currency-symbol {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-right: 0.15rem;
+  opacity: 0.85;
+}
+
+.audit-currency-cents {
+  font-size: 1.1rem;
+  font-weight: 600;
+  opacity: 0.55;
+  margin-left: 0.05rem;
+}
+
+/* Barra de Progreso Visual (Ganancia vs. Pérdida) */
+.audit-progress-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid var(--audit-slate-200);
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.audit-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.audit-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--audit-slate-800);
+}
+
+.audit-progress-percentage {
+  font-family: var(--audit-font-mono);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--audit-slate-800);
+}
+
+.audit-progress-track {
+  position: relative;
+  width: 100%;
+  height: 0.875rem;
+  background: var(--audit-slate-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.audit-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.audit-progress-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--audit-slate-500);
+  margin-top: 0.2rem;
+}
+
+.audit-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audit-legend-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.audit-legend-dot.recovered { background: #10b981; }
+.audit-legend-dot.pending { background: #ef4444; }
+
+/* --------------------------------------------------------------------------
+   6. RESPONSIVIDAD (MOBILE & TABLET ADAPTIVE)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .audit-kpi-strip {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .audit-kpi-card {
+    padding: 0.875rem;
+    gap: 0.75rem;
+  }
+
+  .audit-kpi-icon-wrap {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.1rem;
+  }
+
+  .audit-kpi-value {
+    font-size: 1.4rem;
+  }
+
+  .audit-command-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .audit-btn-apply-all {
+    width: 100%;
+  }
+
+  .audit-balance-grid {
+    grid-template-columns: 1fr;
+  }
+}

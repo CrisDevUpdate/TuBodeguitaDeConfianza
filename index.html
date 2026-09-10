@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles/fluid-scroll.css">
     <link rel="stylesheet" href="styles/themeEngine.css">
+    <link rel="stylesheet" href="styles/auditDashboard.css">
 </head>
 <body>
 
@@ -810,84 +811,172 @@
 
     <!-- VISTA 4: AUDITORÍA E INVENTARIO FÍSICO -->
     <div id="auditoria" class="view-content">
-        <div class="card">
-            <h3><i class="fas fa-clipboard-check"></i> Auditoría e Inventario Físico (Conteo)</h3>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">
-                Registra el conteo físico de cada producto y compáralo en tiempo real contra el Stock Digital (teórico) guardado en el sistema.
-            </p>
+        <div class="audit-dashboard">
+            <!-- 💎 1. MÉTRICAS SUPERIORES (KPI STRIP - GLASSMORPHISM / SOFT-CARD) -->
+            <div class="audit-kpi-strip">
+                <div class="audit-kpi-card" id="kpi-card-contados">
+                    <div class="audit-kpi-icon-wrap primary">
+                        <i class="fas fa-barcode"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Productos Contados</span>
+                        <div class="audit-kpi-value primary" id="auditoria-kpi-contados">0</div>
+                        <span class="audit-kpi-subtext">Inventario físico registrado</span>
+                    </div>
+                </div>
 
-            <div class="kpi-grid" style="margin-top: 15px;">
-                <div class="kpi-card">
-                    <div class="kpi-title">PRODUCTOS CONTADOS</div>
-                    <div class="kpi-value-usd" id="auditoria-kpi-contados">0</div>
+                <div class="audit-kpi-card" id="kpi-card-sobrantes">
+                    <div class="audit-kpi-icon-wrap success">
+                        <i class="fas fa-arrow-trend-up"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Sobrantes Físicos</span>
+                        <div class="audit-kpi-value success" id="auditoria-kpi-sobrantes">0</div>
+                        <span class="audit-kpi-subtext">Físico mayor al digital</span>
+                    </div>
                 </div>
-                <div class="kpi-card" style="border-left-color: var(--success);">
-                    <div class="kpi-title">SOBRANTES</div>
-                    <div class="kpi-value-usd" id="auditoria-kpi-sobrantes" style="color: var(--success);">0</div>
+
+                <div class="audit-kpi-card" id="kpi-card-faltantes">
+                    <div class="audit-kpi-icon-wrap danger">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Faltantes Físicos</span>
+                        <div class="audit-kpi-value danger" id="auditoria-kpi-faltantes">0</div>
+                        <span class="audit-kpi-subtext">Requiere ajuste contable</span>
+                    </div>
                 </div>
-                <div class="kpi-card danger">
-                    <div class="kpi-title">FALTANTES</div>
-                    <div class="kpi-value-usd" id="auditoria-kpi-faltantes" style="color: var(--danger);">0</div>
-                </div>
-                <div class="kpi-card" style="border-left-color: var(--text-muted);">
-                    <div class="kpi-title">CONFORMES</div>
-                    <div class="kpi-value-usd" id="auditoria-kpi-conformes">0</div>
+
+                <div class="audit-kpi-card" id="kpi-card-conformes">
+                    <div class="audit-kpi-icon-wrap indigo">
+                        <i class="fas fa-circle-check"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Conformes (Exactos)</span>
+                        <div class="audit-kpi-value indigo" id="auditoria-kpi-conformes">0</div>
+                        <span class="audit-kpi-subtext">Coincidencia 100% precisa</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-grid" style="margin-top: 15px; margin-bottom: 15px;">
-                <div class="form-group">
-                    <label>Escanear / Buscar por Código</label>
-                    <input type="text" id="auditoria-scan" placeholder="Escanea o escribe el código y presiona Enter" onkeyup="escanearProductoAuditoria(event)">
+            <!-- ⚡ 2. BARRA DE ACCIONES Y ENTRADA DE DATOS (COMMAND BAR FLOTANTE) -->
+            <div class="audit-command-bar">
+                <div class="audit-input-group">
+                    <span class="audit-input-icon-left"><i class="fas fa-barcode"></i></span>
+                    <input type="text" class="audit-input-field" id="auditoria-scan" placeholder="Escanear o escribir código..." onkeyup="escanearProductoAuditoria(event)">
+                    <span class="audit-shortcut-badge">↵ Enter</span>
                 </div>
-                <div class="form-group">
-                    <label>Filtrar Listado</label>
-                    <input type="text" id="auditoria-search" placeholder="Buscar por código o nombre..." oninput="filtrarAuditoria()">
+
+                <div class="audit-input-group">
+                    <span class="audit-input-icon-left"><i class="fas fa-magnifying-glass"></i></span>
+                    <input type="text" class="audit-input-field" id="auditoria-search" placeholder="Filtrar por código o nombre..." oninput="filtrarAuditoria()">
+                    <button type="button" class="audit-clear-btn" onclick="document.getElementById('auditoria-search').value=''; filtrarAuditoria();" title="Limpiar búsqueda">
+                        <i class="fas fa-xmark"></i>
+                    </button>
                 </div>
-                <button class="btn btn-success" onclick="aplicarTodosLosAjustes()">Aplicar Todos los Ajustes Pendientes</button>
+
+                <button type="button" class="audit-btn-apply-all" onclick="aplicarTodosLosAjustes()" id="btn-aplicar-todos-ajustes">
+                    <i class="fas fa-rotate"></i>
+                    <span>Aplicar Todos los Ajustes</span>
+                </button>
             </div>
 
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Producto</th>
-                            <th class="num">Stock Digital</th>
-                            <th class="num">Stock Físico (Conteo)</th>
-                            <th class="num">Diferencia</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditoria-body"></tbody>
-                </table>
-            </div>
-        </div>
+            <!-- 📋 3. TABLA DE CONCILIACIÓN EN TIEMPO REAL -->
+            <div class="audit-table-card">
+                <div class="audit-table-header-bar">
+                    <h3 class="audit-table-title">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Conteo Físico vs. Stock Digital Teórico</span>
+                    </h3>
+                </div>
 
-        <div class="card" style="margin-bottom:20px;">
-            <h3>Resumen de Pérdidas y Recuperación</h3>
-            <p style="color:var(--text-muted); font-size:0.9rem; margin:8px 0 15px;">Las pérdidas por productos dañados/vencidos, deudas de clientes eliminados y faltantes de inventario se van compensando con la ganancia generada por las ventas.</p>
-            <div class="kpi-grid">
-                <div class="kpi-card danger">
-                    <div class="kpi-title">PÉRDIDA POR PRODUCTOS DAÑADOS / VENCIDOS</div>
-                    <div class="kpi-value-usd" id="perdidas-productos-usd" style="color:var(--danger);">$0.00</div>
+                <div class="audit-table-responsive">
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th style="width:120px;">Código</th>
+                                <th>Producto</th>
+                                <th class="text-center" style="width:130px;">Stock Digital</th>
+                                <th class="text-center" style="width:140px;">Stock Físico</th>
+                                <th class="text-center" style="width:120px;">Diferencia</th>
+                                <th class="text-center" style="width:130px;">Estado</th>
+                                <th class="text-right" style="width:110px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoria-body"></tbody>
+                    </table>
                 </div>
-                <div class="kpi-card danger">
-                    <div class="kpi-title">DEUDAS DE CLIENTES ELIMINADOS</div>
-                    <div class="kpi-value-usd" id="perdidas-clientes-usd" style="color:var(--danger);">$0.00</div>
+            </div>
+
+            <!-- 🛡️ 4. SECCIÓN "RESUMEN DE PÉRDIDAS Y RECUPERACIÓN" (FINANCIAL AUDIT) -->
+            <div class="audit-financial-card">
+                <div class="audit-financial-header">
+                    <div class="audit-financial-titles">
+                        <h3>
+                            <i class="fas fa-scale-balanced" style="color:var(--audit-primary);"></i>
+                            <span>Auditoría Financiera: Pérdidas y Recuperación</span>
+                        </h3>
+                        <p>
+                            Las mermas por productos vencidos/dañados, deudas incobrables y faltantes de inventario se van compensando progresivamente con el margen generado por las ventas.
+                        </p>
+                    </div>
+                    <div class="audit-financial-status-badge healthy" id="audit-financial-status-badge">
+                        <i class="fas fa-circle-check"></i>
+                        <span>Balance Financiero</span>
+                    </div>
                 </div>
-                <div class="kpi-card">
-                    <div class="kpi-title">FALTANTES DE INVENTARIO PENDIENTES</div>
-                    <div class="kpi-value-usd" id="perdidas-faltantes-usd">$0.00</div>
+
+                <div class="audit-balance-grid">
+                    <div class="audit-balance-item top-danger">
+                        <span class="audit-balance-item-label">Dañados / Vencidos</span>
+                        <div class="audit-currency-display danger" id="perdidas-productos-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-warning">
+                        <span class="audit-balance-item-label">Clientes Incobrables</span>
+                        <div class="audit-currency-display danger" id="perdidas-clientes-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-slate">
+                        <span class="audit-balance-item-label">Faltantes en Conteo</span>
+                        <div class="audit-currency-display" id="perdidas-faltantes-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-success">
+                        <span class="audit-balance-item-label">Ganancia Neta Ventas</span>
+                        <div class="audit-currency-display success" id="ganancia-generada-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-primary" id="perdida-pendiente-global-card">
+                        <span class="audit-balance-item-label">Pérdida Pendiente</span>
+                        <div class="audit-currency-display danger" id="perdida-pendiente-global-usd">$0.00</div>
+                    </div>
                 </div>
-                <div class="kpi-card" style="border-left-color:var(--success);">
-                    <div class="kpi-title">GANANCIA GENERADA POR VENTAS</div>
-                    <div class="kpi-value-usd" id="ganancia-generada-usd" style="color:var(--success);">$0.00</div>
-                </div>
-                <div id="perdida-pendiente-global-card" class="kpi-card" style="border-left-color:var(--danger); background:#fff1f2;">
-                    <div class="kpi-title">PÉRDIDA PENDIENTE A RECUPERAR CON GANANCIAS</div>
-                    <div class="kpi-value-usd" id="perdida-pendiente-global-usd" style="color:var(--danger);">$0.00</div>
+
+                <!-- Barra de Progreso Visual: Ganancia vs. Pérdida Pendiente -->
+                <div class="audit-progress-section">
+                    <div class="audit-progress-meta">
+                        <span class="audit-progress-label">
+                            <i class="fas fa-chart-pie" style="color:var(--audit-primary);"></i>
+                            Tasa de Recuperación con Ganancias
+                        </span>
+                        <span class="audit-progress-percentage" id="audit-recovery-percentage">
+                            100% Recuperado
+                        </span>
+                    </div>
+                    <div class="audit-progress-track">
+                        <div class="audit-progress-fill" id="audit-recovery-progress-fill" style="width: 100%;"></div>
+                    </div>
+                    <div class="audit-progress-legend">
+                        <div class="audit-legend-item">
+                            <span class="audit-legend-dot recovered"></span>
+                            <span id="audit-legend-ganancias">Compensado con Ganancias ($0.00)</span>
+                        </div>
+                        <div class="audit-legend-item">
+                            <span class="audit-legend-dot pending"></span>
+                            <span id="audit-legend-pendientes">Por Recuperar ($0.00)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

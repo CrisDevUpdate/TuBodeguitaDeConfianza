@@ -125,6 +125,10 @@ function renderizarHistorialVentasAdmin() {
 
                 const clienteNom = v.clienteNombre || (v.clienteId ? (AppState.clientes.find(c => c.id === v.clienteId)?.nombre || v.clienteId) : 'Cliente General');
 
+                const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+                    ? window.esVentaOTransaccionConfirmada(v)
+                    : (v.confirmada === true || (!['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'CONFIRMANDO', 'FALLIDO'].includes(String(v.estado || '').toUpperCase())));
+
                 return `
                     <tr>
                         <td style="font-weight:700; color:var(--primary-accent);">
@@ -150,9 +154,20 @@ function renderizarHistorialVentasAdmin() {
                             <small style="color:#16a34a; font-size:0.78rem;">Bs. ${totalVES.toFixed(2)}</small>
                         </td>
                         <td style="text-align:center;">
-                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
-                                <i class="fas fa-eye"></i> Detalle
-                            </button>
+                            <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
+                                ${!esConf ? `
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${v.id}')" title="Confirmar transacción y cargar ganancias en la barra de recuperación" style="font-size:0.72rem; padding:3px 7px; font-weight:700;">
+                                        <i class="fas fa-check"></i> Confirmar
+                                    </button>
+                                ` : `
+                                    <span class="badge-status-pill badge-success" style="font-size:0.70rem; padding:3px 6px; font-weight:700;" title="Transacción confirmada">
+                                        <i class="fas fa-check-circle"></i> Confirmado
+                                    </span>
+                                `}
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -242,6 +257,10 @@ function renderizarHistorialVentasAdmin() {
 
                 const clienteNom = v.clienteNombre || (v.clienteId ? (AppState.clientes.find(c => c.id === v.clienteId)?.nombre || v.clienteId) : 'Cliente General');
 
+                const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+                    ? window.esVentaOTransaccionConfirmada(v)
+                    : (v.confirmada === true || (!['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'CONFIRMANDO', 'FALLIDO'].includes(String(v.estado || '').toUpperCase())));
+
                 return `
                     <tr>
                         <td style="font-weight:700; color:var(--primary-accent);">#${v.id}</td>
@@ -255,9 +274,20 @@ function renderizarHistorialVentasAdmin() {
                         <td class="num" style="font-weight:700;">$${totalUSD.toFixed(2)}</td>
                         <td class="num" style="color:#16a34a; font-weight:600;">Bs. ${totalVES.toFixed(2)}</td>
                         <td style="text-align:center;">
-                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                            <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
+                                ${!esConf ? `
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${v.id}')" title="Confirmar transacción y cargar ganancias en la barra de recuperación" style="font-size:0.72rem; padding:3px 7px; font-weight:700;">
+                                        <i class="fas fa-check"></i> Confirmar
+                                    </button>
+                                ` : `
+                                    <span class="badge-status-pill badge-success" style="font-size:0.70rem; padding:3px 6px; font-weight:700;" title="Transacción confirmada">
+                                        <i class="fas fa-check-circle"></i> Confirmado
+                                    </span>
+                                `}
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -334,6 +364,10 @@ function abrirModalDetalleVenta(ventaId) {
     const items = Array.isArray(venta.items) ? venta.items : [];
     const clienteNom = venta.clienteNombre || (venta.clienteId ? (AppState.clientes.find(c => c.id === venta.clienteId)?.nombre || venta.clienteId) : 'Cliente General');
 
+    const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+        ? window.esVentaOTransaccionConfirmada(venta)
+        : (venta.confirmada === true || (!['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'CONFIRMANDO', 'FALLIDO'].includes(String(venta.estado || '').toUpperCase())));
+
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 580px; max-height: 90vh; overflow-y: auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px;">
@@ -342,6 +376,23 @@ function abrirModalDetalleVenta(ventaId) {
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalDetalleVenta()"><i class="fas fa-times"></i></button>
             </div>
+
+            ${!esConf ? `
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div style="color:#92400e; font-size:0.85rem; line-height:1.4;">
+                        <i class="fas fa-clock" style="color:#d97706; margin-right:5px;"></i>
+                        <strong>Transacción Pendiente:</strong> Las ganancias de esta venta se transferirán a la barra de recuperación tan pronto la confirmes.
+                    </div>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${venta.id}', true)" style="font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-check-double"></i> Confirmar Ahora
+                    </button>
+                </div>
+            ` : `
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:8px 14px; margin-bottom:14px; display:flex; align-items:center; gap:8px; color:#166534; font-size:0.85rem;">
+                    <i class="fas fa-circle-check" style="color:#16a34a;"></i>
+                    <span><strong>Transacción Confirmada:</strong> Sus ganancias ya están computadas y activas en la barra de recuperación.</span>
+                </div>
+            `}
 
             <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; font-size:0.88rem;">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -359,6 +410,12 @@ function abrirModalDetalleVenta(ventaId) {
                         <strong style="color:var(--primary-accent);">${venta.tipo || venta.tipoPago || 'Crédito'}</strong>
                     </div>
                     <div>
+                        <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Estado Transacción</span>
+                        ${esConf
+                            ? '<span class="badge-status-pill badge-success" style="font-size:0.75rem;"><i class="fas fa-check-circle"></i> Confirmado</span>'
+                            : '<span class="badge-status-pill badge-warning" style="font-size:0.75rem;"><i class="fas fa-clock"></i> Pendiente</span>'}
+                    </div>
+                    <div style="grid-column: span 2;">
                         <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Referencia</span>
                         <strong>${venta.referencia || 'N/A'}</strong>
                     </div>
@@ -401,6 +458,11 @@ function abrirModalDetalleVenta(ventaId) {
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:10px;">
+                ${!esConf ? `
+                    <button type="button" class="btn btn-success" onclick="confirmarVentaAdmin('${venta.id}', true)">
+                        <i class="fas fa-check"></i> Confirmar Transacción
+                    </button>
+                ` : ''}
                 <button type="button" class="btn btn-outline" onclick="cerrarModalDetalleVenta()">Cerrar</button>
             </div>
         </div>
@@ -414,6 +476,94 @@ function cerrarModalDetalleVenta() {
     if (modal) modal.classList.remove('active');
 }
 
+/**
+ * Confirma una venta o transacción para que sus ganancias se sumen
+ * inmediatamente a la barra de recuperación de pérdidas.
+ */
+async function confirmarVentaAdmin(ventaId, desdeModal = false) {
+    const listadoVentas = Array.isArray(AppState.ventas)
+        ? AppState.ventas
+        : (typeof ventas !== 'undefined' && Array.isArray(ventas) ? ventas : []);
+
+    const venta = listadoVentas.find(v => v.id === ventaId);
+    if (!venta) return;
+
+    let confirmado = false;
+    const totalStr = `$${Number(venta.total || 0).toFixed(2)}`;
+    const msg = `¿Confirmar la transacción <b>#${venta.id}</b> (${totalStr})?<br><br>` +
+        `Al confirmarla, sus ganancias se incorporarán de inmediato a la <b>barra de recuperación de pérdidas</b>.`;
+
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Confirmar Transacción', msg, 'question');
+    } else {
+        confirmado = confirm(`¿Confirmar la venta #${venta.id} (${totalStr}) para sumar sus ganancias a la recuperación?`);
+    }
+
+    if (!confirmado) return;
+
+    // Actualizar estado de la venta
+    venta.estado = 'CONFIRMADO';
+    venta.confirmada = true;
+    venta.pendiente = false;
+
+    // Actualizar transacción asociada si existe
+    const ref = String(venta.referencia || '').trim();
+    const listadoTx = Array.isArray(AppState.transacciones)
+        ? AppState.transacciones
+        : (typeof transacciones !== 'undefined' && Array.isArray(transacciones) ? transacciones : []);
+
+    const tx = listadoTx.find(t =>
+        (t.id && (t.id === venta.id || t.pedidoId === venta.id)) ||
+        (t.pedidoId && t.pedidoId === venta.id) ||
+        (ref && ref !== 'N/A' && t.referencia === ref)
+    );
+    if (tx) {
+        tx.estado = 'Pago agregado';
+        tx.verificando = false;
+    }
+
+    // Actualizar registro en PagosPorVerificar de Firestore/AppState si existe
+    const listadoPagos = Array.isArray(AppState.pagosPorVerificar) ? AppState.pagosPorVerificar : [];
+    const pago = listadoPagos.find(p =>
+        p.id === venta.id || p.ventaId === venta.id || p.pedidoId === venta.id ||
+        (ref && ref !== 'N/A' && p.referencia === ref)
+    );
+    if (pago) {
+        pago.estado = 'APROBADO';
+    }
+
+    // Guardar persistencia local
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Sincronizar en Firebase Firestore
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.actualizarEstadoVenta === 'function') {
+            window.InventoryApp.Firebase.actualizarEstadoVenta(venta.id, 'CONFIRMADO').catch(() => {});
+        }
+        if (tx && typeof window.InventoryApp.Firebase.actualizarEstadoTransaccion === 'function') {
+            window.InventoryApp.Firebase.actualizarEstadoTransaccion(tx.id, 'Pago agregado').catch(() => {});
+        }
+        if (pago && typeof window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar === 'function') {
+            window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(pago.id, 'APROBADO').catch(() => {});
+        }
+    }
+
+    // Re-renderizar vistas afectadas
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+
+    if (desdeModal) {
+        abrirModalDetalleVenta(venta.id);
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Transacción #${venta.id} confirmada exitosamente. Ganancias aplicadas a la recuperación.`, 'success');
+    }
+}
+
 // Exportar globalmente
 window.subtabHistorialVentasActual = subtabHistorialVentasActual;
 window.cambiarSubTabHistorialVentas = cambiarSubTabHistorialVentas;
@@ -425,3 +575,4 @@ window.filtrarHistorialGeneralPorEstado = filtrarHistorialGeneralPorEstado;
 window.limpiarFiltrosHistorialVentas = limpiarFiltrosHistorialVentas;
 window.abrirModalDetalleVenta = abrirModalDetalleVenta;
 window.cerrarModalDetalleVenta = cerrarModalDetalleVenta;
+window.confirmarVentaAdmin = confirmarVentaAdmin;

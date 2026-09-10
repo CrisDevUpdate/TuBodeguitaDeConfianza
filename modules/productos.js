@@ -349,6 +349,9 @@ async function guardarProducto(e) {
     renderizarInventario();
     renderizarPosProductos();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
+        renderizarResumenPerdidasEconomicas();
+    }
 }
 
 function editarProducto(id) {
@@ -607,6 +610,9 @@ async function confirmarEliminacionProducto(event) {
     renderizarPosProductos();
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarHistorialEliminaciones();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
+        renderizarResumenPerdidasEconomicas();
+    }
 
     if (typeof showCustomToast === 'function') {
         showCustomToast(`Retiro de ${cantidad} unds registrado para ${nombre}`, 'success');

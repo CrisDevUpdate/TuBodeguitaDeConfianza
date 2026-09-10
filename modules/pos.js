@@ -269,7 +269,8 @@ async function ejecutarFinalizacionCheckoutPOS() {
         tipo: metodoPago === 'Crédito' ? 'Crédito' : 'Contado',
         metodoDetalle: metodoPago,
         referencia: referencia || 'N/A',
-        estado: estadoTransaccion
+        estado: estadoTransaccion,
+        confirmada: estadoTransaccion === 'CONFIRMADO' || estadoTransaccion === 'PAGADO' || metodoPago === 'Efectivo USD' || metodoPago === 'Efectivo VES'
     };
 
     ventas.push(nuevaVenta);
@@ -344,7 +345,7 @@ async function ejecutarFinalizacionCheckoutPOS() {
                 items: itemsVendidos,
                 fecha: nuevaVenta.fecha,
                 fechaISO: new Date().toISOString(),
-                estado: 'PENDIENTE_VERIFICACION',
+                estado: estadoTransaccion === 'CONFIRMADO' ? 'APROBADO' : 'PENDIENTE_VERIFICACION',
                 tipoRegistro: 'VENTA_POS',
                 origen: 'POS Mostrador'
             }).catch(() => {});

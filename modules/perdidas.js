@@ -64,8 +64,78 @@ function obtenerCostoHistoricoProducto(productoId, item = null) {
     return ajuste ? Number(ajuste.costo || 0) : 0;
 }
 
+// Determina si una venta o transacción se encuentra debidamente confirmada.
+// Solo las ventas confirmadas pueden transferir sus ganancias a la recuperación de pérdidas.
+function esVentaOTransaccionConfirmada(venta) {
+    if (!venta) return false;
+
+    // 1. Verificación de flags explícitos
+    if (venta.confirmada === true) return true;
+    if (venta.pendiente === true || venta.confirmada === false) return false;
+
+    // 2. Verificación de estado de la venta
+    const estado = String(venta.estado || '').trim().toUpperCase();
+    const estadosNoConfirmados = [
+        'PENDIENTE',
+        'PENDIENTE_CONFIRMACION',
+        'PENDIENTE_VERIFICACION',
+        'POR_VERIFICAR',
+        'CONFIRMANDO',
+        'FALLIDO',
+        'RECHAZADO',
+        'CANCELADO'
+    ];
+    if (estadosNoConfirmados.includes(estado)) {
+        return false;
+    }
+
+    // 3. Si la venta tiene una referencia o transacción bancaria vinculada en AppState.transacciones
+    const ref = String(venta.referencia || '').trim();
+    const txList = Array.isArray(window.AppState?.transacciones) 
+        ? window.AppState.transacciones 
+        : (typeof transacciones !== 'undefined' && Array.isArray(transacciones) ? transacciones : []);
+
+    const txAsociada = txList.find(t =>
+        (t.id && (t.id === venta.id || t.pedidoId === venta.id)) ||
+        (t.pedidoId && t.pedidoId === venta.id) ||
+        (ref && ref !== 'N/A' && ref !== 'CRÉDITO-REGISTRADO' && String(t.referencia || '').trim() === ref)
+    );
+    if (txAsociada) {
+        const estadoTx = String(txAsociada.estado || '').trim().toLowerCase();
+        if (estadoTx === 'confirmando' || estadoTx === 'fallido' || estadoTx.includes('pendiente')) {
+            return false;
+        }
+    }
+
+    // 4. Si existe en la lista de PagosPorVerificar de Firestore/AppState
+    const pagosVerif = Array.isArray(window.AppState?.pagosPorVerificar) ? window.AppState.pagosPorVerificar : [];
+    const pago = pagosVerif.find(p =>
+        p.id === venta.id || p.ventaId === venta.id || p.pedidoId === venta.id ||
+        (ref && ref !== 'N/A' && String(p.referencia || '').trim() === ref)
+    );
+    if (pago) {
+        const pEst = String(pago.estado || '').trim().toUpperCase();
+        if (pEst !== 'APROBADO' && pEst !== 'CONFIRMADO' && pEst !== 'PAGO AGREGADO') {
+            return false;
+        }
+    }
+
+    // Por defecto, si el estado no está pendiente
+    return true;
+}
+window.esVentaOTransaccionConfirmada = esVentaOTransaccionConfirmada;
+
 function calcularGananciaGeneradaVentas() {
-    return ventas.reduce((total, venta) => {
+    const listadoVentas = Array.isArray(window.AppState?.ventas)
+        ? window.AppState.ventas
+        : (typeof ventas !== 'undefined' && Array.isArray(ventas) ? ventas : []);
+
+    return listadoVentas.reduce((total, venta) => {
+        // Solo acumula ganancias si la transacción ha sido confirmada
+        if (!esVentaOTransaccionConfirmada(venta)) {
+            return total;
+        }
+
         const gananciaVenta = (venta.items || []).reduce((sum, item) => {
             const costo = obtenerCostoHistoricoProducto(item.productoId, item);
             const precio = Number(item.precio || 0);
@@ -77,13 +147,33 @@ function calcularGananciaGeneradaVentas() {
 }
 
 function calcularResumenPerdidasEconomicas() {
-    const perdidaProductos = eliminaciones.reduce((sum, e) => {
+    const listElim = Array.isArray(window.AppState?.eliminaciones) ? window.AppState.eliminaciones : (typeof eliminaciones !== 'undefined' ? eliminaciones : []);
+    const listCliElim = Array.isArray(window.AppState?.clientesEliminados) ? window.AppState.clientesEliminados : (typeof clientesEliminados !== 'undefined' ? clientesEliminados : []);
+    const listProd = Array.isArray(window.AppState?.productos) ? window.AppState.productos : (typeof productos !== 'undefined' ? productos : []);
+
+    const perdidaProductos = listElim.reduce((sum, e) => {
         if (Number.isFinite(Number(e.perdidaUSD))) return sum + Math.max(0, Number(e.perdidaUSD));
-        return sum + calcularPerdidaBajaProducto(e.motivo, e.cantidadRetirada, e.costo);
+        return sum + (typeof calcularPerdidaBajaProducto === 'function' ? calcularPerdidaBajaProducto(e.motivo, e.cantidadRetirada, e.costo) : (Number(e.cantidadRetirada || 0) * Number(e.costo || 0)));
     }, 0);
 
-    const deudaClientesEliminados = clientesEliminados.reduce((sum, c) => sum + Math.max(0, Number(c.perdidaUSD ?? c.deudaUSD ?? 0)), 0);
-    const perdidaFaltantes = calcularEstadoPerdidasPendientes().totalPendiente;
+    const deudaClientesEliminados = listCliElim.reduce((sum, c) => sum + Math.max(0, Number(c.perdidaUSD ?? c.deudaUSD ?? 0)), 0);
+    
+    // Faltantes de auditorías históricas ya aplicadas
+    const perdidaFaltantesHistoricas = calcularEstadoPerdidasPendientes().totalPendiente;
+
+    // Faltantes de conteos físicos actualmente en captura (tiempo real antes de aplicar)
+    let perdidaFaltantesConteoActivo = 0;
+    const conteos = (typeof conteosFisicos !== 'undefined' && conteosFisicos) ? conteosFisicos : (window.AppState?.conteosFisicos || {});
+    Object.keys(conteos).forEach(id => {
+        const p = listProd.find(prod => prod.id === id);
+        if (!p) return;
+        const dif = typeof calcularDiferenciaAuditoria === 'function' ? calcularDiferenciaAuditoria(id) : null;
+        if (dif !== null && dif < 0) {
+            perdidaFaltantesConteoActivo += Math.abs(dif) * Number(p.costo || 0);
+        }
+    });
+
+    const perdidaFaltantes = perdidaFaltantesHistoricas + perdidaFaltantesConteoActivo;
     const perdidaBruta = perdidaProductos + deudaClientesEliminados + perdidaFaltantes;
     const gananciaGenerada = Math.max(0, calcularGananciaGeneradaVentas());
     const perdidaPendiente = Math.max(0, perdidaBruta - gananciaGenerada);
@@ -93,20 +183,76 @@ function calcularResumenPerdidasEconomicas() {
 
 function renderizarResumenPerdidasEconomicas() {
     const r = calcularResumenPerdidasEconomicas();
-    const set = (id, value) => {
+    const set = (id, value, isPositive = false) => {
         const el = document.getElementById(id);
-        if (el) el.textContent = `$${value.toFixed(2)}`;
+        if (!el) return;
+        const num = Number(value) || 0;
+        const absVal = Math.abs(num);
+        const parts = absVal.toFixed(2).split('.');
+        const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        const decPart = parts[1];
+        el.innerHTML = `
+            <span class="audit-currency-symbol">${num < 0 ? '-$' : '$'}</span>
+            <span>${intPart}</span>
+            <span class="audit-currency-cents">.${decPart}</span>
+        `;
     };
+
     set('perdidas-productos-usd', r.perdidaProductos);
     set('perdidas-clientes-usd', r.deudaClientesEliminados);
     set('perdidas-faltantes-usd', r.perdidaFaltantes);
-    set('ganancia-generada-usd', r.gananciaGenerada);
+    set('ganancia-generada-usd', r.gananciaGenerada, true);
     set('perdida-pendiente-global-usd', r.perdidaPendiente);
 
-    const card = document.getElementById('perdida-pendiente-global-card');
-    if (card) {
-        card.style.borderLeftColor = r.perdidaPendiente > 0 ? 'var(--danger)' : 'var(--success)';
-        card.style.background = r.perdidaPendiente > 0 ? '#fff1f2' : '#f0fdf4';
+    // Barra de Progreso y Tasa de Recuperación:
+    // Solo va cargando cuando haya transacciones confirmadas
+    let ratio = 0;
+    if (r.perdidaBruta > 0) {
+        ratio = Math.min(100, Math.max(0, Math.round((r.gananciaGenerada / r.perdidaBruta) * 100)));
+    } else if (r.gananciaGenerada > 0) {
+        ratio = 100;
+    } else {
+        ratio = 0;
+    }
+
+    const fillEl = document.getElementById('audit-recovery-progress-fill');
+    if (fillEl) {
+        fillEl.style.width = `${ratio}%`;
+        fillEl.setAttribute('aria-valuenow', ratio);
+    }
+
+    const pctEl = document.getElementById('audit-recovery-percentage');
+    if (pctEl) {
+        if (r.perdidaBruta === 0 && r.gananciaGenerada === 0) {
+            pctEl.textContent = '100% (Sin Pérdidas)';
+        } else {
+            pctEl.textContent = `${ratio}% Recuperado`;
+        }
+    }
+
+    const legendGanEl = document.getElementById('audit-legend-ganancias');
+    if (legendGanEl) {
+        legendGanEl.textContent = `Compensado con Ganancias ($${r.gananciaGenerada.toFixed(2)})`;
+    }
+
+    const legendPendEl = document.getElementById('audit-legend-pendientes');
+    if (legendPendEl) {
+        legendPendEl.textContent = `Por Recuperar ($${r.perdidaPendiente.toFixed(2)})`;
+    }
+
+    // Badge de Estado Financiero
+    const statusBadge = document.getElementById('audit-financial-status-badge');
+    if (statusBadge) {
+        if (r.perdidaBruta === 0) {
+            statusBadge.className = 'audit-financial-status-badge healthy';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> <span>Sin Pérdidas Registradas</span>';
+        } else if (r.perdidaPendiente <= 0) {
+            statusBadge.className = 'audit-financial-status-badge healthy';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> <span>100% Recuperado / Sin Deuda</span>';
+        } else {
+            statusBadge.className = 'audit-financial-status-badge critical';
+            statusBadge.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <span>Balance Pendiente ($${r.perdidaPendiente.toFixed(2)})</span>`;
+        }
     }
 }
 

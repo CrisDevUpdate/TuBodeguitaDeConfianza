@@ -203,6 +203,7 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
 
         renderizarTransacciones();
         renderizarClientes();
+        if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
         if (clienteSeleccionadoId === tx.clienteId) verDetalleCliente(tx.clienteId);
         if (!silencioso) {
             alert(`Pago agregado: la referencia ${tx.referencia} fue validada y ahora sí afecta la deuda del cliente.`);
@@ -592,6 +593,7 @@ async function verificarTodasLasTransacciones() {
 
     renderizarTransacciones();
     renderizarClientes();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
     if (clienteSeleccionadoId) verDetalleCliente(clienteSeleccionadoId);
 
     if (boton) {
@@ -1553,6 +1555,7 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
     if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
 
     if (window.InventoryApp?.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Pago de ${montoMsg} (#${id}) verificado y aprobado con éxito.`, 'success');
