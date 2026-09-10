@@ -1,0 +1,337 @@
+/**
+ * /styles/mobileGlobal.css
+ * Mobile-First Global Design System & Viewport Engine
+ * Tu Bodeguita de Confianza - PWA Architecture
+ */
+
+:root {
+  /* Dynamic Viewport & Safe Areas */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --mobile-bottom-safe-padding: calc(88px + var(--sab));
+  
+  /* System Layout Constraints */
+  --app-max-width: 640px;
+  --touch-target-min: 44px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Global Typography Scale */
+  --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Theme Tokens: High-Contrast Light Mode Default */
+  --bg-canvas: #f8fafc;
+  --bg-canvas-subtle: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --border-color: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --text-inverted: #ffffff;
+
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #1d4ed8;
+  --accent-success: #10b981;
+  --accent-success-dark: #047857;
+  --accent-warning: #f59e0b;
+  --accent-warning-dark: #b45309;
+  --accent-danger: #ef4444;
+  --accent-danger-dark: #b91c1c;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+/* OLED Deep Dark Theme Tokens */
+[data-theme="dark"],
+body.dark-mode,
+.theme-dark,
+.theme-oled {
+  --bg-canvas: #090d16;
+  --bg-canvas-subtle: #0f172a;
+  --bg-card: #131b2e;
+  --bg-card-elevated: #1a243b;
+  --bg-input: #101726;
+  --border-color: #1e293b;
+  --border-subtle: #172033;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --text-inverted: #0f172a;
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 10px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.6);
+}
+
+/* 📱 1. ARQUITECTURA GLOBAL MOBILE-FIRST & VIEWPORT SEGURO */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-family: var(--font-system);
+  -webkit-text-size-adjust: 100%;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Contenedor Universal Centrado PWA Mobile */
+.mobile-app-container,
+.app-screen-container,
+.customer-account-container,
+.main-content-mobile {
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-bottom: var(--mobile-bottom-safe-padding);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ergonomía y Targets Táctiles Universales */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.btn,
+.mobile-touch-target {
+  min-height: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1;
+  padding: 10px 18px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  user-select: none;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.12s ease,
+              background-color 0.15s ease,
+              box-shadow 0.15s ease;
+}
+
+button:active,
+.btn:active,
+.mobile-touch-target:active {
+  transform: scale(0.97);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="email"],
+input[type="tel"],
+select,
+textarea {
+  min-height: var(--touch-target-min);
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+/* 🚫 2. PROTOCOLO ZERO-TABLES EN PANTALLAS MÓVILES */
+@media screen and (max-width: 768px) {
+  /* Erradicación de Scroll Horizontal en Tablas */
+  .table-responsive {
+    overflow-x: visible !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  table.mobile-zero-table,
+  .table-responsive > table {
+    display: block !important;
+    width: 100% !important;
+    border: none !important;
+  }
+
+  table.mobile-zero-table thead,
+  .table-responsive > table thead {
+    display: none !important;
+  }
+
+  table.mobile-zero-table tbody,
+  .table-responsive > table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  table.mobile-zero-table tr,
+  .table-responsive > table tbody > tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px 14px !important;
+    box-shadow: var(--shadow-sm) !important;
+    position: relative !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  table.mobile-zero-table td,
+  .table-responsive > table tbody > tr > td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 4px 0 !important;
+    border: none !important;
+    font-size: 0.88rem !important;
+    color: var(--text-primary) !important;
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  table.mobile-zero-table td[data-label]::before,
+  .table-responsive > table tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* 💳 3. GRILLA MÉTRICA UNIVERSAL (2x2 GRID SYSTEM) */
+.mobile-kpi-grid,
+.customer-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.mobile-soft-card,
+.metric-soft-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.mobile-soft-card:active {
+  transform: scale(0.99);
+}
+
+.mobile-soft-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-soft-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.mobile-soft-card-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-soft-card-val {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.mobile-soft-card-sub {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 🎨 4. SEGURIDAD DE NAVEGACIÓN Y OVERFLOW */
+.no-horizontal-scroll {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+.mobile-bottom-nav-safe {
+  padding-bottom: var(--mobile-bottom-safe-padding) !important;
+}

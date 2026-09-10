@@ -202,7 +202,7 @@ function renderizarCatalogoCliente() {
     const container = document.getElementById('cliente-catalogo-grid');
     if (!container) return;
 
-    let prods = AppState.productos || [];
+    let prods = [...(AppState.productos || [])];
 
     // Filtros
     if (clienteBusqueda) {
@@ -210,8 +210,36 @@ function renderizarCatalogoCliente() {
         prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
     }
     if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS') {
-        prods = prods.filter(p => (p.categoria || 'General').toUpperCase() === clienteFiltroCategoria.toUpperCase());
+        if (clienteFiltroCategoria === 'COMBOS') {
+            prods = prods.filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+        } else {
+            prods = prods.filter(p => (p.categoria || 'General').toUpperCase() === clienteFiltroCategoria.toUpperCase());
+        }
     }
+
+    // 🏆 ALGORITMO DE ORDENAMIENTO: COMBOS PRIMERO, LUEGO STOCK Y PUNTOS
+    prods.sort((a, b) => {
+        const esComboA = Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().startsWith('combo'));
+        const esComboB = Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().startsWith('combo'));
+
+        // 1. COMBOS SIEMPRE DE PRIMEROS
+        if (esComboA && !esComboB) return -1;
+        if (!esComboA && esComboB) return 1;
+
+        // 2. Disponibilidad en stock
+        const stockA = Number(a.stock || 0);
+        const stockB = Number(b.stock || 0);
+        if (stockA > 0 && stockB <= 0) return -1;
+        if (stockA <= 0 && stockB > 0) return 1;
+
+        // 3. Puntos otorgados
+        const puntosA = Number(a.puntosPromo || a.points_given || a.puntosCombo || a.puntos || 0);
+        const puntosB = Number(b.puntosPromo || b.points_given || b.puntosCombo || b.puntos || 0);
+        if (puntosB !== puntosA) return puntosB - puntosA;
+
+        // 4. Orden alfabético
+        return (a.nombre || '').localeCompare(b.nombre || '');
+    });
 
     if (prods.length === 0) {
         container.innerHTML = `
