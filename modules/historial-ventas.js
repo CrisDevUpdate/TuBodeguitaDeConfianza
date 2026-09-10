@@ -155,13 +155,13 @@ function renderizarHistorialVentasAdmin() {
                         </td>
                         <td style="text-align:center;">
                             <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
-                                ${!esConf ? `
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${v.id}')" title="Confirmar transacción y cargar ganancias en la barra de recuperación" style="font-size:0.72rem; padding:3px 7px; font-weight:700;">
-                                        <i class="fas fa-check"></i> Confirmar
-                                    </button>
-                                ` : `
-                                    <span class="badge-status-pill badge-success" style="font-size:0.70rem; padding:3px 6px; font-weight:700;" title="Transacción confirmada">
+                                ${esConf ? `
+                                    <span class="badge-status-pill badge-success" style="font-size:0.72rem; padding:3px 8px; font-weight:700;" title="Transacción confirmada">
                                         <i class="fas fa-check-circle"></i> Confirmado
+                                    </span>
+                                ` : `
+                                    <span class="badge-status-pill badge-warning" style="font-size:0.72rem; padding:3px 8px; font-weight:700;" title="Pendiente de validación en Usuarios & Aprobación">
+                                        <i class="fas fa-clock"></i> Pendiente
                                     </span>
                                 `}
                                 <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
@@ -275,13 +275,13 @@ function renderizarHistorialVentasAdmin() {
                         <td class="num" style="color:#16a34a; font-weight:600;">Bs. ${totalVES.toFixed(2)}</td>
                         <td style="text-align:center;">
                             <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
-                                ${!esConf ? `
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${v.id}')" title="Confirmar transacción y cargar ganancias en la barra de recuperación" style="font-size:0.72rem; padding:3px 7px; font-weight:700;">
-                                        <i class="fas fa-check"></i> Confirmar
-                                    </button>
-                                ` : `
-                                    <span class="badge-status-pill badge-success" style="font-size:0.70rem; padding:3px 6px; font-weight:700;" title="Transacción confirmada">
+                                ${esConf ? `
+                                    <span class="badge-status-pill badge-success" style="font-size:0.72rem; padding:3px 8px; font-weight:700;" title="Transacción confirmada">
                                         <i class="fas fa-check-circle"></i> Confirmado
+                                    </span>
+                                ` : `
+                                    <span class="badge-status-pill badge-warning" style="font-size:0.72rem; padding:3px 8px; font-weight:700;" title="Pendiente de validación en Usuarios & Aprobación">
+                                        <i class="fas fa-clock"></i> Pendiente
                                     </span>
                                 `}
                                 <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
@@ -378,19 +378,16 @@ function abrirModalDetalleVenta(ventaId) {
             </div>
 
             ${!esConf ? `
-                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin-bottom:14px; display:flex; align-items:center; gap:12px;">
                     <div style="color:#92400e; font-size:0.85rem; line-height:1.4;">
                         <i class="fas fa-clock" style="color:#d97706; margin-right:5px;"></i>
-                        <strong>Transacción Pendiente:</strong> Las ganancias de esta venta se transferirán a la barra de recuperación tan pronto la confirmes.
+                        <strong>Transacción Pendiente de Confirmación:</strong> Las validaciones y aprobaciones de pagos se gestionan exclusivamente en el módulo de <em>Usuarios & Aprobación</em>.
                     </div>
-                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmarVentaAdmin('${venta.id}', true)" style="font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-check-double"></i> Confirmar Ahora
-                    </button>
                 </div>
             ` : `
-                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:8px 14px; margin-bottom:14px; display:flex; align-items:center; gap:8px; color:#166534; font-size:0.85rem;">
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:8px; color:#166534; font-size:0.85rem;">
                     <i class="fas fa-circle-check" style="color:#16a34a;"></i>
-                    <span><strong>Transacción Confirmada:</strong> Sus ganancias ya están computadas y activas en la barra de recuperación.</span>
+                    <span><strong>Transacción Confirmada:</strong> Sus ganancias ya están computadas y activas en el sistema.</span>
                 </div>
             `}
 
@@ -458,11 +455,6 @@ function abrirModalDetalleVenta(ventaId) {
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:10px;">
-                ${!esConf ? `
-                    <button type="button" class="btn btn-success" onclick="confirmarVentaAdmin('${venta.id}', true)">
-                        <i class="fas fa-check"></i> Confirmar Transacción
-                    </button>
-                ` : ''}
                 <button type="button" class="btn btn-outline" onclick="cerrarModalDetalleVenta()">Cerrar</button>
             </div>
         </div>
@@ -474,6 +466,193 @@ function abrirModalDetalleVenta(ventaId) {
 function cerrarModalDetalleVenta() {
     const modal = document.getElementById('modal-detalle-venta-admin');
     if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Abre el modal del limpiador de historial de ventas
+ */
+function abrirModalLimpiadorVentas() {
+    const ventas = AppState.ventas || [];
+    const fechaHoy = obtenerFechaHoyISO();
+    const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
+    const totalHoyUSD = ventasHoy.reduce((s, v) => s + Number(v.total || 0), 0);
+    const totalHistoricoUSD = ventas.reduce((s, v) => s + Number(v.total || 0), 0);
+
+    let modal = document.getElementById('modal-limpiador-ventas');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-limpiador-ventas';
+        modal.className = 'modal';
+        modal.onclick = function(e) { if (e.target === this) cerrarModalLimpiadorVentas(); };
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:550px; border-radius:14px; padding:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+                <h3 style="margin:0; font-size:1.25rem; display:flex; align-items:center; gap:10px; color:#b91c1c;">
+                    <i class="fas fa-broom"></i> Limpiador de Historial de Ventas
+                </h3>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalLimpiadorVentas()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:18px; line-height:1.5;">
+                Selecciona la opción de limpieza deseada. Esta acción depurará los registros de ventas y actualizará automáticamente los balances, contadores y la sincronización en la nube.
+            </p>
+
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+                <!-- Opción 1: Limpiar Solo Ventas de Hoy -->
+                <div style="border:1px solid var(--border); border-radius:10px; padding:14px; background:#fff; display:flex; justify-content:space-between; align-items:center; gap:14px;">
+                    <div>
+                        <div style="font-weight:700; color:var(--text-main); font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-calendar-day" style="color:#d97706;"></i> Limpiar Ventas de Hoy
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px;">
+                            ${ventasHoy.length} transacciones registradas hoy ($${totalHoyUSD.toFixed(2)} USD).
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
+                            Reinicia la jornada actual manteniendo el histórico anterior intacto.
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="ejecutarLimpiezaVentas('hoy')" ${ventasHoy.length === 0 ? 'disabled' : ''} style="white-space:nowrap; font-weight:700;">
+                        <i class="fas fa-calendar-xmark"></i> Limpiar Hoy
+                    </button>
+                </div>
+
+                <!-- Opción 2: Limpiar Todo el Historial Acumulado -->
+                <div style="border:1px solid #fecaca; border-radius:10px; padding:14px; background:#fef2f2; display:flex; justify-content:space-between; align-items:center; gap:14px;">
+                    <div>
+                        <div style="font-weight:700; color:#b91c1c; font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-trash-can" style="color:#ef4444;"></i> Limpiar Todo el Historial
+                        </div>
+                        <div style="font-size:0.8rem; color:#991b1b; margin-top:3px;">
+                            ${ventas.length} transacciones totales ($${totalHistoricoUSD.toFixed(2)} USD).
+                        </div>
+                        <div style="font-size:0.75rem; color:#b91c1c; margin-top:2px;">
+                            Vacía permanentemente todas las ventas acumuladas de la base de datos.
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="ejecutarLimpiezaVentas('todas')" ${ventas.length === 0 ? 'disabled' : ''} style="white-space:nowrap; font-weight:700;">
+                        <i class="fas fa-skull-crossbones"></i> Vaciar Todo
+                    </button>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModalLimpiadorVentas()">Cancelar</button>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function cerrarModalLimpiadorVentas() {
+    const modal = document.getElementById('modal-limpiador-ventas');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Ejecuta la limpieza de ventas según el alcance seleccionado
+ */
+async function ejecutarLimpiezaVentas(tipo) {
+    const ventas = AppState.ventas || [];
+    const fechaHoy = obtenerFechaHoyISO();
+
+    let ventasAEliminar = [];
+    let tituloConfirm = '';
+    let mensajeConfirm = '';
+
+    if (tipo === 'hoy') {
+        ventasAEliminar = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
+        if (ventasAEliminar.length === 0) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Sin Ventas', 'No hay ventas registradas el día de hoy para limpiar.', 'info');
+            } else {
+                alert('No hay ventas registradas el día de hoy para limpiar.');
+            }
+            return;
+        }
+        tituloConfirm = 'Limpiar Ventas de Hoy';
+        mensajeConfirm = `¿Confirmas que deseas eliminar las <b>${ventasAEliminar.length}</b> ventas registradas el día de hoy (${fechaHoy})?<br><br>Esta acción reiniciará los indicadores y la tabla de la jornada de hoy.`;
+    } else if (tipo === 'todas') {
+        ventasAEliminar = [...ventas];
+        if (ventasAEliminar.length === 0) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Historial Vacío', 'El historial de ventas ya se encuentra completamente vacío.', 'info');
+            } else {
+                alert('El historial de ventas ya se encuentra vacío.');
+            }
+            return;
+        }
+        tituloConfirm = 'Vaciar Todo el Historial de Ventas';
+        mensajeConfirm = `⚠️ <b>ADVERTENCIA:</b> ¿Estás completamente seguro de que deseas eliminar las <b>${ventasAEliminar.length}</b> ventas de todo el historial acumulado?<br><br>Esta acción vaciará permanentemente las ventas del sistema y no se puede deshacer.`;
+    }
+
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm(tituloConfirm, mensajeConfirm, tipo === 'todas' ? 'danger' : 'warning');
+    } else {
+        confirmado = confirm(mensajeConfirm.replace(/<[^>]+>/g, ''));
+    }
+
+    if (!confirmado) return;
+
+    const idsAEliminar = ventasAEliminar.map(v => v.id);
+    const cantEliminada = idsAEliminar.length;
+
+    // 1. Filtrar en AppState.ventas
+    if (tipo === 'todas') {
+        AppState.ventas = [];
+    } else {
+        AppState.ventas = ventas.filter(v => !idsAEliminar.includes(v.id));
+    }
+
+    // Sincronizar variable global ventas si existe
+    if (typeof window.ventas !== 'undefined' && Array.isArray(window.ventas)) {
+        window.ventas = AppState.ventas;
+    }
+
+    // 2. Eliminar en Firestore si está conectado
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarVentas === 'function') {
+        window.InventoryApp.Firebase.eliminarVentas(idsAEliminar).catch(err => {
+            console.warn('[HistorialVentas] Error al sincronizar eliminación en Firestore:', err);
+        });
+    }
+
+    // 3. Guardar persistencia local
+    if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // 4. Cerrar modal y actualizar UI
+    cerrarModalLimpiadorVentas();
+    renderizarHistorialVentasAdmin();
+    actualizarBadgeVentasHoy();
+
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
+        renderizarResumenPerdidasEconomicas();
+    }
+    if (typeof window.actualizarResumenAuditoria === 'function') {
+        window.actualizarResumenAuditoria();
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Se eliminaron ${cantEliminada} transacciones del historial de ventas`, 'success');
+    }
+}
+
+/**
+ * Actualiza el contador del badge de ventas de hoy
+ */
+function actualizarBadgeVentasHoy() {
+    const ventas = AppState.ventas || [];
+    const fechaHoy = obtenerFechaHoyISO();
+    const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
+    const badgeHoy = document.getElementById('badge-ventas-hoy-count');
+    if (badgeHoy) {
+        badgeHoy.textContent = ventasHoy.length;
+    }
 }
 
 /**
@@ -576,3 +755,7 @@ window.limpiarFiltrosHistorialVentas = limpiarFiltrosHistorialVentas;
 window.abrirModalDetalleVenta = abrirModalDetalleVenta;
 window.cerrarModalDetalleVenta = cerrarModalDetalleVenta;
 window.confirmarVentaAdmin = confirmarVentaAdmin;
+window.abrirModalLimpiadorVentas = abrirModalLimpiadorVentas;
+window.cerrarModalLimpiadorVentas = cerrarModalLimpiadorVentas;
+window.ejecutarLimpiezaVentas = ejecutarLimpiezaVentas;
+window.actualizarBadgeVentasHoy = actualizarBadgeVentasHoy;

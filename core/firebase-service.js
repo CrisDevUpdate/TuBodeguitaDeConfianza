@@ -1587,6 +1587,8 @@ window.InventoryApp = window.InventoryApp || {};
                         lastCollectionHashes[COLLECTIONS.CONFIG] = hash;
                         if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
                         if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                        if (Array.isArray(cfg.ciclosRecuperacion)) AppState.ciclosRecuperacion = cfg.ciclosRecuperacion;
+                        if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
                         if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                         if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
                         guardarCacheLocal();
@@ -1798,6 +1800,51 @@ window.InventoryApp = window.InventoryApp || {};
             } else {
                 console.error('[Firebase] Error al registrar venta en Firestore:', error);
                 actualizarUIEstadoNube('offline', 'Venta guardada localmente (Offline)');
+            }
+            return true;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar ventas en Firestore (soporta ID individual o array de IDs)
+     */
+    async function eliminarVentasCloud(ventasIds) {
+        if (!ventasIds) return false;
+        const ids = Array.isArray(ventasIds) ? ventasIds : [ventasIds];
+        if (ids.length === 0) return true;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Ventas eliminadas localmente (Cuota Firestore activa)');
+            return true;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Limpiando ventas en Firestore...');
+
+        try {
+            if (db) {
+                const chunkSize = 400;
+                for (let i = 0; i < ids.length; i += chunkSize) {
+                    const chunk = ids.slice(i, i + chunkSize);
+                    const batch = db.batch();
+                    chunk.forEach(vid => {
+                        const docRef = db.collection(COLLECTIONS.VENTAS).doc(String(vid));
+                        batch.delete(docRef);
+                    });
+                    await batch.commit();
+                }
+            }
+            actualizarUIEstadoNube('conectado', 'Historial de ventas sincronizado en Firestore');
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar ventas en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Modificado localmente (Offline)');
             }
             return true;
         }
@@ -2708,6 +2755,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarProducto: guardarProductoCloud,
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,
+        eliminarVentas: eliminarVentasCloud,
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,
         guardarAbono: guardarAbonoCloud,

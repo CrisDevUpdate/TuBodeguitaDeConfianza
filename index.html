@@ -918,12 +918,72 @@
                             <span>Auditoría Financiera: Pérdidas y Recuperación</span>
                         </h3>
                         <p>
-                            Las mermas por productos vencidos/dañados, deudas incobrables y faltantes de inventario se van compensando progresivamente con el margen generado por las ventas.
+                            Las mermas por productos vencidos/dañados, deudas incobrables y faltantes de inventario se van compensando progresivamente con el margen generado por las ventas confirmadas.
                         </p>
                     </div>
-                    <div class="audit-financial-status-badge healthy" id="audit-financial-status-badge">
-                        <i class="fas fa-circle-check"></i>
-                        <span>Balance Financiero</span>
+                    
+                    <div class="audit-financial-actions">
+                        <div class="audit-financial-status-badge healthy" id="audit-financial-status-badge">
+                            <i class="fas fa-circle-check"></i>
+                            <span>Balance Financiero</span>
+                        </div>
+                        <button type="button" id="btn-reiniciar-ciclo-recuperacion" class="audit-action-btn audit-btn-reset-cycle" onclick="solicitarReinicioCicloRecuperacion()" title="Reiniciar ciclo al 100% recuperado">
+                            <i class="fas fa-rotate"></i>
+                            <span>Reiniciar Ciclo (100% Recuperado)</span>
+                        </button>
+                        <button type="button" id="btn-ver-informe-ciclo" class="audit-action-btn audit-btn-report" onclick="abrirModalInformeRecuperacion()" title="Ver informe detallado y diagrama de balance">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Ver Informe & Diagrama</span>
+                        </button>
+                        <button type="button" id="btn-exportar-excel-ciclo" class="audit-action-btn audit-btn-excel" onclick="descargarInformeRecuperacionExcel()" title="Exportar reporte contable a Excel">
+                            <i class="fas fa-file-excel"></i>
+                            <span>Exportar a Excel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 📅 Barra de Filtros de Fecha & Selector de Ciclo Contable -->
+                <div class="audit-filters-bar">
+                    <div class="audit-cycle-selector-group">
+                        <label for="audit-filtro-ciclo">
+                            <i class="fas fa-layer-group" style="color:var(--audit-primary);"></i>
+                            Ciclo:
+                        </label>
+                        <select id="audit-filtro-ciclo" class="audit-cycle-select" onchange="cambiarCicloRecuperacion(this.value)">
+                            <option value="actual">Ciclo Actual (En curso)</option>
+                        </select>
+                    </div>
+
+                    <div class="audit-date-pills-group">
+                        <button type="button" class="audit-filter-pill active" data-filtro="todos" onclick="establecerFiltroFechaRecuperacion('todos')">
+                            Todo el Ciclo
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="hoy" onclick="establecerFiltroFechaRecuperacion('hoy')">
+                            Hoy
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="semana" onclick="establecerFiltroFechaRecuperacion('semana')">
+                            Esta Semana
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="mes" onclick="establecerFiltroFechaRecuperacion('mes')">
+                            Este Mes
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="ultimos30" onclick="establecerFiltroFechaRecuperacion('ultimos30')">
+                            Últimos 30 días
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="personalizado" onclick="establecerFiltroFechaRecuperacion('personalizado')">
+                            <i class="fas fa-sliders"></i> Personalizado
+                        </button>
+                    </div>
+
+                    <div id="audit-custom-dates-box" class="audit-custom-date-inputs" style="display:none;">
+                        <label>Desde:</label>
+                        <input type="date" id="audit-fecha-desde" onchange="aplicarRangoPersonalizadoRecuperacion()">
+                        <label>Hasta:</label>
+                        <input type="date" id="audit-fecha-hasta" onchange="aplicarRangoPersonalizadoRecuperacion()">
+                    </div>
+
+                    <div id="audit-active-filter-badge" class="audit-active-filter-badge">
+                        <i class="fas fa-calendar-check"></i> Mostrando: <strong>Historial Completo</strong>
                     </div>
                 </div>
 
@@ -979,29 +1039,41 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:12px;">
-                <h3 style="margin:0;">Historial de Ajustes de Inventario</h3>
-                <div id="auditoria-perdida-total" style="font-weight:700; padding:10px 14px; border-radius:8px; background:#fff1f2; color:var(--danger);">Pérdida pendiente por faltantes: $0.00</div>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Código</th>
-                            <th>Producto</th>
-                            <th class="num">Stock Anterior (Digital)</th>
-                            <th class="num">Stock Ajustado (Físico)</th>
-                            <th class="num">Diferencia Aplicada</th>
-                            <th class="num">Pérdida ($)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditoria-historial-body"></tbody>
-                </table>
+                <!-- 📋 Historial Detallado de Movimientos y Amortizaciones -->
+                <div class="audit-movements-section">
+                    <div class="audit-movements-header">
+                        <h4 class="audit-movements-title">
+                            <i class="fas fa-list-check" style="color:var(--audit-primary);"></i>
+                            <span>Historial de Amortización & Movimientos Contables</span>
+                        </h4>
+                        <div class="audit-movements-tabs">
+                            <button type="button" class="audit-mov-tab active" data-tipo="todos" onclick="cambiarTabMovimientosRecuperacion('todos')">Todos</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="merma" onclick="cambiarTabMovimientosRecuperacion('merma')"><i class="fas fa-trash-can"></i> Mermas</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="cliente" onclick="cambiarTabMovimientosRecuperacion('cliente')"><i class="fas fa-user-xmark"></i> Incobrables</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="faltante" onclick="cambiarTabMovimientosRecuperacion('faltante')"><i class="fas fa-boxes-stacked"></i> Faltantes</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="venta" onclick="cambiarTabMovimientosRecuperacion('venta')"><i class="fas fa-sack-dollar"></i> Ventas</button>
+                        </div>
+                    </div>
+
+                    <div class="audit-movements-table-wrapper">
+                        <table class="audit-movements-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha / Hora</th>
+                                    <th>Tipo</th>
+                                    <th>Concepto y Detalle</th>
+                                    <th style="text-align:right;">Pérdida Originada</th>
+                                    <th style="text-align:right;">Ganancia Aportada</th>
+                                    <th style="text-align:right;">Saldo Resultante</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-movements-tbody">
+                                <!-- Poblado por modules/perdidas.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1407,9 +1479,14 @@
                         <i class="fas fa-list-check"></i> Historial General (Filtros)
                     </button>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
-                    <i class="fas fa-rotate"></i> Actualizar
-                </button>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
+                        <i class="fas fa-rotate"></i> Actualizar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalLimpiadorVentas()" title="Limpiar historial de ventas" style="display:inline-flex; align-items:center; gap:6px; font-weight:700;">
+                        <i class="fas fa-broom"></i> Limpiador
+                    </button>
+                </div>
             </div>
 
             <!-- Subview 1: Ventas de Hoy -->
@@ -2172,6 +2249,89 @@
         <span>Perfil</span>
     </button>
 </nav>
+
+<!-- 📊 Modal de Informe Contable & Diagrama de Recuperación de Pérdidas -->
+<div id="modal-informe-recuperacion" class="modal" onclick="if(event.target === this) cerrarModalInformeRecuperacion();">
+    <div class="audit-modal-content-wide">
+        <div class="audit-report-header">
+            <div>
+                <h3 style="margin:0; display:flex; align-items:center; gap:0.5rem; font-size:1.2rem; color:var(--audit-slate-900);">
+                    <i class="fas fa-scale-balanced" style="color:var(--audit-primary);"></i>
+                    <span>Informe de Auditoría Financiera: Pérdidas y Recuperación</span>
+                </h3>
+                <p style="margin:0.25rem 0 0 0; font-size:0.82rem; color:var(--audit-slate-500);">
+                    Análisis contable del ciclo de amortización, cobertura de mermas y balance patrimonial del inventario.
+                </p>
+            </div>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalInformeRecuperacion()" aria-label="Cerrar modal" style="background:transparent; border:none; font-size:1.2rem; cursor:pointer; color:var(--audit-slate-500);">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- 4 Tarjetas KPIs de Resumen -->
+        <div class="audit-report-kpis-grid">
+            <div class="audit-report-kpi-card">
+                <span class="label">Pérdidas Absorbidas</span>
+                <span class="val danger" id="audit-report-perdida-total">$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Ganancia Neta Ventas</span>
+                <span class="val success" id="audit-report-ganancia-total">$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Excedente Favorable</span>
+                <span class="val success" id="audit-report-excedente">+$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Tasa de Cobertura</span>
+                <span class="val primary" id="audit-report-tasa">100%</span>
+            </div>
+        </div>
+
+        <!-- 📈 Diagrama Visual Proporcional de Compensación -->
+        <div class="audit-diagram-card">
+            <h4 class="audit-diagram-title">
+                <i class="fas fa-chart-column" style="color:var(--audit-primary);"></i>
+                <span>Diagrama de Balance: Composición de Pérdidas vs. Ganancias Comerciales</span>
+            </h4>
+            <div id="audit-report-diagram-svg-wrap">
+                <!-- Inyectado dinámicamente con barras interactivas SVG -->
+            </div>
+        </div>
+
+        <!-- Veredicto Contable -->
+        <div id="audit-report-verdict-box" class="audit-verdict-box">
+            <i class="fas fa-circle-check" style="font-size:1.4rem; color:#10b981; margin-top:2px;"></i>
+            <div>
+                <strong>Auditoría Contable 100% Saneada y Compensada</strong>
+                <p style="margin:4px 0 0 0;">
+                    Toda la merma económica ha sido amortizada en su totalidad.
+                </p>
+            </div>
+        </div>
+
+        <!-- Acciones del Reporte -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-top:1px solid var(--audit-slate-200); padding-top:1rem; margin-top:0.25rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <button type="button" class="btn btn-success" onclick="descargarInformeRecuperacionExcel()" style="background:#16a34a; border-color:#15803d; color:#ffffff; display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-file-excel"></i> Descargar en Excel (.csv)
+                </button>
+                <button type="button" class="btn btn-outline" onclick="imprimirReporteAuditoria()" style="display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-print"></i> Imprimir Reporte
+                </button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <button type="button" id="audit-report-btn-confirmar-cierre" class="btn btn-primary" onclick="confirmarReinicioCiclo()" style="background:#059669; border-color:#047857; color:#ffffff; display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-rotate"></i> Confirmar Cierre y Reiniciar Barra
+                </button>
+                <button type="button" class="btn btn-outline" onclick="cerrarModalInformeRecuperacion()">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Firebase SDK Compat (Firestore + Auth) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>

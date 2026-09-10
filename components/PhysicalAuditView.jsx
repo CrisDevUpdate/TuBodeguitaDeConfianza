@@ -222,8 +222,57 @@ export default function PhysicalAuditView({
     if (typeof window !== 'undefined') window.conteosFisicos = updated;
   };
 
+  // Estados para filtros de fecha, ciclos y movimientos en Auditoría Financiera
+  const [filtroCiclo, setFiltroCiclo] = useState(() => {
+    if (typeof window !== 'undefined' && window.AppState && window.AppState.cicloRecuperacionActual) {
+      return window.AppState.cicloRecuperacionActual;
+    }
+    return 'actual';
+  });
+  const [filtroFecha, setFiltroFecha] = useState(() => {
+    if (typeof window !== 'undefined' && window.AppState && window.AppState.filtroFechaRecuperacion) {
+      return window.AppState.filtroFechaRecuperacion;
+    }
+    return 'todos';
+  });
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [tabMovimientos, setTabMovimientos] = useState('todos');
+
+  // Sincronizar cambios de filtro de fecha
+  const handleFiltroFecha = (tipo) => {
+    setFiltroFecha(tipo);
+    if (typeof window !== 'undefined' && typeof window.establecerFiltroFechaRecuperacion === 'function') {
+      window.establecerFiltroFechaRecuperacion(tipo);
+    }
+  };
+
+  const handleAplicarRangoPersonalizado = () => {
+    if (typeof window !== 'undefined') {
+      if (window.AppState) {
+        window.AppState.filtroFechaDesde = fechaDesde;
+        window.AppState.filtroFechaHasta = fechaHasta;
+      }
+      if (typeof window.aplicarRangoPersonalizadoRecuperacion === 'function') {
+        window.aplicarRangoPersonalizadoRecuperacion();
+      }
+    }
+  };
+
+  const handleCambiarCiclo = (cicloId) => {
+    setFiltroCiclo(cicloId);
+    if (typeof window !== 'undefined' && typeof window.cambiarCicloRecuperacion === 'function') {
+      window.cambiarCicloRecuperacion(cicloId);
+    }
+  };
+
   // 9. Métricas Financieras (Resumen de Pérdidas y Recuperación)
   const financialSummary = useMemo(() => {
+    // Si la función centralizada de cálculo en modules/perdidas.js está disponible, delegar en ella
+    if (typeof window !== 'undefined' && typeof window.calcularResumenFinancieroRecuperacion === 'function') {
+      return window.calcularResumenFinancieroRecuperacion();
+    }
+
     const elim = eliminacionesData || (typeof window !== 'undefined' && window.eliminaciones) || [];
     const cliElim = clientesEliminadosData || (typeof window !== 'undefined' && window.clientesEliminados) || [];
     const vtas = ventasData || (typeof window !== 'undefined' && window.ventas) || [];
@@ -255,7 +304,6 @@ export default function PhysicalAuditView({
 
     // Ganancia generada por ventas (solo transacciones debidamente confirmadas)
     const gananciaGenerada = vtas.reduce((total, v) => {
-      // Si existe la función centralizada de verificación, utilizarla
       if (typeof window !== 'undefined' && typeof window.esVentaOTransaccionConfirmada === 'function') {
         if (!window.esVentaOTransaccionConfirmada(v)) return total;
       } else {
@@ -289,7 +337,25 @@ export default function PhysicalAuditView({
       perdidaPendiente,
       ratioRecuperacion
     };
-  }, [eliminacionesData, clientesEliminadosData, ventasData, physicalCounts, productList, getDifference]);
+  }, [eliminacionesData, clientesEliminadosData, ventasData, physicalCounts, productList, getDifference, filtroCiclo, filtroFecha, fechaDesde, fechaHasta]);
+
+  // Obtener lista de movimientos contables
+  const movimientosList = useMemo(() => {
+    if (typeof window !== 'undefined' && typeof window.obtenerListaMovimientosRecuperacion === 'function') {
+      const all = window.obtenerListaMovimientosRecuperacion();
+      if (tabMovimientos === 'todos') return all;
+      return all.filter(m => m.tipo === tabMovimientos);
+    }
+    return [];
+  }, [financialSummary, tabMovimientos]);
+
+  // Lista de ciclos cerrados disponibles
+  const ciclosDisponibles = useMemo(() => {
+    if (typeof window !== 'undefined' && window.AppState && Array.isArray(window.AppState.ciclosRecuperacion)) {
+      return window.AppState.ciclosRecuperacion;
+    }
+    return [];
+  }, [financialSummary]);
 
   const hasPendingCounts = Object.keys(physicalCounts).length > 0;
 
@@ -586,7 +652,7 @@ export default function PhysicalAuditView({
           🛡️ 4. SECCIÓN "RESUMEN DE PÉRDIDAS Y RECUPERACIÓN" (FINANCIAL AUDIT)
           -------------------------------------------------------------------- */}
       <div className="audit-financial-card">
-        {/* Encabezado Estilizado con Badge de Estado Financiero */}
+        {/* Encabezado Estilizado con Badge de Estado Financiero y Acciones */}
         <div className="audit-financial-header">
           <div className="audit-financial-titles">
             <h3>
@@ -595,22 +661,139 @@ export default function PhysicalAuditView({
             </h3>
             <p>
               Seguimiento contable en tiempo real: las pérdidas originadas por mermas, vencimientos,
-              deudas incobrables y faltantes físicos son compensadas progresivamente por el margen neto de ventas.
+              deudas incobrables y faltantes físicos son compensadas progresivamente por el margen neto de ventas confirmadas.
             </p>
           </div>
 
-          <div
-            className={`audit-financial-status-badge ${
-              financialSummary.perdidaPendiente === 0 ? 'healthy' : 'critical'
-            }`}
-          >
-            <i
-              className={`fas ${
-                financialSummary.perdidaPendiente === 0 ? 'fa-circle-check' : 'fa-triangle-exclamation'
+          <div className="audit-financial-actions">
+            <div
+              className={`audit-financial-status-badge ${
+                financialSummary.perdidaPendiente === 0 ? 'healthy' : 'critical'
               }`}
-            ></i>
+            >
+              <i
+                className={`fas ${
+                  financialSummary.perdidaPendiente === 0 ? 'fa-circle-check' : 'fa-triangle-exclamation'
+                }`}
+              ></i>
+              <span>
+                {financialSummary.perdidaPendiente === 0 ? 'Equilibrio / Sin Deuda' : 'Balance Pendiente'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="audit-action-btn audit-btn-reset-cycle"
+              onClick={() => {
+                if (typeof window !== 'undefined' && typeof window.solicitarReinicioCicloRecuperacion === 'function') {
+                  window.solicitarReinicioCicloRecuperacion();
+                }
+              }}
+              title="Reiniciar ciclo una vez alcanzado el 100% recuperado"
+            >
+              <i className="fas fa-rotate"></i>
+              <span>Reiniciar Ciclo (100% Recuperado)</span>
+            </button>
+
+            <button
+              type="button"
+              className="audit-action-btn audit-btn-report"
+              onClick={() => {
+                if (typeof window !== 'undefined' && typeof window.abrirModalInformeRecuperacion === 'function') {
+                  window.abrirModalInformeRecuperacion();
+                }
+              }}
+              title="Ver informe ejecutivo y diagrama analítico"
+            >
+              <i className="fas fa-chart-line"></i>
+              <span>Ver Informe & Diagrama</span>
+            </button>
+
+            <button
+              type="button"
+              className="audit-action-btn audit-btn-excel"
+              onClick={() => {
+                if (typeof window !== 'undefined' && typeof window.descargarInformeRecuperacionExcel === 'function') {
+                  window.descargarInformeRecuperacionExcel();
+                }
+              }}
+              title="Descargar auditoría completa en Excel"
+            >
+              <i className="fas fa-file-excel"></i>
+              <span>Exportar a Excel</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 📅 Barra de Filtros de Fecha & Selector de Ciclo Contable */}
+        <div className="audit-filters-bar">
+          <div className="audit-cycle-selector-group">
+            <label htmlFor="audit-view-filtro-ciclo">
+              <i className="fas fa-layer-group" style={{ color: 'var(--audit-primary)' }}></i>
+              Ciclo:
+            </label>
+            <select
+              id="audit-view-filtro-ciclo"
+              className="audit-cycle-select"
+              value={filtroCiclo}
+              onChange={(e) => handleCambiarCiclo(e.target.value)}
+            >
+              <option value="actual">Ciclo Actual (En curso)</option>
+              {ciclosDisponibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre || `Ciclo ${c.id}`} (Cerrado)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="audit-date-pills-group">
+            {[
+              { id: 'todos', label: 'Todo el Ciclo' },
+              { id: 'hoy', label: 'Hoy' },
+              { id: 'semana', label: 'Esta Semana' },
+              { id: 'mes', label: 'Este Mes' },
+              { id: 'ultimos30', label: 'Últimos 30 días' },
+              { id: 'personalizado', label: 'Personalizado', icon: 'fas fa-sliders' }
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`audit-filter-pill ${filtroFecha === p.id ? 'active' : ''}`}
+                onClick={() => handleFiltroFecha(p.id)}
+              >
+                {p.icon && <i className={p.icon}></i>} {p.label}
+              </button>
+            ))}
+          </div>
+
+          {filtroFecha === 'personalizado' && (
+            <div className="audit-custom-date-inputs">
+              <label>Desde:</label>
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => {
+                  setFechaDesde(e.target.value);
+                  handleAplicarRangoPersonalizado();
+                }}
+              />
+              <label>Hasta:</label>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => {
+                  setFechaHasta(e.target.value);
+                  handleAplicarRangoPersonalizado();
+                }}
+              />
+            </div>
+          )}
+
+          <div className="audit-active-filter-badge">
+            <i className="fas fa-calendar-check"></i>
             <span>
-              {financialSummary.perdidaPendiente === 0 ? 'Equilibrio / Sin Deuda' : 'Balance Pendiente'}
+              Filtro activo: <strong>{filtroFecha.toUpperCase()}</strong>
             </span>
           </div>
         </div>
@@ -679,6 +862,97 @@ export default function PhysicalAuditView({
               <span className="audit-legend-dot pending"></span>
               <span>Por Recuperar (${financialSummary.perdidaPendiente.toFixed(2)})</span>
             </div>
+          </div>
+        </div>
+
+        {/* 📋 Historial Detallado de Movimientos y Amortizaciones */}
+        <div className="audit-movements-section">
+          <div className="audit-movements-header">
+            <h4 className="audit-movements-title">
+              <i className="fas fa-list-check" style={{ color: 'var(--audit-primary)' }}></i>
+              <span>Historial de Amortización & Movimientos Contables</span>
+            </h4>
+            <div className="audit-movements-tabs">
+              {[
+                { id: 'todos', label: 'Todos' },
+                { id: 'merma', label: 'Mermas', icon: 'fas fa-trash-can' },
+                { id: 'cliente', label: 'Incobrables', icon: 'fas fa-user-xmark' },
+                { id: 'faltante', label: 'Faltantes', icon: 'fas fa-boxes-stacked' },
+                { id: 'venta', label: 'Ventas', icon: 'fas fa-sack-dollar' }
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`audit-mov-tab ${tabMovimientos === t.id ? 'active' : ''}`}
+                  onClick={() => setTabMovimientos(t.id)}
+                >
+                  {t.icon && <i className={t.icon}></i>} {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="audit-movements-table-wrapper">
+            <table className="audit-movements-table">
+              <thead>
+                <tr>
+                  <th>Fecha / Hora</th>
+                  <th>Tipo</th>
+                  <th>Concepto y Detalle</th>
+                  <th style={{ textAlign: 'right' }}>Pérdida Originada</th>
+                  <th style={{ textAlign: 'right' }}>Ganancia Aportada</th>
+                  <th style={{ textAlign: 'right' }}>Saldo Resultante</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientosList.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--audit-slate-500)' }}>
+                      No se registran movimientos para el filtro de fechas o ciclo seleccionado.
+                    </td>
+                  </tr>
+                ) : (
+                  movimientosList.map((m) => {
+                    const badgeClass =
+                      m.tipo === 'merma'
+                        ? 'danger'
+                        : m.tipo === 'cliente'
+                        ? 'warning'
+                        : m.tipo === 'faltante'
+                        ? (m.tipoLabel && m.tipoLabel.includes('Sobrante') ? 'success' : 'slate')
+                        : 'success';
+
+                    return (
+                      <tr key={m.id}>
+                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', color: 'var(--audit-slate-500)' }}>
+                          {m.fechaHora}
+                        </td>
+                        <td>
+                          <span className={`audit-mov-badge ${badgeClass}`}>
+                            {m.tipoLabel}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--audit-slate-900)' }}>{m.concepto}</div>
+                          {m.subdetalle && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--audit-slate-500)' }}>{m.subdetalle}</div>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: m.perdidaUSD > 0 ? '#ef4444' : 'var(--audit-slate-400)' }}>
+                          {m.perdidaUSD > 0 ? `-$${m.perdidaUSD.toFixed(2)}` : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: m.gananciaUSD > 0 ? '#10b981' : 'var(--audit-slate-400)' }}>
+                          {m.gananciaUSD > 0 ? `+$${m.gananciaUSD.toFixed(2)}` : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: m.saldoResultante > 0 ? '#ef4444' : '#10b981' }}>
+                          {m.saldoResultante > 0 ? `-$${m.saldoResultante.toFixed(2)}` : '+$0.00 (100%)'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

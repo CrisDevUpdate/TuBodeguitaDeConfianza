@@ -49,14 +49,26 @@ const AppState = window.AppState = window.InventoryApp.state = {
     },
     canjesPremios: [],
     notificaciones: [],
-    nextProductSequence: 1
+    nextProductSequence: 1,
+    ciclosRecuperacion: [],
+    cicloRecuperacionActual: {
+        id: 'ciclo_actual',
+        numero: 1,
+        fechaInicio: null,
+        estado: 'ACTIVO'
+    },
+    filtroFechaRecuperacion: 'todos',
+    rangoFechaPersonalizadoRecuperacion: { desde: '', hasta: '' },
+    cicloSeleccionadoRecuperacion: 'actual',
+    filtroTipoHistorialRecuperacion: 'todos'
 };
 
 const legacyGlobals = [
     'tasaActiva','tasaUSD_BCV','tasaEUR_BCV','fechaTasaBCV','monedaSeleccionada',
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
-    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones'
+    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
+    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
