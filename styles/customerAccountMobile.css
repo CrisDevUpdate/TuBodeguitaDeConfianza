@@ -1,0 +1,550 @@
+/**
+ * styles/customerAccountMobile.css
+ * Rediseño UI/UX Móvil de "Mi Cuenta" para Clientes
+ * - Billetera digital moderna (Hero Wallet Card)
+ * - Métricas 2x2 compactas y legibles
+ * - Listados basados en Tarjetas individuales (cero desbordamiento horizontal)
+ * - Padding inferior seguro para navegación móvil
+ */
+
+/* Contenedor Principal de la Vista Móvil de Cuenta */
+.customer-account-container {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 14px 96px 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--font-main, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+/* 📱 1. CABECERA Y RESUMEN DEL CLIENTE */
+.customer-hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+  margin-bottom: 2px;
+}
+
+.customer-profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.customer-avatar-wrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-accent, #3b82f6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card, #ffffff);
+}
+
+.customer-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-avatar-fallback {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary-accent, #3b82f6);
+}
+
+.customer-profile-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.customer-profile-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.customer-points-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-top: 3px;
+  width: fit-content;
+}
+
+.customer-points-badge i {
+  color: #f59e0b;
+  font-size: 0.72rem;
+}
+
+.customer-bcv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.customer-bcv-pill strong {
+  color: var(--text-main, #0f172a);
+}
+
+/* Ocultamiento estricto de elementos administrativos cuando el rol es cliente */
+body.rol-cliente #btn-volver-admin,
+body.rol-cliente .currency-switch,
+body.rol-cliente .admin-only-control {
+  display: none !important;
+}
+
+/* 💳 2. TARJETA PRINCIPAL DE ESTADO DE CUENTA (HERO WALLET CARD) */
+.hero-wallet-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 20px 18px;
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 4px 10px -2px rgba(15, 23, 42, 0.15);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+/* Variante Deuda Activa (Índigo Profundo Elegante) */
+.hero-wallet-card.wallet-deuda {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+}
+
+/* Variante Solvente (Esmeralda Prosperidad) */
+.hero-wallet-card.wallet-solvente {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 55%, #047857 100%);
+  border: 1px solid rgba(52, 211, 153, 0.28);
+}
+
+/* Destello decorativo de fondo */
+.hero-wallet-card::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.wallet-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.wallet-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.wallet-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+}
+
+.wallet-balance-block {
+  margin-bottom: 18px;
+}
+
+.wallet-balance-title {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.wallet-balance-amount {
+  font-size: 2.1rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.wallet-balance-currency {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wallet-balance-ves {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 4px;
+  display: block;
+  font-weight: 500;
+}
+
+/* Botón CTA dentro de la tarjeta */
+.wallet-cta-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: #ffffff;
+  color: #1e1b4b;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-wallet-card.wallet-solvente .wallet-cta-btn {
+  color: #065f46;
+}
+
+.wallet-cta-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-cta-btn i {
+  font-size: 1rem;
+}
+
+/* 📊 3. GRILLA DE MÉTRICAS COMPACTA (2x2 GRID METRICS) */
+.customer-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.metric-soft-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.metric-icon-blue { background: #dbeafe; color: #1d4ed8; }
+.metric-icon-green { background: #dcfce7; color: #15803d; }
+.metric-icon-purple { background: #ede9fe; color: #6d28d9; }
+.metric-icon-amber { background: #fef3c7; color: #b45309; }
+
+.metric-label {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+  line-height: 1.15;
+}
+
+.metric-subtext {
+  font-size: 0.7rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 📑 4. LISTADOS MÓVILES BASADOS EN TARJETAS (CARD-BASED LISTS) */
+.customer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customer-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.customer-section-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-section-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.customer-section-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--primary-accent, #2563eb);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.customer-section-action-btn:active {
+  opacity: 0.85;
+}
+
+.cards-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Tarjeta individual de Transacción (Compra o Abono) */
+.transaction-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.transaction-card:active {
+  background: #f8fafc;
+}
+
+.tx-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tx-icon-pill {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.tx-icon-sale { background: #eff6ff; color: #2563eb; }
+.tx-icon-credit { background: #fef3c7; color: #d97706; }
+.tx-icon-pago { background: #f0fdf4; color: #16a34a; }
+.tx-icon-ves { background: #e0f2fe; color: #0284c7; }
+
+.tx-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.tx-ref {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tx-type-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.tx-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-date {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.tx-amount {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.tx-amount-ves {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.tx-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.badge-approved { background: #dcfce7; color: #15803d; }
+.badge-pending { background: #fef3c7; color: #b45309; }
+.badge-rejected { background: #fee2e2; color: #b91c1c; }
+.badge-settled { background: #e0e7ff; color: #4338ca; }
+
+/* Tarjeta de estado vacío limpia */
+.empty-cards-state {
+  background: var(--card-bg, #ffffff);
+  border: 1px dashed var(--border-light, #cbd5e1);
+  border-radius: 14px;
+  padding: 28px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-cards-state i {
+  font-size: 2rem;
+  color: #94a3b8;
+}
+
+.empty-cards-state p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  max-width: 280px;
+}
+
+/* ⚙️ 5. AJUSTES RESPONSIVOS */
+@media (min-width: 641px) {
+  .customer-account-container {
+    padding-bottom: 40px;
+  }
+}

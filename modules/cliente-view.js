@@ -1188,220 +1188,272 @@ async function renderizarEstadoCuentaCliente() {
     const totalCompradoVES = tasa > 0 ? (totalCompradoUSD * tasa) : 0;
     const esSolvente = saldoDeudaUSD <= 0.01;
 
-    container.innerHTML = `
-        <!-- Tarjeta de Solvencia / Estado General -->
-        <div class="card" style="margin-bottom:20px; background:${esSolvente ? 'linear-gradient(135deg, #065f46, #047857)' : 'linear-gradient(135deg, #78350f, #92400e)'}; color:#ffffff; border:none; box-shadow:0 4px 15px rgba(0,0,0,0.12);">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-                <div style="display:flex; align-items:center; gap:14px;">
-                    <div style="width:54px; height:54px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:1.8rem;">
-                        <i class="fas ${esSolvente ? 'fa-shield-check' : 'fa-hand-holding-dollar'}"></i>
-                    </div>
-                    <div>
-                        <h2 style="margin:0; font-size:1.3rem; color:#ffffff;">
-                            ${esSolvente ? '¡Cuenta 100% Solvente y al Día!' : 'Saldo Pendiente por Pagar'}
-                        </h2>
-                        <p style="margin:4px 0 0 0; font-size:0.88rem; color:rgba(255,255,255,0.85); line-height:1.4;">
-                            ${esSolvente 
-                                ? 'No tienes deudas pendientes. Tu cuenta corriente se encuentra totalmente solvente.' 
-                                : `Tienes un saldo pendiente de $${saldoDeudaUSD.toFixed(2)} (Bs. ${saldoDeudaVES > 0 ? saldoDeudaVES.toFixed(2) : '—'}).`}
-                        </p>
-                    </div>
-                </div>
-                <div style="text-align:right;">
-                    <span style="font-size:0.75rem; text-transform:uppercase; color:rgba(255,255,255,0.75); display:block;">Total Deuda</span>
-                    <strong style="font-size:1.6rem; color:#ffffff;">$${saldoDeudaUSD.toFixed(2)}</strong>
-                    <small style="display:block; font-size:0.85rem; color:rgba(255,255,255,0.85);">Bs. ${saldoDeudaVES > 0 ? saldoDeudaVES.toFixed(2) : '—'}</small>
-                </div>
-            </div>
-        </div>
+    const formatVES = (val) => Number(val || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        <!-- KPIs Resumen Financiero -->
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:16px; margin-bottom:24px;">
-            <div class="stat-card" style="border-left:4px solid #2563eb;">
-                <div class="stat-icon" style="background:#dbeafe; color:#2563eb;"><i class="fas fa-bag-shopping"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Total Comprado ($)</span>
-                    <h3 class="stat-value">$${totalCompradoUSD.toFixed(2)}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">Bs. ${totalCompradoVES > 0 ? totalCompradoVES.toFixed(2) : '—'}</small>
-                </div>
-            </div>
+    const puntosPorLiberar = esSolvente ? 0 : ventasCliente
+        .filter(v => (v.tipo === 'Crédito' || v.tipo === 'credito') && v.puntosOtorgados)
+        .reduce((sum, v) => sum + Number(v.puntosOtorgados || 0), 0);
 
-            <div class="stat-card" style="border-left:4px solid ${esSolvente ? '#16a34a' : '#d97706'};">
-                <div class="stat-icon" style="background:${esSolvente ? '#dcfce7' : '#fef3c7'}; color:${esSolvente ? '#16a34a' : '#d97706'};">
-                    <i class="fas ${esSolvente ? 'fa-circle-check' : 'fa-clock'}"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-label">Deuda Pendiente</span>
-                    <h3 class="stat-value" style="color:${esSolvente ? '#16a34a' : '#d97706'};">$${saldoDeudaUSD.toFixed(2)}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">${esSolvente ? 'Al día' : `Bs. ${saldoDeudaVES.toFixed(2)}`}</small>
-                </div>
-            </div>
-
-            <div class="stat-card" style="border-left:4px solid #16a34a;">
-                <div class="stat-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-receipt"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Total Abonado</span>
-                    <h3 class="stat-value">$${totalAbonadoUSD.toFixed(2)}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">Bs. ${totalAbonadoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} (${abonosAprobados.length} pagos)</small>
-                </div>
-            </div>
-
-            <div class="stat-card" style="border-left:4px solid #8b5cf6;">
-                <div class="stat-icon" style="background:#ede9fe; color:#8b5cf6;"><i class="fas fa-file-invoice"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Total Pedidos</span>
-                    <h3 class="stat-value">${ventasCliente.length}</h3>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">Historial completo</small>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabla: Historial de Pedidos y Compras -->
-        <div class="card" style="margin-bottom:24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-history" style="color:var(--primary-accent);"></i> Mis Compras y Pedidos
-                </h3>
-                <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${ventasCliente.length} compras</span>
-            </div>
-
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID Venta</th>
-                            <th>Fecha</th>
-                            <th>Artículos</th>
-                            <th>Método</th>
-                            <th class="num">Total ($)</th>
-                            <th style="text-align:center;">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cli-historial-compras-body">
-                        ${ventasCliente.length === 0 ? `
-                            <tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Aún no tienes compras registradas en el sistema.</td></tr>
-                        ` : ventasCliente.slice().reverse().map(v => {
-                            const totalUSD = Number(v.total || 0);
-                            const itemsStr = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ');
-                            const esCredito = v.tipo === 'Crédito';
-                            const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
-
-                            let statusBadge = '<span class="badge-status badge-active"><i class="fas fa-check"></i> Contado</span>';
-                            if (esPendiente) {
-                                statusBadge = '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> Pendiente Confirmación</span>';
-                            } else if (esCredito) {
-                                statusBadge = saldoDeudaUSD > 0 
-                                    ? '<span class="badge-status badge-warning"><i class="fas fa-clock"></i> Pendiente de Pago</span>' 
-                                    : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Cancelado</span>';
-                            }
-
-                            return `
-                                <tr>
-                                    <td><strong>#${v.id}</strong></td>
-                                    <td>${v.fecha}</td>
-                                    <td style="max-width:240px; font-size:0.85rem;" title="${itemsStr}">
-                                        ${itemsStr || 'Venta de productos'}
-                                    </td>
-                                    <td><span class="badge-status-pill ${esCredito ? 'badge-warning' : 'badge-success'}">${v.tipo}</span></td>
-                                    <td class="num font-bold">$${totalUSD.toFixed(2)}</td>
-                                    <td style="text-align:center;">${statusBadge}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tabla: Historial de Abonos y Pagos -->
-        <div class="card" style="margin-bottom:24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-money-check-dollar" style="color:#16a34a;"></i> Mis Pagos y Abonos Registrados
-                    </h3>
-                    <p style="margin:2px 0 0 0; font-size:0.82rem; color:var(--text-muted);">
-                        Reporta tus abonos o transferencias para que el Administrador los concilie y libere tus puntos.
-                    </p>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <span class="badge" style="background:#f1f5f9; color:var(--text-muted); font-weight:700;">${todosAbonosCliente.length} abonos</span>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="abrirModalReportarPagoCliente()" style="display:flex; align-items:center; gap:6px; font-weight:700; padding:8px 14px;">
-                        <i class="fas fa-plus-circle"></i> Reportar Nuevo Abono
-                    </button>
-                </div>
-            </div>
-
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Método de Pago</th>
-                            <th>Referencia</th>
-                            <th class="num">Monto Registrado</th>
-                            <th style="text-align:center;">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cli-historial-abonos-body">
-                        ${todosAbonosCliente.length === 0 ? `
-                            <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Sin abonos de pago registrados todavía. Puedes hacer clic en "Reportar Nuevo Abono" para registrar tu pago.</td></tr>
-                        ` : todosAbonosCliente.slice().reverse().map(a => {
-                            const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
-                            const esRechazado = a.estado === 'RECHAZADO';
-                            const tasaAbono = Number(a.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-
-                            const { esDivisa, montoUSD: usdVal, montoVES: vesVal } = typeof sanitizarAbonoMonedas === 'function'
-                                ? sanitizarAbonoMonedas(a, tasaAbono)
-                                : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
-
-                            const montoPrincipal = esDivisa
-                                ? `$${usdVal.toFixed(2)} USD`
-                                : `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                            const montoSecundario = esDivisa
-                                ? (vesVal > 0 ? `Bs. ${vesVal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '')
-                                : '';
-
-                            const metodoTxt = a.formaPago || a.metodo || 'Pago Móvil / Transferencia';
-                            const badgeMoneda = esDivisa
-                                ? '<span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.72rem; margin-top:3px; display:inline-block; font-weight:600;">💵 Divisas ($ USD)</span>'
-                                : '<span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.72rem; margin-top:3px; display:inline-block; font-weight:600;">🇻🇪 Bolívares (Bs. VES)</span>';
-
-                            return `
-                                <tr>
-                                    <td>${a.fecha}</td>
-                                    <td>
-                                        <div><strong>${metodoTxt}</strong></div>
-                                        ${badgeMoneda}
-                                    </td>
-                                    <td><code>${a.referencia || 'N/A'}</code>${a.nota ? `<br><small style="color:var(--text-muted); font-style:italic;">Nota: ${a.nota}</small>` : ''}</td>
-                                    <td class="num font-bold" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : (esDivisa ? 'var(--success)' : 'var(--primary-accent)'))};">
-                                        <div style="font-size:0.98rem;">${montoPrincipal}</div>
-                                        ${montoSecundario ? `<small style="color:var(--text-muted); font-size:0.75rem; font-weight:normal; display:block;">(equiv. ${montoSecundario})</small>` : ''}
-                                    </td>
-                                    <td style="text-align:center;">
-                                        ${esPendiente 
-                                            ? '<span class="badge-status badge-warning"><i class="fas fa-hourglass-half"></i> En Verificación</span>' 
-                                            : (esRechazado 
-                                                ? '<span class="badge-status" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;"><i class="fas fa-times-circle"></i> Rechazado</span>' 
-                                                : '<span class="badge-status badge-active"><i class="fas fa-check"></i> Pago agregado</span>')}
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- MÓDULO 3: Motor de Temas y Personalización de Estilo en Vista Cliente -->
-        <div id="cliente-theme-selector-container"></div>
-    `;
-
-    // Renderizar Selector de Temas del Cliente
-    if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarSelectorCliente === 'function') {
-        window.InventoryApp.Theme.renderizarSelectorCliente('cliente-theme-selector-container');
+    // Ocultar botón redundante "Volver Admin" en vista cliente si no es admin personificando
+    const esAdminReal = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : (usuario.rol === 'admin');
+    const btnVolverAdmin = document.getElementById('btn-volver-admin');
+    if (btnVolverAdmin && !esAdminReal) {
+        btnVolverAdmin.style.display = 'none';
     }
+
+    container.innerHTML = `
+        <div class="customer-account-container" id="customer-account-view">
+            <!-- 💳 TARJETA PRINCIPAL DE ESTADO DE CUENTA (HERO WALLET CARD) -->
+            <section class="hero-wallet-card ${esSolvente ? 'wallet-solvente' : 'wallet-deuda'}">
+                <div class="wallet-card-header">
+                    <span class="wallet-chip-label">
+                        <i class="fas ${esSolvente ? 'fa-shield-check' : 'fa-wallet'}"></i>
+                        ${esSolvente ? 'Billetera Solvente' : 'Saldo Pendiente de Pago'}
+                    </span>
+                    <span class="wallet-status-tag">
+                        <i class="fas ${esSolvente ? 'fa-circle-check' : 'fa-clock'}"></i>
+                        ${esSolvente ? 'Al día' : 'Pendiente'}
+                    </span>
+                </div>
+
+                <div class="wallet-balance-block">
+                    <span class="wallet-balance-title">
+                        ${esSolvente ? 'Deuda Actual' : 'Total a Pagar'}
+                    </span>
+                    <div class="wallet-balance-amount">
+                        $${saldoDeudaUSD.toFixed(2)}
+                        <span class="wallet-balance-currency">USD</span>
+                    </div>
+                    <span class="wallet-balance-ves">
+                        ≈ Bs. ${tasa > 0 ? formatVES(saldoDeudaVES) : '—'}
+                    </span>
+                </div>
+
+                <button type="button" class="wallet-cta-btn" onclick="abrirModalReportarPagoCliente()">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Pagar / Reportar Abono</span>
+                </button>
+            </section>
+
+            <!-- 📊 3. GRILLA DE MÉTRICAS COMPACTA (2x2 GRID METRICS) -->
+            <section class="customer-metrics-grid">
+                <!-- Total Comprado -->
+                <div class="metric-soft-card">
+                    <div class="metric-header">
+                        <div class="metric-icon-box metric-icon-blue">
+                            <i class="fas fa-bag-shopping"></i>
+                        </div>
+                        <span class="metric-label">Total Comprado</span>
+                    </div>
+                    <div class="metric-value">$${totalCompradoUSD.toFixed(2)}</div>
+                    <span class="metric-subtext">Bs. ${formatVES(totalCompradoVES)}</span>
+                </div>
+
+                <!-- Total Abonado -->
+                <div class="metric-soft-card">
+                    <div class="metric-header">
+                        <div class="metric-icon-box metric-icon-green">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <span class="metric-label">Total Abonado</span>
+                    </div>
+                    <div class="metric-value">$${totalAbonadoUSD.toFixed(2)}</div>
+                    <span class="metric-subtext">Bs. ${formatVES(totalAbonadoVES)} (${abonosAprobados.length})</span>
+                </div>
+
+                <!-- Pedidos Activos -->
+                <div class="metric-soft-card">
+                    <div class="metric-header">
+                        <div class="metric-icon-box metric-icon-purple">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <span class="metric-label">Pedidos Activos</span>
+                    </div>
+                    <div class="metric-value">${ventasCliente.length} ${ventasCliente.length === 1 ? 'Pedido' : 'Pedidos'}</div>
+                    <span class="metric-subtext">Historial registrado</span>
+                </div>
+
+                <!-- Puntos por Liberar -->
+                <div class="metric-soft-card">
+                    <div class="metric-header">
+                        <div class="metric-icon-box metric-icon-amber">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <span class="metric-label">Puntos por Liberar</span>
+                    </div>
+                    <div class="metric-value" style="${puntosPorLiberar > 0 ? 'color:#b45309;' : ''}">+${puntosPorLiberar} Pts</div>
+                    <span class="metric-subtext">${esSolvente ? 'Todos liberados' : 'Bloqueados hasta pagar'}</span>
+                </div>
+            </section>
+
+            <!-- 📑 4. LISTADOS MÓVILES BASADOS EN TARJETAS (CARD-BASED LISTS) -->
+
+            <!-- Sección A: Mis Compras y Pedidos -->
+            <section class="customer-section">
+                <div class="customer-section-header">
+                    <h3 class="customer-section-title">
+                        <i class="fas fa-bag-shopping" style="color:#2563eb;"></i>
+                        <span>Mis Compras y Pedidos</span>
+                    </h3>
+                    <span class="customer-section-badge">${ventasCliente.length} compras</span>
+                </div>
+
+                <div class="cards-list-wrapper">
+                    ${ventasCliente.length === 0 ? `
+                        <div class="empty-cards-state">
+                            <i class="fas fa-box-open"></i>
+                            <p>Aún no tienes compras o pedidos registrados en el sistema.</p>
+                        </div>
+                    ` : ventasCliente.slice().reverse().map(v => {
+                        const totalUSD = Number(v.total || 0);
+                        const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+                        const esCredito = v.tipo === 'Crédito';
+                        const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
+                        const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
+                        const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
+
+                        let badgeClass = 'badge-approved';
+                        let badgeText = 'Contado';
+                        let badgeIcon = 'fa-check';
+
+                        if (esPendiente) {
+                            badgeClass = 'badge-pending';
+                            badgeText = 'Por Confirmar';
+                            badgeIcon = 'fa-hourglass-half';
+                        } else if (esCredito) {
+                            if (saldoDeudaUSD > 0) {
+                                badgeClass = 'badge-pending';
+                                badgeText = 'Pendiente';
+                                badgeIcon = 'fa-clock';
+                            } else {
+                                badgeClass = 'badge-settled';
+                                badgeText = 'Liquidado';
+                                badgeIcon = 'fa-circle-check';
+                            }
+                        }
+
+                        return `
+                            <div class="transaction-card">
+                                <div class="tx-left">
+                                    <div class="tx-icon-pill ${esCredito ? 'tx-icon-credit' : 'tx-icon-sale'}">
+                                        <i class="fas ${esCredito ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}"></i>
+                                    </div>
+                                    <div class="tx-details">
+                                        <div class="tx-ref">
+                                            <span>#${v.id}</span>
+                                            <span class="tx-type-tag">${v.tipo || 'Contado'}</span>
+                                        </div>
+                                        <span class="tx-desc" title="${itemsDesc}">
+                                            ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
+                                        </span>
+                                        <span class="tx-date">
+                                            <i class="far fa-calendar-alt"></i> ${v.fecha || 'Fecha N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="tx-right">
+                                    <span class="tx-amount">$${totalUSD.toFixed(2)}</span>
+                                    <span class="tx-amount-ves">Bs. ${formatVES(totalVES)}</span>
+                                    <span class="tx-status-badge ${badgeClass}">
+                                        <i class="fas ${badgeIcon}"></i>
+                                        ${badgeText}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+
+            <!-- Sección B: Mis Pagos y Abonos Registrados -->
+            <section class="customer-section">
+                <div class="customer-section-header">
+                    <h3 class="customer-section-title">
+                        <i class="fas fa-money-bill-wave" style="color:#16a34a;"></i>
+                        <span>Mis Pagos y Abonos</span>
+                    </h3>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="customer-section-badge">${todosAbonosCliente.length} abonos</span>
+                        <button type="button" class="customer-section-action-btn" onclick="abrirModalReportarPagoCliente()">
+                            <i class="fas fa-plus"></i> Reportar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="cards-list-wrapper">
+                    ${todosAbonosCliente.length === 0 ? `
+                        <div class="empty-cards-state">
+                            <i class="fas fa-receipt"></i>
+                            <p>Sin pagos reportados todavía. Presiona "Reportar" para registrar tu comprobante.</p>
+                        </div>
+                    ` : todosAbonosCliente.slice().reverse().map(a => {
+                        const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION';
+                        const esRechazado = a.estado === 'RECHAZADO';
+                        const tasaAbono = Number(a.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+                        const { esDivisa, montoUSD: usdVal, montoVES: vesVal } = typeof sanitizarAbonoMonedas === 'function'
+                            ? sanitizarAbonoMonedas(a, tasaAbono)
+                            : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+
+                        const montoPrincipal = esDivisa
+                            ? `$${usdVal.toFixed(2)} USD`
+                            : `Bs. ${formatVES(vesVal)}`;
+                        const montoSecundario = esDivisa
+                            ? (vesVal > 0 ? `Bs. ${formatVES(vesVal)}` : '')
+                            : (usdVal > 0 ? `$${usdVal.toFixed(2)} USD` : '');
+
+                        const metodoTxt = a.formaPago || a.metodo || 'Pago Móvil';
+
+                        let statusClass = 'badge-approved';
+                        let statusText = 'Aprobado';
+                        let statusIcon = 'fa-check';
+
+                        if (esPendiente) {
+                            statusClass = 'badge-pending';
+                            statusText = 'En Verificación';
+                            statusIcon = 'fa-hourglass-half';
+                        } else if (esRechazado) {
+                            statusClass = 'badge-rejected';
+                            statusText = 'Rechazado';
+                            statusIcon = 'fa-times-circle';
+                        }
+
+                        return `
+                            <div class="transaction-card">
+                                <div class="tx-left">
+                                    <div class="tx-icon-pill ${esDivisa ? 'tx-icon-pago' : 'tx-icon-ves'}">
+                                        <i class="fas ${esDivisa ? 'fa-dollar-sign' : 'fa-mobile-screen'}"></i>
+                                    </div>
+                                    <div class="tx-details">
+                                        <div class="tx-ref">
+                                            <span>Ref: ${a.referencia || 'S/R'}</span>
+                                            <span class="tx-type-tag">${metodoTxt}</span>
+                                        </div>
+                                        <span class="tx-desc">
+                                            ${a.nota ? `Nota: ${a.nota}` : metodoTxt}
+                                        </span>
+                                        <span class="tx-date">
+                                            <i class="far fa-calendar-alt"></i> ${a.fecha || 'Fecha N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="tx-right">
+                                    <span class="tx-amount" style="color:${esPendiente ? '#d97706' : (esRechazado ? '#dc2626' : '#16a34a')};">
+                                        ${montoPrincipal}
+                                    </span>
+                                    ${montoSecundario ? `<span class="tx-amount-ves">${montoSecundario}</span>` : ''}
+                                    <span class="tx-status-badge ${statusClass}">
+                                        <i class="fas ${statusIcon}"></i>
+                                        ${statusText}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+        </div>
+    `;
 }
 
 /**
