@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="styles/fluid-scroll.css">
     <link rel="stylesheet" href="styles/themeEngine.css">
     <link rel="stylesheet" href="styles/auditDashboard.css">
+    <link rel="stylesheet" href="styles/rewardConfig.css">
 </head>
 <body>
 
@@ -1212,68 +1213,149 @@
 
     <!-- VISTA 7 (ADMIN): CONFIGURADOR DE PREMIO DEL MES & FIDELIZACIÓN -->
     <div id="premio-mes-admin" class="view-content">
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
-                <div>
-                    <h3 style="margin:0;"><i class="fas fa-trophy" style="color:#f59e0b;"></i> Configuración del Premio del Mes & Sistema de Puntos</h3>
-                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
-                        Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y revisa el registro de canjes.
-                    </p>
+        <div class="reward-config-container">
+            <div class="reward-config-header">
+                <div class="reward-config-header-title">
+                    <div class="reward-config-header-icon" aria-hidden="true">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div>
+                        <h2 id="reward-config-title">Configuración del Premio del Mes & Sistema de Puntos</h2>
+                        <p>Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y gestiona la imagen en Vercel Blob.</p>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('usuarios')">
+                <button type="button" class="reward-config-back-btn" onclick="switchTab('usuarios')">
                     <i class="fas fa-users-gear"></i> Ir a Panel de Usuarios
                 </button>
             </div>
 
-            <form onsubmit="guardarConfiguracionPremio(event)">
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
-                    <div class="form-group">
-                        <label for="premio-admin-titulo">Nombre del Premio del Mes <span style="color:var(--danger);">*</span></label>
-                        <input type="text" id="premio-admin-titulo" required placeholder="Ej: Combo Familiar Premium / Freidora de Aire">
+            <form id="form-premio-mes-admin" onsubmit="guardarConfiguracionPremio(event)">
+                <div class="reward-config-grid">
+                    
+                    <!-- Columna Izquierda: Datos y Parámetros -->
+                    <div class="reward-config-card">
+                        <div class="reward-config-card-header">
+                            <h3><i class="fas fa-sliders" style="color:var(--rc-emerald-600);"></i> Parámetros de la Temporada</h3>
+                        </div>
+
+                        <div class="reward-form-group">
+                            <label for="premio-admin-titulo">
+                                Nombre del Premio del Mes <span class="required-mark">*</span>
+                            </label>
+                            <input type="text" id="premio-admin-titulo" class="reward-input" required placeholder="Ej: Cafetera Espresso Digital 1.5L / Freidora de Aire" oninput="actualizarPreviewPremioAdmin()">
+                        </div>
+
+                        <div class="reward-form-row">
+                            <div class="reward-form-group">
+                                <label for="premio-admin-puntos">
+                                    Puntos Requeridos <span class="required-mark">*</span>
+                                </label>
+                                <input type="number" id="premio-admin-puntos" class="reward-input" min="1" step="1" required placeholder="Ej: 200" oninput="actualizarPreviewPremioAdmin()">
+                            </div>
+                            <div class="reward-form-group">
+                                <label for="premio-admin-pts-dolar">
+                                    Puntos por cada $1.00 <span class="required-mark">*</span>
+                                </label>
+                                <input type="number" id="premio-admin-pts-dolar" class="reward-input" min="0.1" step="0.1" required placeholder="Ej: 1" oninput="actualizarPreviewPremioAdmin()">
+                            </div>
+                        </div>
+
+                        <div class="reward-form-group">
+                            <label for="premio-admin-mes">Período de Vigencia</label>
+                            <input type="text" id="premio-admin-mes" class="reward-input" placeholder="Ej: Mes en Curso / Octubre 2026" oninput="actualizarPreviewPremioAdmin()">
+                        </div>
+
+                        <div class="reward-form-group">
+                            <label for="premio-admin-desc">
+                                <span>Descripción Detallada del Premio <span class="required-mark">*</span></span>
+                            </label>
+                            <textarea id="premio-admin-desc" class="reward-textarea" rows="3" required placeholder="Describe qué incluye el premio y condiciones de canje para tus clientes..." oninput="actualizarPreviewPremioAdmin()"></textarea>
+                            <div id="reward-desc-char-count" class="reward-char-counter">0 / 280 caracteres</div>
+                        </div>
+
+                        <!-- Plantillas Rápidas Preconfiguradas (Chips Horizontales) -->
+                        <div class="reward-presets-section">
+                            <div class="reward-presets-title">
+                                <i class="fas fa-wand-magic-sparkles" style="color:var(--rc-amber-500);"></i>
+                                <span>Plantillas Rápidas Preconfiguradas</span>
+                            </div>
+                            <div class="reward-presets-grid" id="premio-admin-presets"></div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="premio-admin-puntos">Puntos Requeridos para Canjear <span style="color:var(--danger);">*</span></label>
-                        <input type="number" id="premio-admin-puntos" min="1" step="1" required placeholder="Ej: 500">
+
+                    <!-- Columna Derecha: Dropzone Multimedia Vercel Blob & Live Preview -->
+                    <div class="reward-config-card">
+                        <div class="reward-config-card-header">
+                            <h3><i class="fas fa-cloud-arrow-up" style="color:var(--rc-emerald-600);"></i> Multimedia & Live Preview</h3>
+                            <span class="reward-dropzone-badge">
+                                <i class="fas fa-bolt"></i> Vercel Blob Storage
+                            </span>
+                        </div>
+
+                        <!-- Dropzone Multimedia -->
+                        <div id="reward-dropzone-box" class="reward-dropzone" onclick="document.getElementById('premio-file-blob-input').click()">
+                            <input type="file" id="premio-file-blob-input" class="reward-dropzone-input" accept="image/png, image/jpeg, image/webp" onchange="manejarSubidaImagenPremioBlob(event)">
+                            <div class="reward-dropzone-content">
+                                <div class="reward-dropzone-icon" id="dropzone-icon-status">
+                                    <i class="fas fa-cloud-arrow-up"></i>
+                                </div>
+                                <div>
+                                    <p class="reward-dropzone-title" id="dropzone-title-status">Arrastra una imagen o haz clic aquí</p>
+                                    <p class="reward-dropzone-hint">Sube directo a Vercel Blob (.png, .jpg, .webp hasta 8MB)</p>
+                                </div>
+                            </div>
+                            <!-- Barra de progreso oculta por defecto -->
+                            <div id="reward-upload-progress-container" class="reward-upload-progress" style="display:none;">
+                                <div class="reward-progress-bar-track">
+                                    <div id="reward-progress-bar-fill" class="reward-progress-bar-fill" style="width:0%;"></div>
+                                </div>
+                                <div class="reward-upload-status">
+                                    <span id="reward-upload-status-text">Subiendo...</span>
+                                    <span id="reward-upload-status-percent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="premio-admin-img" value="">
+
+                        <!-- Tarjeta Live Preview (Vista del Cliente) -->
+                        <div>
+                            <div style="margin-bottom:10px; font-size:0.82rem; font-weight:700; color:var(--rc-slate-600); display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-eye" style="color:var(--rc-emerald-600);"></i> Vista Previa del Cliente (En Vivo):
+                            </div>
+
+                            <div class="reward-preview-box">
+                                <div class="reward-preview-img-wrapper">
+                                    <img id="preview-premio-img" src="https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80" alt="Premio" class="reward-preview-img">
+                                    <div id="preview-premio-puntos" class="reward-preview-badge-points">
+                                        <i class="fas fa-star"></i> 200 Pts Requeridos
+                                    </div>
+                                    <div id="preview-premio-vigencia" class="reward-preview-vigencia-badge">
+                                        <i class="fas fa-calendar-check"></i> Mes en Curso
+                                    </div>
+                                </div>
+                                <div class="reward-preview-body">
+                                    <h4 id="preview-premio-titulo" class="reward-preview-title">Cafetera Espresso Digital 1.5L</h4>
+                                    <p id="preview-premio-desc" class="reward-preview-desc">Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!</p>
+                                    <div class="reward-preview-footer">
+                                        <span>Equivalencia:</span>
+                                        <span id="preview-premio-rate" class="reward-preview-rate">$1.00 = +1 Pts</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="premio-admin-pts-dolar">Puntos Otorgados por cada $1.00 <span style="color:var(--danger);">*</span></label>
-                        <input type="number" id="premio-admin-pts-dolar" min="0.1" step="0.1" required placeholder="Ej: 10">
-                    </div>
-                    <div class="form-group">
-                        <label for="premio-admin-mes">Mes de Vigencia</label>
-                        <input type="text" id="premio-admin-mes" placeholder="Ej: Octubre 2026">
-                    </div>
+
                 </div>
 
-                <div class="form-group" style="margin-top:12px;">
-                    <label for="premio-admin-desc">Descripción Detallada del Premio <span style="color:var(--danger);">*</span></label>
-                    <textarea id="premio-admin-desc" rows="2" required placeholder="Describe qué incluye el premio y condiciones de canje..."></textarea>
-                </div>
-
-                <div class="form-group" style="margin-top:12px;">
-                    <label for="premio-admin-img">URL de Imagen del Premio</label>
-                    <input type="url" id="premio-admin-img" placeholder="https://images.unsplash.com/...">
-                </div>
-
-                <div class="form-group" style="margin-top:12px; background:#f8fafc; padding:12px 16px; border-radius:10px; border:1px solid var(--border);">
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; font-weight:700; color:var(--text-main);">
-                        <input type="checkbox" id="premio-temporada-activa" checked style="width:18px; height:18px; cursor:pointer;">
-                        <span>Temporada de Gamificación & Acumulación de Puntos Activa (Desmarca para activar Modo Invierno / Hibernación)</span>
-                    </label>
-                </div>
-
-                <!-- Presets Rápidos -->
-                <div style="margin-top:14px;">
-                    <label style="font-size:0.85rem; font-weight:700; color:var(--text-main);">Plantillas Rápidas Preconfiguradas:</label>
-                    <div class="premio-presets-grid" id="premio-admin-presets"></div>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
-                    <button type="button" class="btn btn-outline" onclick="anunciarTemporadaWhatsApp()" style="color:#16a34a; border-color:#16a34a; font-weight:700;">
-                        <i class="fab fa-whatsapp"></i> Anunciar Nueva Temporada por WhatsApp
+                <!-- Barra de Acción Inferior -->
+                <div class="reward-action-bar">
+                    <button type="button" class="reward-btn-whatsapp" onclick="anunciarTemporadaWhatsApp()">
+                        <i class="fab fa-whatsapp" style="font-size:1.15rem;"></i>
+                        <span>Anunciar Nueva Temporada por WhatsApp</span>
                     </button>
-                    <button type="submit" class="btn btn-success" style="padding:10px 24px; font-weight:700;">
-                        <i class="fas fa-floppy-disk"></i> Guardar y Activar Premio del Mes
+                    <button type="submit" id="btn-guardar-activar-premio-mes" class="reward-btn-save">
+                        <i class="fas fa-floppy-disk"></i>
+                        <span>Guardar y Activar Premio del Mes</span>
                     </button>
                 </div>
             </form>

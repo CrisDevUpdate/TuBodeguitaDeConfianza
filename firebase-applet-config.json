@@ -1,12 +1,12 @@
 {
   "projectId": "tubodeguitadeconfianza",
-  "appId": "1:851659747065:web:175908dcd4bb4c68af7c28",
+  "appId": "1:851659747065:web:87486f1d0e541357af7c28",
   "apiKey": "AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA",
   "authDomain": "tubodeguitadeconfianza.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-tubodeguitadecon-7145ac79-a848-43d7-8106-96fe7a2467f8",
   "storageBucket": "tubodeguitadeconfianza.firebasestorage.app",
   "messagingSenderId": "851659747065",
-  "measurementId": "G-9TDEL6NVCQ",
-  "oAuthClientId": "",
+  "measurementId": "",
+  "oAuthClientId": "851659747065-koir56g49s4gqldf2tt0ensama826oo8.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

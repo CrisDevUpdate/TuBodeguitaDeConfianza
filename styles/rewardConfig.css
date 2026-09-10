@@ -1,0 +1,677 @@
+/**
+ * /styles/rewardConfig.css
+ * Estilos modernos para el panel administrativo de Configuración del Premio del Mes
+ * Arquitectura Grid de 2 Columnas, Drag & Drop Vercel Blob y Micro-animaciones.
+ */
+
+:root {
+  --rc-emerald-500: #10b981;
+  --rc-emerald-600: #059669;
+  --rc-emerald-700: #047857;
+  --rc-amber-500: #f59e0b;
+  --rc-amber-600: #d97706;
+  --rc-slate-50: #f8fafc;
+  --rc-slate-100: #f1f5f9;
+  --rc-slate-200: #e2e8f0;
+  --rc-slate-300: #cbd5e1;
+  --rc-slate-400: #94a3b8;
+  --rc-slate-600: #475569;
+  --rc-slate-700: #334155;
+  --rc-slate-800: #1e293b;
+  --rc-slate-900: #0f172a;
+  --rc-radius-sm: 8px;
+  --rc-radius-md: 12px;
+  --rc-radius-lg: 16px;
+  --rc-radius-xl: 20px;
+}
+
+/* Contenedor Principal */
+.reward-config-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 4px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--rc-slate-800);
+}
+
+/* Header del Módulo */
+.reward-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rc-slate-200);
+}
+
+.reward-config-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reward-config-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rc-radius-md);
+  background: #fef3c7;
+  color: var(--rc-amber-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
+}
+
+.reward-config-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--rc-slate-900);
+  letter-spacing: -0.02em;
+}
+
+.reward-config-header p {
+  margin: 4px 0 0 0;
+  font-size: 0.88rem;
+  color: var(--rc-slate-600);
+}
+
+.reward-config-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1.5px solid var(--rc-slate-300);
+  border-radius: var(--rc-radius-md);
+  color: var(--rc-slate-700);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reward-config-back-btn:hover {
+  background: var(--rc-slate-100);
+  border-color: var(--rc-slate-400);
+  transform: translateY(-1px);
+}
+
+/* Grid de 2 Columnas Equilibrado */
+.reward-config-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .reward-config-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+/* Tarjetas de Panel */
+.reward-config-card {
+  background: #ffffff;
+  border-radius: var(--rc-radius-xl);
+  border: 1px solid var(--rc-slate-200);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  padding: 24px;
+  position: relative;
+}
+
+.reward-config-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rc-slate-100);
+}
+
+.reward-config-card-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--rc-slate-800);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Formulario & Campos */
+.reward-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 580px) {
+  .reward-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reward-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.reward-form-group label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--rc-slate-700);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reward-form-group label .required-mark {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.reward-input,
+.reward-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  color: var(--rc-slate-900);
+  background: #ffffff;
+  border: 1.5px solid var(--rc-slate-200);
+  border-radius: var(--rc-radius-md);
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.reward-input:focus,
+.reward-textarea:focus {
+  border-color: var(--rc-emerald-500);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  background: #ffffff;
+}
+
+.reward-input::placeholder,
+.reward-textarea::placeholder {
+  color: var(--rc-slate-400);
+}
+
+.reward-textarea {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.5;
+}
+
+.reward-char-counter {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--rc-slate-400);
+  text-align: right;
+  margin-top: 4px;
+}
+
+.reward-char-counter.warning {
+  color: var(--rc-amber-600);
+}
+
+/* Columna Derecha: Dropzone de Carga Vercel Blob */
+.reward-dropzone {
+  position: relative;
+  border: 2px dashed var(--rc-slate-300);
+  border-radius: var(--rc-radius-lg);
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--rc-slate-50);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.reward-dropzone:hover {
+  border-color: var(--rc-emerald-500);
+  background: #f0fdf4;
+}
+
+.reward-dropzone.dragging {
+  border-color: var(--rc-emerald-600);
+  background: #dcfce7;
+  transform: scale(1.01);
+}
+
+.reward-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--rc-emerald-500);
+  background: #ffffff;
+  padding: 16px;
+}
+
+.reward-dropzone-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.reward-dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.reward-dropzone-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: var(--rc-emerald-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  transition: transform 0.2s ease;
+}
+
+.reward-dropzone:hover .reward-dropzone-icon {
+  transform: translateY(-2px);
+}
+
+.reward-dropzone-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--rc-slate-800);
+  margin: 0;
+}
+
+.reward-dropzone-hint {
+  font-size: 0.78rem;
+  color: var(--rc-slate-400);
+  margin: 0;
+}
+
+.reward-dropzone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Barra de Progreso de Subida */
+.reward-upload-progress {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.reward-progress-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--rc-slate-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.reward-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rc-emerald-500), var(--rc-emerald-600));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  animation: pulseProgress 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseProgress {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
+.reward-upload-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--rc-emerald-700);
+  margin-top: 6px;
+}
+
+/* Tarjeta Live Preview (Vista del Cliente) */
+.reward-preview-box {
+  background: #ffffff;
+  border: 1px solid var(--rc-slate-200);
+  border-radius: var(--rc-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.reward-preview-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.12);
+}
+
+.reward-preview-img-wrapper {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: var(--rc-slate-100);
+  overflow: hidden;
+}
+
+.reward-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.reward-preview-box:hover .reward-preview-img {
+  transform: scale(1.03);
+}
+
+.reward-preview-badge-points {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fbbf24;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.reward-preview-vigencia-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--rc-slate-800);
+  padding: 4px 10px;
+  border-radius: var(--rc-radius-sm);
+  font-size: 0.72rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.reward-preview-body {
+  padding: 16px;
+}
+
+.reward-preview-title {
+  margin: 0 0 6px 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--rc-slate-900);
+  line-height: 1.35;
+}
+
+.reward-preview-desc {
+  margin: 0 0 12px 0;
+  font-size: 0.82rem;
+  color: var(--rc-slate-600);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reward-preview-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rc-slate-200);
+  font-size: 0.78rem;
+  color: var(--rc-slate-600);
+}
+
+.reward-preview-rate {
+  font-weight: 700;
+  color: var(--rc-emerald-700);
+}
+
+/* Sección de Plantillas Rápidas (Horizontal Compact Chips) */
+.reward-presets-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rc-slate-200);
+}
+
+.reward-presets-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--rc-slate-800);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reward-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.reward-preset-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1.5px solid var(--rc-slate-200);
+  border-radius: var(--rc-radius-md);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  user-select: none;
+}
+
+.reward-preset-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--rc-emerald-500);
+  box-shadow: 0 6px 16px -2px rgba(16, 185, 129, 0.12);
+  background: #f0fdf4;
+}
+
+.reward-preset-chip.active {
+  border-color: var(--rc-emerald-600);
+  background: #ecfdf5;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.reward-preset-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--rc-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--rc-slate-100);
+}
+
+.reward-preset-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reward-preset-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rc-slate-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.reward-preset-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reward-preset-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #fef3c7;
+  color: var(--rc-amber-600);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.reward-preset-apply-btn {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--rc-slate-300);
+  color: var(--rc-slate-700);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.reward-preset-chip:hover .reward-preset-apply-btn {
+  background: var(--rc-emerald-500);
+  border-color: var(--rc-emerald-500);
+  color: #ffffff;
+}
+
+/* Barra de Acción Inferior */
+.reward-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rc-slate-200);
+}
+
+.reward-btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: #ffffff;
+  color: #16a34a;
+  border: 1.5px solid #22c55e;
+  border-radius: var(--rc-radius-md);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.1);
+}
+
+.reward-btn-whatsapp:hover {
+  background: #f0fdf4;
+  border-color: #16a34a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.reward-btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, var(--rc-emerald-500) 0%, var(--rc-emerald-600) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--rc-radius-md);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.reward-btn-save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+}
+
+.reward-btn-save:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.reward-btn-save:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Spinner & Micro-animaciones */
+.reward-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spinReward 0.7s linear infinite;
+}
+
+@keyframes spinReward {
+  to { transform: rotate(360deg); }
+}
+
+.reward-success-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--rc-emerald-600);
+  font-size: 0.85rem;
+  font-weight: 700;
+  animation: fadeInScale 0.3s ease;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

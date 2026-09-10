@@ -243,36 +243,164 @@ function aplicarPresetPremio(idx) {
 
     const nombreInput = document.getElementById('premio-nombre') || document.getElementById('premio-admin-titulo');
     const puntosInput = document.getElementById('premio-puntos') || document.getElementById('premio-admin-puntos');
+    const ptsDolarInput = document.getElementById('premio-pts-dolar') || document.getElementById('premio-admin-pts-dolar');
     const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
     const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
 
     if (nombreInput) nombreInput.value = preset.nombre;
     if (puntosInput) puntosInput.value = preset.puntos;
+    if (ptsDolarInput) ptsDolarInput.value = preset.puntosPorDolar || 1;
     if (imagenInput) imagenInput.value = preset.imagen;
     if (descInput) descInput.value = preset.descripcion;
 
+    // Resaltar chip activo
+    document.querySelectorAll('.reward-preset-chip').forEach((el, i) => {
+        el.classList.toggle('active', i === idx);
+        const btn = el.querySelector('.reward-preset-apply-btn');
+        if (btn) btn.textContent = i === idx ? 'Activo' : 'Usar';
+    });
+
     actualizarPreviewPremioAdmin();
 }
+window.aplicarPresetPremio = aplicarPresetPremio;
 
 /**
  * Actualiza la vista previa del Premio en el configurador Admin
  */
 function actualizarPreviewPremioAdmin() {
-    const nombre = document.getElementById('premio-nombre')?.value || document.getElementById('premio-admin-titulo')?.value || 'Premio del Mes';
+    const nombre = document.getElementById('premio-nombre')?.value || document.getElementById('premio-admin-titulo')?.value || 'Cafetera Espresso Digital 1.5L';
     const puntos = document.getElementById('premio-puntos')?.value || document.getElementById('premio-admin-puntos')?.value || '200';
+    const ptsDolar = document.getElementById('premio-pts-dolar')?.value || document.getElementById('premio-admin-pts-dolar')?.value || '1';
     const imagen = document.getElementById('premio-imagen-url')?.value || document.getElementById('premio-admin-img')?.value || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80';
-    const desc = document.getElementById('premio-descripcion')?.value || document.getElementById('premio-admin-desc')?.value || 'Canjea tus puntos acumulados por este premio exclusivo.';
+    const desc = document.getElementById('premio-descripcion')?.value || document.getElementById('premio-admin-desc')?.value || 'Premio exclusivo del mes para nuestros clientes más fieles.';
+    const mes = document.getElementById('premio-admin-mes')?.value || 'Mes en Curso';
 
     const imgEl = document.getElementById('preview-premio-img');
     const tituloEl = document.getElementById('preview-premio-titulo');
     const puntosEl = document.getElementById('preview-premio-puntos');
     const descEl = document.getElementById('preview-premio-desc');
+    const vigenciaEl = document.getElementById('preview-premio-vigencia');
+    const rateEl = document.getElementById('preview-premio-rate');
+    const charCounter = document.getElementById('reward-desc-char-count');
 
     if (imgEl) imgEl.src = imagen;
     if (tituloEl) tituloEl.textContent = nombre;
-    if (puntosEl) puntosEl.textContent = `${puntos} Puntos Requeridos`;
+    if (puntosEl) puntosEl.innerHTML = `<i class="fas fa-star"></i> ${puntos} Pts Requeridos`;
     if (descEl) descEl.textContent = desc;
+    if (vigenciaEl) vigenciaEl.innerHTML = `<i class="fas fa-calendar-check"></i> ${mes}`;
+    if (rateEl) rateEl.textContent = `$1.00 = +${ptsDolar} Pts`;
+
+    if (charCounter) {
+        const count = desc.length;
+        charCounter.textContent = `${count} / 280 caracteres`;
+        charCounter.classList.toggle('warning', count > 250);
+    }
 }
+window.actualizarPreviewPremioAdmin = actualizarPreviewPremioAdmin;
+
+/**
+ * Carga directa de imágenes a Vercel Blob Storage desde el panel Admin
+ */
+async function manejarSubidaImagenPremioBlob(event) {
+    const file = event?.target?.files?.[0] || event?.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.match(/^image\/(png|jpeg|jpg|webp)$/)) {
+        alert('Formato no compatible. Por favor sube una imagen PNG, JPG o WEBP.');
+        return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+        alert('La imagen excede 8MB. Por favor selecciona una imagen más liviana.');
+        return;
+    }
+
+    const progressContainer = document.getElementById('reward-upload-progress-container');
+    const progressBar = document.getElementById('reward-progress-bar-fill');
+    const statusText = document.getElementById('reward-upload-status-text');
+    const percentText = document.getElementById('reward-upload-status-percent');
+    const dropzoneIcon = document.getElementById('dropzone-icon-status');
+    const dropzoneTitle = document.getElementById('dropzone-title-status');
+
+    if (progressContainer) progressContainer.style.display = 'block';
+    if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    if (dropzoneTitle) dropzoneTitle.textContent = 'Subiendo a Vercel Blob...';
+    if (progressBar) progressBar.style.width = '30%';
+    if (percentText) percentText.textContent = '30%';
+    if (statusText) statusText.textContent = 'Procesando archivo...';
+
+    try {
+        const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        if (progressBar) progressBar.style.width = '65%';
+        if (percentText) percentText.textContent = '65%';
+        if (statusText) statusText.textContent = 'Transfiriendo a CDN Vercel Blob...';
+
+        const response = await fetch('/api/upload/blob', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileData: base64Data,
+                filename: `premios/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+                folder: 'premios',
+                contentType: file.type
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        const publicUrl = data.url || data.viewUrl || data.rawDirectUrl;
+
+        if (!publicUrl) {
+            throw new Error('No se recibió la URL pública de la imagen.');
+        }
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (percentText) percentText.textContent = '100%';
+        if (statusText) statusText.textContent = '¡Imagen guardada en Vercel Blob!';
+
+        // Actualizar URL en inputs y preview
+        const imgInput = document.getElementById('premio-admin-img') || document.getElementById('premio-imagen-url');
+        if (imgInput) imgInput.value = publicUrl;
+
+        const dropzoneBox = document.getElementById('reward-dropzone-box');
+        if (dropzoneBox) dropzoneBox.classList.add('has-file');
+
+        AppState.premioMes = AppState.premioMes || {};
+        AppState.premioMes.imagen = publicUrl;
+
+        // Auto-guardado en Firestore
+        if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+            window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+                premioMes: AppState.premioMes
+            }).catch(e => console.warn('[VercelBlob] Auto-save Firestore:', e));
+        }
+
+        actualizarPreviewPremioAdmin();
+
+        setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-check-circle" style="color:var(--rc-emerald-600)"></i>';
+            if (dropzoneTitle) dropzoneTitle.textContent = '¡Imagen lista en Vercel Blob! Haz clic para cambiar';
+        }, 1800);
+
+    } catch (err) {
+        console.error('[VercelBlob] Error al subir imagen:', err);
+        alert('Error al subir a Vercel Blob: ' + err.message);
+        if (progressContainer) progressContainer.style.display = 'none';
+        if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-cloud-arrow-up"></i>';
+        if (dropzoneTitle) dropzoneTitle.textContent = 'Arrastra una imagen o haz clic aquí';
+    }
+}
+window.manejarSubidaImagenPremioBlob = manejarSubidaImagenPremioBlob;
 
 /**
  * Renderiza el panel de configuración del Administrador
@@ -293,28 +421,53 @@ function renderizarConfiguradorPremioAdmin() {
     const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
     const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
     const mesInput = document.getElementById('premio-admin-mes');
-    const temporadaInput = document.getElementById('premio-temporada-activa');
 
     if (nombreInput) nombreInput.value = pm.nombre || '';
     if (puntosInput) puntosInput.value = pm.puntosRequeridos || 200;
     if (ptsDolarInput) ptsDolarInput.value = pm.puntosPorDolar || 1;
     if (imagenInput) imagenInput.value = pm.imagen || '';
     if (descInput) descInput.value = pm.descripcion || '';
-    if (mesInput) mesInput.value = pm.mes || '';
-    if (temporadaInput) temporadaInput.checked = pm.temporadaActiva !== false;
+    if (mesInput) mesInput.value = pm.mes || 'Mes en Curso';
 
-    // Renderizar presets
+    // Renderizar presets en chips horizontales modernos
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');
     if (presetsContainer) {
         presetsContainer.innerHTML = PRESETS_PREMIOS.map((p, idx) => `
-            <div class="premio-preset-card" onclick="aplicarPresetPremio(${idx})" title="Seleccionar este premio sugerido">
-                <img src="${p.imagen}" alt="${p.nombre}" class="premio-preset-thumb">
-                <div class="premio-preset-info">
-                    <strong>${p.nombre}</strong>
-                    <span class="badge-status-pill badge-warning">${p.puntos} Pts</span>
+            <div class="reward-preset-chip ${idx === 0 ? 'active' : ''}" onclick="aplicarPresetPremio(${idx})" title="Seleccionar: ${p.nombre}">
+                <img src="${p.imagen}" alt="${p.nombre}" class="reward-preset-thumb" loading="lazy">
+                <div class="reward-preset-info">
+                    <div class="reward-preset-name">${p.nombre}</div>
+                    <div class="reward-preset-meta">
+                        <span class="reward-preset-badge">${p.puntos} Pts</span>
+                    </div>
                 </div>
+                <button type="button" class="reward-preset-apply-btn" onclick="event.stopPropagation(); aplicarPresetPremio(${idx});">
+                    ${idx === 0 ? 'Activo' : 'Usar'}
+                </button>
             </div>
         `).join('');
+    }
+
+    // Configurar listeners de Drag & Drop para el Dropzone
+    const dropzone = document.getElementById('reward-dropzone-box');
+    if (dropzone && !dropzone.dataset.dndBound) {
+        dropzone.dataset.dndBound = 'true';
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragging');
+        });
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragging');
+        });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragging');
+            manejarSubidaImagenPremioBlob(e);
+        });
     }
 
     actualizarPreviewPremioAdmin();
