@@ -125,7 +125,19 @@ window.InventoryApp = window.InventoryApp || {};
                 localStorage.removeItem(SESSION_KEY);
             }
 
-            // 2. Garantizar que ninguna entidad de negocio quede almacenada en localStorage
+            // 2. Persistir caché local de contingencia para catálogo y premios (Carga Inmediata Offline)
+            if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
+                } catch (e) {}
+            }
+            if (AppState.premioMes) {
+                try {
+                    localStorage.setItem('bodeguita_cache_premio', JSON.stringify(AppState.premioMes));
+                } catch (e) {}
+            }
+
+            // 3. Purgar cualquier llave obsoleta residual
             purgarResiduosEntidadesLocalStorage();
         } catch (e) {
             console.warn('[Persistence] Error guardando sesión en localStorage:', e);
@@ -188,8 +200,27 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // 4. Todas las entidades de negocio se inicializan limpias en memoria
-        // para ser provistas fielmente por Firebase Firestore
+        // 4. Restaurar de inmediato el caché local de productos y premio si existen para renderizado instantáneo
+        try {
+            const cacheProds = localStorage.getItem('bodeguita_cache_productos');
+            if (cacheProds) {
+                const parsedProds = JSON.parse(cacheProds);
+                if (Array.isArray(parsedProds) && parsedProds.length > 0) {
+                    AppState.productos = parsedProds;
+                }
+            }
+            const cachePremio = localStorage.getItem('bodeguita_cache_premio');
+            if (cachePremio) {
+                const parsedPremio = JSON.parse(cachePremio);
+                if (parsedPremio && typeof parsedPremio === 'object') {
+                    AppState.premioMes = { ...AppState.premioMes, ...parsedPremio };
+                }
+            }
+        } catch (e) {
+            console.warn('[Persistence] Aviso al restaurar caché rápido local:', e);
+        }
+
+        // 5. El resto de las entidades se preparan en memoria para ser alimentadas por Firestore
         AppState.productos = AppState.productos || [];
         AppState.clientes = AppState.clientes || [];
         AppState.ventas = AppState.ventas || [];
