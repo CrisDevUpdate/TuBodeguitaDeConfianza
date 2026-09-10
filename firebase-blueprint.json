@@ -96,6 +96,79 @@
       }
     },
     {
+      "collection": "users",
+      "fields": {
+        "id": "string",
+        "cedula": "string",
+        "nombre": "string",
+        "email": "string",
+        "rol": "string",
+        "estado": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "products",
+      "fields": {
+        "id": "string",
+        "codigo": "string",
+        "nombre": "string",
+        "precio": "number",
+        "costo": "number",
+        "stock": "number",
+        "imagen": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "sales_history",
+      "fields": {
+        "id": "string",
+        "clienteId": "string",
+        "items": "array",
+        "total": "number",
+        "tipo": "string",
+        "fecha": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "payments_and_credits",
+      "fields": {
+        "id": "string",
+        "clienteId": "string",
+        "montoUSD": "number",
+        "montoVES": "number",
+        "metodo": "string",
+        "fecha": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "audit_logs",
+      "fields": {
+        "id": "string",
+        "productoId": "string",
+        "stockSistema": "number",
+        "stockFisico": "number",
+        "diferencia": "number",
+        "fecha": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "notifications",
+      "fields": {
+        "id": "string",
+        "titulo": "string",
+        "mensaje": "string",
+        "tipo": "string",
+        "leida": "boolean",
+        "fecha": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
       "collection": "PagosPorVerificar",
       "fields": {
         "id": "string",

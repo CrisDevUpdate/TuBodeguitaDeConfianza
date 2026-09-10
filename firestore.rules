@@ -41,6 +41,24 @@ service cloud.firestore {
     match /PagosPorVerificar/{pagoId} {
       allow read, write: if true;
     }
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    match /products/{productId} {
+      allow read, write: if true;
+    }
+    match /sales_history/{saleId} {
+      allow read, write: if true;
+    }
+    match /payments_and_credits/{paymentId} {
+      allow read, write: if true;
+    }
+    match /audit_logs/{logId} {
+      allow read, write: if true;
+    }
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }
