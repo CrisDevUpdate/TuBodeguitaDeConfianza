@@ -219,45 +219,43 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             </div>
         </div>
 
-        <!-- Gestión de Fotos en Base de Datos Local (IndexedDB) & Firestore -->
-        <div class="card" style="margin-bottom:20px; border-left: 4px solid #16a34a;">
+        <!-- Gestión de Fotos en la Nube Vercel Blob -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #0284c7;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                 <div>
                     <h3 style="margin:0 0 6px 0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-database" style="color:#16a34a;"></i> Almacén en Base de Datos del Navegador (IndexedDB)
+                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Almacén de Fotos en la Nube (Vercel Blob)
                     </h3>
                     <p style="margin:0; font-size:0.84rem; color:var(--text-muted);">
-                        Tus fotos se descargan una sola vez y se guardan de forma permanente en la base de datos del navegador del cliente para navegación instantánea (0ms) y bajo consumo de datos.
+                        Tus fotos de productos se almacenan de forma segura y permanente en Vercel Blob (Store ID: <code>store_5tUK9cDxqnqjrZw4</code>).
                     </p>
                 </div>
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700; padding:4px 10px; border-radius:12px; font-size:0.75rem;">
-                        <i class="fas fa-circle-check"></i> IndexedDB Activo
+                        <i class="fas fa-circle-check"></i> Vercel Blob Activo
                     </span>
                 </div>
             </div>
 
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:12px;">
                 <button type="button" class="btn btn-primary" onclick="abrirModalVisorBlob()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:700;">
-                    <i class="fas fa-images"></i> Ver Catálogo de Fotos
+                    <i class="fas fa-images"></i> Ver Fotos en Vercel Blob
                 </button>
-                <button type="button" class="btn btn-outline" onclick="precargarCatalogoEnNavegador()" id="btn-sync-blob-photos" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-bolt"></i> Precargar Catálogo Local
-                </button>
-                <button type="button" class="btn btn-outline" onclick="vaciarCacheLocalImagenes()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600; color:#dc2626;">
-                    <i class="fas fa-trash-can"></i> Limpiar Caché Local
+                <button type="button" class="btn btn-outline" onclick="sincronizarFotosVercelBlob()" id="btn-sync-blob-photos" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
+                    <i class="fas fa-arrows-rotate"></i> Sincronizar Fotos a Blob
                 </button>
             </div>
 
             <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:12px; font-size:0.82rem; color:var(--text-muted);">
                 <div style="font-weight:700; color:var(--text-main); margin-bottom:4px;">
-                    <i class="fas fa-shield-halved" style="color:#16a34a;"></i> Ventajas del almacenamiento en base de datos local:
+                    <i class="fas fa-compass" style="color:#0284c7;"></i> ¿Cómo ver tus fotos en la consola de Vercel?
                 </div>
-                <ul style="margin:0; padding-left:18px; line-height:1.5;">
-                    <li><strong>Carga en 0 segundos:</strong> Las imágenes se leen directamente de la memoria local del teléfono o PC.</li>
-                    <li><strong>Ahorro total de Firestore:</strong> Los 30+ clientes diarios no vuelven a descargar las fotos repetidamente.</li>
-                    <li><strong>Actualizaciones inteligentes:</strong> Solo se descarga una imagen cuando el administrador registra o edita un producto nuevo.</li>
-                </ul>
+                <ol style="margin:0; padding-left:18px; line-height:1.5;">
+                    <li>Inicia sesión en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" style="color:#0284c7; font-weight:600; text-decoration:underline;">vercel.com</a>.</li>
+                    <li>Ve a la pestaña superior <strong>"Storage"</strong>.</li>
+                    <li>Haz clic en tu almacén Blob (<strong>store_5tUK9cDxqnqjrZw4</strong>).</li>
+                    <li>Entra en la pestaña <strong>"Blobs"</strong> o <strong>"Browser"</strong>: allí verás la carpeta <code>productos/</code> con todas tus fotos subidas.</li>
+                </ol>
             </div>
         </div>
 
@@ -559,11 +557,11 @@ window.abrirModalVisorBlob = async function() {
         modal.className = 'modal-overlay';
         modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
         modal.innerHTML = `
-            <div class="card" style="width:100%; max-width:750px; max-height:85vh; display:flex; flex-direction:column; padding:0; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); border-radius:12px;">
+            <div class="card" style="width:100%; max-width:700px; max-height:85vh; display:flex; flex-direction:column; padding:0; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); border-radius:12px;">
                 <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <i class="fas fa-database" style="color:#16a34a; font-size:1.25rem;"></i>
-                        <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">Catálogo de Fotos (IndexedDB & Firestore)</h3>
+                        <i class="fas fa-cloud" style="color:#0284c7; font-size:1.25rem;"></i>
+                        <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">Fotos en Vercel Blob</h3>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalVisorBlob()" style="border-radius:50%; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center;">
                         <i class="fas fa-xmark"></i>
@@ -571,12 +569,12 @@ window.abrirModalVisorBlob = async function() {
                 </div>
                 <div id="visor-blob-content" style="padding:20px; overflow-y:auto; flex:1; min-height:220px;">
                     <div style="text-align:center; padding:30px; color:var(--text-muted);">
-                        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#16a34a; margin-bottom:10px;"></i>
-                        <div>Consultando imágenes en tu base de datos local...</div>
+                        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#0284c7; margin-bottom:10px;"></i>
+                        <div>Consultando imágenes en tu almacén de Vercel Blob...</div>
                     </div>
                 </div>
                 <div style="padding:12px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); font-size:0.8rem; color:var(--text-muted);">
-                    <span id="visor-stats-label">Almacenamiento Local Activo</span>
+                    <span>Store ID: <code>store_5tUK9cDxqnqjrZw4</code></span>
                     <button type="button" class="btn btn-sm btn-primary" onclick="cerrarModalVisorBlob()">Cerrar</button>
                 </div>
             </div>
@@ -586,52 +584,83 @@ window.abrirModalVisorBlob = async function() {
 
     modal.style.display = 'flex';
     const content = document.getElementById('visor-blob-content');
-    const statsLabel = document.getElementById('visor-stats-label');
-
-    const productosConFoto = (AppState.productos || []).filter(p => p && p.imagen && p.imagen.trim() !== '');
-
-    if (productosConFoto.length === 0) {
-        content.innerHTML = `
-            <div style="text-align:center; padding:30px; color:var(--text-muted);">
-                <i class="fas fa-image" style="font-size:2.5rem; color:var(--border-color); margin-bottom:10px;"></i>
-                <div style="font-weight:700; color:var(--text-main);">Aún no hay productos con fotos registradas</div>
-                <div style="font-size:0.85rem; margin-top:6px;">Al registrar o editar un producto y adjuntar una imagen, se optimizará y guardará aquí automáticamente.</div>
-            </div>
-        `;
-        return;
-    }
-
-    if (statsLabel) {
-        statsLabel.textContent = `Total de fotos guardadas: ${productosConFoto.length} productos`;
-    }
-
-    let html = `
-        <div style="margin-bottom:14px; font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-            <span>Total de fotos optimizadas: <strong>${productosConFoto.length}</strong></span>
-            <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:600; padding:3px 8px; border-radius:10px;">Carga 0ms en Navegador</span>
+    content.innerHTML = `
+        <div style="text-align:center; padding:30px; color:var(--text-muted);">
+            <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#0284c7; margin-bottom:10px;"></i>
+            <div>Consultando imágenes en tu almacén de Vercel Blob...</div>
         </div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px;">
     `;
 
-    productosConFoto.forEach(p => {
-        const urlFoto = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen;
-        const nombre = p.nombre || p.codigo || 'Producto';
-        html += `
-            <div style="border:1px solid var(--border-color); border-radius:8px; overflow:hidden; background:var(--bg-main); display:flex; flex-direction:column;">
-                <div style="height:120px; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img src="${urlFoto}" alt="${nombre}" style="max-height:100%; max-width:100%; object-fit:contain;" loading="lazy">
+    try {
+        const res = await fetch('/api/blob/list');
+        const data = await res.json();
+
+        if (!data.success) {
+            content.innerHTML = `
+                <div style="text-align:center; padding:20px; color:#ef4444;">
+                    <i class="fas fa-circle-exclamation" style="font-size:2rem; margin-bottom:10px;"></i>
+                    <div style="font-weight:700;">No fue posible obtener el listado de fotos</div>
+                    <div style="font-size:0.85rem; margin-top:6px;">${data.error || 'Error desconocido'}</div>
                 </div>
-                <div style="padding:10px; font-size:0.75rem; display:flex; flex-direction:column; gap:4px; flex:1;">
-                    <span style="font-weight:700; color:var(--text-main);">${nombre}</span>
-                    <span style="color:var(--text-muted);">Código: ${p.codigo || '—'}</span>
-                    <span style="color:var(--primary-accent); font-weight:600;">$${Number(p.precio || 0).toFixed(2)}</span>
+            `;
+            return;
+        }
+
+        const blobs = (data.blobs || []).filter(b => b.size > 0 && !b.pathname.endsWith('/'));
+        if (blobs.length === 0) {
+            content.innerHTML = `
+                <div style="text-align:center; padding:30px; color:var(--text-muted);">
+                    <i class="fas fa-image" style="font-size:2.5rem; color:var(--border-color); margin-bottom:10px;"></i>
+                    <div style="font-weight:700; color:var(--text-main);">Aún no hay fotos en tu almacén Blob</div>
+                    <div style="font-size:0.85rem; margin-top:6px;">Al registrar o editar un producto y adjuntar una imagen, se subirá aquí automáticamente.</div>
                 </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div style="margin-bottom:14px; font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                <span>Total de fotos guardadas: <strong>${blobs.length}</strong></span>
+                <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:600; padding:3px 8px; border-radius:10px;">En la Nube</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px;">
+        `;
+
+        blobs.forEach(b => {
+            const kb = (b.size / 1024).toFixed(1);
+            const dateStr = b.uploadedAt ? new Date(b.uploadedAt).toLocaleDateString() : '';
+            const nombre = b.pathname.split('/').pop();
+            html += `
+                <div style="border:1px solid var(--border-color); border-radius:8px; overflow:hidden; background:var(--bg-main); display:flex; flex-direction:column;">
+                    <div style="height:120px; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        <img src="${b.viewUrl || b.url}" alt="${nombre}" style="max-height:100%; max-width:100%; object-fit:contain;" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'><text y=\\'25\\' font-size=\\'20\\'>🖼️</text></svg>'">
+                    </div>
+                    <div style="padding:10px; font-size:0.75rem; display:flex; flex-direction:column; gap:4px; flex:1;">
+                        <span style="font-weight:700; color:var(--text-main); word-break:break-all;" title="${b.pathname}">${nombre}</span>
+                        <div style="color:var(--text-muted); display:flex; justify-content:space-between;">
+                            <span>${kb} KB</span>
+                            <span>${dateStr}</span>
+                        </div>
+                        <a href="${b.viewUrl || b.url}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="margin-top:6px; text-align:center; padding:4px 6px; font-size:0.72rem; text-decoration:none; display:block;">
+                            <i class="fas fa-up-right-from-square"></i> Ver imagen
+                        </a>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        content.innerHTML = html;
+
+    } catch (err) {
+        content.innerHTML = `
+            <div style="text-align:center; padding:20px; color:#ef4444;">
+                <i class="fas fa-triangle-exclamation" style="font-size:2rem; margin-bottom:10px;"></i>
+                <div style="font-weight:700;">Error de conexión con Vercel Blob</div>
+                <div style="font-size:0.85rem; margin-top:6px;">${err.message || err}</div>
             </div>
         `;
-    });
-
-    html += `</div>`;
-    content.innerHTML = html;
+    }
 };
 
 window.cerrarModalVisorBlob = function() {
@@ -639,50 +668,41 @@ window.cerrarModalVisorBlob = function() {
     if (modal) modal.style.display = 'none';
 };
 
-window.precargarCatalogoEnNavegador = async function() {
+window.sincronizarFotosVercelBlob = async function() {
     const btn = document.getElementById('btn-sync-blob-photos');
     const originalText = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando en base de datos local...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando fotos...';
     }
 
     try {
-        if (window.InventoryApp && window.InventoryApp.ImageCache) {
-            await window.InventoryApp.ImageCache.guardarCatalogoLocal(AppState.productos || []);
-            const urls = [];
-            (AppState.productos || []).forEach(p => { if (p && p.imagen) urls.push(p.imagen); });
-            (AppState.usuarios || []).forEach(u => { if (u && u.avatar) urls.push(u.avatar); });
-            window.InventoryApp.ImageCache.precargarImagenes(urls);
-        }
-
-        const total = (AppState.productos || []).length;
-        if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast(`¡Catálogo de ${total} productos y fotos precargado exitosamente en tu navegador!`, 'success');
+        const res = await fetch('/api/blob/sync-firestore-images', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const migradas = (data.processed || []).filter(p => p.status === 'migrated_to_blob').length;
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Sincronización completada con éxito. ${migradas} foto(s) migradas a Vercel Blob.`, 'success');
+            } else {
+                alert(`Sincronización completada. ${migradas} fotos migradas a Vercel Blob.`);
+            }
+            // Forzar descarga de Firestore para refrescar la app
+            if (typeof ejecutarSincronizacionNube === 'function') {
+                ejecutarSincronizacionNube();
+            }
         } else {
-            alert(`Catálogo precargado exitosamente.`);
+            throw new Error(data.error || 'Error en sincronización');
         }
     } catch (err) {
         if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast(`Error al precargar: ${err.message}`, 'danger');
+            window.InventoryApp.Modal.toast(`Error al sincronizar fotos: ${err.message}`, 'danger');
+        } else {
+            alert(`Error al sincronizar fotos: ${err.message}`);
         }
     } finally {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalText;
-        }
-    }
-};
-
-window.vaciarCacheLocalImagenes = async function() {
-    if (!confirm('¿Deseas vaciar la memoria y base de datos local de imágenes? Se volverán a descargar de Firestore cuando abras el catálogo.')) {
-        return;
-    }
-
-    if (window.InventoryApp && window.InventoryApp.ImageCache) {
-        await window.InventoryApp.ImageCache.limpiarCacheLocal();
-        if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast('Caché local de imágenes limpiado con éxito.', 'info');
         }
     }
 };

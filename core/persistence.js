@@ -171,9 +171,13 @@ window.InventoryApp = window.InventoryApp || {};
         // 3. Garantizar SuperAdmin base
         asegurarUsuarioAdminInicial();
 
-        // NUNCA agregar forzosamente AppState.usuarioActual a AppState.usuarios
-        // para evitar resucitar cuentas eliminadas en Firestore.
-        // Firestore es la Fuente Única de Verdad de los usuarios existentes.
+        // Si el usuario en sesión no es SuperAdmin, asegurar su presencia en AppState.usuarios
+        if (AppState.usuarioActual && AppState.usuarioActual.id !== 'SuperAdmin') {
+            const existe = (AppState.usuarios || []).find(u => (u.cedula || u.id) === (AppState.usuarioActual.cedula || AppState.usuarioActual.id));
+            if (!existe) {
+                AppState.usuarios.push(AppState.usuarioActual);
+            }
+        }
 
         // 4. Todas las entidades de negocio se inicializan limpias en memoria
         // para ser provistas fielmente por Firebase Firestore

@@ -137,11 +137,36 @@ async function procesarImagenProducto(archivo) {
                 optimizadoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
             }
             productoImagenTemporal = optimizadoDataUrl;
-            // Guardar en la base de datos local (IndexedDB) inmediatamente
-            if (window.InventoryApp && window.InventoryApp.ImageCache) {
-                window.InventoryApp.ImageCache.guardarImagen('temp_producto', optimizadoDataUrl).catch(() => {});
+            actualizarVistaImagenProducto('subiendo');
+
+            // Subir a Vercel Blob en segundo plano a través de la API segura
+            try {
+                estaSubiendoImagenProducto = true;
+                if (dropzone) dropzone.classList.add('uploading-blob');
+
+                if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                    const nombreBlob = `prod_${Date.now()}.webp`;
+                    promesaSubidaImagen = window.InventoryApp.ImageCache.subirImagenVercelBlob(optimizadoDataUrl, 'productos', nombreBlob);
+                    const resultado = await promesaSubidaImagen;
+                    if (resultado && (resultado.viewUrl || resultado.url || resultado.pathname)) {
+                        const finalBlobUrl = resultado.viewUrl || resultado.url || (resultado.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resultado.pathname)}` : optimizadoDataUrl);
+                        productoImagenTemporal = finalBlobUrl;
+                        console.log('[Productos] Imagen subida y asociada a Vercel Blob con éxito:', productoImagenTemporal);
+                        actualizarVistaImagenProducto('completado');
+                    } else {
+                        actualizarVistaImagenProducto('listo');
+                    }
+                }
+            } catch (blobErr) {
+                // Siguiendo el principio de la foto de perfil: no bloqueamos ni alarmamos con errores,
+                // mantenemos la copia optimizada local lista para guardar
+                console.warn('[Productos] Aviso al subir a Vercel Blob, manteniendo copia optimizada:', blobErr);
+                actualizarVistaImagenProducto('listo');
+            } finally {
+                estaSubiendoImagenProducto = false;
+                promesaSubidaImagen = null;
+                if (dropzone) dropzone.classList.remove('uploading-blob');
             }
-            actualizarVistaImagenProducto('listo');
         };
         imagen.onerror = () => alert('No fue posible procesar la imagen seleccionada.');
         imagen.src = lector.result;
@@ -150,7 +175,7 @@ async function procesarImagenProducto(archivo) {
     lector.readAsDataURL(archivo);
 }
 
-function actualizarVistaImagenProducto(estado = null) {
+function actualizarVistaImagenProducto(estadoBlob = null) {
     const empty = document.getElementById('product-image-empty');
     const preview = document.getElementById('product-image-preview');
     const actions = document.getElementById('product-image-actions');
@@ -165,7 +190,7 @@ function actualizarVistaImagenProducto(estado = null) {
     if (img) img.src = urlSegura;
     if (dropzone) dropzone.classList.toggle('has-image', tieneImagen);
 
-    // Indicador visual de estado de optimización y base de datos local
+    // Indicador visual de estado Vercel Blob
     let statusBadge = document.getElementById('product-blob-status-badge');
     if (!statusBadge && preview) {
         statusBadge = document.createElement('div');
@@ -178,11 +203,21 @@ function actualizarVistaImagenProducto(estado = null) {
         if (!tieneImagen) {
             statusBadge.innerHTML = '';
             statusBadge.style.display = 'none';
-        } else {
+        } else if (estadoBlob === 'subiendo' || estaSubiendoImagenProducto) {
+            statusBadge.style.display = 'flex';
+            statusBadge.style.background = '#e0f2fe';
+            statusBadge.style.color = '#0369a1';
+            statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando imagen con Vercel Blob...';
+        } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/avatar/view') || productoImagenTemporal.includes('/api/blob/view'))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Imagen optimizada lista (Base de datos local & Firestore)';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>) <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
+        } else {
+            statusBadge.style.display = 'flex';
+            statusBadge.style.background = '#f1f5f9';
+            statusBadge.style.color = '#475569';
+            statusBadge.innerHTML = '<i class="fas fa-check"></i> Imagen optimizada lista para guardar';
         }
     }
 }
@@ -215,11 +250,47 @@ async function guardarProducto(e) {
     const originalBtnHtml = btnSave ? btnSave.innerHTML : '';
 
     // Si la imagen todavía se está subiendo en segundo plano, esperar a que culmine
-    const imagenFinal = productoImagenTemporal || '';
+    if (estaSubiendoImagenProducto && promesaSubidaImagen) {
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando imagen...';
+        }
+        try {
+            await promesaSubidaImagen;
+        } catch (err) {
+            console.warn('[Productos] Espera de subida en segundo plano:', err);
+        }
+    }
 
-    // Guardar en la base de datos local (IndexedDB)
-    if (imagenFinal && window.InventoryApp && window.InventoryApp.ImageCache) {
-        window.InventoryApp.ImageCache.guardarImagen(imagenFinal, imagenFinal).catch(() => {});
+    // Si la imagen sigue en formato base64/dataURI temporal, asegurar subida a Vercel Blob
+    let imagenFinal = productoImagenTemporal || '';
+    if (imagenFinal.startsWith('data:')) {
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vinculando a Vercel Blob...';
+        }
+        try {
+            if (window.InventoryApp && window.InventoryApp.ImageCache) {
+                const resultado = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenFinal, 'productos', `prod_${Date.now()}.webp`);
+                if (resultado && (resultado.viewUrl || resultado.url || resultado.pathname)) {
+                    imagenFinal = resultado.viewUrl || resultado.url || (resultado.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resultado.pathname)}` : imagenFinal);
+                    productoImagenTemporal = imagenFinal;
+                    console.log('[Productos] Imagen sincronizada con Vercel Blob:', imagenFinal);
+                    actualizarVistaImagenProducto('completado');
+                }
+            }
+        } catch (uploadErr) {
+            // Siguiendo los principios de la foto de perfil:
+            // No emitimos aviso bloqueante de error ("Aviso: La imagen no pudo vincularse").
+            // Mantenemos la copia optimizada local para que se guarde de forma segura
+            // y se replique en Firestore y en los teléfonos de inmediato.
+            console.warn('[Productos] Aviso al subir imagen a Vercel Blob en guardado, manteniendo copia optimizada:', uploadErr);
+        } finally {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalBtnHtml;
+            }
+        }
     }
 
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
