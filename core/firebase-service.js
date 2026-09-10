@@ -1598,6 +1598,36 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('config', err));
             syncListeners.push(unsubConfig);
 
+            // Listener en tiempo real de /config/gamification para Modo Invierno
+            try {
+                const unsubGamification = db.collection('config').doc('gamification').onSnapshot(doc => {
+                    if (doc.exists) {
+                        const gData = doc.data();
+                        const isWinter = Boolean(gData?.isWinterMode);
+                        AppState.isWinterMode = isWinter;
+                        AppState.temporadaInviernoActiva = isWinter;
+                        if (AppState.premioMes) {
+                            AppState.premioMes.temporadaActiva = !isWinter;
+                        }
+                        let styleTag = document.getElementById('winter-mode-global-style');
+                        if (!styleTag) {
+                            styleTag = document.createElement('style');
+                            styleTag.id = 'winter-mode-global-style';
+                            document.head.appendChild(styleTag);
+                        }
+                        styleTag.textContent = isWinter 
+                            ? '.cliente-prod-points-badge, .combo-points-badge, #cliente-carrito-puntos-row, .puntos-premio-row, [data-points-badge] { display: none !important; }'
+                            : '';
+                        const row = document.getElementById('cliente-carrito-puntos-row');
+                        if (row) row.style.display = isWinter ? 'none' : 'flex';
+                        solicitarRefrescoVistasDebounced();
+                    }
+                }, err => console.warn('[Firebase] gamification config listener fallback:', err?.message));
+                syncListeners.push(unsubGamification);
+            } catch (gErr) {
+                console.warn('[Firebase] No se pudo inicializar listener gamification:', gErr);
+            }
+
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
         }

@@ -199,71 +199,85 @@ function renderizarCatalogoCliente() {
     // Actualizar saludo dinámico y frase de sabiduría
     actualizarEncabezadoClienteDinamico();
 
-    if (window.InventoryApp && window.InventoryApp.Catalog && typeof window.InventoryApp.Catalog.renderizarCatalogoCompleto === 'function') {
-        window.InventoryApp.Catalog.renderizarCatalogoCompleto('cliente-catalogo-grid');
-    } else {
-        const container = document.getElementById('cliente-catalogo-grid');
-        if (!container) return;
+    const container = document.getElementById('cliente-catalogo-grid');
+    if (!container) return;
 
-        let prods = AppState.productos || [];
+    let prods = AppState.productos || [];
 
-        // Filtros
-        if (clienteBusqueda) {
-            const q = clienteBusqueda.toLowerCase();
-            prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
-        }
-        if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS') {
-            prods = prods.filter(p => (p.categoria || 'General').toUpperCase() === clienteFiltroCategoria.toUpperCase());
-        }
-
-        if (prods.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:40px 20px;">
-                    <i class="fas fa-box-open" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
-                    <h4>No se encontraron productos disponibles</h4>
-                    <p style="color:var(--text-muted); font-size:0.9rem;">Prueba con otra búsqueda o categoría en el catálogo.</p>
-                </div>
-            `;
-            renderizarCategoriasCatalogo();
-            renderizarCarritoCliente();
-            return;
-        }
-
-        const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-
-        container.innerHTML = prods.map(p => {
-            const precioUSD = Number(p.precio || 0);
-            const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
-            const stock = Number(p.stock || 0);
-            const agotado = stock <= 0;
-            const rawImg = p.imagen;
-            const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
-
-            return `
-                <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''}" id="cli-card-${p.id}">
-                    <div class="cliente-prod-img-wrapper">
-                        <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
-                        <span class="cliente-prod-badge-cat">${p.categoria || 'General'}</span>
-                        ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
-                    </div>
-                    <div class="cliente-prod-body">
-                        <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
-                        <h4 class="cliente-prod-title">${p.nombre}</h4>
-                        
-                        <div class="cliente-prod-prices">
-                            <div class="price-usd">$${precioUSD.toFixed(2)}</div>
-                            <div class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</div>
-                        </div>
-
-                        <button type="button" class="btn btn-block ${agotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" 
-                            onclick="agregarAlCarritoCliente('${p.id}')" ${agotado ? 'disabled' : ''}>
-                            <i class="fas fa-cart-plus"></i> ${agotado ? 'Sin Existencia' : 'Agregar al Carrito'}
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+    // Filtros
+    if (clienteBusqueda) {
+        const q = clienteBusqueda.toLowerCase();
+        prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
     }
+    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS') {
+        prods = prods.filter(p => (p.categoria || 'General').toUpperCase() === clienteFiltroCategoria.toUpperCase());
+    }
+
+    if (prods.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:40px 20px;">
+                <i class="fas fa-box-open" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
+                <h4>No se encontraron productos disponibles</h4>
+                <p style="color:var(--text-muted); font-size:0.9rem;">Prueba con otra búsqueda o categoría en el catálogo.</p>
+            </div>
+        `;
+        renderizarCategoriasCatalogo();
+        renderizarCarritoCliente();
+        return;
+    }
+
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
+    const inviernoActivo = Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.temporadaActiva === false);
+
+    container.innerHTML = prods.map(p => {
+        const precioUSD = Number(p.precio || 0);
+        const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
+        const stock = Number(p.stock || 0);
+        const agotado = stock <= 0;
+        const rawImg = p.imagen;
+        const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+
+        const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo'));
+        const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
+            ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
+            : (p.puntos !== undefined && Number(p.puntos) > 0 
+                ? Number(p.puntos) 
+                : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
+
+        return `
+            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''}" id="cli-card-${p.id}">
+                <div class="cliente-prod-img-wrapper">
+                    <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                    <span class="cliente-prod-badge-cat">${p.categoria || 'General'}</span>
+                    ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
+                    <span class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" data-points-badge style="${inviernoActivo ? 'display: none !important;' : ''}">
+                        <i class="fas fa-star" style="color:#fbbf24;"></i> ${esCombo ? `Combo: +${puntosGanados} pts` : `+${puntosGanados} pts`}
+                    </span>
+                </div>
+                <div class="cliente-prod-body">
+                    <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
+                    <h4 class="cliente-prod-title">${p.nombre}</h4>
+                    
+                    <div class="cliente-prod-points-row" data-points-badge style="${inviernoActivo ? 'display: none !important;' : ''}">
+                        <span class="cliente-prod-points-chip ${esCombo ? 'combo-chip' : ''}">
+                            <i class="fas fa-star"></i> Otorga <strong>+${puntosGanados} Pts</strong>
+                        </span>
+                    </div>
+
+                    <div class="cliente-prod-prices">
+                        <div class="price-usd">$${precioUSD.toFixed(2)}</div>
+                        <div class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</div>
+                    </div>
+
+                    <button type="button" class="btn btn-block ${agotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" 
+                        onclick="agregarAlCarritoCliente('${p.id}')" ${agotado ? 'disabled' : ''}>
+                        <i class="fas fa-cart-plus"></i> ${agotado ? 'Sin Existencia' : 'Agregar al Carrito'}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
 
     renderizarCategoriasCatalogo();
     renderizarCarritoCliente();
@@ -406,7 +420,8 @@ function renderizarCarritoCliente() {
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
     const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
-    const ptsGanables = Math.floor(totalUSD * ptsPorDolar);
+    const inviernoActivo = Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.temporadaActiva === false);
+    const ptsGanables = inviernoActivo ? 0 : Math.floor(totalUSD * ptsPorDolar);
 
     if (badgeCount) badgeCount.textContent = cantTotal;
     if (floatingCount) floatingCount.textContent = cantTotal;
@@ -415,6 +430,11 @@ function renderizarCarritoCliente() {
     if (totalVesEl) totalVesEl.textContent = `Bs. ${totalVES > 0 ? totalVES.toFixed(2) : '—'}`;
     if (floatingTotalVes) floatingTotalVes.textContent = `Bs. ${totalVES > 0 ? totalVES.toFixed(2) : '—'}`;
     if (ptsPreviewEl) ptsPreviewEl.textContent = `+${ptsGanables} Pts`;
+
+    const puntosRow = document.getElementById('cliente-carrito-puntos-row');
+    if (puntosRow) {
+        puntosRow.style.display = inviernoActivo ? 'none' : 'flex';
+    }
 
     // Visibilidad de barra flotante de carrito
     if (floatingBar) {
@@ -458,6 +478,96 @@ function vaciarCarritoCliente() {
     }
 }
 
+// Estructura extensible para N bancos
+const bankAccounts = [
+  { id: 'bdv_pm', type: 'Pago Móvil', bank: 'Banco de Venezuela (0102)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
+  { id: 'banesco_pm', type: 'Pago Móvil', bank: 'Banesco (0134)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
+  { id: 'mercantil_pm', type: 'Pago Móvil', bank: 'Mercantil (0105)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
+  { id: 'bdv_trans', type: 'Transferencia', bank: 'Banco de Venezuela', account: '01025646546664', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' }
+];
+
+function actualizarDetallesBancoCliente(bancoId = 'bdv_pm') {
+    const card = document.getElementById('cliente-banco-card');
+    if (!card) return;
+    const banco = bankAccounts.find(b => b.id === bancoId) || bankAccounts[0];
+    if (!banco) return;
+
+    card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="color:#1e40af; font-size:0.86rem;">${banco.bank}</strong>
+            <span style="font-size:0.72rem; font-weight:800; padding:2px 8px; border-radius:9999px; background:${banco.type === 'Pago Móvil' ? '#dbeafe' : '#fef3c7'}; color:${banco.type === 'Pago Móvil' ? '#1d4ed8' : '#b45309'};">${banco.type}</span>
+        </div>
+        ${banco.phone ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">Teléfono: <strong>${banco.phone}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.phone}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        </div>` : ''}
+        ${banco.idNumber ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">C.I / RIF: <strong>${banco.idNumber}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.idNumber}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        </div>` : ''}
+        ${banco.account ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">Cuenta: <strong style="letter-spacing:0.5px;">${banco.account}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.account}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        </div>` : ''}
+        ${banco.titular ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0;">
+            <span style="color:#475569; font-size:0.8rem;">Titular: <strong>${banco.titular}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.titular}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        </div>` : ''}
+        <button type="button" onclick="copiarTodosDatosBanco('${banco.id}', this)" class="btn btn-block" style="margin-top:8px; background:#2563eb; color:#ffffff; font-size:0.78rem; font-weight:700; padding:6px; border:none; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <i class="fas fa-copy"></i> Copiar todos los datos de este banco
+        </button>
+    `;
+}
+
+function copiarDatoBancoCliente(texto, btn) {
+    if (!texto) return;
+    navigator.clipboard.writeText(texto).then(() => {
+        if (btn) {
+            const original = btn.textContent;
+            btn.textContent = '✓ Copiado';
+            btn.style.background = '#10b981';
+            btn.style.color = '#ffffff';
+            setTimeout(() => {
+                btn.textContent = original;
+                btn.style.background = '#eff6ff';
+                btn.style.color = '#2563eb';
+            }, 1800);
+        }
+    });
+}
+
+function copiarTodosDatosBanco(bancoId, btn) {
+    const banco = bankAccounts.find(b => b.id === bancoId) || bankAccounts[0];
+    if (!banco) return;
+    const lineas = [
+        `*Datos de Pago - ${banco.bank}*`,
+        `• Tipo: ${banco.type}`,
+        banco.phone ? `• Teléfono: ${banco.phone}` : null,
+        banco.account ? `• Cuenta: ${banco.account}` : null,
+        banco.idNumber ? `• C.I / RIF: ${banco.idNumber}` : null,
+        banco.titular ? `• Titular: ${banco.titular}` : null
+    ].filter(Boolean).join('\n');
+
+    navigator.clipboard.writeText(lineas).then(() => {
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> ¡Datos copiados!';
+            btn.style.background = '#16a34a';
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.style.background = '#2563eb';
+            }, 2000);
+        }
+    });
+}
+window.actualizarDetallesBancoCliente = actualizarDetallesBancoCliente;
+window.copiarDatoBancoCliente = copiarDatoBancoCliente;
+window.copiarTodosDatosBanco = copiarTodosDatosBanco;
+
 function abrirModalCarritoCliente() {
     const modal = document.getElementById('modal-cliente-carrito');
     if (modal) {
@@ -467,6 +577,7 @@ function abrirModalCarritoCliente() {
             selectMetodo.value = 'Crédito';
             manejarCambioMetodoPagoCliente('Crédito');
         }
+        actualizarDetallesBancoCliente('bdv_pm');
         renderizarCarritoCliente();
     }
 }

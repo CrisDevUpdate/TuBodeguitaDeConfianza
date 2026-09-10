@@ -286,13 +286,69 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
 }
 
 /**
- * Alterna el estado de la Temporada de Invierno
+ * Alterna el estado de la Temporada de Invierno y sincroniza con Firestore /config/gamification
  */
-function toggleTemporadaInviernoConfig() {
-    AppState.temporadaInviernoActiva = !AppState.temporadaInviernoActiva;
+async function toggleTemporadaInviernoConfig() {
+    const nuevoEstado = !Boolean(AppState.temporadaInviernoActiva || AppState.isWinterMode);
+    AppState.temporadaInviernoActiva = nuevoEstado;
+    AppState.isWinterMode = nuevoEstado;
+    if (AppState.premioMes) {
+        AppState.premioMes.temporadaActiva = !nuevoEstado;
+    }
 
-    // Persistir estado
-    if (window.InventoryApp.Persistence?.guardar) {
+    // Regla de Visibilidad Inmediata: Inyectar estilo para catálogo y carrito
+    let styleTag = document.getElementById('winter-mode-global-style');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'winter-mode-global-style';
+        document.head.appendChild(styleTag);
+    }
+    if (nuevoEstado) {
+        styleTag.textContent = `
+            .cliente-prod-points-badge,
+            .combo-points-badge,
+            #cliente-carrito-puntos-row,
+            .puntos-premio-row,
+            [data-points-badge] {
+                display: none !important;
+            }
+        `;
+    } else {
+        styleTag.textContent = '';
+    }
+
+    // Ocultar/mostrar inmediatamente en el DOM del carrito
+    const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+    if (carritoPuntosRow) {
+        carritoPuntosRow.style.display = nuevoEstado ? 'none' : 'flex';
+    }
+    const carritoPuntosPreview = document.getElementById('cliente-carrito-puntos-preview');
+    if (carritoPuntosPreview && nuevoEstado) {
+        carritoPuntosPreview.textContent = '+0 Pts';
+    }
+
+    // Persistir directamente a Firestore: /config/gamification
+    try {
+        if (window.firebase && typeof window.firebase.firestore === 'function') {
+            const db = window.firebase.firestore();
+            await db.collection('config').doc('gamification').set({
+                isWinterMode: nuevoEstado,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'Admin'
+            }, { merge: true });
+
+            await db.collection('configuracion').doc('gamificacion').set({
+                isWinterMode: nuevoEstado,
+                temporadaInviernoActiva: nuevoEstado,
+                updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+        }
+    } catch (fsErr) {
+        console.warn('[configuracion.js] Advertencia escribiendo /config/gamification en Firestore:', fsErr.message);
+    }
+
+    // Persistir estado localmente
+    if (window.InventoryApp?.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
@@ -301,11 +357,12 @@ function toggleTemporadaInviernoConfig() {
     if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
     if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
     if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+    if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
 
-    const activo = AppState.temporadaInviernoActiva;
+    const activo = nuevoEstado;
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(
-            activo ? '❄️ Temporada de Invierno activada con éxito. Puntos en pausa y árbol congelado.' : '☀️ Temporada regular restaurada. Acumulación y puntos activos.',
+            activo ? '❄️ Temporada de Invierno activada con éxito. Puntos en pausa y ocultos en catálogo/carrito.' : '☀️ Temporada regular restaurada. Acumulación y puntos activos.',
             activo ? 'info' : 'success'
         );
     }

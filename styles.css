@@ -2415,6 +2415,61 @@ th {
     border: 1px solid #fecaca;
 }
 
+.cliente-prod-points-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.35);
+    z-index: 2;
+    letter-spacing: 0.02em;
+    transition: all 0.2s ease;
+}
+
+.cliente-prod-points-badge.combo-points-badge {
+    background: linear-gradient(135deg, #ea580c, #f59e0b);
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.4);
+}
+
+.cliente-prod-points-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.cliente-prod-points-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #065f46;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 3px 8px;
+    border-radius: 6px;
+    line-height: 1.2;
+}
+
+.cliente-prod-points-chip i {
+    color: #f59e0b;
+}
+
+.cliente-prod-points-chip.combo-chip {
+    color: #9a3412;
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
 .cliente-prod-body {
     padding: 14px;
     display: flex;

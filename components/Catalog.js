@@ -183,7 +183,7 @@ class CatalogManager {
         const productosAVisualizar = productosOrdenados.slice(0, this.displayedCount);
         const tasa = AppState.tasaActiva || 0;
 
-        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+        const temporadaActiva = !Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva) && AppState.premioMes?.temporadaActiva !== false;
 
         container.innerHTML = productosAVisualizar.map(p => {
             const stock = Number(p.stock || 0);
@@ -192,7 +192,7 @@ class CatalogManager {
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
             const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo'));
-            const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined)
+            const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
                 ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
                 : Math.max(1, Math.floor(precioUSD * ptsPorDolar));
             const esMasVendido = ventas >= 3;
@@ -224,8 +224,8 @@ class CatalogManager {
 
                         <!-- Indicador de Puntos (Solo si la temporada de incentivos está activa) -->
                         ${temporadaActiva ? `
-                        <div class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" style="${esCombo ? 'background: linear-gradient(135deg, #ea580c, #f59e0b); border-color: #f97316; font-weight: 900; box-shadow: 0 4px 10px rgba(234, 88, 12, 0.35);' : ''}">
-                            ${esCombo ? `🔥 Super Combo: +${puntosGanados} Puntos` : `<i class="fas fa-star"></i> +${puntosGanados} pts`}
+                        <div class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" data-points-badge style="${esCombo ? 'background: linear-gradient(135deg, #ea580c, #f59e0b); border-color: #f97316; font-weight: 900; box-shadow: 0 4px 10px rgba(234, 88, 12, 0.35);' : ''}">
+                            ${esCombo ? `🔥 Super Combo: +${puntosGanados} Puntos` : `<i class="fas fa-star" style="color:#fbbf24;"></i> +${puntosGanados} pts`}
                         </div>
                         ` : ''}
 
@@ -245,6 +245,14 @@ class CatalogManager {
                         </div>
 
                         <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
+
+                        ${temporadaActiva ? `
+                        <div class="cliente-prod-points-row" data-points-badge>
+                            <span class="cliente-prod-points-chip ${esCombo ? 'combo-chip' : ''}">
+                                <i class="fas fa-star"></i> Otorga <strong>+${puntosGanados} Pts</strong>
+                            </span>
+                        </div>
+                        ` : ''}
 
                         ${p.descripcion ? `
                             <p class="cliente-prod-desc">${p.descripcion}</p>

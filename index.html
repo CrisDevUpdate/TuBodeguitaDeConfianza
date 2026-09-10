@@ -2105,19 +2105,33 @@
                 <span style="color:var(--text-muted); font-size:0.95rem;">Total en Bolívares (VES):</span>
                 <strong id="cliente-carrito-total-ves" style="font-size:1.2rem; color:#16a34a;">Bs. 0.00</strong>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #cbd5e1; padding-top:8px;">
+            <div id="cliente-carrito-puntos-row" style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #cbd5e1; padding-top:8px;">
                 <span style="color:#d97706; font-size:0.88rem; font-weight:600;"><i class="fas fa-trophy"></i> Puntos para el Premio del Mes:</span>
                 <strong id="cliente-carrito-puntos-preview" style="color:#d97706; font-size:1rem;">+0 Pts</strong>
             </div>
         </div>
 
-        <!-- Información de Cuentas Bancarias para Pago -->
-        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px; margin-bottom:16px; font-size:0.84rem; line-height:1.4;">
-            <strong style="color:#1e40af; display:block; margin-bottom:4px;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
-            <div style="color:#1e40af;">
-                • <strong>Pago Móvil:</strong> Banco Banesco / Banco de Venezuela (0102 / 0134)<br>
-                • <strong>Teléfono WhatsApp:</strong> 0412-5363849 &nbsp;|&nbsp; <strong>C.I / RIF:</strong> V-28.123.456<br>
-                • <strong>Titular:</strong> Tu Bodeguita de Confianza C.A.
+        <!-- Selector Multibanco Dinámico & Detalles con Copiado -->
+        <div id="cliente-multibanco-container" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px; margin-bottom:16px; font-size:0.85rem; line-height:1.4;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                <strong style="color:#1e40af; font-size:0.92rem;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
+            </div>
+            
+            <div style="margin-bottom:10px;">
+                <label for="cliente-banco-selector" style="display:block; font-size:0.8rem; font-weight:700; color:#1e40af; margin-bottom:4px;">
+                    Seleccionar Entidad Bancaria:
+                </label>
+                <select id="cliente-banco-selector" onchange="actualizarDetallesBancoCliente(this.value)" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #93c5fd; background:#ffffff; font-weight:700; color:#1e3a8a; cursor:pointer;">
+                    <option value="bdv_pm">Pago Móvil: Banco de Venezuela (0102)</option>
+                    <option value="banesco_pm">Pago Móvil: Banesco (0134)</option>
+                    <option value="mercantil_pm">Pago Móvil: Mercantil (0105)</option>
+                    <option value="bdv_trans">Transferencia: Banco de Venezuela (0102)</option>
+                </select>
+            </div>
+
+            <!-- Tarjeta Dinámica de Detalles del Banco Seleccionado -->
+            <div id="cliente-banco-card" style="background:#ffffff; border:1px solid #dbeafe; border-radius:8px; padding:10px 12px;">
+                <!-- Rellenado dinámicamente por actualizarDetallesBancoCliente() -->
             </div>
         </div>
 
