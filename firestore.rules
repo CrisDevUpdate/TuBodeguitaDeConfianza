@@ -44,6 +44,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if true;
     }
+    match /users/{userId}/{allSubcollections=**} {
+      allow read, write: if true;
+    }
+    match /combos/{comboId} {
+      allow read, write: if true;
+    }
     match /products/{productId} {
       allow read, write: if true;
     }

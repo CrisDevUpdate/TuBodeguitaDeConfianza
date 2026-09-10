@@ -6,31 +6,43 @@
 
 window.InventoryApp = window.InventoryApp || {};
 
-// Presets de imágenes de premios populares para conveniencia
+// Presets de imágenes y metas financieras de premios populares
 const PRESETS_PREMIOS = [
     {
         nombre: 'Cafetera Espresso Digital 1.5L',
-        puntos: 200,
+        puntos: 600,
+        costo: 40.00,
+        gananciaMeta: 60.00,
+        factor: 10,
         imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
-        descripcion: 'Cafetera eléctrica con bomba de alta presión para espresso y capuchino.'
+        descripcion: 'Cafetera eléctrica con bomba de alta presión para espresso y capuchino. Desafío acumulativo hasta tener ganador.'
     },
     {
         nombre: 'Freidora de Aire Digital 4.5L',
-        puntos: 250,
+        puntos: 900,
+        costo: 60.00,
+        gananciaMeta: 90.00,
+        factor: 10,
         imagen: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop&q=80',
-        descripcion: 'Freidora sin aceite con pantalla táctil y 8 programas preestablecidos.'
+        descripcion: 'Freidora sin aceite con pantalla táctil y 8 programas. Desafío acumulativo hasta tener ganador.'
     },
     {
         nombre: 'Licuadora Profesional 1200W',
-        puntos: 180,
+        puntos: 400,
+        costo: 25.00,
+        gananciaMeta: 40.00,
+        factor: 10,
         imagen: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=600&auto=format&fit=crop&q=80',
-        descripcion: 'Vaso de vidrio refractario resistente a cambios bruscos de temperatura.'
+        descripcion: 'Vaso de vidrio refractario resistente a cambios bruscos de temperatura. Desafío acumulativo hasta tener ganador.'
     },
     {
         nombre: 'Juego de Ollas de Granito Antiadherente',
-        puntos: 300,
+        puntos: 1200,
+        costo: 80.00,
+        gananciaMeta: 120.00,
+        factor: 10,
         imagen: 'https://images.unsplash.com/photo-1583778176476-4a8b02a64c01?w=600&auto=format&fit=crop&q=80',
-        descripcion: 'Set de 7 piezas de aluminio forjado con recubrimiento de granito ecológico.'
+        descripcion: 'Set de 7 piezas de aluminio forjado con recubrimiento de granito ecológico. Desafío acumulativo.'
     }
 ];
 
@@ -52,7 +64,7 @@ function obtenerPuntosUsuario(cedulaOId) {
 /**
  * Otorga puntos a un usuario/cliente tras una compra completada y pagada
  */
-function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra Contado') {
+function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra Contado', itemsVendidos = []) {
     if (!clienteCedulaOId || Number(montoUSD) <= 0) return 0;
 
     // Si la temporada está inactiva (Temporada de Invierno / Descanso), no se acumulan puntos
@@ -66,20 +78,108 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
     // Buscar en usuarios
     const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id || '').toUpperCase() === cleanId);
     const puntosPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
-    const puntosGanados = Math.floor(Number(montoUSD) * puntosPorDolar);
+
+    let puntosGanados = 0;
+    let gananciaNetaTotal = 0;
+    let cantidadCombos = 0;
+
+    // Si tenemos ítems vendidos desglosados (POS/Abonos), calculamos puntos por combo + puntos base
+    if (Array.isArray(itemsVendidos) && itemsVendidos.length > 0) {
+        itemsVendidos.forEach(item => {
+            const qty = Math.max(1, Number(item.cantidad || 1));
+            const precioUnit = Number(item.precio || item.precioUSD || 0);
+            const lineSubtotal = qty * precioUnit;
+
+            // Identificar si es combo u oferta
+            const esCombo = Boolean(
+                item.esCombo === true || 
+                item.tipo === 'combo' ||
+                item.isCombo === true ||
+                String(item.categoria || '').toLowerCase().includes('combo')
+            );
+
+            // Costo
+            let unitCost = Number(item.costoTotalCombo || item.costo || item.costoUSD || 0);
+            if (unitCost <= 0 && Array.isArray(AppState.productos)) {
+                const pCat = AppState.productos.find(p => p.id === (item.productoId || item.id));
+                unitCost = Number(pCat?.costo || pCat?.costoUSD || 0);
+            }
+            const lineCost = qty * unitCost;
+            const lineProfit = Math.max(0, lineSubtotal - lineCost);
+            gananciaNetaTotal += lineProfit;
+
+            if (esCombo) {
+                cantidadCombos += qty;
+                const ptsCombo = Number(item.puntosCombo ?? item.puntosPromo ?? item.points_given ?? (lineProfit * 2));
+                puntosGanados += Math.round(ptsCombo * qty);
+            } else {
+                puntosGanados += Math.floor(lineSubtotal * puntosPorDolar);
+            }
+        });
+    } else {
+        // Cálculo base directo por monto de la compra
+        puntosGanados = Math.floor(Number(montoUSD) * puntosPorDolar);
+        // Estimación estándar de margen neto (30% si no hay detalle)
+        gananciaNetaTotal = Number((Number(montoUSD) * 0.30).toFixed(2));
+    }
 
     if (puntosGanados <= 0) return 0;
 
+    // Actualizar usuario en AppState
     if (usuario) {
         usuario.puntosAcumulados = Number(usuario.puntosAcumulados || 0) + puntosGanados;
+        
+        // Actualizar métricas financieras acumuladas
+        const prevMetrics = usuario.financialMetrics || {};
+        usuario.financialMetrics = {
+            totalNetProfitUSD: Number((Number(prevMetrics.totalNetProfitUSD || 0) + gananciaNetaTotal).toFixed(2)),
+            totalPurchasesUSD: Number((Number(prevMetrics.totalPurchasesUSD || 0) + Number(montoUSD)).toFixed(2)),
+            totalPointsEarned: Number(prevMetrics.totalPointsEarned || 0) + puntosGanados,
+            combosPurchasedCount: Number(prevMetrics.combosPurchasedCount || 0) + cantidadCombos,
+            lastUpdated: new Date().toISOString()
+        };
     }
 
-    // Persistir
+    // Persistir localmente
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    if (usuario && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+    // Actualizar Árbol de Gamificación
+    if (window.InventoryApp?.TreeGamification && typeof window.InventoryApp.TreeGamification.actualizarPuntos === 'function') {
+        window.InventoryApp.TreeGamification.actualizarPuntos(usuario?.puntosAcumulados || puntosGanados);
+    }
+
+    // Sincronizar atómicamente con Firestore: /users/{id} y /users/{id}/financialMetrics
+    if (window.firebase?.firestore) {
+        try {
+            const db = window.firebase.firestore();
+            const batch = db.batch();
+            const userRef = db.collection('users').doc(cleanId);
+            const usuarioRef = db.collection('usuarios').doc(cleanId);
+            const metricsRef = db.collection('users').doc(cleanId).collection('financialMetrics').doc('summary');
+
+            const updateData = {
+                id: cleanId,
+                puntosAcumulados: usuario ? usuario.puntosAcumulados : puntosGanados,
+                financialMetrics: usuario?.financialMetrics || {
+                    totalNetProfitUSD: gananciaNetaTotal,
+                    totalPurchasesUSD: Number(montoUSD),
+                    totalPointsEarned: puntosGanados,
+                    combosPurchasedCount: cantidadCombos,
+                    lastUpdated: new Date().toISOString()
+                },
+                updatedAt: new Date().toISOString()
+            };
+
+            batch.set(userRef, updateData, { merge: true });
+            batch.set(usuarioRef, updateData, { merge: true });
+            batch.set(metricsRef, updateData.financialMetrics, { merge: true });
+            batch.commit().catch(e => console.warn('[Puntos] Error batch Firestore:', e));
+        } catch (fsErr) {
+            console.warn('[Puntos] Error preparando Firestore batch:', fsErr.message);
+        }
+    } else if (usuario && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(usuario).catch(e => console.warn('[Puntos] Error sync usuario:', e));
     }
 
@@ -141,7 +241,7 @@ function calcularReputacionCliente(clienteCedulaOId) {
 }
 
 /**
- * Guarda la configuración del Premio del Mes desde el formulario de Administrador
+ * Guarda la configuración del Gran Premio desde el formulario de Administrador
  */
 function guardarConfiguracionPremioMes(e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -152,21 +252,29 @@ function guardarConfiguracionPremioMes(e) {
     const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
     const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
     const mesInput = document.getElementById('premio-admin-mes');
+    const modalidadInput = document.getElementById('premio-admin-modalidad');
     const temporadaInput = document.getElementById('premio-temporada-activa');
 
     const nombre = (nombreInput?.value || '').trim();
-    const puntos = Number(puntosInput?.value || 200);
+    const puntos = Number(puntosInput?.value || 600);
     const puntosPorDolar = Number(puntosPorDolarInput?.value || 1);
     const imagen = (imagenInput?.value || '').trim();
     const descripcion = (descInput?.value || '').trim();
-    const mes = (mesInput?.value || '').trim();
+    const modalidad = modalidadInput?.value || 'ABIERTA_HASTA_GANADOR';
+    const mes = (mesInput?.value || '').trim() || 'Activo hasta tener ganador o cierre manual (Acumulativo)';
     const temporadaActiva = temporadaInput ? temporadaInput.checked : (AppState.premioMes?.temporadaActiva !== false);
+
+    // Parámetros de Ingeniería Financiera
+    const costoRealPremio = Math.max(0, parseFloat(document.getElementById('premio-admin-costo-real')?.value) || 40);
+    const gananciaNetaObjetivo = Math.max(1, parseFloat(document.getElementById('premio-admin-ganancia-meta')?.value) || 60);
+    const poolClientesEstimado = Math.max(1, parseInt(document.getElementById('premio-admin-pool-clientes')?.value, 10) || 10);
+    const pointsPerProfitDollar = Math.max(1, parseFloat(document.getElementById('premio-admin-pts-profit')?.value) || 10);
 
     if (!nombre) {
         if (window.InventoryApp.Modal?.alert) {
-            window.InventoryApp.Modal.alert('Campo Requerido', 'Por favor ingresa el nombre del Premio del Mes.');
+            window.InventoryApp.Modal.alert('Campo Requerido', 'Por favor ingresa el nombre del Gran Premio en juego.');
         } else {
-            alert('Por favor ingresa el nombre del Premio del Mes.');
+            alert('Por favor ingresa el nombre del Gran Premio en juego.');
         }
         return;
     }
@@ -179,14 +287,31 @@ function guardarConfiguracionPremioMes(e) {
         return;
     }
 
+    // Determinar estado de la temporada: si el admin está guardando un nuevo premio, reactivar si estaba completado
+    let estadoActual = AppState.premioMes?.estado || 'ACTIVO';
+    if (estadoActual === 'GANADOR_ALCANZADO' && AppState.premioMes?.nombre !== nombre) {
+        estadoActual = 'ACTIVO';
+        AppState.premioMes.ganadorActual = null;
+    }
+
     AppState.premioMes = {
+        ...(AppState.premioMes || {}),
         nombre: nombre,
         puntosRequeridos: puntos,
         puntosPorDolar: puntosPorDolar > 0 ? puntosPorDolar : 1,
         imagen: imagen || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
-        descripcion: descripcion || 'Premio exclusivo del mes para nuestros clientes más fieles.',
-        mes: mes || 'Mes en Curso',
-        temporadaActiva: temporadaActiva
+        descripcion: descripcion || 'Gran premio en juego para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!',
+        mes: mes,
+        vigenciaTexto: mes,
+        modalidad: modalidad,
+        temporadaActiva: temporadaActiva,
+        estado: estadoActual,
+        // Parámetros Financieros (Modelo Acumulativo de Ventas)
+        costoRealPremio: costoRealPremio,
+        gananciaNetaObjetivo: gananciaNetaObjetivo,
+        poolClientesEstimado: poolClientesEstimado,
+        pointsPerProfitDollar: pointsPerProfitDollar,
+        winnerAloneCoversReward: gananciaNetaObjetivo >= costoRealPremio
     };
 
     // Persistir directamente en Firebase Firestore
@@ -203,11 +328,11 @@ function guardarConfiguracionPremioMes(e) {
 
     if (window.InventoryApp.Modal?.alert) {
         window.InventoryApp.Modal.alert(
-            'Temporada Actualizada',
-            `¡La configuración del Premio del Mes "${nombre}" (${puntos} pts) ha sido guardada exitosamente!\n\nEstado de Temporada: ${temporadaActiva ? '🟢 ACTIVA (Puntos Habilitados)' : '❄️ INVIERNO (En Pausa)'}`
+            'Gran Premio Guardado',
+            `¡El desafío "${nombre}" (${puntos} pts) ha sido guardado exitosamente!\n\n• Modalidad: Abierta y Acumulativa (Sin límite mensual)\n• Estado: ${estadoActual === 'ACTIVO' ? '🟢 EN JUEGO' : estadoActual}\n• Cobertura: Inversión de $${costoRealPremio.toFixed(2)} cubierta por $${gananciaNetaObjetivo.toFixed(2)} de ganancia neta cobrada previamente en ventas.`
         );
     } else {
-        alert('¡Configuración del Premio del Mes actualizada exitosamente!');
+        alert('¡Configuración del Gran Premio actualizada exitosamente!');
     }
 
     renderizarConfiguradorPremioAdmin();
@@ -217,16 +342,235 @@ function guardarConfiguracionPremioMes(e) {
 window.guardarConfiguracionPremio = guardarConfiguracionPremioMes;
 
 /**
+ * Pausa o reactiva el desafío del premio actual ("o yo lo decida")
+ */
+async function togglePausarDesafioPremioAdmin() {
+    AppState.premioMes = AppState.premioMes || {};
+    const estaPausado = AppState.premioMes.estado === 'PAUSADO' || AppState.premioMes.temporadaActiva === false;
+
+    const accionTexto = estaPausado ? 'Reactivar' : 'Pausar';
+    const confirmar = await (window.InventoryApp.Modal?.confirm
+        ? window.InventoryApp.Modal.confirm(
+            `${accionTexto} Desafío del Premio`,
+            estaPausado 
+                ? '¿Deseas reactivar el desafío del premio? Los clientes volverán a ver el premio activo y podrán continuar acumulando puntos para ganarlo.'
+                : '¿Deseas pausar temporalmente este premio? El premio dejará de mostrarse en disputa activa hasta que decidas reactivarlo. Los puntos acumulados de los clientes quedan protegidos.'
+          )
+        : confirm(`¿Deseas ${accionTexto.toLowerCase()} el desafío del premio?`));
+
+    if (!confirmar) return;
+
+    if (estaPausado) {
+        AppState.premioMes.estado = 'ACTIVO';
+        AppState.premioMes.temporadaActiva = true;
+    } else {
+        AppState.premioMes.estado = 'PAUSADO';
+        AppState.premioMes.temporadaActiva = false;
+    }
+
+    // Persistir
+    if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes,
+            temporadaInviernoActiva: !AppState.premioMes.temporadaActiva
+        }).catch(e => console.warn(e));
+    }
+    if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+
+    actualizarPreviewPremioAdmin();
+    renderizarPremioMesCliente();
+
+    if (window.InventoryApp.Modal?.alert) {
+        window.InventoryApp.Modal.alert(
+            `Desafío ${estaPausado ? 'Reactivado' : 'Pausado'}`,
+            estaPausado 
+                ? '🟢 El premio vuelve a estar en disputa activa.'
+                : '⏸️ El premio ha sido pausado. No se podrá reclamar hasta que lo reactives.'
+        );
+    }
+}
+window.togglePausarDesafioPremioAdmin = togglePausarDesafioPremioAdmin;
+
+/**
+ * Inicia una nueva temporada con un nuevo premio ("Tal premio por tantos puntos activo")
+ */
+function iniciarNuevoDesafioModalAdmin() {
+    const pm = AppState.premioMes || {};
+    const defaultNombre = 'Freidora de Aire Digital 4.5L';
+    const defaultPuntos = 900;
+    const defaultCosto = 60.00;
+    const defaultMeta = 90.00;
+
+    if (window.InventoryApp.Modal?.show) {
+        const body = document.createElement('div');
+        body.innerHTML = `
+            <div style="padding:4px 0;">
+                <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:14px; line-height:1.4;">
+                    Define el nuevo premio en juego. El desafío permanecerá activo de forma acumulativa hasta que un cliente alcance los puntos requeridos o decidas retirarlo.
+                </p>
+
+                <div class="reward-presets-section" style="margin-bottom:14px;">
+                    <div style="font-size:0.8rem; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                        Selecciona un preset o escribe abajo:
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        ${PRESETS_PREMIOS.map((p, idx) => `
+                            <button type="button" class="btn btn-outline btn-sm" onclick="cargarPresetEnModalNuevoDesafio(${idx})" style="text-align:left; padding:6px 10px; font-size:0.75rem;">
+                                <strong>${p.nombre}</strong><br>
+                                <span style="color:#ea580c; font-weight:800;">${p.puntos} Pts</span> • Inversión: $${p.costo}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:4px;">Nombre del Nuevo Premio *</label>
+                        <input type="text" id="modal-nuevo-premio-nombre" class="reward-input" value="${defaultNombre}">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:4px;">Costo Inversión ($ USD) *</label>
+                            <input type="number" id="modal-nuevo-premio-costo" class="reward-input" min="0" step="0.5" value="${defaultCosto}">
+                        </div>
+                        <div>
+                            <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:4px;">Ganancia Neta Requerida ($) *</label>
+                            <input type="number" id="modal-nuevo-premio-meta" class="reward-input" min="1" step="0.5" value="${defaultMeta}">
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:4px;">Puntos Requeridos (Meta) *</label>
+                            <input type="number" id="modal-nuevo-premio-puntos" class="reward-input" min="10" step="10" value="${defaultPuntos}" style="font-weight:900; color:#ea580c;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:4px;">Modalidad</label>
+                            <input type="text" class="reward-input" readonly value="Acumulativo hasta ganador" style="background:#f1f5f9; font-size:0.75rem;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; font-weight:700; display:block; margin-bottom:4px;">Descripción</label>
+                        <textarea id="modal-nuevo-premio-desc" class="reward-textarea" rows="2" style="font-size:0.82rem;">Gran premio de la temporada para nuestros clientes más fieles. ¡Acumula puntos con cada compra!</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.InventoryApp.Modal.show({
+            title: '✨ Iniciar Nueva Temporada / Activar Gran Premio',
+            body: body,
+            buttons: [
+                {
+                    label: 'Cancelar',
+                    variant: 'outline',
+                    action: (m) => m.close()
+                },
+                {
+                    label: '🚀 Activar Nuevo Desafío',
+                    variant: 'primary',
+                    action: (m) => {
+                        const n = document.getElementById('modal-nuevo-premio-nombre')?.value?.trim();
+                        const p = Number(document.getElementById('modal-nuevo-premio-puntos')?.value) || defaultPuntos;
+                        const c = Number(document.getElementById('modal-nuevo-premio-costo')?.value) || defaultCosto;
+                        const g = Number(document.getElementById('modal-nuevo-premio-meta')?.value) || defaultMeta;
+                        const d = document.getElementById('modal-nuevo-premio-desc')?.value?.trim() || '';
+
+                        if (!n) {
+                            alert('Ingresa el nombre del premio.');
+                            return;
+                        }
+
+                        // Buscar imagen preset si coincide
+                        const preset = PRESETS_PREMIOS.find(pr => pr.nombre.toLowerCase() === n.toLowerCase());
+                        const img = preset ? preset.imagen : (AppState.premioMes?.imagen || 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop&q=80');
+
+                        AppState.premioMes = {
+                            ...(AppState.premioMes || {}),
+                            nombre: n,
+                            puntosRequeridos: p,
+                            costoRealPremio: c,
+                            gananciaNetaObjetivo: g,
+                            descripcion: d,
+                            imagen: img,
+                            estado: 'ACTIVO',
+                            temporadaActiva: true,
+                            ganadorActual: null,
+                            modalidad: 'ABIERTA_HASTA_GANADOR',
+                            vigenciaTexto: 'Activo hasta tener ganador o cierre manual (Acumulativo)'
+                        };
+
+                        if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+                            window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+                                premioMes: AppState.premioMes,
+                                temporadaInviernoActiva: false
+                            }).catch(e => console.warn(e));
+                        }
+                        if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+
+                        m.close();
+                        renderizarConfiguradorPremioAdmin();
+                        renderizarPremioMesCliente();
+
+                        if (window.InventoryApp.Modal?.alert) {
+                            window.InventoryApp.Modal.alert(
+                                '¡Temporada Iniciada!',
+                                `El nuevo premio "${n}" por ${p} puntos ya está activo y en disputa para todos los clientes.`
+                            );
+                        }
+                    }
+                }
+            ]
+        });
+    } else {
+        const n = prompt('Ingresa el nombre del nuevo premio:', defaultNombre);
+        if (n) {
+            AppState.premioMes = {
+                ...(AppState.premioMes || {}),
+                nombre: n,
+                puntosRequeridos: defaultPuntos,
+                costoRealPremio: defaultCosto,
+                gananciaNetaObjetivo: defaultMeta,
+                estado: 'ACTIVO',
+                temporadaActiva: true,
+                ganadorActual: null
+            };
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+            renderizarConfiguradorPremioAdmin();
+            renderizarPremioMesCliente();
+        }
+    }
+}
+window.iniciarNuevoDesafioModalAdmin = iniciarNuevoDesafioModalAdmin;
+
+function cargarPresetEnModalNuevoDesafio(idx) {
+    const p = PRESETS_PREMIOS[idx];
+    if (!p) return;
+    const nom = document.getElementById('modal-nuevo-premio-nombre');
+    const pts = document.getElementById('modal-nuevo-premio-puntos');
+    const cos = document.getElementById('modal-nuevo-premio-costo');
+    const met = document.getElementById('modal-nuevo-premio-meta');
+    const des = document.getElementById('modal-nuevo-premio-desc');
+
+    if (nom) nom.value = p.nombre;
+    if (pts) pts.value = p.puntos;
+    if (cos) cos.value = p.costo;
+    if (met) met.value = p.gananciaMeta;
+    if (des) des.value = p.descripcion;
+}
+window.cargarPresetEnModalNuevoDesafio = cargarPresetEnModalNuevoDesafio;
+
+/**
  * Anuncia la Nueva Temporada de Premios por WhatsApp
  */
 function anunciarTemporadaWhatsApp() {
-    const pm = AppState.premioMes || { nombre: 'Premio del Mes', puntosRequeridos: 200, puntosPorDolar: 1 };
+    const pm = AppState.premioMes || { nombre: 'Premio Activo', puntosRequeridos: 600, puntosPorDolar: 1 };
     const texto = 
-        `🌟 *¡NUEVA TEMPORADA DE PREMIOS EN TU BODEGUITA DE CONFIANZA!* 🌟\n\n` +
-        `🎁 *Gran Premio del Mes:* ${pm.nombre}\n` +
+        `🌟 *¡GRAN PREMIO EN JUEGO EN TU BODEGUITA DE CONFIANZA!* 🌟\n\n` +
+        `🎁 *Premio:* ${pm.nombre}\n` +
         `🎯 *Meta de Puntos:* ${pm.puntosRequeridos} pts\n` +
-        `⭐ *Puntos por cada $1 de compra:* ${pm.puntosPorDolar || 1} pts\n\n` +
-        `🛒 ¡Visita nuestro catálogo online, acumula puntos con cada compra y haz crecer tu Árbol de Fidelidad hasta la Cosecha Dorada!\n\n` +
+        `⭐ *Puntos por cada $1 de compra:* ${pm.puntosPorDolar || 1} pts\n` +
+        `⏱️ *Modalidad:* Abierta y acumulativa (¡Sin límite de fin de mes, hasta tener ganador!)\n\n` +
+        `🛒 ¡Visita nuestro catálogo online, acumula puntos con cada compra y llévate el premio a casa!\n\n` +
         `_Tu Bodeguita de Confianza - Calidad y cercanía para tu hogar._`;
 
     const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
@@ -241,13 +585,19 @@ function aplicarPresetPremio(idx) {
     const preset = PRESETS_PREMIOS[idx];
     if (!preset) return;
 
-    const nombreInput = document.getElementById('premio-nombre') || document.getElementById('premio-admin-titulo');
-    const puntosInput = document.getElementById('premio-puntos') || document.getElementById('premio-admin-puntos');
-    const ptsDolarInput = document.getElementById('premio-pts-dolar') || document.getElementById('premio-admin-pts-dolar');
-    const imagenInput = document.getElementById('premio-imagen-url') || document.getElementById('premio-admin-img');
-    const descInput = document.getElementById('premio-descripcion') || document.getElementById('premio-admin-desc');
+    const nombreInput = document.getElementById('premio-admin-titulo') || document.getElementById('premio-nombre');
+    const puntosInput = document.getElementById('premio-admin-puntos') || document.getElementById('premio-puntos');
+    const ptsDolarInput = document.getElementById('premio-admin-pts-dolar') || document.getElementById('premio-pts-dolar');
+    const imagenInput = document.getElementById('premio-admin-img') || document.getElementById('premio-imagen-url');
+    const descInput = document.getElementById('premio-admin-desc') || document.getElementById('premio-descripcion');
+    const costoInput = document.getElementById('premio-admin-costo-real');
+    const metaInput = document.getElementById('premio-admin-ganancia-meta');
+    const factorInput = document.getElementById('premio-admin-pts-profit');
 
     if (nombreInput) nombreInput.value = preset.nombre;
+    if (costoInput && preset.costo) costoInput.value = preset.costo;
+    if (metaInput && preset.gananciaMeta) metaInput.value = preset.gananciaMeta;
+    if (factorInput && preset.factor) factorInput.value = preset.factor;
     if (puntosInput) puntosInput.value = preset.puntos;
     if (ptsDolarInput) ptsDolarInput.value = preset.puntosPorDolar || 1;
     if (imagenInput) imagenInput.value = preset.imagen;
@@ -265,15 +615,163 @@ function aplicarPresetPremio(idx) {
 window.aplicarPresetPremio = aplicarPresetPremio;
 
 /**
- * Actualiza la vista previa del Premio en el configurador Admin
+ * Actualiza la vista previa del Premio en el configurador Admin y recalcula el Asistente Financiero
+ * con duración flexible y estado del desafío
  */
 function actualizarPreviewPremioAdmin() {
-    const nombre = document.getElementById('premio-nombre')?.value || document.getElementById('premio-admin-titulo')?.value || 'Cafetera Espresso Digital 1.5L';
-    const puntos = document.getElementById('premio-puntos')?.value || document.getElementById('premio-admin-puntos')?.value || '200';
-    const ptsDolar = document.getElementById('premio-pts-dolar')?.value || document.getElementById('premio-admin-pts-dolar')?.value || '1';
-    const imagen = document.getElementById('premio-imagen-url')?.value || document.getElementById('premio-admin-img')?.value || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80';
-    const desc = document.getElementById('premio-descripcion')?.value || document.getElementById('premio-admin-desc')?.value || 'Premio exclusivo del mes para nuestros clientes más fieles.';
-    const mes = document.getElementById('premio-admin-mes')?.value || 'Mes en Curso';
+    const nombre = document.getElementById('premio-admin-titulo')?.value || document.getElementById('premio-nombre')?.value || 'Cafetera Espresso Digital 1.5L';
+    const ptsDolar = document.getElementById('premio-admin-pts-dolar')?.value || document.getElementById('premio-pts-dolar')?.value || '1';
+    const imagen = document.getElementById('premio-admin-img')?.value || document.getElementById('premio-imagen-url')?.value || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80';
+    const desc = document.getElementById('premio-admin-desc')?.value || document.getElementById('premio-descripcion')?.value || 'Gran premio en juego para nuestros clientes más fieles.';
+    const mes = document.getElementById('premio-admin-mes')?.value || 'Activo hasta tener ganador o cierre manual (Acumulativo)';
+
+    // Parámetros de Ingeniería Financiera
+    const costoPremio = Math.max(0, parseFloat(document.getElementById('premio-admin-costo-real')?.value) || 40);
+    const gananciaMeta = Math.max(1, parseFloat(document.getElementById('premio-admin-ganancia-meta')?.value) || 60);
+    const poolClientes = Math.max(1, parseInt(document.getElementById('premio-admin-pool-clientes')?.value, 10) || 10);
+    const factorProfit = Math.max(1, parseFloat(document.getElementById('premio-admin-pts-profit')?.value) || 10);
+
+    // Meta de puntos del ganador calculada automáticamente: Ganancia Neta Objetivo * Factor
+    const puntosCalculados = Math.round(gananciaMeta * factorProfit);
+    const puntosInput = document.getElementById('premio-admin-puntos') || document.getElementById('premio-puntos');
+    if (puntosInput && document.activeElement !== puntosInput) {
+        puntosInput.value = puntosCalculados;
+    }
+    const puntos = Number(puntosInput?.value || puntosCalculados);
+
+    const formulaEl = document.getElementById('premio-admin-meta-formula');
+    if (formulaEl) {
+        formulaEl.textContent = `$${gananciaMeta.toFixed(2)} × ${factorProfit} pts/$ = ${puntosCalculados} Pts`;
+    }
+
+    // Balance Proyectado de la Temporada (Acumulativo sin límite mensual)
+    const competingClients = Math.max(0, poolClientes - 1);
+    const poolOtherProfit = competingClients * (gananciaMeta * 0.5);
+    const totalSeasonNetProfit = gananciaMeta + poolOtherProfit;
+    const netBusinessProfit = totalSeasonNetProfit - costoPremio;
+    const isAbsoluteProfitable = (gananciaMeta >= costoPremio) && (netBusinessProfit >= 0);
+
+    // Ventas acumuladas en caja necesarias para que el ganador cubra los $60 (asumiendo ~30% margen de ganancia)
+    const ventasBrutasGanadorUSD = Math.round(gananciaMeta / 0.30);
+
+    const elWinner = document.getElementById('premio-balance-winner');
+    const elPool = document.getElementById('premio-balance-pool');
+    const elCompetingCount = document.getElementById('premio-balance-competing-count');
+    const elTotal = document.getElementById('premio-balance-total');
+    const elCosto = document.getElementById('premio-balance-costo');
+    const elUtilidad = document.getElementById('premio-balance-utilidad');
+    const elStatusBadge = document.getElementById('premio-balance-status-badge');
+    const elHorizonteInfo = document.getElementById('premio-balance-horizonte-info');
+
+    if (elWinner) elWinner.textContent = `+$${gananciaMeta.toFixed(2)}`;
+    if (elCompetingCount) elCompetingCount.textContent = competingClients;
+    if (elPool) elPool.textContent = `+$${poolOtherProfit.toFixed(2)}`;
+    if (elTotal) elTotal.textContent = `+$${totalSeasonNetProfit.toFixed(2)}`;
+    if (elCosto) elCosto.textContent = `-$${costoPremio.toFixed(2)}`;
+    if (elUtilidad) {
+        elUtilidad.textContent = `${netBusinessProfit >= 0 ? '+' : ''}$${netBusinessProfit.toFixed(2)} USD libres`;
+        elUtilidad.style.color = netBusinessProfit >= 0 ? '#047857' : '#dc2626';
+    }
+    if (elHorizonteInfo) {
+        elHorizonteInfo.innerHTML = `
+            <strong>⏱️ Ventas Acumuladas Necesarias:</strong> ~$${ventasBrutasGanadorUSD} USD en compras distribuidas en <strong>1, 2 o 3 meses</strong> según el ritmo del cliente. El negocio retiene los $${gananciaMeta.toFixed(2)} de ganancia neta en caja <em>antes</em> de entregar el premio de $${costoPremio.toFixed(2)}.
+        `;
+    }
+
+    if (elStatusBadge) {
+        if (isAbsoluteProfitable) {
+            elStatusBadge.textContent = 'Rentabilidad Absoluta Garantizada';
+            elStatusBadge.style.background = '#dcfce7';
+            elStatusBadge.style.color = '#166534';
+        } else if (netBusinessProfit >= 0) {
+            elStatusBadge.textContent = 'Rentable con Pool (El Ganador solo no cubre el costo)';
+            elStatusBadge.style.background = '#fef3c7';
+            elStatusBadge.style.color = '#92400e';
+        } else {
+            elStatusBadge.textContent = 'Riesgo de Déficit Financiero';
+            elStatusBadge.style.background = '#fee2e2';
+            elStatusBadge.style.color = '#991b1b';
+        }
+    }
+
+    // Actualizar Banner de Estado de Temporada en Admin
+    const statusBanner = document.getElementById('premio-admin-status-banner');
+    const btnPausar = document.getElementById('btn-admin-pausar-desafio');
+    const estado = AppState.premioMes?.estado || 'ACTIVO';
+    const ganadorActual = AppState.premioMes?.ganadorActual;
+
+    if (statusBanner) {
+        if (estado === 'GANADOR_ALCANZADO') {
+            statusBanner.className = 'reward-status-banner banner-winner';
+            statusBanner.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#fef08a; color:#854d0e; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            🏆 ¡TEMPORADA CONCLUIDA! GANADOR ALCANZADO
+                        </span>
+                        <div style="margin-top:6px; font-weight:700; color:#1e293b; font-size:1rem;">
+                            Ganador: <span style="color:#b45309;">${ganadorActual?.nombre || 'Cliente Leal'}</span> (${ganadorActual?.puntos || puntos} pts)
+                        </div>
+                        <div style="font-size:0.8rem; color:#64748b;">
+                            El premio fue ganado y retirado de la competencia. Inicia la siguiente temporada para activar el próximo premio.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-primary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700;">
+                            <i class="fas fa-wand-magic-sparkles"></i> Activar Nuevo Premio / Temporada
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (estado === 'PAUSADO') {
+            statusBanner.className = 'reward-status-banner banner-paused';
+            statusBanner.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#f1f5f9; color:#475569; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            ⏸️ DESAFÍO EN PAUSA TEMPORAL
+                        </span>
+                        <div style="margin-top:4px; font-size:0.85rem; color:#475569;">
+                            El premio no está en disputa en este momento. Los puntos de los clientes siguen acumulándose y están seguros.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-success" onclick="togglePausarDesafioPremioAdmin()" style="font-weight:700;">
+                            <i class="fas fa-play"></i> Reactivar Desafío
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            statusBanner.className = 'reward-status-banner banner-active';
+            statusBanner.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#dcfce7; color:#166534; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            🟢 DESAFÍO EN JUEGO (ABIERTO HASTA GANADOR)
+                        </span>
+                        <div style="margin-top:4px; font-size:0.85rem; color:#334155;">
+                            Premio en disputa activa. Se retirará cuando un cliente alcance los <strong>${puntos} Pts</strong> o cuando decidas pausarlo/cambiarlo.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="togglePausarDesafioPremioAdmin()" title="Pausar desafío temporalmente">
+                            <i class="fas fa-pause"></i> Pausar
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="iniciarNuevoDesafioModalAdmin()" title="Cambiar a un nuevo premio">
+                            <i class="fas fa-arrows-rotate"></i> Cambiar Premio
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    if (btnPausar) {
+        btnPausar.innerHTML = estado === 'PAUSADO' 
+            ? '<i class="fas fa-play"></i> Reactivar Desafío' 
+            : '<i class="fas fa-pause"></i> Pausar Desafío';
+    }
 
     const imgEl = document.getElementById('preview-premio-img');
     const tituloEl = document.getElementById('preview-premio-titulo');
@@ -287,7 +785,7 @@ function actualizarPreviewPremioAdmin() {
     if (tituloEl) tituloEl.textContent = nombre;
     if (puntosEl) puntosEl.innerHTML = `<i class="fas fa-star"></i> ${puntos} Pts Requeridos`;
     if (descEl) descEl.textContent = desc;
-    if (vigenciaEl) vigenciaEl.innerHTML = `<i class="fas fa-calendar-check"></i> ${mes}`;
+    if (vigenciaEl) vigenciaEl.innerHTML = `<i class="fas fa-hourglass-half"></i> ${mes}`;
     if (rateEl) rateEl.textContent = `$1.00 = +${ptsDolar} Pts`;
 
     if (charCounter) {
@@ -429,6 +927,16 @@ function renderizarConfiguradorPremioAdmin() {
     if (descInput) descInput.value = pm.descripcion || '';
     if (mesInput) mesInput.value = pm.mes || 'Mes en Curso';
 
+    const costoInput = document.getElementById('premio-admin-costo-real');
+    const metaInput = document.getElementById('premio-admin-ganancia-meta');
+    const poolInput = document.getElementById('premio-admin-pool-clientes');
+    const factorInput = document.getElementById('premio-admin-pts-profit');
+
+    if (costoInput && pm.costoRealPremio !== undefined) costoInput.value = pm.costoRealPremio;
+    if (metaInput && pm.gananciaNetaObjetivo !== undefined) metaInput.value = pm.gananciaNetaObjetivo;
+    if (poolInput && pm.poolClientesEstimado !== undefined) poolInput.value = pm.poolClientesEstimado;
+    if (factorInput && pm.pointsPerProfitDollar !== undefined) factorInput.value = pm.pointsPerProfitDollar;
+
     // Renderizar presets en chips horizontales modernos
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');
     if (presetsContainer) {
@@ -511,10 +1019,27 @@ async function confirmarGanadorPremio(canjeId) {
         canje.cicloCompletado = nuevoCiclo - 1;
     }
 
+    // Marcar la temporada como GANADOR_ALCANZADO ("se quitará cuándo ya haya un ganador")
+    AppState.premioMes = AppState.premioMes || {};
+    AppState.premioMes.estado = 'GANADOR_ALCANZADO';
+    AppState.premioMes.ganadorActual = {
+        nombre: canje.clienteNombre,
+        cedula: canje.clienteCedula,
+        premioNombre: canje.premioNombre,
+        puntos: canje.puntos,
+        fecha: canje.fechaEntrega,
+        canjeId: canje.id
+    };
+
     // Persistir cambios
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     if (window.InventoryApp.Firebase && cliente && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(cliente).catch(e => console.warn(e));
+    }
+    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes
+        }).catch(e => console.warn(e));
     }
 
     // Preparar mensaje de WhatsApp para el Ganador
@@ -553,10 +1078,16 @@ async function confirmarGanadorPremio(canjeId) {
                     <div><i class="fas fa-check-circle"></i> Puntos descontados: <strong>${canje.puntos} pts</strong></div>
                     <div><i class="fas fa-seedling"></i> Nuevo ciclo activo: <strong>Ciclo #${nuevoCiclo}</strong> (Brote inicial)</div>
                     <div><i class="fas fa-phone"></i> Teléfono: <strong>${telClienteLimpio || 'No registrado'}</strong></div>
+                    <div style="margin-top:4px; font-weight:700; color:#b45309;"><i class="fas fa-flag-checkered"></i> Temporada cerrada: El premio se retira de competencia hasta que actives el siguiente.</div>
                 </div>
-                <a href="${waLink}" target="_blank" class="btn btn-success btn-block" style="padding:12px 20px; font-weight:700; font-size:0.95rem; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> Notificar al Ganador por WhatsApp
-                </a>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <a href="${waLink}" target="_blank" class="btn btn-success btn-block" style="padding:12px 20px; font-weight:700; font-size:0.95rem; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+                        <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> Notificar al Ganador por WhatsApp
+                    </a>
+                    <button type="button" class="btn btn-primary btn-block" onclick="iniciarNuevoDesafioModalAdmin()" style="padding:10px 16px; font-weight:700; font-size:0.9rem;">
+                        <i class="fas fa-wand-magic-sparkles"></i> Activar Nueva Temporada / Próximo Premio
+                    </button>
+                </div>
             </div>
         `;
         window.InventoryApp.Modal.show({
@@ -730,15 +1261,36 @@ async function renderizarPremioMesCliente() {
                 </div>
             </div>
 
-            <!-- Tarjeta Premio del Mes -->
+            <!-- Tarjeta Gran Premio en Disputa (Desafío Acumulativo de Ventas) -->
             <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
                 <div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                         <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
-                            <i class="fas fa-gift" style="color:var(--primary-accent);"></i> Premio del Mes
+                            <i class="fas fa-trophy" style="color:var(--primary-accent);"></i> Gran Premio en Juego
                         </h3>
-                        <span class="badge" style="background:#fef3c7; color:#d97706; font-weight:700;">Meta: ${puntosRequeridos} pts</span>
+                        <span class="badge" style="background:${pm.estado === 'GANADOR_ALCANZADO' ? '#fef08a' : (pm.estado === 'PAUSADO' ? '#e2e8f0' : '#fef3c7')}; color:${pm.estado === 'GANADOR_ALCANZADO' ? '#854d0e' : (pm.estado === 'PAUSADO' ? '#475569' : '#d97706')}; font-weight:700;">
+                            ${pm.estado === 'GANADOR_ALCANZADO' ? '🏆 Concluido' : (pm.estado === 'PAUSADO' ? '⏸️ En Pausa' : `Meta: ${puntosRequeridos} pts`)}
+                        </span>
                     </div>
+
+                    ${pm.estado === 'GANADOR_ALCANZADO' ? `
+                        <div style="background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#854d0e; line-height:1.4;">
+                            <div style="font-weight:800; margin-bottom:4px; font-size:0.92rem;"><i class="fas fa-crown" style="color:#ca8a04;"></i> ¡Temporada Concluida!</div>
+                            ¡Felicitaciones a <strong>${pm.ganadorActual?.nombre || 'un cliente leal'}</strong> quien completó los puntos y se llevó este premio!
+                            <div style="margin-top:6px; font-size:0.8rem; color:#713f12; border-top:1px dashed #facc15; padding-top:4px;">
+                                <strong>✨ Tus ${puntosDisponibles} puntos acumulados siguen intactos</strong> y se sumarán a tus próximas compras para el siguiente gran premio.
+                            </div>
+                        </div>
+                    ` : (pm.estado === 'PAUSADO' ? `
+                        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#334155; line-height:1.4;">
+                            <div style="font-weight:800; margin-bottom:4px;"><i class="fas fa-pause-circle"></i> Desafío en Pausa Temporal</div>
+                            La administración ha pausado temporalmente este desafío. Tus <strong>${puntosDisponibles} puntos</strong> están 100% protegidos y listos para la reactivación.
+                        </div>
+                    ` : `
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:0.8rem; color:#166534;">
+                            <i class="fas fa-hourglass-half"></i> <strong>Desafío Acumulativo:</strong> Tus puntos no se vencen a fin de mes; se acumulan compra tras compra hasta alcanzar la meta o hasta que haya un ganador.
+                        </div>
+                    `)}
 
                     <div style="position:relative; border-radius:12px; overflow:hidden; height:170px; margin-bottom:14px; background:#f1f5f9;">
                         <img src="${pm.imagen}" alt="${pm.nombre}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80'">
@@ -759,17 +1311,27 @@ async function renderizarPremioMesCliente() {
                             <div style="height:100%; width:${porcentaje}%; background:linear-gradient(90deg, #10b981, #059669); border-radius:10px; transition:width 0.5s ease;"></div>
                         </div>
                         <small style="display:block; margin-top:6px; font-size:0.78rem; color:${puedeCanjear ? '#16a34a' : 'var(--text-muted)'}; font-weight:${puedeCanjear ? '700' : 'normal'};">
-                            ${puedeCanjear ? '🎉 ¡Felicidades! Tienes puntos suficientes para canjear este premio.' : `Te faltan ${puntosFaltantes} puntos para desbloquear este premio.`}
+                            ${pm.estado === 'GANADOR_ALCANZADO' ? 'Premio otorgado · Próxima temporada en breve' : (puedeCanjear ? '🎉 ¡Felicidades! Tienes puntos suficientes para solicitar este premio.' : `Te faltan ${puntosFaltantes} puntos para desbloquear este premio.`)}
                         </small>
                     </div>
                 </div>
 
                 <div>
-                    <button type="button" id="btn-canjear-premio" class="btn btn-block ${puedeCanjear ? 'btn-success btn-canjear-glow' : 'btn-secondary'}" 
-                        onclick="canjearPremioMesCliente()" ${puedeCanjear ? '' : 'disabled'}
-                        style="padding:12px; font-weight:700; font-size:0.95rem;">
-                        <i class="fas ${puedeCanjear ? 'fa-gift' : 'fa-lock'}"></i> ${puedeCanjear ? `¡Canjear ${pm.nombre}!` : `Faltan ${puntosFaltantes} pts para canjear`}
-                    </button>
+                    ${pm.estado === 'GANADOR_ALCANZADO' ? `
+                        <button type="button" class="btn btn-block btn-secondary" disabled style="padding:12px; font-weight:700; font-size:0.95rem;">
+                            <i class="fas fa-flag-checkered"></i> Temporada Concluida · Próximo Desafío en Breve
+                        </button>
+                    ` : (pm.estado === 'PAUSADO' ? `
+                        <button type="button" class="btn btn-block btn-secondary" disabled style="padding:12px; font-weight:700; font-size:0.95rem;">
+                            <i class="fas fa-pause"></i> Desafío en Pausa
+                        </button>
+                    ` : `
+                        <button type="button" id="btn-canjear-premio" class="btn btn-block ${puedeCanjear ? 'btn-success btn-canjear-glow' : 'btn-secondary'}" 
+                            onclick="canjearPremioMesCliente()" ${puedeCanjear ? '' : 'disabled'}
+                            style="padding:12px; font-weight:700; font-size:0.95rem;">
+                            <i class="fas ${puedeCanjear ? 'fa-gift' : 'fa-lock'}"></i> ${puedeCanjear ? `¡Reclamar ${pm.nombre}!` : `Faltan ${puntosFaltantes} pts para reclamar`}
+                        </button>
+                    `)}
                 </div>
             </div>
         </div>
@@ -818,7 +1380,22 @@ function canjearPremioMesCliente() {
         return;
     }
 
-    const pm = AppState.premioMes;
+    const pm = AppState.premioMes || {};
+    if (pm.estado === 'GANADOR_ALCANZADO') {
+        alert('Este premio ya fue alcanzado por otro cliente y la temporada ha concluido. Tus puntos se mantienen intactos para la siguiente temporada que activará la administración en breve.');
+        return;
+    }
+    if (pm.estado === 'PAUSADO') {
+        alert('El desafío de este premio está temporalmente en pausa por la administración. Tus puntos están protegidos.');
+        return;
+    }
+
+    // Si TreeGamification tiene el método especializado con notificación de WhatsApp a la Bodega
+    if (window.InventoryApp?.TreeGamification && typeof window.InventoryApp.TreeGamification.reclamarPremioYCiclo === 'function') {
+        window.InventoryApp.TreeGamification.reclamarPremioYCiclo();
+        return;
+    }
+
     const cedula = usuario.cedula || usuario.id;
     const puntosDisponibles = obtenerPuntosUsuario(cedula);
     const puntosReq = Number(pm?.puntosRequeridos || 200);
@@ -832,9 +1409,6 @@ function canjearPremioMesCliente() {
         return;
     }
 
-    // Descontar puntos
-    usuario.puntosCanjeados = Number(usuario.puntosCanjeados || 0) + puntosReq;
-
     if (!Array.isArray(AppState.canjesPremios)) {
         AppState.canjesPremios = [];
     }
@@ -843,26 +1417,41 @@ function canjearPremioMesCliente() {
         id: 'CANJE-' + Date.now().toString().slice(-6),
         clienteCedula: cedula,
         clienteNombre: usuario.nombre,
+        clienteTelefono: usuario.telefono || '',
         premioNombre: pm.nombre,
         puntos: puntosReq,
         fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        estado: 'ENTREGADO'
+        estado: 'PENDIENTE_CONFIRMACION'
     };
 
-    AppState.canjesPremios.push(nuevoCanje);
+    AppState.canjesPremios.unshift(nuevoCanje);
+
+    // Marcar estado GANADOR_ALCANZADO
+    AppState.premioMes = AppState.premioMes || {};
+    AppState.premioMes.estado = 'GANADOR_ALCANZADO';
+    AppState.premioMes.ganadorActual = {
+        nombre: usuario.nombre,
+        cedula: cedula,
+        premioNombre: pm.nombre,
+        puntos: puntosReq,
+        fecha: nuevoCanje.fecha,
+        canjeId: nuevoCanje.id
+    };
 
     // Persistir
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCanjePremio === 'function') {
         window.InventoryApp.Firebase.guardarCanjePremio(nuevoCanje).catch(e => console.warn('[Canje] Error sync Firestore:', e));
     }
-    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
-        window.InventoryApp.Firebase.guardarUsuario(usuario).catch(e => console.warn(e));
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes
+        }).catch(e => console.warn(e));
     }
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    alert(`🎉 ¡FELICITACIONES ${usuario.nombre}! Has canjeado con éxito tu "${pm.nombre}". Presenta tu comprobante #${nuevoCanje.id} en caja.`);
+    alert(`🎉 ¡FELICITACIONES ${usuario.nombre}! Tu solicitud de canje #${nuevoCanje.id} para "${pm.nombre}" ha sido registrada. Por favor acércate a la bodega para retirar tu premio.`);
 
     renderizarPremioMesCliente();
 }

@@ -16,7 +16,8 @@
         "fechaRegistro": "string",
         "fechaAprobacion": "string",
         "motivoRechazo": "string",
-        "avatar": "string"
+        "avatar": "string",
+        "financialMetrics": "object"
       }
     },
     {
@@ -104,6 +105,23 @@
         "email": "string",
         "rol": "string",
         "estado": "string",
+        "financialMetrics": "object",
+        "updatedAt": "string"
+      }
+    },
+    {
+      "collection": "combos",
+      "fields": {
+        "id": "string",
+        "codigo": "string",
+        "nombre": "string",
+        "precio": "number",
+        "costo": "number",
+        "gananciaNeta": "number",
+        "puntosCombo": "number",
+        "badge": "string",
+        "items": "array",
+        "stock": "number",
         "updatedAt": "string"
       }
     },

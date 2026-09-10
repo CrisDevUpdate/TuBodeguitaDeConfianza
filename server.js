@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
+import processPointsHandler from './api/sales/processPoints.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -378,6 +379,15 @@ app.post('/api/sales', (req, res) => {
     serverSales.unshift(venta);
   }
   res.json({ success: true, sale: venta, count: serverSales.length });
+});
+
+// API Sales: Liquidación Atómica de Puntos y Ganancia Neta
+app.post('/api/sales/processPoints', async (req, res) => {
+  try {
+    await processPointsHandler(req, res);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // API Payments: GET and POST /api/payments

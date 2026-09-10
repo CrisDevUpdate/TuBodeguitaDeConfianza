@@ -42,10 +42,18 @@ const AppState = window.AppState = window.InventoryApp.state = {
     premioMes: {
         nombre: 'Cafetera Espresso Digital 1.5L',
         imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
-        puntosRequeridos: 200,
+        puntosRequeridos: 600,
         puntosPorDolar: 1,
+        costoRealPremio: 40.00,
+        gananciaNetaObjetivo: 60.00,
+        poolClientesEstimado: 10,
+        pointsPerProfitDollar: 10,
         temporadaActiva: true,
-        descripcion: 'Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
+        modalidad: 'ABIERTA_HASTA_GANADOR',
+        vigenciaTexto: 'Activo hasta tener ganador o cierre manual (Acumulativo)',
+        estado: 'ACTIVO', // 'ACTIVO' | 'GANADOR_ALCANZADO' | 'PAUSADO'
+        ganadorActual: null,
+        descripcion: 'Gran premio en juego para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
     },
     canjesPremios: [],
     notificaciones: [],

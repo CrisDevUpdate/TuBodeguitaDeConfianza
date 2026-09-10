@@ -290,7 +290,7 @@ async function ejecutarFinalizacionCheckoutPOS() {
     let puntosGanados = 0;
     const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
     if (temporadaActiva && (metodoPago !== 'Crédito') && typeof otorgarPuntosPorCompra === 'function') {
-        puntosGanados = otorgarPuntosPorCompra(clienteId, total, 'Venta POS Contado');
+        puntosGanados = otorgarPuntosPorCompra(clienteId, total, 'Venta POS Contado', itemsVendidos);
     }
 
     // Sincronizar con Firebase Firestore

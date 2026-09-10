@@ -656,90 +656,20 @@ function actualizarBadgeVentasHoy() {
 }
 
 /**
- * Confirma una venta o transacción para que sus ganancias se sumen
- * inmediatamente a la barra de recuperación de pérdidas.
+ * Ninguna transacción se debe confirmar desde el Historial de Ventas.
+ * Toda confirmación y aprobación de pagos se gestiona exclusivamente
+ * en el módulo de Usuarios & Aprobación.
  */
-async function confirmarVentaAdmin(ventaId, desdeModal = false) {
-    const listadoVentas = Array.isArray(AppState.ventas)
-        ? AppState.ventas
-        : (typeof ventas !== 'undefined' && Array.isArray(ventas) ? ventas : []);
-
-    const venta = listadoVentas.find(v => v.id === ventaId);
-    if (!venta) return;
-
-    let confirmado = false;
-    const totalStr = `$${Number(venta.total || 0).toFixed(2)}`;
-    const msg = `¿Confirmar la transacción <b>#${venta.id}</b> (${totalStr})?<br><br>` +
-        `Al confirmarla, sus ganancias se incorporarán de inmediato a la <b>barra de recuperación de pérdidas</b>.`;
-
-    if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Confirmar Transacción', msg, 'question');
+async function confirmarVentaAdmin(ventaId) {
+    if (typeof showCustomAlert === 'function') {
+        showCustomAlert(
+            'Aprobación Restringida',
+            'Ninguna transacción se debe confirmar por el Historial de Ventas.<br><br>' +
+            'Las validaciones de pagos y comprobantes bancarios deben aprobarse exclusivamente desde el módulo de <b>Usuarios & Aprobación</b> para mantener la trazabilidad contable.',
+            'warning'
+        );
     } else {
-        confirmado = confirm(`¿Confirmar la venta #${venta.id} (${totalStr}) para sumar sus ganancias a la recuperación?`);
-    }
-
-    if (!confirmado) return;
-
-    // Actualizar estado de la venta
-    venta.estado = 'CONFIRMADO';
-    venta.confirmada = true;
-    venta.pendiente = false;
-
-    // Actualizar transacción asociada si existe
-    const ref = String(venta.referencia || '').trim();
-    const listadoTx = Array.isArray(AppState.transacciones)
-        ? AppState.transacciones
-        : (typeof transacciones !== 'undefined' && Array.isArray(transacciones) ? transacciones : []);
-
-    const tx = listadoTx.find(t =>
-        (t.id && (t.id === venta.id || t.pedidoId === venta.id)) ||
-        (t.pedidoId && t.pedidoId === venta.id) ||
-        (ref && ref !== 'N/A' && t.referencia === ref)
-    );
-    if (tx) {
-        tx.estado = 'Pago agregado';
-        tx.verificando = false;
-    }
-
-    // Actualizar registro en PagosPorVerificar de Firestore/AppState si existe
-    const listadoPagos = Array.isArray(AppState.pagosPorVerificar) ? AppState.pagosPorVerificar : [];
-    const pago = listadoPagos.find(p =>
-        p.id === venta.id || p.ventaId === venta.id || p.pedidoId === venta.id ||
-        (ref && ref !== 'N/A' && p.referencia === ref)
-    );
-    if (pago) {
-        pago.estado = 'APROBADO';
-    }
-
-    // Guardar persistencia local
-    if (window.InventoryApp?.Persistence?.guardar) {
-        window.InventoryApp.Persistence.guardar(true);
-    }
-
-    // Sincronizar en Firebase Firestore
-    if (window.InventoryApp?.Firebase) {
-        if (typeof window.InventoryApp.Firebase.actualizarEstadoVenta === 'function') {
-            window.InventoryApp.Firebase.actualizarEstadoVenta(venta.id, 'CONFIRMADO').catch(() => {});
-        }
-        if (tx && typeof window.InventoryApp.Firebase.actualizarEstadoTransaccion === 'function') {
-            window.InventoryApp.Firebase.actualizarEstadoTransaccion(tx.id, 'Pago agregado').catch(() => {});
-        }
-        if (pago && typeof window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar === 'function') {
-            window.InventoryApp.Firebase.actualizarEstadoPagoPorVerificar(pago.id, 'APROBADO').catch(() => {});
-        }
-    }
-
-    // Re-renderizar vistas afectadas
-    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
-    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
-    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
-
-    if (desdeModal) {
-        abrirModalDetalleVenta(venta.id);
-    }
-
-    if (typeof showCustomToast === 'function') {
-        showCustomToast(`Transacción #${venta.id} confirmada exitosamente. Ganancias aplicadas a la recuperación.`, 'success');
+        alert('Ninguna transacción se debe confirmar por el Historial de Ventas. Gestiona las aprobaciones en Usuarios & Aprobación.');
     }
 }
 

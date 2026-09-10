@@ -191,34 +191,41 @@ class CatalogManager {
             const precioUSD = Number(p.precio || 0);
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
-            const puntosGanados = Math.max(1, Math.floor(precioUSD * ptsPorDolar));
+            const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo'));
+            const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined)
+                ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
+                : Math.max(1, Math.floor(precioUSD * ptsPorDolar));
             const esMasVendido = ventas >= 3;
             const esAgotado = stock <= 0;
 
             const imagenSrc = p.imagen || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
 
             return `
-                <div class="cliente-prod-card reveal-on-scroll ${esAgotado ? 'agotado' : ''}" id="prod-card-${p.id}">
+                <div class="cliente-prod-card reveal-on-scroll ${esAgotado ? 'agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="prod-card-${p.id}">
                     <!-- Thumbnail con Badges Flotantes -->
                     <div class="cliente-prod-thumb-wrapper">
                         <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-thumb" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/300x200?text=Producto';">
                         
                         <!-- Badges Superiores -->
                         <div class="cliente-prod-badges">
-                            ${esMasVendido ? `
+                            ${esCombo ? `
+                                <span class="badge-tag" style="background: linear-gradient(135deg, #ea580c, #f59e0b); color: #ffffff; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
+                                    <i class="fas fa-fire"></i> Combo Oferta
+                                </span>
+                            ` : (esMasVendido ? `
                                 <span class="badge-tag badge-bestseller">
                                     <i class="fas fa-fire"></i> Más Vendido
                                 </span>
-                            ` : ''}
-                            ${p.categoria ? `
+                            ` : '')}
+                            ${p.categoria && !esCombo ? `
                                 <span class="badge-tag badge-cat">${p.categoria}</span>
                             ` : ''}
                         </div>
 
                         <!-- Indicador de Puntos (Solo si la temporada de incentivos está activa) -->
                         ${temporadaActiva ? `
-                        <div class="cliente-prod-points-badge">
-                            <i class="fas fa-star"></i> +${puntosGanados} pts
+                        <div class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" style="${esCombo ? 'background: linear-gradient(135deg, #ea580c, #f59e0b); border-color: #f97316; font-weight: 900; box-shadow: 0 4px 10px rgba(234, 88, 12, 0.35);' : ''}">
+                            ${esCombo ? `🔥 Super Combo: +${puntosGanados} Puntos` : `<i class="fas fa-star"></i> +${puntosGanados} pts`}
                         </div>
                         ` : ''}
 

@@ -542,9 +542,14 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                 <h3 style="margin:0;">Listado de Inventario</h3>
-                <button type="button" class="btn btn-outline" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="font-size:0.85rem; padding:6px 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-cloud" style="color:#0284c7;"></i> Ver Fotos en Vercel Blob
-                </button>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-primary" onclick="if(window.abrirConstructorCombosAdmin) window.abrirConstructorCombosAdmin();" style="font-size:0.85rem; padding:6px 14px; display:flex; align-items:center; gap:6px; font-weight:700; background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; box-shadow:0 2px 6px rgba(234,88,12,0.3);">
+                        <i class="fas fa-burger"></i> Constructor de Combos & Ofertas
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="font-size:0.85rem; padding:6px 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
+                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Ver Fotos en Vercel Blob
+                    </button>
+                </div>
             </div>
             <div class="table-responsive">
                 <table>
@@ -1301,6 +1306,28 @@
                 </button>
             </div>
 
+            <!-- Banner Dinámico del Estado de la Temporada (Activo / Pausado / Ganador Alcanzado) -->
+            <div id="premio-admin-status-banner" class="reward-status-banner banner-active" style="margin-bottom:18px; padding:14px 18px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#dcfce7; color:#166534; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            🟢 DESAFÍO EN JUEGO (ABIERTO HASTA GANADOR)
+                        </span>
+                        <div style="margin-top:4px; font-size:0.85rem; color:#334155;">
+                            Premio en disputa activa. Se retirará automáticamente cuando un cliente alcance la meta de puntos o cuando decidas pausarlo/cambiarlo.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="togglePausarDesafioPremioAdmin()" title="Pausar desafío temporalmente">
+                            <i class="fas fa-pause"></i> Pausar
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="iniciarNuevoDesafioModalAdmin()" title="Iniciar nuevo desafío o cambiar premio">
+                            <i class="fas fa-arrows-rotate"></i> Cambiar Premio
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <form id="form-premio-mes-admin" onsubmit="guardarConfiguracionPremio(event)">
                 <div class="reward-config-grid">
                     
@@ -1319,22 +1346,72 @@
 
                         <div class="reward-form-row">
                             <div class="reward-form-group">
-                                <label for="premio-admin-puntos">
-                                    Puntos Requeridos <span class="required-mark">*</span>
-                                </label>
-                                <input type="number" id="premio-admin-puntos" class="reward-input" min="1" step="1" required placeholder="Ej: 200" oninput="actualizarPreviewPremioAdmin()">
+                                <label for="premio-admin-mes">Período de Vigencia</label>
+                                <input type="text" id="premio-admin-mes" class="reward-input" placeholder="Ej: Mes en Curso / Octubre 2026" oninput="actualizarPreviewPremioAdmin()">
                             </div>
                             <div class="reward-form-group">
                                 <label for="premio-admin-pts-dolar">
-                                    Puntos por cada $1.00 <span class="required-mark">*</span>
+                                    Puntos por cada $1.00 de Gasto <span class="required-mark">*</span>
                                 </label>
                                 <input type="number" id="premio-admin-pts-dolar" class="reward-input" min="0.1" step="0.1" required placeholder="Ej: 1" oninput="actualizarPreviewPremioAdmin()">
                             </div>
                         </div>
 
-                        <div class="reward-form-group">
-                            <label for="premio-admin-mes">Período de Vigencia</label>
-                            <input type="text" id="premio-admin-mes" class="reward-input" placeholder="Ej: Mes en Curso / Octubre 2026" oninput="actualizarPreviewPremioAdmin()">
+                        <!-- 2. ASISTENTE FINANCIERO DEL PREMIO (GANANCIA META Y POOL DE CLIENTES) -->
+                        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h4 style="margin:0; font-size:0.9rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-calculator" style="color:var(--rc-emerald-600);"></i> Asistente Financiero & Pool de Competidores
+                                </h4>
+                                <span style="font-size:0.7rem; font-weight:800; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:9999px;">
+                                    Fórmula Rentable
+                                </span>
+                            </div>
+
+                            <div class="reward-form-row">
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-costo-real" style="font-size:0.78rem; font-weight:700;">
+                                        Costo Real del Premio ($ USD) <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-costo-real" class="reward-input" min="0" step="0.5" value="40.00" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Inversión del artículo (ej. $40.00)</span>
+                                </div>
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-ganancia-meta" style="font-size:0.78rem; font-weight:700;">
+                                        Ganancia Neta Objetivo por Ganador ($) <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-ganancia-meta" class="reward-input" min="1" step="0.5" value="60.00" oninput="actualizarPreviewPremioAdmin()" style="font-weight:800; color:#059669;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Beneficio neto que debe dejar (ej. $60.00)</span>
+                                </div>
+                            </div>
+
+                            <div class="reward-form-row" style="margin-top:8px;">
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-pool-clientes" style="font-size:0.78rem; font-weight:700;">
+                                        Pool Estimado de Clientes Activos <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-pool-clientes" class="reward-input" min="1" step="1" value="10" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Clientes compitiendo (ej. 10)</span>
+                                </div>
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-pts-profit" style="font-size:0.78rem; font-weight:700;">
+                                        Factor: Pts por $1 de Ganancia Neta <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-pts-profit" class="reward-input" min="1" step="1" value="10" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">$1 ganancia = 10 pts</span>
+                                </div>
+                            </div>
+
+                            <!-- Meta de Puntos del Ganador Calculada -->
+                            <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-size:0.78rem; font-weight:700; color:#1e293b;">Meta de Puntos del Ganador (Calculada):</div>
+                                    <div id="premio-admin-meta-formula" style="font-size:0.72rem; color:#64748b; font-family:monospace;">$60.00 × 10 pts/$ = 600 Pts</div>
+                                </div>
+                                <div>
+                                    <input type="number" id="premio-admin-puntos" class="reward-input" min="1" step="1" required value="600" oninput="actualizarPreviewPremioAdmin()" style="width:110px; font-weight:900; font-size:1.05rem; color:#ea580c; text-align:right;">
+                                </div>
+                            </div>
                         </div>
 
                         <div class="reward-form-group">
@@ -1389,6 +1466,44 @@
                         </div>
                         <input type="hidden" id="premio-admin-img" value="">
 
+                        <!-- Panel de Balance Proyectado de Rentabilidad (Ingeniería Financiera) -->
+                        <div style="margin-bottom:14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <div style="font-size:0.8rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-chart-line" style="color:#059669;"></i> Balance Proyectado de Temporada
+                                </div>
+                                <span id="premio-balance-status-badge" style="font-size:0.68rem; font-weight:800; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:9999px;">
+                                    Rentabilidad Garantizada
+                                </span>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr; gap:6px; font-size:0.75rem;">
+                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                    <span>Ganancia neta aportada por el ganador:</span>
+                                    <strong id="premio-balance-winner" style="color:#059669;">+$60.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                    <span>Ganancia neta resto del pool (<span id="premio-balance-competing-count">9</span> clientes al ~50%):</span>
+                                    <strong id="premio-balance-pool" style="color:#0284c7;">+$270.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#1e293b; font-weight:700; border-top:1px dashed #cbd5e1; padding-top:4px;">
+                                    <span>Ganancia Neta Total Generada:</span>
+                                    <strong id="premio-balance-total" style="color:#0f172a;">+$330.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#dc2626;">
+                                    <span>Costo del Premio a Entregar:</span>
+                                    <strong id="premio-balance-costo">-$40.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px; margin-top:2px;">
+                                    <span style="font-weight:800; color:#065f46;">Utilidad Neta Final para la Bodega:</span>
+                                    <strong id="premio-balance-utilidad" style="font-size:0.95rem; font-weight:900; color:#047857;">+$290.00 USD libres</strong>
+                                </div>
+                            </div>
+                            <div id="premio-balance-horizonte-info" style="margin-top:8px; font-size:0.75rem; color:#475569; line-height:1.4; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;">
+                                <strong>⏱️ Ventas Acumuladas Necesarias:</strong> Ventas distribuidas en 1, 2 o 3 meses según el ritmo del cliente. El negocio retiene la ganancia en caja antes de entregar el premio.
+                            </div>
+                        </div>
+
                         <!-- Tarjeta Live Preview (Vista del Cliente) -->
                         <div>
                             <div style="margin-bottom:10px; font-size:0.82rem; font-weight:700; color:var(--rc-slate-600); display:flex; align-items:center; gap:6px;">
@@ -1420,15 +1535,25 @@
                 </div>
 
                 <!-- Barra de Acción Inferior -->
-                <div class="reward-action-bar">
-                    <button type="button" class="reward-btn-whatsapp" onclick="anunciarTemporadaWhatsApp()">
-                        <i class="fab fa-whatsapp" style="font-size:1.15rem;"></i>
-                        <span>Anunciar Nueva Temporada por WhatsApp</span>
-                    </button>
-                    <button type="submit" id="btn-guardar-activar-premio-mes" class="reward-btn-save">
-                        <i class="fas fa-floppy-disk"></i>
-                        <span>Guardar y Activar Premio del Mes</span>
-                    </button>
+                <div class="reward-action-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <button type="button" id="btn-admin-pausar-desafio" class="btn btn-outline" onclick="togglePausarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px;">
+                            <i class="fas fa-pause"></i> Pausar Desafío
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700; padding:10px 16px;">
+                            <i class="fas fa-wand-magic-sparkles"></i> Iniciar Nuevo Desafío
+                        </button>
+                        <button type="button" class="reward-btn-whatsapp" onclick="anunciarTemporadaWhatsApp()" style="padding:10px 16px;">
+                            <i class="fab fa-whatsapp" style="font-size:1.15rem;"></i>
+                            <span>Anunciar por WhatsApp</span>
+                        </button>
+                    </div>
+                    <div>
+                        <button type="submit" id="btn-guardar-activar-premio-mes" class="reward-btn-save" style="padding:12px 22px;">
+                            <i class="fas fa-floppy-disk"></i>
+                            <span>Guardar y Activar Premio</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1444,6 +1569,25 @@
 
     <!-- VISTA 7B (ADMIN): HISTORIAL DE VENTAS DIARIO Y ACUMULADO -->
     <div id="historial-ventas" class="view-content">
+        <!-- Barra de Encabezado con Limpiador y Política de Confirmación -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px; padding:14px 18px; background:var(--card-bg, #ffffff); border:1px solid var(--border); border-radius:12px;">
+            <div>
+                <h2 style="margin:0; font-size:1.3rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-clock-rotate-left" style="color:var(--primary-accent);"></i> Historial de Ventas Diario y Acumulado
+                </h2>
+                <div style="margin-top:4px; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; background:#eff6ff; color:#1d4ed8; border-radius:6px; font-weight:600;">
+                        <i class="fas fa-shield"></i> Las confirmaciones y validaciones de pago se procesan en Usuarios & Aprobación
+                    </span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" id="btn-limpiador-ventas-top" class="btn btn-danger" onclick="abrirModalLimpiadorVentas()" title="Depurar y limpiar transacciones del historial de ventas" style="display:inline-flex; align-items:center; gap:8px; font-weight:700; padding:8px 16px;">
+                    <i class="fas fa-broom"></i> Limpiador de Ventas
+                </button>
+            </div>
+        </div>
+
         <!-- KPIs de Ventas -->
         <div class="kpi-grid" style="margin-bottom:18px;">
             <div class="kpi-card" style="border-left-color:#16a34a;">
@@ -2333,12 +2477,191 @@
     </div>
 </div>
 
+<!-- Modal: Constructor de Combos / Ofertas con Cálculo Seguro de Puntos -->
+<div id="modal-admin-combo-builder" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:9999; justify-content:center; align-items:center; padding:16px;">
+    <div class="modal-card" style="background:#ffffff; border-radius:16px; max-width:860px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; padding:24px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:18px;">
+            <div>
+                <h3 style="margin:0; font-size:1.25rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-burger" style="color:#ea580c;"></i> Constructor de Combos & Ofertas Rentables
+                </h3>
+                <p style="margin:4px 0 0; font-size:0.8rem; color:#64748b;">
+                    Ensambla paquetes de productos con extracción automática de costo y asignación de puntos protegida por margen neto.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline" onclick="cerrarConstructorCombosAdmin()" style="border-radius:50%; width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="form-admin-combo-builder" onsubmit="guardarComboAdmin(event)">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:20px;">
+                
+                <!-- Columna 1: Selección y Composición -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                    <h4 style="margin:0 0 12px; font-size:0.95rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-boxes-packing" style="color:#0284c7;"></i> 1. Composición del Combo
+                    </h4>
+
+                    <div style="display:flex; gap:8px; margin-bottom:14px;">
+                        <div style="flex:1;">
+                            <label for="combo-select-producto" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#475569;">
+                                Agregar Artículo del Inventario
+                            </label>
+                            <select id="combo-select-producto" class="reward-input" style="width:100%; font-size:0.82rem; padding:8px 10px;">
+                                <option value="">-- Selecciona un producto --</option>
+                            </select>
+                        </div>
+                        <div style="width:75px;">
+                            <label for="combo-item-cantidad" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#475569;">
+                                Cantidad
+                            </label>
+                            <input type="number" id="combo-item-cantidad" class="reward-input" min="1" step="1" value="1" style="width:100%; font-size:0.82rem; padding:8px 6px; text-align:center;">
+                        </div>
+                        <div style="align-self:flex-end;">
+                            <button type="button" class="btn btn-primary" onclick="agregarProductoAComboAdmin()" style="height:38px; padding:0 14px; font-weight:700; font-size:0.82rem; background:#0284c7; border-color:#0284c7;">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Artículos Seleccionados -->
+                    <div style="border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; overflow:hidden;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="padding:6px 10px; text-align:left;">Producto</th>
+                                    <th style="padding:6px 8px; text-align:center;">Cant.</th>
+                                    <th style="padding:6px 8px; text-align:right;">Costo U.</th>
+                                    <th style="padding:6px 8px; text-align:right;">Subtotal</th>
+                                    <th style="padding:6px 8px; text-align:center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="combo-items-table-body"></tbody>
+                        </table>
+                        <div id="combo-items-empty-msg" style="padding:20px; text-align:center; color:#94a3b8; font-size:0.8rem;">
+                            No has agregado productos al combo todavía.
+                        </div>
+                    </div>
+
+                    <!-- Costo Consolidado -->
+                    <div style="margin-top:12px; padding:10px 14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.82rem; font-weight:700; color:#0369a1;">Costo Base Consolidado:</span>
+                        <strong id="combo-builder-costo-total" style="font-size:1.1rem; font-weight:900; color:#0284c7;">$0.00</strong>
+                    </div>
+                </div>
+
+                <!-- Columna 2: Parámetros Económicos & Fidelización -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                    <h4 style="margin:0 0 12px; font-size:0.95rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-coins" style="color:#ea580c;"></i> 2. Precios & Puntos Rentables
+                    </h4>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label for="combo-builder-codigo" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Código de Combo
+                            </label>
+                            <input type="text" id="combo-builder-codigo" class="reward-input" required readonly style="background:#e2e8f0; font-weight:700; width:100%;">
+                        </div>
+                        <div>
+                            <label for="combo-builder-nombre" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Nombre del Combo <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="text" id="combo-builder-nombre" class="reward-input" required placeholder="Ej: Combo Merienda Familiar" style="width:100%;">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label for="combo-builder-precio" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Precio de Venta ($ USD) <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="number" id="combo-builder-precio" class="reward-input" min="0.1" step="0.5" required placeholder="Ej: 12.00" oninput="recalcularMatematicaComboModal()" style="font-weight:800; font-size:1rem; width:100%;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Ganancia Neta Calculada
+                            </label>
+                            <div id="combo-builder-margen-neto" style="padding:9px 12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-weight:900; font-size:1rem; color:#059669;">
+                                $0.00
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parámetros de Seguridad de Puntos -->
+                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:12px;">
+                        <div style="font-size:0.78rem; font-weight:800; color:#334155; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-shield-halved" style="color:#10b981;"></i> Parámetros de Fidelización Segura
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label for="combo-builder-pct-fidelidad" style="display:block; font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:3px;">
+                                    % Margen a Premios
+                                </label>
+                                <input type="number" id="combo-builder-pct-fidelidad" class="reward-input" min="1" max="100" step="1" value="15" oninput="recalcularMatematicaComboModal()" style="width:100%; font-size:0.85rem;">
+                                <span style="font-size:0.68rem; color:#94a3b8;">Recomendado: 10% - 25%</span>
+                            </div>
+                            <div>
+                                <label for="combo-builder-factor-puntos" style="display:block; font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:3px;">
+                                    Pts por $1 Ganancia
+                                </label>
+                                <input type="number" id="combo-builder-factor-puntos" class="reward-input" min="1" step="1" value="10" oninput="recalcularMatematicaComboModal()" style="width:100%; font-size:0.85rem;">
+                                <span style="font-size:0.68rem; color:#94a3b8;">Base: 10 pts/$1</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:8px;">
+                            <span style="font-size:0.75rem; color:#64748b;">Puntos Sugeridos Seguros:</span>
+                            <span id="combo-builder-puntos-sugeridos" style="font-weight:900; color:#ea580c; font-size:0.95rem;">0 Pts</span>
+                        </div>
+                    </div>
+
+                    <!-- Puntos Asignados Finales -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
+                        <label for="combo-builder-puntos" style="font-size:0.8rem; font-weight:800; color:#0f172a;">
+                            Puntos a Otorgar por Venta <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="number" id="combo-builder-puntos" class="reward-input" min="1" step="1" required value="0" oninput="this.dataset.manual='true'; recalcularMatematicaComboModal();" style="width:110px; font-weight:900; font-size:1.1rem; color:#ea580c; text-align:right;">
+                    </div>
+
+                    <!-- Advertencia de Rentabilidad -->
+                    <div id="combo-builder-alerta-rentabilidad" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:8px 12px; border-radius:8px; font-size:0.75rem; margin-bottom:12px;"></div>
+
+                    <!-- Preview Badge del Catálogo -->
+                    <div style="margin-bottom:14px;">
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:6px;">Badge que verán tus clientes en el Catálogo:</div>
+                        <div id="combo-builder-preview-badge" style="display:inline-block; padding:6px 14px; background:linear-gradient(135deg, #ea580c, #f59e0b); color:#ffffff; font-weight:900; border-radius:9999px; font-size:0.85rem; box-shadow:0 4px 10px rgba(234,88,12,0.35);">
+                            🔥 Super Combo: +0 Puntos
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="combo-builder-desc" value="Super Combo Promocional">
+                </div>
+            </div>
+
+            <!-- Footer con Botones -->
+            <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:16px; display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="cerrarConstructorCombosAdmin()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; font-weight:800; padding:10px 22px; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-check"></i> Guardar Combo en Catálogo & Firestore
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Firebase SDK Compat (Firestore + Auth) -->
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
 <!-- Scripts de Arquitectura y Módulos -->
+<script type="module" src="lib/comboFinancialMath.js?v=4.3.1"></script>
 <script src="core/app-state.js?v=4.3.1"></script>
 <script src="core/modal.js?v=4.3.1"></script>
 <script src="core/helpers.js?v=4.3.1"></script>

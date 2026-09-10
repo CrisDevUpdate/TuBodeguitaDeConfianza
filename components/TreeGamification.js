@@ -768,8 +768,26 @@ class TreeGamificationWidget {
             AppState.canjesPremios.unshift(nuevoCanje);
         }
 
+        // Marcar la temporada con ganador alcanzado ("se quitará cuándo ya haya un ganador o yo lo decida")
+        AppState.premioMes = AppState.premioMes || {};
+        AppState.premioMes.estado = 'GANADOR_ALCANZADO';
+        AppState.premioMes.ganadorActual = {
+            nombre: usuario.nombre,
+            cedula: usuario.cedula || usuario.id,
+            telefono: usuario.telefono || '',
+            premioNombre: pm.nombre,
+            puntos: puntosRequeridos,
+            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            canjeId: canjeId
+        };
+
         // Persistir en servidor y local
         if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
+            window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+                premioMes: AppState.premioMes
+            }).catch(e => console.warn(e));
+        }
 
         // Disparar WhatsApp Trigger dirigido a la Bodega (04125363849)
         const telefonoBodega = '584125363849';

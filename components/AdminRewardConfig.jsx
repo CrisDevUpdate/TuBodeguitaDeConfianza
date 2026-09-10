@@ -1,41 +1,60 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { calculateRewardSeasonFinances } from '../lib/comboFinancialMath.js';
 
 /**
  * /components/AdminRewardConfig.jsx
- * Panel Administrativo: Configuración del Premio del Mes & Sistema de Puntos
- * Diseño de 2 Columnas, Carga Directa a Vercel Blob Storage y Presets Compactos.
+ * Panel Administrativo: Configuración del Premio del Mes & Asistente Financiero
+ * 
+ * Capacidades:
+ * - Parámetros Financieros: Costo Real del Premio, Ganancia Neta Objetivo por Ganador y Pool de Clientes Competidores.
+ * - Motor de Rentabilidad: Cálculo dinámico de Meta de Puntos y Balance Proyectado de Temporada.
+ * - Garantía de Rentabilidad Matemática Absoluta (Ganancia Neta >= Costo del Premio).
+ * - Carga Directa a Vercel Blob Storage y Presets Rápidos.
+ * - Sincronización atómica con Firebase Firestore y AppState.
  */
 
 const PRESETS_PREMIOS = [
   {
     id: 'preset-cafetera',
     nombre: 'Cafetera Espresso Digital 1.5L',
-    puntos: 200,
+    costoReal: 40.00,
+    gananciaObjetivo: 60.00,
+    puntos: 600,
     puntosPorDolar: 1,
+    pointsPerProfitDollar: 10,
     imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
     descripcion: 'Cafetera eléctrica con bomba de alta presión para espresso y capuchino.'
   },
   {
     id: 'preset-freidora',
     nombre: 'Freidora de Aire Digital 4.5L',
-    puntos: 250,
+    costoReal: 55.00,
+    gananciaObjetivo: 80.00,
+    puntos: 800,
     puntosPorDolar: 1,
+    pointsPerProfitDollar: 10,
     imagen: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop&q=80',
     descripcion: 'Freidora sin aceite con pantalla táctil y 8 programas preestablecidos.'
   },
   {
     id: 'preset-licuadora',
     nombre: 'Licuadora Profesional 1200W',
-    puntos: 180,
+    costoReal: 35.00,
+    gananciaObjetivo: 50.00,
+    puntos: 500,
     puntosPorDolar: 1,
+    pointsPerProfitDollar: 10,
     imagen: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=600&auto=format&fit=crop&q=80',
     descripcion: 'Vaso de vidrio refractario resistente a cambios bruscos de temperatura.'
   },
   {
     id: 'preset-ollas',
     nombre: 'Juego de Ollas de Granito Antiadherente',
-    puntos: 300,
+    costoReal: 65.00,
+    gananciaObjetivo: 95.00,
+    puntos: 950,
     puntosPorDolar: 1,
+    pointsPerProfitDollar: 10,
     imagen: 'https://images.unsplash.com/photo-1583778176476-4a8b02a64c01?w=600&auto=format&fit=crop&q=80',
     descripcion: 'Set de 7 piezas de aluminio forjado con recubrimiento de granito ecológico.'
   }
@@ -49,16 +68,23 @@ export default function AdminRewardConfig({
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Inicialización de estado con datos de AppState o valores por defecto
+  // Inicialización con datos de AppState o valores por defecto
   const [formData, setFormData] = useState(() => {
     const globalState = typeof window !== 'undefined' ? window.AppState?.premioMes : null;
     return {
       nombre: initialReward?.nombre || globalState?.nombre || 'Cafetera Espresso Digital 1.5L',
-      puntosRequeridos: initialReward?.puntosRequeridos || globalState?.puntosRequeridos || 200,
-      puntosPorDolar: initialReward?.puntosPorDolar || globalState?.puntosPorDolar || 1,
       mes: initialReward?.mes || globalState?.mes || 'Mes en Curso',
       descripcion: initialReward?.descripcion || globalState?.descripcion || 'Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!',
-      imagen: initialReward?.imagen || globalState?.imagen || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80'
+      imagen: initialReward?.imagen || globalState?.imagen || 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
+      puntosPorDolar: initialReward?.puntosPorDolar || globalState?.puntosPorDolar || 1,
+      
+      // Parámetros de Ingeniería Financiera
+      costoRealPremio: initialReward?.costoRealPremio ?? globalState?.costoRealPremio ?? 40.00,
+      gananciaNetaObjetivo: initialReward?.gananciaNetaObjetivo ?? globalState?.gananciaNetaObjetivo ?? 60.00,
+      poolClientesEstimado: initialReward?.poolClientesEstimado ?? globalState?.poolClientesEstimado ?? 10,
+      pointsPerProfitDollar: initialReward?.pointsPerProfitDollar ?? globalState?.pointsPerProfitDollar ?? 10,
+      tasaProgresoPool: initialReward?.tasaProgresoPool ?? globalState?.tasaProgresoPool ?? 0.50,
+      puntosRequeridos: initialReward?.puntosRequeridos || globalState?.puntosRequeridos || 600
     };
   });
 
@@ -69,6 +95,34 @@ export default function AdminRewardConfig({
   const [uploadNotice, setUploadNotice] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Cálculo de Rentabilidad en Tiempo Real con comboFinancialMath
+  const balanceFinanciero = useMemo(() => {
+    return calculateRewardSeasonFinances({
+      rewardRealCostUSD: formData.costoRealPremio,
+      targetNetProfitPerWinnerUSD: formData.gananciaNetaObjetivo,
+      estimatedPoolActiveClients: formData.poolClientesEstimado,
+      pointsPerProfitDollar: formData.pointsPerProfitDollar,
+      poolAverageProgressRate: formData.tasaProgresoPool
+    });
+  }, [
+    formData.costoRealPremio,
+    formData.gananciaNetaObjetivo,
+    formData.poolClientesEstimado,
+    formData.pointsPerProfitDollar,
+    formData.tasaProgresoPool
+  ]);
+
+  // Sincronización automática de Meta de Puntos del Ganador
+  useEffect(() => {
+    const ptsCalculados = balanceFinanciero.requiredWinnerPoints;
+    setFormData(prev => {
+      if (prev.puntosRequeridos !== ptsCalculados) {
+        return { ...prev, puntosRequeridos: ptsCalculados };
+      }
+      return prev;
+    });
+  }, [balanceFinanciero.requiredWinnerPoints]);
 
   // Auto-ajuste de altura para el textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -83,15 +137,15 @@ export default function AdminRewardConfig({
   }, [formData.descripcion, adjustTextareaHeight]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'puntosRequeridos' || name === 'puntosPorDolar' ? Number(value) : value
+      [name]: type === 'number' ? parseFloat(value) || 0 : value
     }));
     setSaveSuccess(false);
   };
 
-  // 1. Subida directa a Vercel Blob Storage (/api/upload/blob)
+  // Subida a Vercel Blob Storage (/api/upload/blob)
   const uploadImageToBlob = async (file) => {
     if (!file) return;
 
@@ -110,7 +164,6 @@ export default function AdminRewardConfig({
     setUploadNotice('Procesando archivo para Vercel Blob...');
 
     try {
-      // Conversión a Base64 Data URL para envío unificado
       const base64Data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -123,9 +176,7 @@ export default function AdminRewardConfig({
 
       const response = await fetch('/api/upload/blob', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileData: base64Data,
           filename: `premios/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
@@ -150,14 +201,9 @@ export default function AdminRewardConfig({
       setUploadProgress(100);
       setUploadNotice('¡Imagen subida exitosamente a Vercel Blob!');
 
-      // Actualizar estado de formulario con la URL pública inmutable
-      setFormData(prev => ({
-        ...prev,
-        imagen: publicUrl
-      }));
+      setFormData(prev => ({ ...prev, imagen: publicUrl }));
       setSelectedPresetId(null);
 
-      // Auto-guardado en Firestore de la nueva URL del premio
       await persistRewardToFirestore({ ...formData, imagen: publicUrl });
 
       setTimeout(() => {
@@ -175,7 +221,6 @@ export default function AdminRewardConfig({
     }
   };
 
-  // Drag & Drop Handlers
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -192,10 +237,8 @@ export default function AdminRewardConfig({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      uploadImageToBlob(file);
+      uploadImageToBlob(e.dataTransfer.files[0]);
     }
   };
 
@@ -205,30 +248,46 @@ export default function AdminRewardConfig({
     }
   };
 
-  // 2. Aplicar plantilla preconfigurada
+  // Aplicar plantilla preconfigurada
   const handleApplyPreset = (preset) => {
     setSelectedPresetId(preset.id);
     setFormData(prev => ({
       ...prev,
       nombre: preset.nombre,
+      costoRealPremio: preset.costoReal,
+      gananciaNetaObjetivo: preset.gananciaObjetivo,
       puntosRequeridos: preset.puntos,
       puntosPorDolar: preset.puntosPorDolar || 1,
+      pointsPerProfitDollar: preset.pointsPerProfitDollar || 10,
       descripcion: preset.descripcion,
       imagen: preset.imagen
     }));
     setSaveSuccess(false);
   };
 
-  // 3. Persistir en Firebase Firestore & AppState
+  // Persistir en Firebase Firestore & AppState
   const persistRewardToFirestore = async (rewardData) => {
     const payload = {
       nombre: rewardData.nombre.trim(),
-      puntosRequeridos: Number(rewardData.puntosRequeridos) || 200,
+      puntosRequeridos: Number(rewardData.puntosRequeridos) || balanceFinanciero.requiredWinnerPoints,
       puntosPorDolar: Number(rewardData.puntosPorDolar) || 1,
+      costoRealPremio: Number(rewardData.costoRealPremio) || 40.00,
+      gananciaNetaObjetivo: Number(rewardData.gananciaNetaObjetivo) || 60.00,
+      poolClientesEstimado: Number(rewardData.poolClientesEstimado) || 10,
+      pointsPerProfitDollar: Number(rewardData.pointsPerProfitDollar) || 10,
+      tasaProgresoPool: Number(rewardData.tasaProgresoPool) || 0.50,
       mes: rewardData.mes.trim() || 'Mes en Curso',
       descripcion: rewardData.descripcion.trim(),
       imagen: rewardData.imagen.trim(),
       temporadaActiva: true,
+      balanceProyectado: {
+        winnerProfitContribution: balanceFinanciero.winnerProfitContribution,
+        poolOtherClientsProfit: balanceFinanciero.poolOtherClientsProfit,
+        totalSeasonNetProfit: balanceFinanciero.totalSeasonNetProfit,
+        rewardRealCostUSD: balanceFinanciero.rewardRealCostUSD,
+        netBusinessProfit: balanceFinanciero.netBusinessProfit,
+        isAbsoluteProfitable: balanceFinanciero.isAbsoluteProfitable
+      },
       updatedAt: new Date().toISOString()
     };
 
@@ -262,6 +321,7 @@ export default function AdminRewardConfig({
         const db = window.firebase.firestore();
         await db.collection('premios').doc('mes').set(payload, { merge: true });
         await db.collection('configuracion').doc('gamificacion').set({ premioMes: payload }, { merge: true });
+        await db.collection('config').doc('premioMes').set(payload, { merge: true });
       }
     } catch (fsErr) {
       console.warn('[AdminRewardConfig] Aviso Firestore (usando fallback local):', fsErr.message);
@@ -305,8 +365,8 @@ export default function AdminRewardConfig({
 
       if (window.InventoryApp?.Modal?.alert) {
         window.InventoryApp.Modal.alert(
-          '¡Premio Activado!',
-          `El Premio del Mes "${formData.nombre}" (${formData.puntosRequeridos} pts) está listo y visible para todos tus clientes.`
+          '¡Premio Activado con Rentabilidad Blindada!',
+          `El Premio del Mes "${formData.nombre}" (${formData.puntosRequeridos} pts) está listo. Utilidad proyectada para la bodega: +$${balanceFinanciero.netBusinessProfit.toFixed(2)} USD.`
         );
       }
     } catch (err) {
@@ -337,7 +397,8 @@ export default function AdminRewardConfig({
   const maxChars = 280;
 
   return (
-    <div id="admin-reward-config-root" className="reward-config-container">
+    <div id="admin-reward-config-root" className="reward-config-container max-w-7xl mx-auto">
+      
       {/* Header del Módulo */}
       <div id="reward-config-header" className="reward-config-header">
         <div className="reward-config-header-title">
@@ -345,8 +406,8 @@ export default function AdminRewardConfig({
             <i className="fas fa-trophy"></i>
           </div>
           <div>
-            <h2 id="reward-config-title">Configuración del Premio del Mes & Sistema de Puntos</h2>
-            <p>Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y gestiona la imagen en Vercel Blob.</p>
+            <h2 id="reward-config-title">Configuración del Premio del Mes & Asistente Financiero</h2>
+            <p>Modelado de ganancia neta, pool competitivo de clientes y cálculo seguro de puntos con rentabilidad absoluta garantizada.</p>
           </div>
         </div>
 
@@ -362,17 +423,18 @@ export default function AdminRewardConfig({
         )}
       </div>
 
-      {/* Grid de 2 Columnas Equilibrado */}
+      {/* Grid de 2 Columnas */}
       <form id="reward-config-form" onSubmit={handleSaveAndActivate}>
         <div className="reward-config-grid">
           
-          {/* Columna Izquierda: Datos y Parámetros */}
+          {/* Columna Izquierda: Datos, Parámetros Financieros y Presets */}
           <div id="reward-config-col-left" className="reward-config-card">
+            
+            {/* Sección: Parámetros del Premio */}
             <div className="reward-config-card-header">
-              <h3><i className="fas fa-sliders" style={{ color: 'var(--rc-emerald-600)' }}></i> Parámetros de la Temporada</h3>
+              <h3><i className="fas fa-sliders" style={{ color: 'var(--rc-emerald-600)' }}></i> 1. Identidad del Premio</h3>
             </div>
 
-            {/* Fila 1: Nombre del Premio */}
             <div className="reward-form-group">
               <label htmlFor="reward-input-nombre">
                 Nombre del Premio del Mes <span className="required-mark">*</span>
@@ -389,29 +451,23 @@ export default function AdminRewardConfig({
               />
             </div>
 
-            {/* Fila 2: Puntos Requeridos y Puntos por Dólar */}
             <div className="reward-form-row">
               <div className="reward-form-group">
-                <label htmlFor="reward-input-puntos">
-                  Puntos Requeridos <span className="required-mark">*</span>
-                </label>
+                <label htmlFor="reward-input-mes">Período de Vigencia</label>
                 <input
-                  type="number"
-                  id="reward-input-puntos"
-                  name="puntosRequeridos"
+                  type="text"
+                  id="reward-input-mes"
+                  name="mes"
                   className="reward-input"
-                  min="1"
-                  step="1"
-                  required
-                  value={formData.puntosRequeridos}
+                  value={formData.mes}
                   onChange={handleInputChange}
-                  placeholder="Ej: 200"
+                  placeholder="Ej: Mes en Curso / Octubre 2026"
                 />
               </div>
 
               <div className="reward-form-group">
                 <label htmlFor="reward-input-pts-dolar">
-                  Puntos por cada $1.00 <span className="required-mark">*</span>
+                  Puntos por cada $1.00 de Gasto <span className="required-mark">*</span>
                 </label>
                 <input
                   type="number"
@@ -428,22 +484,120 @@ export default function AdminRewardConfig({
               </div>
             </div>
 
-            {/* Fila 3: Mes de Vigencia */}
-            <div className="reward-form-group">
-              <label htmlFor="reward-input-mes">Período de Vigencia</label>
-              <input
-                type="text"
-                id="reward-input-mes"
-                name="mes"
-                className="reward-input"
-                value={formData.mes}
-                onChange={handleInputChange}
-                placeholder="Ej: Mes en Curso / Octubre 2026"
-              />
+            {/* SECCIÓN CRÍTICA: ASISTENTE FINANCIERO DEL PREMIO (GANANCIA META Y POOL DE CLIENTES) */}
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <i className="fas fa-calculator text-emerald-600"></i>
+                  <span>2. Asistente Financiero & Pool de Competidores</span>
+                </h3>
+                <span className="text-[11px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                  Fórmula Matemática Activa
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                {/* Costo Real del Premio */}
+                <div className="reward-form-group">
+                  <label htmlFor="reward-input-costo-real" className="text-xs font-bold text-slate-700">
+                    Costo Real del Premio ($ USD) <span className="required-mark">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="reward-input-costo-real"
+                    name="costoRealPremio"
+                    className="reward-input font-bold text-slate-900"
+                    min="0"
+                    step="0.5"
+                    required
+                    value={formData.costoRealPremio}
+                    onChange={handleInputChange}
+                    placeholder="40.00"
+                  />
+                  <span className="text-[11px] text-slate-500">Inversión del artículo (ej. $40.00)</span>
+                </div>
+
+                {/* Ganancia Neta Objetivo por Cliente Ganador */}
+                <div className="reward-form-group">
+                  <label htmlFor="reward-input-ganancia-meta" className="text-xs font-bold text-slate-700">
+                    Ganancia Neta Objetivo por Ganador ($) <span className="required-mark">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="reward-input-ganancia-meta"
+                    name="gananciaNetaObjetivo"
+                    className="reward-input font-bold text-emerald-700"
+                    min="1"
+                    step="0.5"
+                    required
+                    value={formData.gananciaNetaObjetivo}
+                    onChange={handleInputChange}
+                    placeholder="60.00"
+                  />
+                  <span className="text-[11px] text-slate-500">Beneficio libre de costos que debe dejar (ej. $60.00)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Pool Estimado de Clientes Activos */}
+                <div className="reward-form-group">
+                  <label htmlFor="reward-input-pool-clientes" className="text-xs font-bold text-slate-700">
+                    Pool Estimado de Clientes Competidores <span className="required-mark">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="reward-input-pool-clientes"
+                    name="poolClientesEstimado"
+                    className="reward-input font-bold text-slate-900"
+                    min="1"
+                    step="1"
+                    required
+                    value={formData.poolClientesEstimado}
+                    onChange={handleInputChange}
+                    placeholder="10"
+                  />
+                  <span className="text-[11px] text-slate-500">Clientes activos compitiendo en el mes (ej. 10)</span>
+                </div>
+
+                {/* Valor Monetario del Punto en Ganancia */}
+                <div className="reward-form-group">
+                  <label htmlFor="reward-input-pts-profit" className="text-xs font-bold text-slate-700">
+                    Factor: Puntos por $1 de Ganancia Neta <span className="required-mark">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="reward-input-pts-profit"
+                    name="pointsPerProfitDollar"
+                    className="reward-input font-bold text-slate-900"
+                    min="0.5"
+                    step="0.5"
+                    required
+                    value={formData.pointsPerProfitDollar}
+                    onChange={handleInputChange}
+                    placeholder="10"
+                  />
+                  <span className="text-[11px] text-slate-500">Equivalencia estándar (ej. $1 ganancia = 10 pts)</span>
+                </div>
+              </div>
+
+              {/* Meta de Puntos del Ganador Calculada */}
+              <div className="mt-3 p-3 bg-slate-100 rounded-xl flex items-center justify-between border border-slate-200">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">
+                    Meta de Puntos del Ganador (Calculada):
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    ${formData.gananciaNetaObjetivo.toFixed(2)} × {formData.pointsPerProfitDollar} pts/$ = {balanceFinanciero.requiredWinnerPoints} Pts
+                  </div>
+                </div>
+                <div className="text-xl font-extrabold text-amber-600 font-mono">
+                  {balanceFinanciero.requiredWinnerPoints} Pts
+                </div>
+              </div>
             </div>
 
-            {/* Fila 4: Descripción Detallada con Contador Adaptable */}
-            <div className="reward-form-group">
+            {/* Fila: Descripción Detallada */}
+            <div className="reward-form-group mt-4">
               <label htmlFor="reward-input-desc">
                 <span>Descripción Detallada del Premio <span className="required-mark">*</span></span>
               </label>
@@ -464,7 +618,7 @@ export default function AdminRewardConfig({
               </div>
             </div>
 
-            {/* Plantillas Rápidas Preconfiguradas (Rediseñadas en Chips Horizontales) */}
+            {/* Plantillas Rápidas Preconfiguradas */}
             <div id="reward-presets-container" className="reward-presets-section">
               <div className="reward-presets-title">
                 <i className="fas fa-wand-magic-sparkles" style={{ color: 'var(--rc-amber-500)' }}></i>
@@ -510,66 +664,130 @@ export default function AdminRewardConfig({
 
           </div>
 
-          {/* Columna Derecha: Dropzone Vercel Blob & Live Preview */}
-          <div id="reward-config-col-right" className="reward-config-card">
-            <div className="reward-config-card-header">
-              <h3><i className="fas fa-cloud-arrow-up" style={{ color: 'var(--rc-emerald-600)' }}></i> Multimedia & Live Preview</h3>
-              <span className="reward-dropzone-badge">
-                <i className="fas fa-bolt"></i> Vercel Blob Storage
-              </span>
-            </div>
+          {/* Columna Derecha: Balance Proyectado de Rentabilidad, Dropzone & Live Preview */}
+          <div id="reward-config-col-right" className="reward-config-card flex flex-col gap-5">
+            
+            {/* PANEL DE BALANCE PROYECTADO DE RENTABILIDAD DEL NEGOCIO */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <i className="fas fa-chart-pie text-emerald-600"></i>
+                  <span>Panel de Balance Proyectado de Rentabilidad</span>
+                </h3>
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                  balanceFinanciero.isAbsoluteProfitable 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {balanceFinanciero.isAbsoluteProfitable ? 'Rentabilidad Blindada' : 'Revisar Margen'}
+                </span>
+              </div>
 
-            {/* Dropzone Multimedia */}
-            <div
-              id="reward-dropzone-box"
-              className={`reward-dropzone ${isDragging ? 'dragging' : ''} ${formData.imagen ? 'has-file' : ''}`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              role="button"
-              tabIndex="0"
-              aria-label="Zona para arrastrar o seleccionar imagen del premio"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="reward-file-input"
-                className="reward-dropzone-input"
-                accept="image/png, image/jpeg, image/webp"
-                onChange={handleFileSelect}
-              />
-
-              <div className="reward-dropzone-content">
-                <div className="reward-dropzone-icon">
-                  <i className={`fas ${isUploading ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-up'}`}></i>
+              {/* Desglose Matemático Exigido */}
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between text-slate-700">
+                  <span>Ganancia neta aportada por el cliente ganador:</span>
+                  <strong className="text-slate-900 font-mono">${balanceFinanciero.winnerProfitContribution.toFixed(2)}</strong>
                 </div>
-                <div>
-                  <p className="reward-dropzone-title">
-                    {isUploading ? 'Subiendo archivo a Vercel Blob...' : 'Arrastra una imagen o haz clic aquí'}
-                  </p>
-                  <p className="reward-dropzone-hint">Soporta PNG, JPG o WEBP (Máximo 8MB)</p>
+
+                <div className="flex justify-between text-slate-700">
+                  <span>Ganancia neta estimada del resto del pool ({balanceFinanciero.competingClientsCount} clientes al ~50%):</span>
+                  <strong className="text-slate-900 font-mono">${balanceFinanciero.poolOtherClientsProfit.toFixed(2)}</strong>
+                </div>
+
+                <div className="flex justify-between text-slate-800 border-t border-dashed border-slate-200 pt-2 font-semibold">
+                  <span>Ganancia Neta Total Generada por la Temporada:</span>
+                  <strong className="text-emerald-700 font-mono text-sm">${balanceFinanciero.totalSeasonNetProfit.toFixed(2)}</strong>
+                </div>
+
+                <div className="flex justify-between text-rose-600 font-medium">
+                  <span>Costo del Premio:</span>
+                  <strong className="font-mono">-${balanceFinanciero.rewardRealCostUSD.toFixed(2)}</strong>
+                </div>
+
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex justify-between items-baseline mt-2">
+                  <div>
+                    <span className="block text-xs font-bold text-emerald-950">Utilidad Neta Final para la Bodega:</span>
+                    <span className="text-[11px] text-emerald-700">Beneficio 100% libre de costos tras entregar el premio</span>
+                  </div>
+                  <div className="text-lg font-black text-emerald-700 font-mono">
+                    +${balanceFinanciero.netBusinessProfit.toFixed(2)} USD libres
+                  </div>
                 </div>
               </div>
 
-              {/* Barra de Progreso de Subida */}
-              {isUploading && (
-                <div id="reward-upload-progress-container" className="reward-upload-progress">
-                  <div className="reward-progress-bar-track">
-                    <div 
-                      className="reward-progress-bar-fill" 
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <div className="reward-upload-status">
-                    <span>{uploadNotice}</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                </div>
-              )}
+              {/* Insignia de Garantía Matemática */}
+              <div className="mt-3 p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2 text-[11px] text-slate-600">
+                <i className="fas fa-shield-halved text-emerald-600 text-sm"></i>
+                <span>
+                  {balanceFinanciero.winnerAloneCoversReward ? (
+                    <><strong>Garantía Absoluta:</strong> Las ganancias netas directas del ganador (${balanceFinanciero.targetNetProfitPerWinnerUSD.toFixed(2)}) superan el costo del premio (${balanceFinanciero.rewardRealCostUSD.toFixed(2)}) antes de alcanzar el 100% de la meta.</>
+                  ) : (
+                    <><strong>Aviso Financiero:</strong> La ganancia del ganador no cubre el premio por sí sola; depende del pool de competidores.</>
+                  )}
+                </span>
+              </div>
             </div>
 
-            {/* Previsualización en Tiempo Real: Tarjeta de Perspectiva del Cliente */}
+            {/* Dropzone Multimedia Vercel Blob */}
+            <div>
+              <div className="reward-config-card-header">
+                <h3><i className="fas fa-cloud-arrow-up" style={{ color: 'var(--rc-emerald-600)' }}></i> Multimedia & Vercel Blob</h3>
+                <span className="reward-dropzone-badge">
+                  <i className="fas fa-bolt"></i> Vercel Blob
+                </span>
+              </div>
+
+              <div
+                id="reward-dropzone-box"
+                className={`reward-dropzone ${isDragging ? 'dragging' : ''} ${formData.imagen ? 'has-file' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                role="button"
+                tabIndex="0"
+                aria-label="Zona para arrastrar o seleccionar imagen del premio"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="reward-file-input"
+                  className="reward-dropzone-input"
+                  accept="image/png, image/jpeg, image/webp"
+                  onChange={handleFileSelect}
+                />
+
+                <div className="reward-dropzone-content">
+                  <div className="reward-dropzone-icon">
+                    <i className={`fas ${isUploading ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-up'}`}></i>
+                  </div>
+                  <div>
+                    <p className="reward-dropzone-title">
+                      {isUploading ? 'Subiendo archivo a Vercel Blob...' : 'Arrastra una imagen o haz clic aquí'}
+                    </p>
+                    <p className="reward-dropzone-hint">Soporta PNG, JPG o WEBP (Máximo 8MB)</p>
+                  </div>
+                </div>
+
+                {isUploading && (
+                  <div id="reward-upload-progress-container" className="reward-upload-progress">
+                    <div className="reward-progress-bar-track">
+                      <div 
+                        className="reward-progress-bar-fill" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="reward-upload-status">
+                      <span>{uploadNotice}</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Previsualización en Vivo de la Tarjeta del Cliente */}
             <div id="reward-live-preview-wrapper">
               <div style={{ marginBottom: '10px', fontSize: '0.82rem', fontWeight: '700', color: 'var(--rc-slate-600)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <i className="fas fa-eye" style={{ color: 'var(--rc-emerald-600)' }}></i> Vista Previa del Cliente (En Vivo):
@@ -587,7 +805,7 @@ export default function AdminRewardConfig({
                     }}
                   />
                   <div id="preview-premio-badge" className="reward-preview-badge-points">
-                    <i className="fas fa-star"></i> {formData.puntosRequeridos} Pts Requeridos
+                    <i className="fas fa-star"></i> {balanceFinanciero.requiredWinnerPoints} Pts Requeridos
                   </div>
                   <div className="reward-preview-vigencia-badge">
                     <i className="fas fa-calendar-check"></i> {formData.mes}
@@ -631,7 +849,7 @@ export default function AdminRewardConfig({
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             {saveSuccess && (
               <span className="reward-success-badge">
-                <i className="fas fa-circle-check"></i> ¡Premio Guardado y Activado!
+                <i className="fas fa-circle-check"></i> ¡Premio Guardado con Rentabilidad Blindada!
               </span>
             )}
 
@@ -649,7 +867,7 @@ export default function AdminRewardConfig({
               ) : (
                 <>
                   <i className="fas fa-floppy-disk"></i>
-                  <span>Guardar y Activar Premio del Mes</span>
+                  <span>Guardar y Activar Premio ({balanceFinanciero.requiredWinnerPoints} Pts)</span>
                 </>
               )}
             </button>

@@ -671,3 +671,297 @@ async function limpiarHistorialEliminaciones() {
     }
 }
 
+// --- CONSTRUCTOR DE COMBOS & OFERTAS CON CÁLCULO SEGURO DE PUNTOS ---
+let itemsComboActual = [];
+
+function abrirConstructorCombosAdmin() {
+    itemsComboActual = [];
+    const modal = document.getElementById('modal-admin-combo-builder');
+    if (!modal) return;
+
+    // Poblar selector de productos con costos
+    const selectProd = document.getElementById('combo-select-producto');
+    if (selectProd) {
+        const prodsDisponibles = (productos || []).filter(p => !p.esCombo);
+        selectProd.innerHTML = '<option value="">-- Seleccionar producto del inventario --</option>' +
+            prodsDisponibles.map(p => `
+                <option value="${p.id}" data-costo="${p.costo || 0}" data-nombre="${escaparHtmlInventario(p.nombre)}" data-stock="${p.stock || 0}">
+                    ${p.codigo || ''} - ${p.nombre} (Costo: $${Number(p.costo || 0).toFixed(2)} | Stock: ${p.stock || 0})
+                </option>
+            `).join('');
+    }
+
+    // Auto-generar código de combo
+    let maxComboNum = 0;
+    (productos || []).forEach(p => {
+        const c = String(p.codigo || '').toUpperCase();
+        const m = c.match(/COMBO-(\d+)/);
+        if (m) {
+            const num = parseInt(m[1], 10);
+            if (num > maxComboNum) maxComboNum = num;
+        }
+    });
+    const codigoInput = document.getElementById('combo-builder-codigo');
+    if (codigoInput) codigoInput.value = `COMBO-${String(maxComboNum + 1).padStart(3, '0')}`;
+
+    const nombreInput = document.getElementById('combo-builder-nombre');
+    if (nombreInput) nombreInput.value = '';
+
+    const precioInput = document.getElementById('combo-builder-precio');
+    if (precioInput) precioInput.value = '';
+
+    const pctFidelidad = document.getElementById('combo-builder-pct-fidelidad');
+    if (pctFidelidad) pctFidelidad.value = '15';
+
+    const factorInput = document.getElementById('combo-builder-factor-puntos');
+    if (factorInput) factorInput.value = '10';
+
+    const descInput = document.getElementById('combo-builder-desc');
+    if (descInput) descInput.value = 'Super Combo Promocional con Puntos Especiales';
+
+    renderizarItemsComboModal();
+    recalcularMatematicaComboModal();
+    modal.style.display = 'flex';
+}
+
+function cerrarConstructorCombosAdmin() {
+    const modal = document.getElementById('modal-admin-combo-builder');
+    if (modal) modal.style.display = 'none';
+}
+
+function agregarProductoAComboAdmin() {
+    const select = document.getElementById('combo-select-producto');
+    const cantInput = document.getElementById('combo-item-cantidad');
+    if (!select || !select.value) {
+        alert('Por favor selecciona un producto del catálogo.');
+        return;
+    }
+
+    const prodId = select.value;
+    const prod = (productos || []).find(p => p.id === prodId);
+    if (!prod) return;
+
+    const cantidad = Math.max(1, parseInt(cantInput?.value, 10) || 1);
+    const itemExistente = itemsComboActual.find(i => i.productoId === prodId);
+
+    if (itemExistente) {
+        itemExistente.cantidad += cantidad;
+    } else {
+        itemsComboActual.push({
+            productoId: prod.id,
+            codigo: prod.codigo || '',
+            nombre: prod.nombre,
+            costoUnitario: Number(prod.costo || 0),
+            cantidad: cantidad
+        });
+    }
+
+    if (cantInput) cantInput.value = '1';
+    select.value = '';
+
+    renderizarItemsComboModal();
+    recalcularMatematicaComboModal();
+}
+
+function eliminarItemDeComboAdmin(index) {
+    if (index >= 0 && index < itemsComboActual.length) {
+        itemsComboActual.splice(index, 1);
+        renderizarItemsComboModal();
+        recalcularMatematicaComboModal();
+    }
+}
+
+function renderizarItemsComboModal() {
+    const tbody = document.getElementById('combo-items-table-body');
+    const emptyMsg = document.getElementById('combo-items-empty-msg');
+    if (!tbody) return;
+
+    if (itemsComboActual.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyMsg) emptyMsg.style.display = 'block';
+        return;
+    }
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    tbody.innerHTML = itemsComboActual.map((item, idx) => {
+        const subtotalCosto = item.costoUnitario * item.cantidad;
+        return `
+            <tr>
+                <td style="font-weight:600; color:#1e293b;">${item.nombre}</td>
+                <td style="text-align:center;">
+                    <span style="display:inline-block; padding:2px 8px; background:#e2e8f0; border-radius:6px; font-weight:700;">
+                        ${item.cantidad}
+                    </span>
+                </td>
+                <td class="num">$${item.costoUnitario.toFixed(2)}</td>
+                <td class="num" style="font-weight:700; color:#0f172a;">$${subtotalCosto.toFixed(2)}</td>
+                <td style="text-align:center;">
+                    <button type="button" class="btn btn-danger" onclick="eliminarItemDeComboAdmin(${idx})" style="padding:3px 8px; font-size:0.75rem;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function recalcularMatematicaComboModal() {
+    // 1. Costo Base Consolidado
+    const costoTotal = itemsComboActual.reduce((acc, item) => acc + (item.costoUnitario * item.cantidad), 0);
+    const costoTotalEl = document.getElementById('combo-builder-costo-total');
+    if (costoTotalEl) costoTotalEl.textContent = `$${costoTotal.toFixed(2)}`;
+
+    // 2. Precio de Venta
+    const precioInput = document.getElementById('combo-builder-precio');
+    const precioVenta = Math.max(0, parseFloat(precioInput?.value) || 0);
+
+    // 3. Ganancia Neta
+    const margenNeto = Math.max(0, precioVenta - costoTotal);
+    const margenEl = document.getElementById('combo-builder-margen-neto');
+    if (margenEl) {
+        margenEl.textContent = `$${margenNeto.toFixed(2)}`;
+        margenEl.style.color = margenNeto > 0 ? '#059669' : '#dc2626';
+    }
+
+    // 4. Parámetros de Fidelización
+    const pctFidelidad = Math.min(100, Math.max(1, parseFloat(document.getElementById('combo-builder-pct-fidelidad')?.value) || 15));
+    const factorPuntos = Math.max(1, parseFloat(document.getElementById('combo-builder-factor-puntos')?.value) || 10);
+
+    // 5. Puntos Sugeridos Seguros
+    const puntosSugeridos = Math.max(1, Math.floor(margenNeto * (pctFidelidad / 100) * factorPuntos));
+    const sugeridosEl = document.getElementById('combo-builder-puntos-sugeridos');
+    if (sugeridosEl) sugeridosEl.textContent = `${puntosSugeridos} Pts`;
+
+    // 6. Input de Puntos Asignados
+    const puntosInput = document.getElementById('combo-builder-puntos');
+    if (puntosInput && (!puntosInput.dataset.manual || puntosInput.value === '')) {
+        puntosInput.value = puntosSugeridos;
+    }
+
+    const puntosAsignados = parseInt(puntosInput?.value, 10) || puntosSugeridos;
+
+    // 7. Alerta de Rentabilidad
+    const alertaEl = document.getElementById('combo-builder-alerta-rentabilidad');
+    const valorMonetarioPuntos = puntosAsignados / factorPuntos;
+    const superaMargen = valorMonetarioPuntos > margenNeto;
+
+    if (alertaEl) {
+        if (precioVenta > 0 && superaMargen) {
+            alertaEl.style.display = 'block';
+            alertaEl.innerHTML = `
+                <i class="fas fa-triangle-exclamation"></i> 
+                <strong>Advertencia de Margen:</strong> Los puntos asignados equivalen a $${valorMonetarioPuntos.toFixed(2)} en costo de fidelización, superando la ganancia neta ($${margenNeto.toFixed(2)}). Reduce los puntos para garantizar rentabilidad.
+            `;
+        } else {
+            alertaEl.style.display = 'none';
+        }
+    }
+
+    // 8. Preview Badge del Catálogo
+    const previewBadge = document.getElementById('combo-builder-preview-badge');
+    if (previewBadge) {
+        previewBadge.innerHTML = `🔥 Super Combo: +${puntosAsignados} Puntos`;
+    }
+}
+
+async function guardarComboAdmin(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (itemsComboActual.length === 0) {
+        alert('Debes agregar al menos un producto al combo.');
+        return;
+    }
+
+    const nombre = (document.getElementById('combo-builder-nombre')?.value || '').trim();
+    const codigo = (document.getElementById('combo-builder-codigo')?.value || '').trim() || `COMBO-${Date.now()}`;
+    const precio = parseFloat(document.getElementById('combo-builder-precio')?.value) || 0;
+    const desc = (document.getElementById('combo-builder-desc')?.value || '').trim();
+    const puntos = parseInt(document.getElementById('combo-builder-puntos')?.value, 10) || 1;
+
+    const costoTotal = itemsComboActual.reduce((acc, item) => acc + (item.costoUnitario * item.cantidad), 0);
+
+    if (!nombre) {
+        alert('Por favor ingresa el nombre del combo.');
+        return;
+    }
+    if (precio <= 0) {
+        alert('El precio de venta del combo debe ser mayor a 0.');
+        return;
+    }
+    if (precio < costoTotal) {
+        const confirmar = confirm(`El precio de venta ($${precio.toFixed(2)}) es menor que el costo consolidado ($${costoTotal.toFixed(2)}). ¿Deseas continuar de todos modos?`);
+        if (!confirmar) return;
+    }
+
+    // Calcular stock disponible basado en los ingredientes/productos incluidos
+    let stockCalculado = 999;
+    itemsComboActual.forEach(item => {
+        const prod = (productos || []).find(p => p.id === item.productoId);
+        if (prod) {
+            const disponibles = Math.floor(Number(prod.stock || 0) / Number(item.cantidad || 1));
+            if (disponibles < stockCalculado) stockCalculado = disponibles;
+        }
+    });
+    if (stockCalculado < 0 || stockCalculado === 999) stockCalculado = 10;
+
+    const nuevoCombo = {
+        id: 'combo_' + Date.now(),
+        codigo: codigo,
+        nombre: nombre,
+        descripcion: desc || 'Super Combo con puntos especiales',
+        costo: Number(costoTotal.toFixed(2)),
+        precio: Number(precio.toFixed(2)),
+        ganancia: costoTotal > 0 ? Math.round(((precio - costoTotal) / costoTotal) * 100) : 100,
+        stock: stockCalculado,
+        categoria: 'Combos & Ofertas',
+        esCombo: true,
+        tipo: 'combo',
+        isCombo: true,
+        items: itemsComboActual,
+        puntosCombo: puntos,
+        points_given: puntos,
+        margenNetoUnitario: Number((precio - costoTotal).toFixed(2)),
+        badge: `🔥 Super Combo: +${puntos} Puntos`,
+        imagen: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
+        fechaCreacion: new Date().toISOString()
+    };
+
+    productos.push(nuevoCombo);
+    AppState.productos = productos;
+
+    // Sincronizar con Firestore si está disponible
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
+            window.InventoryApp.Firebase.guardarProducto(nuevoCombo).catch(e => console.warn('[Combo] Error guardando producto en Firestore:', e));
+        }
+    }
+
+    // Guardar persistencia local
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarInventario();
+    if (typeof renderizarCatalogoCliente === 'function') {
+        renderizarCatalogoCliente();
+    }
+
+    cerrarConstructorCombosAdmin();
+
+    if (window.InventoryApp?.Modal?.alert) {
+        window.InventoryApp.Modal.alert(
+            '¡Combo Creado!',
+            `El combo "${nombre}" (${codigo}) ha sido guardado exitosamente.\nPuntos asignados: +${puntos} Pts.\nMargen Neto: $${(precio - costoTotal).toFixed(2)}.`
+        );
+    } else {
+        alert(`¡Combo "${nombre}" creado exitosamente con +${puntos} Puntos!`);
+    }
+}
+
+window.abrirConstructorCombosAdmin = abrirConstructorCombosAdmin;
+window.cerrarConstructorCombosAdmin = cerrarConstructorCombosAdmin;
+window.agregarProductoAComboAdmin = agregarProductoAComboAdmin;
+window.eliminarItemDeComboAdmin = eliminarItemDeComboAdmin;
+window.recalcularMatematicaComboModal = recalcularMatematicaComboModal;
+window.guardarComboAdmin = guardarComboAdmin;
+
