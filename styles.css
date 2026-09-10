@@ -205,8 +205,9 @@ header h1 {
     border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
-/* Tarjeta BCV dentro del Inventario */
+/* Tarjeta BCV dentro del Inventario (Oculta porque ya se muestra en la cabecera superior derecha) */
 .inventory-bcv-card {
+    display: none !important;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: #fff;
     border-radius: 12px;
@@ -898,8 +899,8 @@ th {
 
 .product-image-dropzone {
     position: relative;
-    height: 235px;
-    min-height: 235px;
+    height: 270px;
+    min-height: 270px;
     border: 1.5px dashed #93c5fd;
     border-radius: 10px;
     background: #f8fbff;
@@ -922,7 +923,9 @@ th {
 
 .product-image-dropzone.has-image {
     padding: 0;
-    background: #fff;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .product-image-empty {
@@ -969,52 +972,122 @@ th {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #fff;
+    background: #f8fafc;
     z-index: 1;
+    overflow: hidden;
+    border-radius: 9px;
 }
 
 .product-image-preview img {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    padding: 8px;
+    object-position: center;
+    padding: 4px;
     box-sizing: border-box;
+    display: block;
+    background: #f8fafc;
+    border-radius: 9px;
+    transition: transform 0.25s ease;
+}
+
+.product-image-dropzone.has-image:hover .product-image-preview img {
+    transform: scale(1.02);
+}
+
+/* Indicador de estado de subida/sincronización con Vercel Blob */
+#product-blob-status-badge {
+    position: absolute !important;
+    top: 10px !important;
+    left: 10px !important;
+    right: auto !important;
+    max-width: calc(100% - 56px) !important;
+    z-index: 10 !important;
+    margin: 0 !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    padding: 4px 10px !important;
+    border-radius: 999px !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    pointer-events: auto !important;
 }
 
 .product-image-remove {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 4;
-    width: 29px;
-    height: 29px;
+    top: 10px;
+    right: 10px;
+    z-index: 11;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    border: 1px solid rgba(15, 23, 42, 0.12);
+    border: 1px solid #cbd5e1;
     border-radius: 50%;
-    background: rgba(255,255,255,0.94);
-    color: #475569;
+    background: #ffffff;
+    color: #ef4444;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
 }
 
 .product-image-remove:hover {
-    color: var(--danger);
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: scale(1.08);
 }
 
 .product-image-actions {
     position: absolute;
     left: 50%;
-    bottom: 9px;
+    bottom: 12px;
     transform: translateX(-50%);
-    z-index: 3;
+    z-index: 10;
+    width: auto;
 }
 
 .product-image-change {
-    padding: 7px 12px;
-    white-space: nowrap;
-    font-size: 0.78rem;
-    background: rgba(255,255,255,0.94);
-    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.14);
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    padding: 8px 16px !important;
+    white-space: nowrap !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 999px !important;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.18) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.product-image-change i {
+    color: var(--primary-accent) !important;
+    font-size: 0.85rem !important;
+    transition: color 0.2s ease !important;
+}
+
+.product-image-change:hover {
+    background: var(--primary-accent) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-accent) !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+
+.product-image-change:hover i {
+    color: #ffffff !important;
 }
 
 .product-image-help {
@@ -1354,7 +1427,7 @@ th {
 }
 
 .product-image-dropzone:not(.has-image) {
-    min-height: 330px;
+    min-height: 270px;
 }
 
 .product-image-dropzone:not(.has-image):hover .image-select-hint,
