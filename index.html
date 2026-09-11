@@ -12,14 +12,49 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="styles/fluid-scroll.css">
-    <link rel="stylesheet" href="styles/themeEngine.css">
-    <link rel="stylesheet" href="styles/auditDashboard.css">
-    <link rel="stylesheet" href="styles/rewardConfig.css">
-    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=4.3.2">
-    <link rel="stylesheet" href="styles/mobileGlobal.css">
-    <link rel="stylesheet" href="styles/nativeComponents.css">
+    <link rel="stylesheet" href="styles.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/themeEngine.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v4">
+    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v4">
+    <style id="mobile-frase-priority-style">
+        /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
+        #cliente-frase-sabiduria-card {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-left: 3px solid #fde047 !important;
+            padding: 8px 12px !important;
+            border-radius: 0 8px 8px 0 !important;
+            margin-top: 6px !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        #cliente-frase-texto {
+            display: block !important;
+            visibility: visible !important;
+            color: #f1f5f9 !important;
+            font-size: 0.84rem !important;
+            line-height: 1.35 !important;
+            margin: 0 !important;
+        }
+        #cliente-frase-autor {
+            display: inline-block !important;
+            visibility: visible !important;
+            color: #cbd5e1 !important;
+            font-size: 0.72rem !important;
+        }
+        #cliente-frase-categoria {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+    </style>
 </head>
 <body>
 
@@ -1769,7 +1804,7 @@
                         <h2 style="margin:0; font-size:1.2rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
                     </div>
                     <!-- Frase de Sabiduría Dinámica & Motivacional (Optimizada para Móvil y Desktop) -->
-                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex; align-items:flex-start; gap:8px;">
+                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex !important; visibility:visible !important; opacity:1 !important; align-items:flex-start; gap:8px;">
                         <i class="fas fa-quote-left" style="color:#fde047; font-size:0.85rem; margin-top:2px; flex-shrink:0;"></i>
                         <div>
                             <p id="cliente-frase-texto" style="margin:0; font-size:0.84rem; color:#f1f5f9; font-style:italic; line-height:1.3;">

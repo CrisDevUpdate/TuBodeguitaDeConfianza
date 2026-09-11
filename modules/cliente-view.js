@@ -119,12 +119,21 @@ async function actualizarEncabezadoClienteDinamico() {
         }
     }
 
+    const cardFrase = document.getElementById('cliente-frase-sabiduria-card');
+    if (cardFrase) {
+        cardFrase.style.setProperty('display', 'flex', 'important');
+        cardFrase.style.setProperty('visibility', 'visible', 'important');
+        cardFrase.style.setProperty('opacity', '1', 'important');
+    }
+
     const elemTexto = document.getElementById('cliente-frase-texto');
     const elemAutor = document.getElementById('cliente-frase-autor');
     const elemCat = document.getElementById('cliente-frase-categoria');
 
     if (elemTexto && fraseActualSeleccionada) {
         elemTexto.textContent = `"${fraseActualSeleccionada.frase}"`;
+        elemTexto.style.setProperty('display', 'block', 'important');
+        elemTexto.style.setProperty('visibility', 'visible', 'important');
     }
     if (elemAutor && fraseActualSeleccionada) {
         elemAutor.textContent = `— ${fraseActualSeleccionada.autor}`;
