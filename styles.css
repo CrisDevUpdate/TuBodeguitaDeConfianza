@@ -2748,10 +2748,26 @@ body.dark-mode .cliente-combos-carousel-wrapper {
     letter-spacing: 0.5px;
 }
 
-/* Reducción Drástica de Fatiga de Scroll en Teléfonos (2-Col Compact Grid) */
+/* Vista Móvil: Frase de Saludo y Sabiduría Visible & Compacta */
 @media (max-width: 680px) {
     #cliente-frase-sabiduria-card {
-        display: none !important; /* Elimina texto largo superior para que el catálogo comience de inmediato */
+        display: flex !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-left: 3px solid #fde047 !important;
+        padding: 8px 10px !important;
+        border-radius: 0 8px 8px 0 !important;
+        margin-top: 8px !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    #cliente-frase-texto {
+        font-size: 0.82rem !important;
+        line-height: 1.35 !important;
+    }
+
+    #cliente-frase-autor {
+        font-size: 0.72rem !important;
     }
 
     .cliente-catalogo-grid {
