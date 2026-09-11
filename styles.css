@@ -2731,21 +2731,9 @@ body.dark-mode .cliente-combos-carousel-wrapper {
 
 /* Super Combos en el Grid Principal */
 .cliente-prod-card.es-super-combo {
-    border: 2px solid #f97316 !important;
-    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.16) !important;
+    border: 1.5px solid #f97316 !important;
+    box-shadow: 0 2px 10px rgba(249, 115, 22, 0.12) !important;
     position: relative;
-}
-.cliente-prod-card.es-super-combo::before {
-    content: "🔥 SUPER COMBO DESTACADO";
-    display: block;
-    width: 100%;
-    background: linear-gradient(90deg, #ea580c, #f59e0b);
-    color: #ffffff;
-    font-size: 0.65rem;
-    font-weight: 900;
-    text-align: center;
-    padding: 3px 0;
-    letter-spacing: 0.5px;
 }
 
 /* Vista Móvil: Frase de Saludo y Sabiduría Visible & Compacta */

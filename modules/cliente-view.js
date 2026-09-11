@@ -222,71 +222,21 @@ function renderizarCatalogoCliente() {
     const container = document.getElementById('cliente-catalogo-grid');
     if (!container) return;
 
-    let prods = [...(AppState.productos || [])];
+    const esComboHelper = (p) => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+    const todosLosCombos = (AppState.productos || []).filter(esComboHelper);
+    const hayCombosParaDestacar = todosLosCombos.length > 0 && (!clienteBusqueda || clienteBusqueda.trim() === '');
 
-    // Filtros
-    if (clienteBusqueda) {
-        const q = clienteBusqueda.toLowerCase();
-        prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
-    }
-    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS') {
-        if (clienteFiltroCategoria === 'COMBOS') {
-            prods = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
-        } else {
-            prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
-        }
-    }
-
-    // 🏆 ALGORITMO DE ORDENAMIENTO: COMBOS PRIMERO, LUEGO STOCK Y PUNTOS
-    prods.sort((a, b) => {
-        const esComboA = (typeof esProductoCombo === 'function') ? esProductoCombo(a) : Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().includes('combo'));
-        const esComboB = (typeof esProductoCombo === 'function') ? esProductoCombo(b) : Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().includes('combo'));
-
-        // 1. COMBOS SIEMPRE DE PRIMEROS
-        if (esComboA && !esComboB) return -1;
-        if (!esComboA && esComboB) return 1;
-
-        // 2. Disponibilidad en stock
-        const stockA = Number(a.stock || 0);
-        const stockB = Number(b.stock || 0);
-        if (stockA > 0 && stockB <= 0) return -1;
-        if (stockA <= 0 && stockB > 0) return 1;
-
-        // 3. Puntos otorgados
-        const puntosA = Number(a.puntosPromo || a.points_given || a.puntosCombo || a.puntos || 0);
-        const puntosB = Number(b.puntosPromo || b.points_given || b.puntosCombo || b.puntos || 0);
-        if (puntosB !== puntosA) return puntosB - puntosA;
-
-        // 4. Orden alfabético
-        return (a.nombre || '').localeCompare(b.nombre || '');
-    });
-
-    if (prods.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:40px 20px;">
-                <i class="fas fa-box-open" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
-                <h4>No se encontraron productos disponibles</h4>
-                <p style="color:var(--text-muted); font-size:0.9rem;">Prueba con otra búsqueda o categoría en el catálogo.</p>
-            </div>
-        `;
-        renderizarCategoriasCatalogo();
-        renderizarCarritoCliente();
-        return;
-    }
+    // 🔥 GESTIÓN DE CARRUSEL HORIZONTAL DE COMBOS DESTACADOS (Exclusivo para Combos)
+    const carouselWrapper = document.getElementById('cliente-combos-carousel-wrapper');
+    const carouselRail = document.getElementById('cliente-combos-carousel-rail');
+    const carouselCount = document.getElementById('cliente-combos-carousel-count');
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
     const inviernoActivo = Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.temporadaActiva === false);
 
-    // 🔥 GESTIÓN DE CARRUSEL HORIZONTAL DE COMBOS DESTACADOS (Anti-Fatiga de Scroll Móvil)
-    const carouselWrapper = document.getElementById('cliente-combos-carousel-wrapper');
-    const carouselRail = document.getElementById('cliente-combos-carousel-rail');
-    const carouselCount = document.getElementById('cliente-combos-carousel-count');
-
-    const todosLosCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
-
     if (carouselWrapper && carouselRail) {
-        if (todosLosCombos.length > 0 && (!clienteBusqueda || clienteBusqueda.trim() === '')) {
+        if (hayCombosParaDestacar) {
             carouselWrapper.style.display = 'block';
             if (carouselCount) carouselCount.textContent = `${todosLosCombos.length} combos listos`;
 
@@ -326,6 +276,65 @@ function renderizarCatalogoCliente() {
         } else {
             carouselWrapper.style.display = 'none';
         }
+    }
+
+    // Si el usuario filtró por 'COMBOS' y ya están todos en el carrusel superior, no duplicarlos abajo
+    if (hayCombosParaDestacar && clienteFiltroCategoria === 'COMBOS') {
+        container.innerHTML = `
+            <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:28px 16px; background:rgba(234,88,12,0.05); border:1px dashed rgba(249,115,22,0.3); border-radius:12px; margin-top:6px;">
+                <i class="fas fa-fire" style="font-size:2rem; color:#ea580c; margin-bottom:8px; display:inline-block;"></i>
+                <h4 style="color:#ea580c; font-size:1rem; font-weight:700; margin:0 0 4px 0;">Super Combos Destacados</h4>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin:0 auto; max-width:380px;">
+                    Todos los combos disponibles están organizados arriba en el apartado destacado listos para agregar a tu pedido.
+                </p>
+            </div>
+        `;
+        renderizarCategoriasCatalogo();
+        renderizarCarritoCliente();
+        return;
+    }
+
+    let prods = [...(AppState.productos || [])];
+
+    // Excluir combos del grid general si ya se muestran en el carrusel superior para evitar duplicidad
+    if (hayCombosParaDestacar) {
+        prods = prods.filter(p => !esComboHelper(p));
+    }
+
+    // Filtros de búsqueda y categorías
+    if (clienteBusqueda) {
+        const q = clienteBusqueda.toLowerCase();
+        prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
+    }
+    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
+        prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
+    }
+
+    // Ordenamiento por Stock, Puntos y Alfabético
+    prods.sort((a, b) => {
+        const stockA = Number(a.stock || 0);
+        const stockB = Number(b.stock || 0);
+        if (stockA > 0 && stockB <= 0) return -1;
+        if (stockA <= 0 && stockB > 0) return 1;
+
+        const puntosA = Number(a.puntosPromo || a.points_given || a.puntosCombo || a.puntos || 0);
+        const puntosB = Number(b.puntosPromo || b.points_given || b.puntosCombo || b.puntos || 0);
+        if (puntosB !== puntosA) return puntosB - puntosA;
+
+        return (a.nombre || '').localeCompare(b.nombre || '');
+    });
+
+    if (prods.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:40px 20px;">
+                <i class="fas fa-box-open" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
+                <h4>No se encontraron productos disponibles</h4>
+                <p style="color:var(--text-muted); font-size:0.9rem;">Prueba con otra búsqueda o categoría en el catálogo.</p>
+            </div>
+        `;
+        renderizarCategoriasCatalogo();
+        renderizarCarritoCliente();
+        return;
     }
 
     container.innerHTML = prods.map(p => {
@@ -454,6 +463,12 @@ function renderizarCategoriasCatalogo() {
 function filtrarCatalogoClienteCategoria(cat) {
     clienteFiltroCategoria = cat;
     renderizarCatalogoCliente();
+    if (cat === 'COMBOS') {
+        const carousel = document.getElementById('cliente-combos-carousel-wrapper');
+        if (carousel) {
+            carousel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
 }
 
 function filtrarCatalogoPorCategoria(cat) {
