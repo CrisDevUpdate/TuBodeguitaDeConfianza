@@ -219,7 +219,9 @@ function renderizarDetalleGatewallPendiente(usuario) {
 
     if (waBtn) {
         const msg = encodeURIComponent(`Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id}). Acabo de registrarme y solicito la aprobación de mi cuenta.`);
-        waBtn.href = `https://wa.me/584120000000?text=${msg}`;
+        const rawTel = (typeof AppState !== 'undefined' && AppState.telefonoWhatsApp) || '0412-5363849';
+        const telAdmin = (typeof normalizarNumeroWhatsApp === 'function') ? normalizarNumeroWhatsApp(rawTel) : '584125363849';
+        waBtn.href = `https://api.whatsapp.com/send?phone=${telAdmin}&text=${msg}`;
     }
 }
 

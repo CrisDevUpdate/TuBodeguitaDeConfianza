@@ -789,8 +789,11 @@ class TreeGamificationWidget {
             }).catch(e => console.warn(e));
         }
 
-        // Disparar WhatsApp Trigger dirigido a la Bodega (04125363849)
-        const telefonoBodega = '584125363849';
+        // Disparar WhatsApp Trigger dirigido a la Bodega oficial
+        const rawTel = AppState.telefonoWhatsApp || '0412-5363849';
+        const telefonoBodega = (typeof normalizarNumeroWhatsApp === 'function')
+            ? normalizarNumeroWhatsApp(rawTel)
+            : '584125363849';
         const msgWhatsApp = encodeURIComponent(
             `🎉 *SOLICITUD DE CANJE DE PREMIO - TU BODEGUITA DE CONFIANZA*\n\n` +
             `👤 *Ganador:* ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id})\n` +
@@ -802,7 +805,7 @@ class TreeGamificationWidget {
             `_Por favor confirmar la entrega en el panel administrativo para entregar el premio e iniciar el nuevo ciclo del cliente._`
         );
 
-        const urlWhatsApp = `https://wa.me/${telefonoBodega}?text=${msgWhatsApp}`;
+        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoBodega}&text=${msgWhatsApp}`;
         window.open(urlWhatsApp, '_blank');
 
         if (window.InventoryApp.Modal?.alert) {

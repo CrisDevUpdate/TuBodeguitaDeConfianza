@@ -1,9 +1,11 @@
 // --- POS MULTIMONEDA ---
 function renderizarPosProductos(filtro = "") {
     const tbody = document.getElementById('pos-productos-body');
-    const filtrados = productos.filter(p => 
-        p.nombre.toLowerCase().includes(filtro.toLowerCase()) || 
-        p.codigo.toLowerCase().includes(filtro.toLowerCase())
+    const f = (filtro || "").toLowerCase();
+    const filtrados = (productos || []).filter(p => 
+        (p.nombre || "").toLowerCase().includes(f) || 
+        (p.codigo || "").toLowerCase().includes(f) ||
+        (p.categoria || "").toLowerCase().includes(f)
     );
 
     tbody.innerHTML = filtrados.map(p => `

@@ -483,6 +483,25 @@
                             <input type="text" id="prod-nombre" required>
                         </div>
                         <div class="form-group">
+                            <label for="prod-categoria">Categoría del Producto</label>
+                            <select id="prod-categoria" class="form-control" onchange="alCambiarCategoriaFormulario(this.value)" style="height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-card); color: var(--text-main); font-size: 0.9rem;">
+                                <option value="Dulces">🍬 Dulces</option>
+                                <option value="Bebidas">🥤 Bebidas</option>
+                                <option value="Snacks">🍿 Snacks & Salados</option>
+                                <option value="Galletas">🍪 Galletas</option>
+                                <option value="Chocolates">🍫 Chocolates</option>
+                                <option value="Chucherías">🍭 Chucherías Variadas</option>
+                                <option value="Combos & Ofertas">🔥 Combos & Ofertas</option>
+                                <option value="Víveres">🥫 Víveres</option>
+                                <option value="General">📦 General</option>
+                                <option value="__NUEVA__">➕ Crear Nueva Categoría...</option>
+                            </select>
+                            <div id="wrapper-nueva-categoria" style="display:none; margin-top:6px;">
+                                <input type="text" id="prod-categoria-nueva" class="form-control" placeholder="Escribe el nombre de la nueva categoría" style="height: 36px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; width: 100%; font-size: 0.88rem;">
+                            </div>
+                            <small>Clasificación de bodega / chucherías.</small>
+                        </div>
+                        <div class="form-group">
                             <label>Costo Compra ($)</label>
                             <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" required>
                         </div>
@@ -560,6 +579,7 @@
                         <tr>
                             <th>Código</th>
                             <th>Producto</th>
+                            <th>Categoría</th>
                             <th>Descripción</th>
                             <th>Contenido / Medida</th>
                             <th class="num">Costo ($)</th>
@@ -2184,7 +2204,7 @@
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button type="button" class="btn btn-block" onclick="abrirWhatsAppComprobante()" 
                     style="background:#25d366; color:#ffffff; font-weight:700; font-size:0.95rem; padding:12px; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="fab fa-whatsapp" style="font-size:1.3rem;"></i> Consultar / Enviar a WhatsApp (0412-5363849)
+                    <i class="fab fa-whatsapp" style="font-size:1.3rem;"></i> <span id="btn-cliente-wa-label">Enviar comprobante por WhatsApp</span>
                 </button>
                 
                 <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">

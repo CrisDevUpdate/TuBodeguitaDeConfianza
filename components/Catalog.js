@@ -73,17 +73,17 @@ class CatalogManager {
         // 2. Filtrar por Categoría
         if (filtroCategoria && filtroCategoria !== 'TODOS') {
             if (filtroCategoria.toUpperCase() === 'COMBOS') {
-                lista = lista.filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+                lista = lista.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
             } else {
-                lista = lista.filter(p => (p.categoria || '').toLowerCase() === filtroCategoria.toLowerCase());
+                lista = lista.filter(p => (p.categoria || '').trim().toLowerCase() === filtroCategoria.trim().toLowerCase());
             }
         }
 
         // 3. Aplicar Algoritmo de Ranking y Priorización: 🔥 COMBOS PRIMERO
         lista.sort((a, b) => {
             // 0. 🔥 COMBOS CREADOS SIEMPRE DE PRIMEROS
-            const esComboA = Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().startsWith('combo'));
-            const esComboB = Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().startsWith('combo'));
+            const esComboA = (typeof esProductoCombo === 'function') ? esProductoCombo(a) : Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().includes('combo'));
+            const esComboB = (typeof esProductoCombo === 'function') ? esProductoCombo(b) : Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().includes('combo'));
             if (esComboA && !esComboB) return -1;
             if (!esComboA && esComboB) return 1;
 

@@ -222,16 +222,16 @@ function renderizarCatalogoCliente() {
     }
     if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS') {
         if (clienteFiltroCategoria === 'COMBOS') {
-            prods = prods.filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+            prods = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
         } else {
-            prods = prods.filter(p => (p.categoria || 'General').toUpperCase() === clienteFiltroCategoria.toUpperCase());
+            prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
         }
     }
 
     // 🏆 ALGORITMO DE ORDENAMIENTO: COMBOS PRIMERO, LUEGO STOCK Y PUNTOS
     prods.sort((a, b) => {
-        const esComboA = Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().startsWith('combo'));
-        const esComboB = Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().startsWith('combo'));
+        const esComboA = (typeof esProductoCombo === 'function') ? esProductoCombo(a) : Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().includes('combo'));
+        const esComboB = (typeof esProductoCombo === 'function') ? esProductoCombo(b) : Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().includes('combo'));
 
         // 1. COMBOS SIEMPRE DE PRIMEROS
         if (esComboA && !esComboB) return -1;
@@ -274,7 +274,7 @@ function renderizarCatalogoCliente() {
     const carouselRail = document.getElementById('cliente-combos-carousel-rail');
     const carouselCount = document.getElementById('cliente-combos-carousel-count');
 
-    const todosLosCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+    const todosLosCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
 
     if (carouselWrapper && carouselRail) {
         if (todosLosCombos.length > 0 && (!clienteBusqueda || clienteBusqueda.trim() === '')) {
@@ -327,7 +327,7 @@ function renderizarCatalogoCliente() {
         const rawImg = p.imagen;
         const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
-        const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'));
+        const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
         const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
             ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
             : (p.puntos !== undefined && Number(p.puntos) > 0 
@@ -379,13 +379,30 @@ function renderizarCategoriasCatalogo() {
     const container = document.getElementById('cliente-catalogo-cats') || document.getElementById('cliente-categorias-chips');
     if (!container) return;
 
-    const catsSet = new Set(['TODAS']);
+    const catsSet = new Set();
+
+    // 1. Categorías personalizadas configuradas en el sistema
+    const baseBodega = ['Bebidas', 'Dulces', 'Snacks', 'Chucherías', 'Víveres'];
+    baseBodega.forEach(c => catsSet.add(c));
+
+    (AppState.categoriasPersonalizadas || []).forEach(c => {
+        if (c && typeof c === 'string' && c.trim() && !c.toLowerCase().includes('combo')) {
+            catsSet.add(c.trim());
+        }
+    });
+
+    // 2. Categorías presentes en los productos existentes
     (AppState.productos || []).forEach(p => {
-        if (p.categoria) catsSet.add(p.categoria.toUpperCase());
+        if (p.categoria && typeof p.categoria === 'string' && p.categoria.trim()) {
+            const cat = p.categoria.trim();
+            if (!cat.toLowerCase().includes('combo') && !cat.toLowerCase().includes('general')) {
+                catsSet.add(cat);
+            }
+        }
     });
 
     const cats = Array.from(catsSet);
-    const totalCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'))).length;
+    const totalCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
 
     let html = `
         <button type="button" class="chip-filter ${clienteFiltroCategoria === 'TODAS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('TODAS')">
@@ -401,11 +418,26 @@ function renderizarCategoriasCatalogo() {
         `;
     }
 
-    html += cats.filter(c => c !== 'TODAS').map(cat => `
-        <button type="button" class="chip-filter ${clienteFiltroCategoria === cat ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('${cat}')">
-            ${cat}
-        </button>
-    `).join('');
+    const iconoPorCategoria = (cat) => {
+        const c = cat.toLowerCase();
+        if (c.includes('bebida') || c.includes('refresco') || c.includes('jugo')) return '🥤';
+        if (c.includes('dulce') || c.includes('caramelo') || c.includes('chupeta')) return '🍬';
+        if (c.includes('snack') || c.includes('chuchería') || c.includes('chucheria') || c.includes('chips') || c.includes('dorito')) return '🍿';
+        if (c.includes('galleta')) return '🍪';
+        if (c.includes('chocolate')) return '🍫';
+        if (c.includes('vívere') || c.includes('viveres') || c.includes('grano') || c.includes('harina')) return '🥫';
+        if (c.includes('lácteo') || c.includes('lacteo') || c.includes('queso')) return '🧀';
+        return '🏷️';
+    };
+
+    html += cats.map(cat => {
+        const isActive = clienteFiltroCategoria.trim().toUpperCase() === cat.trim().toUpperCase();
+        return `
+            <button type="button" class="chip-filter ${isActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('${cat}')">
+                ${iconoPorCategoria(cat)} ${cat}
+            </button>
+        `;
+    }).join('');
 
     container.innerHTML = html;
 }
@@ -856,17 +888,43 @@ function generarMensajeWhatsApp(datosPedido = null) {
             `📎 *Adjunto mi comprobante de pago para su validación.*`;
     }
 
-    return encodeURIComponent(msg);
+    return msg;
 }
 
 /**
- * Abre el enlace directo a WhatsApp (https://wa.me/584125363849) dirigido al número 04125363849
+ * Abre el enlace directo a WhatsApp dirigido al número oficial configurado.
+ * Usa la URL directa y normalizada para evitar la pantalla "404. Esta página no existe".
  */
 function abrirWhatsAppComprobante(datosPedido = null) {
-    const numeroWhatsApp = '584125363849';
-    const textoCodificado = generarMensajeWhatsApp(datosPedido);
-    const url = `https://wa.me/${numeroWhatsApp}?text=${textoCodificado}`;
-    window.open(url, '_blank');
+    const rawTel = AppState.telefonoWhatsApp || '0412-5363849';
+    const numeroWhatsApp = (typeof normalizarNumeroWhatsApp === 'function') 
+        ? normalizarNumeroWhatsApp(rawTel) 
+        : '584125363849';
+
+    const textoPlano = generarMensajeWhatsApp(datosPedido);
+    let textoCodificado = '';
+    try {
+        const dec = decodeURIComponent(textoPlano);
+        textoCodificado = encodeURIComponent(dec);
+    } catch (e) {
+        textoCodificado = encodeURIComponent(textoPlano);
+    }
+
+    // Usar la URL oficial de la API de WhatsApp sin redirecciones propensas a errores 404
+    const url = `https://api.whatsapp.com/send?phone=${numeroWhatsApp}&text=${textoCodificado}`;
+
+    const nuevaVentana = window.open(url, '_blank');
+    if (!nuevaVentana || nuevaVentana.closed || typeof nuevaVentana.closed === 'undefined') {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (document.body.contains(a)) document.body.removeChild(a);
+        }, 300);
+    }
 }
 
 /**

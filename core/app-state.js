@@ -138,7 +138,9 @@ const AppState = window.AppState = window.InventoryApp.state = {
             activo: true,
             instrucciones: ''
         }
-    ]
+    ],
+    telefonoWhatsApp: '0412-5363849',
+    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General']
 };
 
 const legacyGlobals = [
@@ -146,7 +148,8 @@ const legacyGlobals = [
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
-    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias'
+    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
+    'telefonoWhatsApp','categoriasPersonalizadas'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
@@ -155,6 +158,90 @@ legacyGlobals.forEach((key) => {
         set: (value) => { AppState[key] = value; }
     });
 });
+
+/**
+ * Normaliza cualquier número de teléfono venezolano o internacional
+ * al formato limpio requerido por la API oficial de WhatsApp (ej: 0412-5363849 -> 584125363849)
+ * Elimina cualquier guión, espacio, paréntesis o símbolo.
+ */
+function normalizarNumeroWhatsApp(tel) {
+    if (!tel) return '584125363849';
+    let clean = String(tel).replace(/\D/g, '');
+    
+    // Si ya empieza por 58 y tiene al menos 12 dígitos (58 + 10 dígitos)
+    if (clean.startsWith('58') && clean.length >= 12) {
+        return clean;
+    }
+    
+    // Si empieza por 0 (ej: 04125363849 -> 584125363849)
+    if (clean.startsWith('0')) {
+        clean = '58' + clean.substring(1);
+    } else if (clean.length === 10 && /^(412|414|424|416|426)/.test(clean)) {
+        // Ej: 4125363849 -> 584125363849
+        clean = '58' + clean;
+    } else if (!clean.startsWith('58') && clean.length <= 11) {
+        clean = '58' + clean;
+    }
+    
+    return clean || '584125363849';
+}
+window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
+
+/**
+ * Retorna el número de WhatsApp.
+ * Por defecto (o si formateado === false), retorna el número LIMPIO para URLs/APIs (ej: '584125363849').
+ * Si formateado === true, retorna el número con formato legible para la interfaz (ej: '0412-5363849').
+ */
+function obtenerTelefonoWhatsApp(formateado = false) {
+    const raw = AppState.telefonoWhatsApp || '0412-5363849';
+    if (formateado) {
+        return raw;
+    }
+    return normalizarNumeroWhatsApp(raw);
+}
+window.obtenerTelefonoWhatsApp = obtenerTelefonoWhatsApp;
+
+function obtenerTelefonoWhatsAppLimpio() {
+    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '0412-5363849');
+}
+window.obtenerTelefonoWhatsAppLimpio = obtenerTelefonoWhatsAppLimpio;
+
+/**
+ * Genera una URL infalible y directa a WhatsApp sin redirecciones intermedias rotas
+ */
+function generarUrlWhatsApp(numero, texto = '') {
+    const numLimpio = normalizarNumeroWhatsApp(numero || AppState.telefonoWhatsApp);
+    let textoCodificado = '';
+    if (texto) {
+        try {
+            // Descodifica primero si ya venía codificado para evitar doble encoding (%2520)
+            const dec = decodeURIComponent(texto);
+            textoCodificado = encodeURIComponent(dec);
+        } catch (e) {
+            textoCodificado = encodeURIComponent(texto);
+        }
+    }
+    return `https://api.whatsapp.com/send?phone=${numLimpio}&text=${textoCodificado}`;
+}
+window.generarUrlWhatsApp = generarUrlWhatsApp;
+
+/**
+ * Validador universal de si un producto o combo debe tratarse como combo
+ */
+function esProductoCombo(p) {
+    if (!p) return false;
+    if (p.esCombo === true || p.isCombo === true || p.tipo === 'combo') return true;
+    if (typeof p.id === 'string' && (p.id.startsWith('combo_') || p.id.startsWith('combo-'))) return true;
+    const cat = String(p.categoria || '').toLowerCase();
+    if (cat.includes('combo') || cat.includes('oferta') || cat.includes('promo') || cat.includes('paquete')) return true;
+    const nom = String(p.nombre || '').toLowerCase();
+    if (nom.includes('combo') || nom.includes('promo') || nom.includes('pack')) return true;
+    const cod = String(p.codigo || '').toLowerCase();
+    if (cod.includes('combo') || cod.startsWith('cmb')) return true;
+    return false;
+}
+window.esProductoCombo = esProductoCombo;
+window.InventoryApp.esProductoCombo = esProductoCombo;
 
 window.InventoryApp.StockService = {
     _get(productId) {

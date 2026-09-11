@@ -21,6 +21,7 @@ function renderizarConfiguracionAdmin() {
     const usuario = AppState.usuarioActual;
     const esSuperAdmin = usuario && (usuario.rol === 'admin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin');
     const inviernoActivo = !!AppState.temporadaInviernoActiva;
+    const telActualConfig = AppState.telefonoWhatsApp || '0412-5363849';
 
     container.innerHTML = `
         <div class="card" style="margin-bottom:20px; border-left: 4px solid var(--primary-accent);">
@@ -40,6 +41,9 @@ function renderizarConfiguracionAdmin() {
                 </div>
             </div>
         </div>
+
+        <!-- MÓDULO: Número de WhatsApp Oficial para Clientes & Pedidos -->
+        <div id="config-whatsapp-box"></div>
 
         <!-- MÓDULO: Cuentas Bancarias & Métodos de Pago Móvil (Admin) -->
         <div id="config-cuentas-bancarias-box"></div>
@@ -86,7 +90,7 @@ function renderizarConfiguracionAdmin() {
             <!-- Notificaciones de Marketing por WhatsApp -->
             <div style="border-top:1px solid var(--border-light); padding-top:16px;">
                 <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                    <i class="fab fa-whatsapp" style="color:#22c55e;"></i> Generador de Marketing y Difusión WhatsApp (Oficial: 0412-5363849)
+                    <i class="fab fa-whatsapp" style="color:#22c55e;"></i> Generador de Marketing y Difusión WhatsApp (Oficial: ${telActualConfig})
                 </h4>
                 <p style="margin:0 0 14px 0; font-size:0.82rem; color:var(--text-muted);">
                     Envía avisos de nuevos premios y confirmaciones de ganadores con textos persuasivos listos para WhatsApp.
@@ -104,7 +108,7 @@ function renderizarConfiguracionAdmin() {
 Acumula puntos con cada compra o abono puntual y haz florecer tu Árbol de Recompensas 🌳✨
 
 👉 Consulta tu saldo de puntos y catálogo aquí:
-📱 WhatsApp de Atención: 0412-5363849
+📱 WhatsApp de Atención: ${telActualConfig}
 🏪 TuBodeguitaDeConfianza — Josnairit Salazar</textarea>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:10px;">
@@ -112,7 +116,7 @@ Acumula puntos con cada compra o abono puntual y haz florecer tu Árbol de Recom
                                 <i class="fas fa-copy"></i> Copiar
                             </button>
                             <button type="button" class="btn btn-sm btn-success" onclick="abrirWhatsAppMarketing('wa-text-anuncio-premio')" style="flex:2;">
-                                <i class="fab fa-whatsapp"></i> Enviar al 04125363849
+                                <i class="fab fa-whatsapp"></i> Enviar al ${telActualConfig}
                             </button>
                         </div>
                     </div>
@@ -128,14 +132,14 @@ Tu Árbol de Fidelización ha alcanzado el 100% de florecimiento dorado 🌻✨
 Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en nuestra tienda presentando tu comprobante.
 
 ¡Gracias por ser parte de la familia de Tu Bodeguita de Confianza! 💚
-📲 Contacto Oficial: 0412-5363849</textarea>
+📲 Contacto Oficial: ${telActualConfig}</textarea>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:10px;">
                             <button type="button" class="btn btn-sm btn-outline" onclick="copiarTextoConfig('wa-text-confirmacion-ganador')" style="flex:1;">
                                 <i class="fas fa-copy"></i> Copiar
                             </button>
                             <button type="button" class="btn btn-sm btn-success" onclick="abrirWhatsAppMarketing('wa-text-confirmacion-ganador')" style="flex:2;">
-                                <i class="fab fa-whatsapp"></i> Enviar al 04125363849
+                                <i class="fab fa-whatsapp"></i> Enviar al ${telActualConfig}
                             </button>
                         </div>
                     </div>
@@ -282,6 +286,11 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
         </div>
     `;
 
+    // Renderizar Gestor de WhatsApp Oficial para Clientes
+    if (typeof renderizarGestionWhatsAppAdmin === 'function') {
+        renderizarGestionWhatsAppAdmin();
+    }
+
     // Renderizar Gestor de Cuentas Bancarias y Métodos de Pago
     if (typeof renderizarGestionCuentasBancariasAdmin === 'function') {
         renderizarGestionCuentasBancariasAdmin();
@@ -402,8 +411,11 @@ function copiarTextoConfig(elementId) {
 function abrirWhatsAppMarketing(elementId) {
     const el = document.getElementById(elementId);
     const texto = el ? el.value : '';
-    const telefonoOficial = '584125363849';
-    const url = `https://wa.me/${telefonoOficial}?text=${encodeURIComponent(texto)}`;
+    const rawTel = AppState.telefonoWhatsApp || '0412-5363849';
+    const telefonoOficial = (typeof normalizarNumeroWhatsApp === 'function') 
+        ? normalizarNumeroWhatsApp(rawTel) 
+        : '584125363849';
+    const url = `https://api.whatsapp.com/send?phone=${telefonoOficial}&text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
 }
 
@@ -1338,11 +1350,145 @@ function copiarCoordenadasCuenta(id, btn = null) {
     });
 }
 
+/**
+ * Asigna banco y tipo sugerido rápidamente al formulario
+ */
+function alSeleccionarBancoSugeridoAdmin(banco, tipo = 'Pago Móvil / Transferencia') {
+    if (typeof asignarBancoSugeridoModal === 'function') {
+        return asignarBancoSugeridoModal(banco, tipo);
+    }
+    const inputBanco = document.getElementById('cuenta-bancaria-banco');
+    if (inputBanco) inputBanco.value = banco;
+    const selectTipo = document.getElementById('cuenta-bancaria-tipo');
+    if (selectTipo) selectTipo.value = tipo;
+}
+window.alSeleccionarBancoSugeridoAdmin = alSeleccionarBancoSugeridoAdmin;
+
+/**
+ * Renderiza el gestor del número de teléfono oficial de WhatsApp en Configuración
+ */
+function renderizarGestionWhatsAppAdmin() {
+    const box = document.getElementById('config-whatsapp-box');
+    if (!box) return;
+
+    const telActual = AppState.telefonoWhatsApp || '0412-5363849';
+    const telLimpio = typeof normalizarNumeroWhatsApp === 'function' ? normalizarNumeroWhatsApp(telActual) : '584125363849';
+
+    box.innerHTML = `
+        <div class="card" style="margin-bottom:20px; border-left:4px solid #22c55e;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fab fa-whatsapp" style="color:#22c55e; font-size:1.3rem;"></i> Número de WhatsApp Oficial (Pedidos & Atención al Cliente)
+                    </h3>
+                    <p style="margin:3px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
+                        Configura el número oficial de la bodega al que los clientes enviarán sus comprobantes de pago, solicitudes y mensajes del catálogo.
+                    </p>
+                </div>
+                <div>
+                    <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.85rem; font-weight:700; padding:6px 14px; border-radius:18px; border:1px solid #bbf7d0;">
+                        <i class="fab fa-whatsapp"></i> Actual: ${telActual}
+                    </span>
+                </div>
+            </div>
+
+            <form id="form-config-whatsapp" onsubmit="guardarTelefonoWhatsAppAdmin(event)" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-weight:700; font-size:0.88rem; color:var(--text-main); margin-bottom:6px; display:block;">
+                        Número de Teléfono WhatsApp
+                    </label>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="background:#f1f5f9; border:1px solid var(--border); border-radius:6px; padding:9px 12px; font-weight:700; color:#475569; font-size:0.9rem;">
+                            🇻🇪 +58
+                        </span>
+                        <input 
+                            type="text" 
+                            id="input-config-whatsapp" 
+                            class="form-control" 
+                            value="${telActual}" 
+                            placeholder="Ej: 0412-5363849 o 0414-1234567"
+                            required
+                            style="flex:1; height:42px; border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:0.95rem; font-weight:600;"
+                            oninput="actualizarPrevisualizacionWhatsAppAdmin(this.value)"
+                        >
+                    </div>
+                    <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px;">
+                        Puedes colocarlo con guiones (ej. <code>0412-5363849</code>) o seguido. El enlace automático de WhatsApp se generará con el código de país.
+                    </small>
+                </div>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="submit" class="btn btn-primary" style="height:42px; padding:0 20px; font-weight:700; display:flex; align-items:center; gap:8px; background:#16a34a; border-color:#16a34a;">
+                        <i class="fas fa-save"></i> Guardar Teléfono
+                    </button>
+                    <a 
+                        id="link-test-whatsapp-admin"
+                        href="https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent('¡Hola! Mensaje de prueba desde la configuración de Tu Bodeguita.')}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="btn btn-outline" 
+                        style="height:42px; padding:0 16px; font-weight:600; display:flex; align-items:center; gap:6px; text-decoration:none;"
+                    >
+                        <i class="fab fa-whatsapp" style="color:#22c55e;"></i> Probar Enlace WhatsApp
+                    </a>
+                </div>
+            </form>
+            <div id="msg-config-whatsapp-feedback" style="margin-top:10px; font-size:0.85rem;"></div>
+        </div>
+    `;
+}
+
+function actualizarPrevisualizacionWhatsAppAdmin(val) {
+    const linkTest = document.getElementById('link-test-whatsapp-admin');
+    if (!linkTest) return;
+    const clean = typeof normalizarNumeroWhatsApp === 'function' ? normalizarNumeroWhatsApp(val) : String(val || '').replace(/\D/g, '');
+    linkTest.href = `https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent('¡Hola! Mensaje de prueba desde la configuración de Tu Bodeguita.')}`;
+}
+
+async function guardarTelefonoWhatsAppAdmin(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const input = document.getElementById('input-config-whatsapp');
+    if (!input) return;
+
+    const val = input.value.trim();
+    if (!val) {
+        alert('Por favor introduce un número de teléfono válido.');
+        return;
+    }
+
+    AppState.telefonoWhatsApp = val;
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Persistir en Firestore
+    try {
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
+            await window.InventoryApp.Firebase.guardarConfiguracionGlobal({ telefonoWhatsApp: val });
+        }
+    } catch (err) {
+        console.warn('[Configuración] Error guardando WhatsApp en la nube:', err);
+    }
+
+    const fb = document.getElementById('msg-config-whatsapp-feedback');
+    if (fb) {
+        fb.innerHTML = `<span style="color:#16a34a; font-weight:700;"><i class="fas fa-check-circle"></i> ¡Número guardado con éxito! Ahora los clientes enviarán sus mensajes al: ${val}</span>`;
+        setTimeout(() => { if (fb) fb.innerHTML = ''; }, 4500);
+    }
+
+    renderizarGestionWhatsAppAdmin();
+    if (typeof renderizarConfiguracionAdmin === 'function') {
+        renderizarConfiguracionAdmin();
+    }
+}
+
+window.renderizarGestionWhatsAppAdmin = renderizarGestionWhatsAppAdmin;
+window.actualizarPrevisualizacionWhatsAppAdmin = actualizarPrevisualizacionWhatsAppAdmin;
+window.guardarTelefonoWhatsAppAdmin = guardarTelefonoWhatsAppAdmin;
 window.renderizarGestionCuentasBancariasAdmin = renderizarGestionCuentasBancariasAdmin;
 window.abrirModalEditarCuentaBancaria = abrirModalEditarCuentaBancaria;
 window.cerrarModalEditarCuentaBancaria = cerrarModalEditarCuentaBancaria;
 window.asignarBancoSugeridoModal = asignarBancoSugeridoModal;
-window.alSeleccionarBancoSugeridoAdmin = asignarBancoSugeridoModal;
 window.guardarCuentaBancariaAdmin = guardarCuentaBancariaAdmin;
 window.toggleActivarCuentaBancaria = toggleActivarCuentaBancaria;
 window.eliminarCuentaBancaria = eliminarCuentaBancaria;
