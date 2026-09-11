@@ -338,6 +338,12 @@ function renderizarCatalogoCliente() {
     }
 
     container.innerHTML = prods.map(p => {
+        const esCombo = esComboHelper(p);
+        // Si el carrusel de combos está activo, los combos jamás deben renderizarse en la cuadrícula inferior
+        if (esCombo && hayCombosParaDestacar) {
+            return '';
+        }
+
         const precioUSD = Number(p.precio || 0);
         const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
         const stock = Number(p.stock || 0);
@@ -345,7 +351,6 @@ function renderizarCatalogoCliente() {
         const rawImg = p.imagen;
         const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
-        const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
         const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
             ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
             : (p.puntos !== undefined && Number(p.puntos) > 0 
