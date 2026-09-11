@@ -1591,6 +1591,7 @@ window.InventoryApp = window.InventoryApp || {};
                         if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
                         if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                         if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                        if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                         guardarCacheLocal();
                         solicitarRefrescoVistasDebounced();
                     }
@@ -2536,6 +2537,23 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * Guarda la lista de cuentas bancarias y métodos de pago en Firestore
+     */
+    async function guardarCuentasBancariasCloud(cuentas) {
+        if (!Array.isArray(cuentas)) return false;
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                await db.collection(COLLECTIONS.CONFIG).doc('global').set({ cuentasBancarias: cuentas }, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar cuentas bancarias en Firestore:', e);
+            return false;
+        }
+    }
+
+    /**
      * Registra un canje de premio en Firestore
      */
     async function guardarCanjePremioCloud(canje) {
@@ -2803,6 +2821,7 @@ window.InventoryApp = window.InventoryApp || {};
         reproducirSonidoNotificacion: reproducirSonidoNotificacion,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         guardarConfiguracionGlobal: guardarConfiguracionGlobalCloud,
+        guardarCuentasBancarias: guardarCuentasBancariasCloud,
         guardarCanjePremio: guardarCanjePremioCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion

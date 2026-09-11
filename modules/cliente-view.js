@@ -142,15 +142,26 @@ async function actualizarEncabezadoClienteDinamico() {
 }
 
 /**
- * Controla la visualización del campo de referencia según el método de pago:
- * Para Crédito y Efectivo: Opcional y deshabilitado de obligatoriedad
- * Para Pago Móvil y Transferencia: Obligatorio
+ * Controla la visualización del campo de referencia y coordenadas según el método de pago:
+ * Para Crédito y Efectivo: Opcional y deshabilitado de obligatoriedad; oculta coordenadas bancarias
+ * Para Pago Móvil y Transferencia: Obligatorio y muestra coordenadas bancarias
  */
 function manejarCambioMetodoPagoCliente(metodo) {
     const inputRef = document.getElementById('cliente-pago-referencia');
     const asterisco = document.getElementById('cliente-ref-asterisco');
     const textoAyuda = document.getElementById('cliente-pago-ayuda-texto');
     const btnConfirmar = document.getElementById('btn-cliente-confirmar-pedido');
+    const multiBancoCont = document.getElementById('cliente-multibanco-container');
+
+    // Mostrar el contenedor de coordenadas bancarias SOLO si seleccionó Pago Móvil o Transferencia
+    if (multiBancoCont) {
+        if (metodo === 'Pago Móvil VES' || metodo === 'Transferencia Bancaria VES') {
+            multiBancoCont.style.display = 'block';
+            poblarSelectorBancosCheckout();
+        } else {
+            multiBancoCont.style.display = 'none';
+        }
+    }
 
     if (!inputRef) return;
 
@@ -258,6 +269,56 @@ function renderizarCatalogoCliente() {
     const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
     const inviernoActivo = Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.temporadaActiva === false);
 
+    // 🔥 GESTIÓN DE CARRUSEL HORIZONTAL DE COMBOS DESTACADOS (Anti-Fatiga de Scroll Móvil)
+    const carouselWrapper = document.getElementById('cliente-combos-carousel-wrapper');
+    const carouselRail = document.getElementById('cliente-combos-carousel-rail');
+    const carouselCount = document.getElementById('cliente-combos-carousel-count');
+
+    const todosLosCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+
+    if (carouselWrapper && carouselRail) {
+        if (todosLosCombos.length > 0 && (!clienteBusqueda || clienteBusqueda.trim() === '')) {
+            carouselWrapper.style.display = 'block';
+            if (carouselCount) carouselCount.textContent = `${todosLosCombos.length} combos listos`;
+
+            carouselRail.innerHTML = todosLosCombos.map(combo => {
+                const precioUSD = Number(combo.precio || 0);
+                const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
+                const stock = Number(combo.stock || 0);
+                const agotado = stock <= 0;
+                const rawImg = combo.imagen;
+                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                const pts = Number(combo.puntosCombo ?? combo.points_given ?? combo.puntosPromo ?? Math.max(1, Math.floor(precioUSD * ptsPorDolar)));
+
+                return `
+                    <div class="combo-carousel-item ${agotado ? 'card-agotado' : ''}" onclick="agregarAlCarritoCliente('${combo.id}')" title="Toca para agregar">
+                        <div class="combo-carousel-img-wrap">
+                            <img src="${imagenSrc}" alt="${combo.nombre}" class="combo-carousel-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                            <span class="combo-carousel-badge"><i class="fas fa-fire"></i> SUPER COMBO</span>
+                        </div>
+                        <div class="combo-carousel-body">
+                            <h5 class="combo-carousel-name">${combo.nombre}</h5>
+                            <div class="combo-carousel-pts" style="${inviernoActivo ? 'display:none!important;' : ''}">
+                                <i class="fas fa-star" style="color:#f59e0b;"></i> +${pts} pts bono
+                            </div>
+                            <div class="combo-carousel-footer">
+                                <div>
+                                    <div class="combo-carousel-price">$${precioUSD.toFixed(2)}</div>
+                                    <small style="font-size:0.68rem; color:var(--text-muted);">${precioVES > 0 ? 'Bs. ' + precioVES.toFixed(2) : ''}</small>
+                                </div>
+                                <button type="button" class="combo-carousel-btn" ${agotado ? 'disabled' : ''} onclick="event.stopPropagation(); agregarAlCarritoCliente('${combo.id}');">
+                                    <i class="fas fa-cart-plus"></i> ${agotado ? 'Agotado' : 'Pedir'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            carouselWrapper.style.display = 'none';
+        }
+    }
+
     container.innerHTML = prods.map(p => {
         const precioUSD = Number(p.precio || 0);
         const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
@@ -266,7 +327,7 @@ function renderizarCatalogoCliente() {
         const rawImg = p.imagen;
         const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
-        const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo'));
+        const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'));
         const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
             ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
             : (p.puntos !== undefined && Number(p.puntos) > 0 
@@ -274,10 +335,10 @@ function renderizarCatalogoCliente() {
                 : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
 
         return `
-            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''}" id="cli-card-${p.id}">
+            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}">
                 <div class="cliente-prod-img-wrapper">
                     <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
-                    <span class="cliente-prod-badge-cat">${p.categoria || 'General'}</span>
+                    <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
                     ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
                     <span class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" data-points-badge style="${inviernoActivo ? 'display: none !important;' : ''}">
                         <i class="fas fa-star" style="color:#fbbf24;"></i> ${esCombo ? `Combo: +${puntosGanados} pts` : `+${puntosGanados} pts`}
@@ -300,7 +361,7 @@ function renderizarCatalogoCliente() {
 
                     <button type="button" class="btn btn-block ${agotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" 
                         onclick="agregarAlCarritoCliente('${p.id}')" ${agotado ? 'disabled' : ''}>
-                        <i class="fas fa-cart-plus"></i> ${agotado ? 'Sin Existencia' : 'Agregar al Carrito'}
+                        <i class="fas fa-cart-plus"></i> ${agotado ? 'Agotado' : (esCombo ? 'Pedir Combo' : 'Agregar')}
                     </button>
                 </div>
             </div>
@@ -324,11 +385,29 @@ function renderizarCategoriasCatalogo() {
     });
 
     const cats = Array.from(catsSet);
-    container.innerHTML = cats.map(cat => `
+    const totalCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'))).length;
+
+    let html = `
+        <button type="button" class="chip-filter ${clienteFiltroCategoria === 'TODAS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('TODAS')">
+            🌟 Todas
+        </button>
+    `;
+
+    if (totalCombos > 0) {
+        html += `
+            <button type="button" class="chip-filter ${clienteFiltroCategoria === 'COMBOS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('COMBOS')" style="background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(245,158,11,0.22)); border-color: rgba(249,115,22,0.45); color: #ea580c; font-weight: 800;">
+                🔥 Combos (${totalCombos})
+            </button>
+        `;
+    }
+
+    html += cats.filter(c => c !== 'TODAS').map(cat => `
         <button type="button" class="chip-filter ${clienteFiltroCategoria === cat ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('${cat}')">
-            ${cat === 'TODAS' ? '🌟 Todas' : cat}
+            ${cat}
         </button>
     `).join('');
+
+    container.innerHTML = html;
 }
 
 function filtrarCatalogoClienteCategoria(cat) {
@@ -506,44 +585,140 @@ function vaciarCarritoCliente() {
     }
 }
 
-// Estructura extensible para N bancos
-const bankAccounts = [
-  { id: 'bdv_pm', type: 'Pago Móvil', bank: 'Banco de Venezuela (0102)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
-  { id: 'banesco_pm', type: 'Pago Móvil', bank: 'Banesco (0134)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
-  { id: 'mercantil_pm', type: 'Pago Móvil', bank: 'Mercantil (0105)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' },
-  { id: 'bdv_trans', type: 'Transferencia', bank: 'Banco de Venezuela', account: '01025646546664', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita' }
+// Cuentas bancarias de respaldo estático (por si la red o caché aún no cargan)
+const bankAccountsFallback = [
+  { id: 'bancamiga_pm', type: 'Pago Móvil / Transferencia', bank: 'Bancamiga (0172)', phone: '0412-1234567', idNumber: 'V-30.544.641', titular: 'Josnairit Salazar / Tu Bodeguita', account: '01720111223344556677', activo: true },
+  { id: 'bdv_pm', type: 'Pago Móvil', bank: 'Banco de Venezuela (0102)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '01020000000000000000', activo: true },
+  { id: 'banesco_pm', type: 'Pago Móvil', bank: 'Banesco (0134)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true },
+  { id: 'mercantil_pm', type: 'Pago Móvil', bank: 'Mercantil (0105)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true }
 ];
 
-function actualizarDetallesBancoCliente(bancoId = 'bdv_pm') {
+/**
+ * Retorna la lista activa de cuentas bancarias desde AppState (excluye cuentas pausadas)
+ */
+function obtenerCuentasBancariasActivas() {
+    let lista = AppState.cuentasBancarias;
+    if (!Array.isArray(lista) || lista.length === 0) {
+        try {
+            const cached = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    AppState.cuentasBancarias = parsed;
+                    lista = parsed;
+                }
+            }
+        } catch (e) {}
+    }
+    if (!Array.isArray(lista) || lista.length === 0) {
+        lista = bankAccountsFallback;
+        AppState.cuentasBancarias = lista;
+    }
+
+    // Retorna estrictamente solo las cuentas activas (no pausadas)
+    return lista.filter(c => c.activo !== false);
+}
+
+/**
+ * Puebla el selector de bancos del modal de carrito/checkout con solo cuentas activas
+ */
+function poblarSelectorBancosCheckout() {
+    const select = document.getElementById('cliente-banco-selector');
+    const card = document.getElementById('cliente-banco-card');
+    if (!select) return;
+
+    const cuentas = obtenerCuentasBancariasActivas();
+    
+    if (cuentas.length === 0) {
+        select.innerHTML = '<option value="" disabled selected>⚠️ No hay cuentas bancarias activas temporalmente</option>';
+        if (card) {
+            card.innerHTML = `
+                <div style="text-align:center; padding:14px 10px; color:#b45309; background:#fffbeb; border:1px dashed #f59e0b; border-radius:8px; font-size:0.83rem;">
+                    <i class="fas fa-pause-circle" style="font-size:1.4rem; margin-bottom:6px; display:block;"></i>
+                    Los pagos electrónicos / móviles se encuentran en pausa temporal.<br>
+                    <span style="font-size:0.78rem; font-weight:500; color:#92400e;">Puedes continuar tu pedido a Crédito o consultar directamente por WhatsApp.</span>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    const valorPrevio = select.value;
+
+    select.innerHTML = cuentas.map(c => {
+        const banco = c.banco || c.bank || 'Banco';
+        const tipo = c.tipo || c.type || 'Pago Móvil';
+        return `<option value="${c.id}">${tipo}: ${banco}</option>`;
+    }).join('');
+
+    if (valorPrevio && cuentas.some(c => c.id === valorPrevio)) {
+        select.value = valorPrevio;
+    } else if (cuentas[0]) {
+        select.value = cuentas[0].id;
+    }
+    actualizarDetallesBancoCliente(select.value);
+}
+
+function actualizarDetallesBancoCliente(bancoId = null) {
     const card = document.getElementById('cliente-banco-card');
     if (!card) return;
-    const banco = bankAccounts.find(b => b.id === bancoId) || bankAccounts[0];
+
+    const cuentas = obtenerCuentasBancariasActivas();
+    if (cuentas.length === 0) {
+        card.innerHTML = `
+            <div style="text-align:center; padding:14px 10px; color:#b45309; background:#fffbeb; border:1px dashed #f59e0b; border-radius:8px; font-size:0.83rem;">
+                <i class="fas fa-pause-circle" style="font-size:1.4rem; margin-bottom:6px; display:block;"></i>
+                Los pagos electrónicos / móviles se encuentran en pausa temporal.
+            </div>
+        `;
+        return;
+    }
+
+    const select = document.getElementById('cliente-banco-selector');
+    const targetId = bancoId || (select ? select.value : (cuentas[0] ? cuentas[0].id : ''));
+    const banco = cuentas.find(b => b.id === targetId) || cuentas[0];
     if (!banco) return;
+
+    const nombreBanco = banco.banco || banco.bank || 'Banco';
+    const tipoBanco = banco.tipo || banco.type || 'Pago Móvil';
+    const tlf = banco.telefono || banco.phone || '';
+    const rif = banco.cedulaRif || banco.idNumber || '';
+    const numCuenta = banco.cuenta || banco.account || '';
+    const tit = banco.titular || 'Tu Bodeguita';
+    const nota = banco.instrucciones || '';
+
+    const esPM = tipoBanco.toLowerCase().includes('móvil') || tipoBanco.toLowerCase().includes('movil');
+    const badgeBg = esPM ? '#dbeafe' : (tipoBanco.toLowerCase().includes('divisas') ? '#dcfce7' : '#fef3c7');
+    const badgeColor = esPM ? '#1d4ed8' : (tipoBanco.toLowerCase().includes('divisas') ? '#15803d' : '#b45309');
 
     card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <strong style="color:#1e40af; font-size:0.86rem;">${banco.bank}</strong>
-            <span style="font-size:0.72rem; font-weight:800; padding:2px 8px; border-radius:9999px; background:${banco.type === 'Pago Móvil' ? '#dbeafe' : '#fef3c7'}; color:${banco.type === 'Pago Móvil' ? '#1d4ed8' : '#b45309'};">${banco.type}</span>
+            <strong style="color:#1e40af; font-size:0.88rem;">${nombreBanco}</strong>
+            <span style="font-size:0.72rem; font-weight:800; padding:2px 8px; border-radius:9999px; background:${badgeBg}; color:${badgeColor};">${tipoBanco}</span>
         </div>
-        ${banco.phone ? `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
-            <span style="color:#475569; font-size:0.8rem;">Teléfono: <strong>${banco.phone}</strong></span>
-            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.phone}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        ${tlf ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">Teléfono Pago Móvil: <strong>${tlf}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${tlf}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
         </div>` : ''}
-        ${banco.idNumber ? `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
-            <span style="color:#475569; font-size:0.8rem;">C.I / RIF: <strong>${banco.idNumber}</strong></span>
-            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.idNumber}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        ${rif ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">C.I / RIF: <strong>${rif}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${rif}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
         </div>` : ''}
-        ${banco.account ? `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9;">
-            <span style="color:#475569; font-size:0.8rem;">Cuenta: <strong style="letter-spacing:0.5px;">${banco.account}</strong></span>
-            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.account}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        ${numCuenta ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #f1f5f9;">
+            <span style="color:#475569; font-size:0.8rem;">Nº Cuenta: <strong style="letter-spacing:0.5px;">${numCuenta}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${numCuenta}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
         </div>` : ''}
-        ${banco.titular ? `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0;">
-            <span style="color:#475569; font-size:0.8rem;">Titular: <strong>${banco.titular}</strong></span>
-            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${banco.titular}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        ${tit ? `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+            <span style="color:#475569; font-size:0.8rem;">Titular: <strong>${tit}</strong></span>
+            <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${tit}', this)" style="padding:2px 7px; font-size:0.72rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+        </div>` : ''}
+        ${nota ? `
+        <div style="margin-top:4px; padding-top:4px; border-top:1px dashed #e2e8f0; font-size:0.75rem; color:#64748b;">
+            <i class="fas fa-info-circle"></i> ${nota}
         </div>` : ''}
         <button type="button" onclick="copiarTodosDatosBanco('${banco.id}', this)" class="btn btn-block" style="margin-top:8px; background:#2563eb; color:#ffffff; font-size:0.78rem; font-weight:700; padding:6px; border:none; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:6px;">
             <i class="fas fa-copy"></i> Copiar todos los datos de este banco
@@ -568,16 +743,29 @@ function copiarDatoBancoCliente(texto, btn) {
     });
 }
 
-function copiarTodosDatosBanco(bancoId, btn) {
-    const banco = bankAccounts.find(b => b.id === bancoId) || bankAccounts[0];
+function copiarTodosDatosBanco(bancoId, btn = null) {
+    const cuentas = obtenerCuentasBancariasActivas();
+    const select = document.getElementById('cliente-banco-selector') || document.getElementById('abono-cli-banco-selector');
+    const targetId = bancoId || (select ? select.value : (cuentas[0] ? cuentas[0].id : ''));
+    const banco = cuentas.find(b => b.id === targetId) || cuentas[0];
     if (!banco) return;
+
+    const nombre = banco.banco || banco.bank || 'Banco';
+    const tipo = banco.tipo || banco.type || 'Pago Móvil';
+    const tlf = banco.telefono || banco.phone;
+    const rif = banco.cedulaRif || banco.idNumber;
+    const cuenta = banco.cuenta || banco.account;
+    const titular = banco.titular;
+    const nota = banco.instrucciones;
+
     const lineas = [
-        `*Datos de Pago - ${banco.bank}*`,
-        `• Tipo: ${banco.type}`,
-        banco.phone ? `• Teléfono: ${banco.phone}` : null,
-        banco.account ? `• Cuenta: ${banco.account}` : null,
-        banco.idNumber ? `• C.I / RIF: ${banco.idNumber}` : null,
-        banco.titular ? `• Titular: ${banco.titular}` : null
+        `*Datos de Pago - ${nombre}*`,
+        `• Tipo: ${tipo}`,
+        tlf ? `• Teléfono Pago Móvil: ${tlf}` : null,
+        rif ? `• C.I / RIF: ${rif}` : null,
+        cuenta ? `• Nº Cuenta: ${cuenta}` : null,
+        titular ? `• Titular: ${titular}` : null,
+        nota ? `• Nota: ${nota}` : null
     ].filter(Boolean).join('\n');
 
     navigator.clipboard.writeText(lineas).then(() => {
@@ -590,8 +778,14 @@ function copiarTodosDatosBanco(bancoId, btn) {
                 btn.style.background = '#2563eb';
             }, 2000);
         }
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast(`📋 Coordenadas de ${nombre} copiadas`, 'success');
+        }
     });
 }
+
+window.obtenerCuentasBancariasActivas = obtenerCuentasBancariasActivas;
+window.poblarSelectorBancosCheckout = poblarSelectorBancosCheckout;
 window.actualizarDetallesBancoCliente = actualizarDetallesBancoCliente;
 window.copiarDatoBancoCliente = copiarDatoBancoCliente;
 window.copiarTodosDatosBanco = copiarTodosDatosBanco;
@@ -605,7 +799,8 @@ function abrirModalCarritoCliente() {
             selectMetodo.value = 'Crédito';
             manejarCambioMetodoPagoCliente('Crédito');
         }
-        actualizarDetallesBancoCliente('bdv_pm');
+        poblarSelectorBancosCheckout();
+        actualizarDetallesBancoCliente();
         renderizarCarritoCliente();
     }
 }
@@ -643,11 +838,18 @@ function generarMensajeWhatsApp(datosPedido = null) {
             `🇻🇪 *Equivalente en Bolívares:* Bs. ${totalVES.toFixed(2)} (Tasa BCV: ${tasa > 0 ? tasa.toFixed(2) : '—'})\n\n` +
             `✅ *Confirmación:* La compra a crédito ha sido registrada en el sistema. Solicito confirmación y entrega de mi pedido.`;
     } else {
+        const selectBanco = document.getElementById('cliente-banco-selector');
+        const cuentaId = selectBanco ? selectBanco.value : '';
+        const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
+        const cuentaDestino = cuentas.find(c => c.id === cuentaId) || cuentas[0];
+        const bancoLinea = cuentaDestino ? `🏦 *Banco / Destino:* ${cuentaDestino.banco || cuentaDestino.bank} (${cuentaDestino.telefono || cuentaDestino.phone || cuentaDestino.cuenta || ''})\n` : '';
+
         msg = `🛒 *PEDIDO - TU BODEGUITA DE CONFIANZA*\n\n` +
             `👤 *Cliente:* ${usuario.nombre || 'Cliente'} (C.I/RIF: ${usuario.cedula || usuario.id || 'N/A'})\n` +
             `📱 *Teléfono:* ${usuario.telefono || 'N/A'}\n` +
             `🔢 *Referencia Bancaria:* ${ref || 'N/A'}\n` +
-            `💳 *Método de Pago:* ${metodo}\n\n` +
+            `💳 *Método de Pago:* ${metodo}\n` +
+            bancoLinea + `\n` +
             `📦 *Productos Solicitados:*\n${prodsTexto || 'Sin productos'}\n\n` +
             `💵 *Total a Pagar:* $${totalUSD.toFixed(2)}\n` +
             `🇻🇪 *Equivalente en Bolívares:* Bs. ${totalVES.toFixed(2)} (Tasa BCV: ${tasa > 0 ? tasa.toFixed(2) : '—'})\n\n` +
@@ -1485,7 +1687,7 @@ async function renderizarEstadoCuentaCliente() {
 }
 
 /**
- * Abre el Modal para que el Cliente reporte un Abono / Pago
+ * Abre el Modal para que el Cliente reporte un Abono / Pago con selector dinámico de banco
  */
 function abrirModalReportarPagoCliente() {
     let modal = document.getElementById('modal-cliente-reportar-pago');
@@ -1498,9 +1700,10 @@ function abrirModalReportarPagoCliente() {
     }
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 520px; padding: 24px; animation: modalPop 0.25s ease-out;">
+        <div class="modal-content" style="max-width: 540px; padding: 22px; animation: modalPop 0.25s ease-out;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
                 <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-money-bill-transfer" style="color:var(--primary-accent);"></i> Reportar Abono a Cuenta
@@ -1508,47 +1711,38 @@ function abrirModalReportarPagoCliente() {
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalReportarPagoCliente()"><i class="fas fa-times"></i></button>
             </div>
 
-            <!-- Coordenadas Bancarias del Comercio para Pago Rápido -->
-            <div style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:10px; padding:12px; margin-bottom:14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
-                        <i class="fas fa-building-columns"></i> Coordenadas Bancarias
-                    </span>
-                    <button type="button" class="btn btn-sm btn-outline" style="font-size:0.75rem; padding:3px 8px;" onclick="copiarDatosBancariosCompletos()">
-                        <i class="fas fa-copy"></i> Copiar Todo
-                    </button>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.82rem;">
-                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px;">
-                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Pago Móvil / Banco:</span>
-                        <strong style="color:var(--text-main);">Bancamiga (0172)</strong>
-                    </div>
-                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px;">
-                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Cédula / RIF:</span>
-                        <strong style="color:var(--text-main);">V-30.544.641</strong>
-                    </div>
-                    <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; grid-column:span 2;">
-                        <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Teléfono Pago Móvil:</span>
-                        <strong style="color:var(--text-main);">0412-1234567</strong>
-                    </div>
-                </div>
+            <!-- Selector Dinámico de Banco o Método al que Transfirió/Pagó -->
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px; margin-bottom:14px;">
+                <label for="abono-cli-banco-selector" style="display:block; font-size:0.82rem; font-weight:700; color:#1e40af; margin-bottom:6px;">
+                    <i class="fas fa-building-columns"></i> Selecciona la Cuenta o Destino del pago:
+                </label>
+                <select id="abono-cli-banco-selector" onchange="actualizarCoordenadasModalAbono(this.value)" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #93c5fd; background:#ffffff; font-weight:700; color:#1e3a8a; cursor:pointer; font-size:0.88rem;">
+                    ${cuentas.map(c => {
+                        const banco = c.banco || c.bank || 'Banco';
+                        const tipo = c.tipo || c.type || 'Pago Móvil';
+                        return `<option value="${c.id}">${tipo}: ${banco}</option>`;
+                    }).join('')}
+                    <option value="efectivo_usd">💵 Efectivo Divisas ($ USD) en Tienda</option>
+                    <option value="efectivo_ves">🇻🇪 Efectivo Bolívares (Bs. VES) en Tienda</option>
+                </select>
+            </div>
+
+            <!-- Coordenadas Dinámicas del Banco o Método Seleccionado -->
+            <div id="abono-coordenadas-card-dinamica" style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:10px; padding:12px; margin-bottom:14px;">
+                <!-- Rellenado dinámicamente por actualizarCoordenadasModalAbono() -->
             </div>
 
             <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:600;">Forma / Método de Pago <span style="color:var(--danger);">*</span></label>
-                    <select id="abono-cli-metodo" class="form-control" required onchange="alCambiarMetodoAbonoCliente()">
-                        <option value="Pago Móvil VES" selected>📱 Pago Móvil (VES)</option>
-                        <option value="Transferencia Bancaria VES">🏦 Transferencia Bancaria (VES)</option>
-                        <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
-                        <option value="Efectivo USD">💵 Efectivo Divisas ($ USD)</option>
-                    </select>
-                </div>
-
-                <div class="form-group" style="margin-bottom:12px;">
-                    <label id="abono-cli-monto-label" style="font-size:0.85rem; font-weight:600;">
-                        Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>
-                    </label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <label id="abono-cli-monto-label" style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin:0;">
+                            Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>
+                        </label>
+                        <div style="display:inline-flex; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; font-size:0.75rem; font-weight:700;">
+                            <button type="button" id="btn-abono-moneda-ves" onclick="seleccionarMonedaAbonoCliente('VES')" style="padding:3px 10px; border:none; background:#2563eb; color:#ffffff; cursor:pointer; transition:all 0.15s;">Bs. VES</button>
+                            <button type="button" id="btn-abono-moneda-usd" onclick="seleccionarMonedaAbonoCliente('USD')" style="padding:3px 10px; border:none; background:#f1f5f9; color:#475569; cursor:pointer; transition:all 0.15s;">$ USD</button>
+                        </div>
+                    </div>
                     <input type="number" id="abono-cli-monto" step="0.01" min="0.01" class="form-control" placeholder="Ej: 1000.00" required oninput="calcularEquivalenteAbonoCliente(this.value)">
                     <small id="abono-cli-conversion-text" style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:4px;">
                         Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})
@@ -1556,7 +1750,9 @@ function abrirModalReportarPagoCliente() {
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label style="font-size:0.85rem; font-weight:600;">Número de Referencia Bancaria <span style="color:var(--danger);">*</span></label>
+                    <label id="abono-cli-referencia-label" style="font-size:0.85rem; font-weight:600;">
+                        Número de Referencia Bancaria / Pago Móvil <span id="abono-cli-referencia-req" style="color:var(--danger);">*</span>
+                    </label>
                     <input type="text" id="abono-cli-referencia" class="form-control" placeholder="Últimos 6 u 8 dígitos del comprobante" required>
                 </div>
 
@@ -1580,52 +1776,201 @@ function abrirModalReportarPagoCliente() {
     `;
 
     modal.classList.add('active');
-    alCambiarMetodoAbonoCliente();
+    actualizarCoordenadasModalAbono();
+}
+
+let monedaAbonoSeleccionada = 'VES';
+
+function seleccionarMonedaAbonoCliente(moneda = 'VES') {
+    monedaAbonoSeleccionada = moneda;
+    const btnVES = document.getElementById('btn-abono-moneda-ves');
+    const btnUSD = document.getElementById('btn-abono-moneda-usd');
+    const labelEl = document.getElementById('abono-cli-monto-label');
+    const inputEl = document.getElementById('abono-cli-monto');
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    if (btnVES && btnUSD) {
+        if (moneda === 'USD') {
+            btnUSD.style.background = '#16a34a';
+            btnUSD.style.color = '#ffffff';
+            btnVES.style.background = '#f1f5f9';
+            btnVES.style.color = '#475569';
+        } else {
+            btnVES.style.background = '#2563eb';
+            btnVES.style.color = '#ffffff';
+            btnUSD.style.background = '#f1f5f9';
+            btnUSD.style.color = '#475569';
+        }
+    }
+
+    if (labelEl) {
+        labelEl.innerHTML = moneda === 'USD'
+            ? 'Monto a Abonar en Divisas ($ USD) <span style="color:var(--danger);">*</span>'
+            : 'Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>';
+    }
+
+    if (inputEl) {
+        inputEl.placeholder = moneda === 'USD' ? 'Ej: 20.00' : 'Ej: 1000.00';
+        if (inputEl.value) {
+            calcularEquivalenteAbonoCliente(inputEl.value);
+        } else {
+            const textEl = document.getElementById('abono-cli-conversion-text');
+            if (textEl) {
+                textEl.innerHTML = moneda === 'USD'
+                    ? `Equivalente en Bolívares: <strong id="abono-cli-conversion-preview" style="color:#16a34a;">Bs. 0.00</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`
+                    : `Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`;
+            }
+        }
+    }
+}
+window.seleccionarMonedaAbonoCliente = seleccionarMonedaAbonoCliente;
+
+/**
+ * Renderiza dinámicamente las coordenadas bancarias según el banco seleccionado en el modal de abonos
+ */
+function actualizarCoordenadasModalAbono(cuentaId = null) {
+    const card = document.getElementById('abono-coordenadas-card-dinamica');
+    if (!card) return;
+
+    const select = document.getElementById('abono-cli-banco-selector');
+    const targetId = cuentaId || (select ? select.value : '');
+    const refReq = document.getElementById('abono-cli-referencia-req');
+    const refInput = document.getElementById('abono-cli-referencia');
+
+    // Manejo de pago en efectivo en tienda
+    if (targetId === 'efectivo_usd' || targetId === 'efectivo_ves') {
+        const esUSD = targetId === 'efectivo_usd';
+        card.innerHTML = `
+            <div style="display:flex; align-items:center; gap:12px; padding:4px 2px;">
+                <div style="width:38px; height:38px; border-radius:8px; background:${esUSD ? '#dcfce7' : '#fef3c7'}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fas fa-hand-holding-dollar" style="font-size:1.25rem; color:${esUSD ? '#15803d' : '#b45309'};"></i>
+                </div>
+                <div>
+                    <strong style="color:var(--text-main); font-size:0.88rem; display:block;">
+                        ${esUSD ? 'Efectivo Divisas ($ USD) - Pago en Tienda' : 'Efectivo Bolívares (Bs. VES) - Pago en Tienda'}
+                    </strong>
+                    <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:2px;">
+                        Entrega personal en caja o mostrador. El encargado confirmará la recepción física de los billetes.
+                    </span>
+                </div>
+            </div>
+        `;
+
+        if (refReq) refReq.style.display = 'none';
+        if (refInput) {
+            refInput.required = false;
+            refInput.placeholder = 'Opcional (ej: Entregado en mostrador o N° de recibo)';
+        }
+        seleccionarMonedaAbonoCliente(esUSD ? 'USD' : 'VES');
+        return;
+    }
+
+    const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
+    const cuenta = cuentas.find(c => c.id === targetId) || cuentas[0];
+    if (!cuenta) {
+        card.innerHTML = `
+            <div style="text-align:center; padding:12px; color:#b45309; background:#fffbeb; border:1px dashed #f59e0b; border-radius:8px; font-size:0.82rem;">
+                <i class="fas fa-pause-circle" style="font-size:1.2rem; margin-bottom:4px; display:block;"></i>
+                Las cuentas bancarias digitales se encuentran pausadas temporalmente.<br>
+                Por favor selecciona <strong>Efectivo en Tienda</strong> arriba para registrar tu abono.
+            </div>
+        `;
+        if (refReq) refReq.style.display = 'none';
+        if (refInput) refInput.required = false;
+        return;
+    }
+
+    const nombreBanco = cuenta.banco || cuenta.bank || 'Banco';
+    const tipo = cuenta.tipo || cuenta.type || 'Pago Móvil';
+    const tlf = cuenta.telefono || cuenta.phone || '';
+    const rif = cuenta.cedulaRif || cuenta.idNumber || '';
+    const numCuenta = cuenta.cuenta || cuenta.account || '';
+    const titular = cuenta.titular || 'Tu Bodeguita de Confianza';
+    const nota = cuenta.instrucciones || '';
+
+    const esPM = tipo.toLowerCase().includes('móvil') || tipo.toLowerCase().includes('movil');
+    const badgeBg = esPM ? '#e0f2fe' : (tipo.toLowerCase().includes('divisas') ? '#dcfce7' : '#fef3c7');
+    const badgeColor = esPM ? '#0369a1' : (tipo.toLowerCase().includes('divisas') ? '#15803d' : '#b45309');
+
+    card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="color:#1e40af; font-size:0.9rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-building-columns"></i> ${nombreBanco}
+                </strong>
+                <span style="font-size:0.72rem; font-weight:800; padding:2px 8px; border-radius:9999px; background:${badgeBg}; color:${badgeColor};">${tipo}</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" style="font-size:0.75rem; padding:3px 8px;" onclick="copiarTodosDatosBanco('${cuenta.id}', this)">
+                <i class="fas fa-copy"></i> Copiar Todo
+            </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.82rem;">
+            ${tlf ? `
+            <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Teléfono Pago Móvil:</span>
+                    <strong style="color:var(--text-main); font-size:0.82rem;">${tlf}</strong>
+                </div>
+                <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${tlf}', this)" style="padding:2px 6px; font-size:0.7rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+            </div>` : ''}
+
+            ${rif ? `
+            <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Cédula / RIF:</span>
+                    <strong style="color:var(--text-main); font-size:0.82rem;">${rif}</strong>
+                </div>
+                <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${rif}', this)" style="padding:2px 6px; font-size:0.7rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+            </div>` : ''}
+
+            ${numCuenta ? `
+            <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; grid-column:span 2; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Nº Cuenta (20 dígitos):</span>
+                    <strong style="color:var(--text-main); font-size:0.76rem; letter-spacing:0.5px;">${numCuenta}</strong>
+                </div>
+                <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${numCuenta}', this)" style="padding:2px 6px; font-size:0.7rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+            </div>` : ''}
+
+            <div style="background:var(--bg-main); padding:6px 10px; border-radius:6px; grid-column:span 2; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:var(--text-muted); display:block; font-size:0.72rem;">Titular:</span>
+                    <strong style="color:var(--text-main); font-size:0.8rem;">${titular}</strong>
+                </div>
+                <button type="button" class="btn btn-sm" onclick="copiarDatoBancoCliente('${titular}', this)" style="padding:2px 6px; font-size:0.7rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">Copiar</button>
+            </div>
+
+            ${nota ? `
+            <div style="grid-column:span 2; font-size:0.75rem; color:var(--text-muted); padding-top:2px;">
+                <i class="fas fa-circle-info" style="color:var(--primary-accent);"></i> ${nota}
+            </div>` : ''}
+        </div>
+    `;
+
+    if (refReq) refReq.style.display = 'inline';
+    if (refInput) {
+        refInput.required = true;
+        refInput.placeholder = 'Últimos 6 u 8 dígitos del comprobante';
+    }
+
+    const esCuentaDivisa = tipo.toLowerCase().includes('divisa') || tipo.toLowerCase().includes('usd') || tipo.toLowerCase().includes('zelle');
+    seleccionarMonedaAbonoCliente(esCuentaDivisa ? 'USD' : 'VES');
 }
 
 function copiarDatosBancariosCompletos() {
-    const texto = `Coordenadas Bancarias Tu Bodeguita:\nBanco: Bancamiga (0172)\nRIF: V-30544641\nTeléfono: 0412-1234567`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(texto).then(() => {
-            if (window.InventoryApp?.Modal?.toast) window.InventoryApp.Modal.toast('📋 Coordenadas bancarias copiadas al portapapeles', 'success');
-        });
-    } else if (typeof window.showToast === 'function') {
-        window.showToast('📋 Coordenadas bancarias: Bancamiga 0172 / V-30544641 / 0412-1234567', 'info');
-    }
+    const select = document.getElementById('abono-cli-banco-selector');
+    const cuentaId = select ? select.value : null;
+    copiarTodosDatosBanco(cuentaId);
 }
 
-function alCambiarMetodoAbonoCliente() {
-    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
-    const labelEl = document.getElementById('abono-cli-monto-label');
-    const inputEl = document.getElementById('abono-cli-monto');
-    const textEl = document.getElementById('abono-cli-conversion-text');
-    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const esDivisa = metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa');
-
-    if (esDivisa) {
-        if (labelEl) labelEl.innerHTML = 'Monto a Abonar en Divisas ($ USD) <span style="color:var(--danger);">*</span>';
-        if (inputEl) inputEl.placeholder = 'Ej: 20.00';
-        if (textEl) {
-            textEl.innerHTML = `Equivalente en Bolívares: <strong id="abono-cli-conversion-preview" style="color:#16a34a;">Bs. 0.00</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`;
-        }
-    } else {
-        if (labelEl) labelEl.innerHTML = 'Monto a Abonar en Bolívares (Bs. VES) <span style="color:var(--danger);">*</span>';
-        if (inputEl) inputEl.placeholder = 'Ej: 1000.00';
-        if (textEl) {
-            textEl.innerHTML = `Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})`;
-        }
-    }
-
-    if (inputEl && inputEl.value) {
-        calcularEquivalenteAbonoCliente(inputEl.value);
-    }
-}
+window.actualizarCoordenadasModalAbono = actualizarCoordenadasModalAbono;
+window.copiarDatosBancariosCompletos = copiarDatosBancariosCompletos;
 
 function calcularEquivalenteAbonoCliente(val) {
     const previewEl = document.getElementById('abono-cli-conversion-preview');
     if (!previewEl) return;
-    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
-    const esDivisa = metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa');
+    const esDivisa = (monedaAbonoSeleccionada === 'USD');
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const monto = parseFloat(val) || 0;
 
@@ -1637,6 +1982,43 @@ function calcularEquivalenteAbonoCliente(val) {
         previewEl.textContent = `$${montoUSD.toFixed(2)} USD`;
     }
 }
+
+/**
+ * Re-popula el selector de bancos en el modal de abono si está abierto
+ */
+function poblarSelectorBancosModalAbono(cuentaIdPreferida = null) {
+    const select = document.getElementById('abono-cli-banco-selector');
+    if (!select) return;
+
+    const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
+    const valActual = cuentaIdPreferida || select.value;
+
+    let optionsHtml = '';
+    if (cuentas.length > 0) {
+        optionsHtml += cuentas.map(c => {
+            const banco = c.banco || c.bank || 'Banco';
+            const tipo = c.tipo || c.type || 'Pago Móvil';
+            return `<option value="${c.id}">${tipo}: ${banco}</option>`;
+        }).join('');
+    }
+    optionsHtml += `
+        <option value="efectivo_usd">💵 Efectivo Divisas ($ USD) en Tienda</option>
+        <option value="efectivo_ves">🇻🇪 Efectivo Bolívares (Bs. VES) en Tienda</option>
+    `;
+    select.innerHTML = optionsHtml;
+
+    const idsValidos = [...cuentas.map(c => c.id), 'efectivo_usd', 'efectivo_ves'];
+    if (valActual && idsValidos.includes(valActual)) {
+        select.value = valActual;
+    } else if (cuentas.length > 0) {
+        select.value = cuentas[0].id;
+    } else {
+        select.value = 'efectivo_usd';
+    }
+
+    actualizarCoordenadasModalAbono(select.value);
+}
+window.poblarSelectorBancosModalAbono = poblarSelectorBancosModalAbono;
 
 function cerrarModalReportarPagoCliente() {
     const modal = document.getElementById('modal-cliente-reportar-pago');
@@ -1651,11 +2033,39 @@ async function procesarReportePagoCliente() {
     if (!usuario) return;
 
     const montoIngresado = parseFloat(document.getElementById('abono-cli-monto')?.value);
-    const metodo = document.getElementById('abono-cli-metodo')?.value || 'Pago Móvil VES';
-    const referencia = document.getElementById('abono-cli-referencia')?.value.trim();
+    let referencia = document.getElementById('abono-cli-referencia')?.value.trim() || '';
     const nota = document.getElementById('abono-cli-nota')?.value.trim() || '';
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const esDivisasUSD = (metodo === 'Efectivo USD' || metodo.includes('USD') || metodo.includes('Divisa'));
+
+    const selectBanco = document.getElementById('abono-cli-banco-selector');
+    const cuentaId = selectBanco ? selectBanco.value : '';
+
+    let metodo = 'Pago Móvil VES';
+    let bancoDestino = 'Banco';
+    let cuentaDestinoId = '';
+    let cuentaDestinoNumero = '';
+    let cuentaDestinoTelefono = '';
+
+    if (cuentaId === 'efectivo_usd') {
+        metodo = 'Efectivo Divisas ($ USD)';
+        bancoDestino = 'Tienda / Caja Física';
+        if (!referencia) referencia = 'EFECTIVO-USD';
+    } else if (cuentaId === 'efectivo_ves') {
+        metodo = 'Efectivo Bolívares (Bs. VES)';
+        bancoDestino = 'Tienda / Caja Física';
+        if (!referencia) referencia = 'EFECTIVO-VES';
+    } else {
+        const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
+        const cuentaSeleccionada = cuentas.find(c => c.id === cuentaId) || cuentas[0];
+        if (cuentaSeleccionada) {
+            bancoDestino = cuentaSeleccionada.banco || cuentaSeleccionada.bank || 'Banco';
+            const tipo = cuentaSeleccionada.tipo || cuentaSeleccionada.type || 'Pago Móvil';
+            metodo = `${tipo}: ${bancoDestino}`;
+            cuentaDestinoId = cuentaSeleccionada.id || '';
+            cuentaDestinoNumero = cuentaSeleccionada.cuenta || cuentaSeleccionada.account || '';
+            cuentaDestinoTelefono = cuentaSeleccionada.telefono || cuentaSeleccionada.phone || '';
+        }
+    }
 
     if (isNaN(montoIngresado) || montoIngresado <= 0) {
         if (window.InventoryApp.Modal?.alert) {
@@ -1664,14 +2074,16 @@ async function procesarReportePagoCliente() {
         return;
     }
 
-    if (!referencia) {
+    if (cuentaId !== 'efectivo_usd' && cuentaId !== 'efectivo_ves' && !referencia) {
         if (window.InventoryApp.Modal?.alert) {
-            window.InventoryApp.Modal.alert('Referencia Requerida', 'Debes ingresar el número de referencia del comprobante.', 'warning');
+            window.InventoryApp.Modal.alert('Referencia Requerida', 'Debes ingresar el número de referencia del comprobante bancario.', 'warning');
         }
         return;
     }
 
-    // Calcular montos en Bolívares (VES) y Divisas ($ USD) según la moneda del método de pago
+    const esDivisasUSD = (monedaAbonoSeleccionada === 'USD');
+
+    // Calcular montos en Bolívares (VES) y Divisas ($ USD) según la moneda seleccionada
     let montoUSD = 0;
     let montoVES = 0;
     if (esDivisasUSD) {
@@ -1693,6 +2105,10 @@ async function procesarReportePagoCliente() {
         tasaMomento: tasa,
         formaPago: metodo,
         metodo: metodo,
+        bancoDestino: bancoDestino,
+        cuentaDestinoId: cuentaSeleccionada ? cuentaSeleccionada.id : '',
+        cuentaDestinoNumero: cuentaSeleccionada ? (cuentaSeleccionada.cuenta || cuentaSeleccionada.account || '') : '',
+        cuentaDestinoTelefono: cuentaSeleccionada ? (cuentaSeleccionada.telefono || cuentaSeleccionada.phone || '') : '',
         esDivisasUSD: esDivisasUSD,
         monedaOriginal: esDivisasUSD ? 'USD' : 'VES',
         referencia: String(referencia || '').trim(),
@@ -1743,6 +2159,8 @@ async function procesarReportePagoCliente() {
             metodoPago: nuevoAbono.metodo,
             tipoPago: nuevoAbono.metodo,
             tipo: nuevoAbono.metodo,
+            bancoDestino: bancoDestino,
+            cuentaDestinoId: cuentaSeleccionada ? cuentaSeleccionada.id : '',
             esDivisasUSD: nuevoAbono.esDivisasUSD,
             monedaOriginal: nuevoAbono.monedaOriginal,
             referencia: nuevoAbono.referencia || 'N/A',

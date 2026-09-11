@@ -68,7 +68,77 @@ const AppState = window.AppState = window.InventoryApp.state = {
     filtroFechaRecuperacion: 'todos',
     rangoFechaPersonalizadoRecuperacion: { desde: '', hasta: '' },
     cicloSeleccionadoRecuperacion: 'actual',
-    filtroTipoHistorialRecuperacion: 'todos'
+    filtroTipoHistorialRecuperacion: 'todos',
+    cuentasBancarias: [
+        {
+            id: 'bancamiga_pm',
+            banco: 'Bancamiga (0172)',
+            bank: 'Bancamiga (0172)',
+            tipo: 'Pago Móvil / Transferencia',
+            type: 'Pago Móvil',
+            telefono: '0412-1234567',
+            phone: '0412-1234567',
+            cedulaRif: 'V-30.544.641',
+            idNumber: 'V-30.544.641',
+            titular: 'Josnairit Salazar / Tu Bodeguita',
+            cuenta: '01720111223344556677',
+            account: '01720111223344556677',
+            correo: '',
+            activo: true,
+            instrucciones: 'Reportar comprobante con últimos 6 u 8 dígitos de referencia'
+        },
+        {
+            id: 'bdv_pm',
+            banco: 'Banco de Venezuela (0102)',
+            bank: 'Banco de Venezuela (0102)',
+            tipo: 'Pago Móvil',
+            type: 'Pago Móvil',
+            telefono: '0412-5363849',
+            phone: '0412-5363849',
+            cedulaRif: 'V-28.123.456',
+            idNumber: 'V-28.123.456',
+            titular: 'Tu Bodeguita de Confianza',
+            cuenta: '01020000000000000000',
+            account: '01020000000000000000',
+            correo: '',
+            activo: true,
+            instrucciones: ''
+        },
+        {
+            id: 'banesco_pm',
+            banco: 'Banesco (0134)',
+            bank: 'Banesco (0134)',
+            tipo: 'Pago Móvil',
+            type: 'Pago Móvil',
+            telefono: '0412-5363849',
+            phone: '0412-5363849',
+            cedulaRif: 'V-28.123.456',
+            idNumber: 'V-28.123.456',
+            titular: 'Tu Bodeguita de Confianza',
+            cuenta: '',
+            account: '',
+            correo: '',
+            activo: true,
+            instrucciones: ''
+        },
+        {
+            id: 'mercantil_pm',
+            banco: 'Mercantil (0105)',
+            bank: 'Mercantil (0105)',
+            tipo: 'Pago Móvil',
+            type: 'Pago Móvil',
+            telefono: '0412-5363849',
+            phone: '0412-5363849',
+            cedulaRif: 'V-28.123.456',
+            idNumber: 'V-28.123.456',
+            titular: 'Tu Bodeguita de Confianza',
+            cuenta: '',
+            account: '',
+            correo: '',
+            activo: true,
+            instrucciones: ''
+        }
+    ]
 };
 
 const legacyGlobals = [
@@ -76,7 +146,7 @@ const legacyGlobals = [
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
-    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion'
+    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {

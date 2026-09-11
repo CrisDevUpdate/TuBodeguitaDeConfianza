@@ -72,11 +72,21 @@ class CatalogManager {
 
         // 2. Filtrar por Categoría
         if (filtroCategoria && filtroCategoria !== 'TODOS') {
-            lista = lista.filter(p => (p.categoria || '').toLowerCase() === filtroCategoria.toLowerCase());
+            if (filtroCategoria.toUpperCase() === 'COMBOS') {
+                lista = lista.filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo')));
+            } else {
+                lista = lista.filter(p => (p.categoria || '').toLowerCase() === filtroCategoria.toLowerCase());
+            }
         }
 
-        // 3. Aplicar Algoritmo de Ranking y Priorización
+        // 3. Aplicar Algoritmo de Ranking y Priorización: 🔥 COMBOS PRIMERO
         lista.sort((a, b) => {
+            // 0. 🔥 COMBOS CREADOS SIEMPRE DE PRIMEROS
+            const esComboA = Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().startsWith('combo'));
+            const esComboB = Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().startsWith('combo'));
+            if (esComboA && !esComboB) return -1;
+            if (!esComboA && esComboB) return 1;
+
             const stockA = Number(a.stock || 0);
             const stockB = Number(b.stock || 0);
 
@@ -93,8 +103,8 @@ class CatalogManager {
             }
 
             // Puntos de fidelización otorgados
-            const puntosA = Number(a.puntosPromo || a.points_given || Math.round(Number(a.precio || 0)));
-            const puntosB = Number(b.puntosPromo || b.points_given || Math.round(Number(b.precio || 0)));
+            const puntosA = Number(a.puntosPromo || a.points_given || a.puntosCombo || Math.round(Number(a.precio || 0)));
+            const puntosB = Number(b.puntosPromo || b.points_given || b.puntosCombo || Math.round(Number(b.precio || 0)));
 
             if (puntosB !== puntosA) {
                 return puntosB - puntosA; // Mayor a menor puntos
@@ -351,11 +361,17 @@ class CatalogManager {
         });
 
         const categorias = Array.from(categoriasSet);
+        const totalCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'))).length;
 
         container.innerHTML = `
             <button type="button" class="chip-filter ${this.currentFilterCategory === 'TODOS' ? 'active' : ''}" data-cat="TODOS" onclick="InventoryApp.Catalog.filtrarPorCategoria('TODOS')">
                 <i class="fas fa-border-all"></i> Todos (${AppState.productos?.length || 0})
             </button>
+            ${totalCombos > 0 ? `
+                <button type="button" class="chip-filter ${this.currentFilterCategory === 'COMBOS' ? 'active' : ''}" data-cat="COMBOS" onclick="InventoryApp.Catalog.filtrarPorCategoria('COMBOS')" style="background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(245,158,11,0.22)); border-color: rgba(249,115,22,0.45); color: #ea580c; font-weight: 800;">
+                    🔥 Combos (${totalCombos})
+                </button>
+            ` : ''}
             ${categorias.map(cat => `
                 <button type="button" class="chip-filter ${this.currentFilterCategory.toLowerCase() === cat.toLowerCase() ? 'active' : ''}" data-cat="${cat}" onclick="InventoryApp.Catalog.filtrarPorCategoria('${cat}')">
                     ${cat}

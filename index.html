@@ -1741,51 +1741,67 @@
     <!-- VISTA 8 (CLIENTE): CATÁLOGO DE PRODUCTOS & CARRITO -->
     <div id="cliente-catalogo" class="view-content">
         <!-- Banner de Bienvenida Dinámico y Resumen de Puntos -->
-        <div class="card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:16px; border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
-                <div style="flex:1; min-width:260px;">
+        <div class="card cliente-catalog-header-card" id="cliente-banner-welcome-card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:12px; border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="flex:1; min-width:240px;">
                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                        <span id="cliente-saludo-icono" style="font-size:1.3rem; color:#fde047;"><i class="fas fa-sun"></i></span>
-                        <h2 style="margin:0; font-size:1.35rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
+                        <span id="cliente-saludo-icono" style="font-size:1.2rem; color:#fde047;"><i class="fas fa-sun"></i></span>
+                        <h2 style="margin:0; font-size:1.2rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
                     </div>
-                    <!-- Frase de Sabiduría Dinámica Local -->
-                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:8px; display:flex; align-items:flex-start; gap:8px;">
+                    <!-- Frase de Sabiduría Dinámica Local (Oculta en móvil para no robar espacio de scroll) -->
+                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex; align-items:flex-start; gap:8px;">
                         <i class="fas fa-quote-left" style="color:#fde047; font-size:0.85rem; margin-top:2px; flex-shrink:0;"></i>
                         <div>
-                            <p id="cliente-frase-texto" style="margin:0; font-size:0.86rem; color:#f1f5f9; font-style:italic; line-height:1.35;">
+                            <p id="cliente-frase-texto" style="margin:0; font-size:0.84rem; color:#f1f5f9; font-style:italic; line-height:1.3;">
                                 "La perseverancia convierte los pequeños esfuerzos diarios en grandes victorias."
                             </p>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px;">
-                                <small id="cliente-frase-autor" style="font-size:0.75rem; color:#cbd5e1; font-weight:600;">— Sabiduría Universal</small>
-                                <span id="cliente-frase-categoria" style="font-size:0.68rem; background:rgba(253,224,71,0.2); color:#fde047; padding:1px 6px; border-radius:4px;">Motivación</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                                <small id="cliente-frase-autor" style="font-size:0.72rem; color:#cbd5e1; font-weight:600;">— Sabiduría Universal</small>
+                                <span id="cliente-frase-categoria" style="font-size:0.65rem; background:rgba(253,224,71,0.2); color:#fde047; padding:1px 5px; border-radius:4px;">Motivación</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <div style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:8px 14px; text-align:center;">
-                        <span style="font-size:0.75rem; text-transform:uppercase; color:#94a3b8; display:block;">Mis Puntos</span>
-                        <strong style="font-size:1.25rem; color:#fde047;" id="cliente-banner-puntos-val">0 pts</strong>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <div style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:6px 12px; text-align:center;">
+                        <span style="font-size:0.7rem; text-transform:uppercase; color:#94a3b8; display:block;">Mis Puntos</span>
+                        <strong style="font-size:1.15rem; color:#fde047;" id="cliente-banner-puntos-val">0 pts</strong>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="switchTab('cliente-cuenta')" style="font-weight:700;">
-                        <i class="fas fa-file-invoice-dollar"></i> Ver Mi Cuenta
+                    <button type="button" class="btn btn-primary" onclick="switchTab('cliente-cuenta')" style="font-weight:700; padding:8px 14px; font-size:0.85rem;">
+                        <i class="fas fa-file-invoice-dollar"></i> Mi Cuenta
                     </button>
                 </div>
             </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+        <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
             <!-- Catálogo y Filtros -->
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
-                    <div style="flex:1; min-width:240px;">
-                        <input type="text" id="cliente-search" placeholder="Buscar productos por nombre, marca o categoría..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%;">
+            <div class="card" style="padding:14px;">
+                <!-- Controles de búsqueda y filtros con soporte sticky en móvil -->
+                <div class="cliente-catalog-controls-sticky">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                        <div style="flex:1; min-width:200px;">
+                            <input type="text" id="cliente-search" placeholder="🔍 Buscar productos o combos..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%; border-radius:20px; padding:8px 14px; font-size:0.9rem;">
+                        </div>
+                    </div>
+
+                    <!-- Chips de Categorías con scroll horizontal suave -->
+                    <div id="cliente-categorias-chips" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; scrollbar-width:none;">
+                        <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
                     </div>
                 </div>
 
-                <!-- Chips de Categorías -->
-                <div id="cliente-categorias-chips" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px;">
-                    <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
+                <!-- Carrusel Rápido de Combos Destacados en Móvil / Desktop (Reduce scroll drásticamente) -->
+                <div id="cliente-combos-carousel-wrapper" class="cliente-combos-carousel-wrapper" style="display:none;">
+                    <div class="cliente-combos-carousel-header">
+                        <span class="cliente-combos-carousel-title">
+                            <i class="fas fa-fire"></i> Super Combos Destacados
+                        </span>
+                        <span id="cliente-combos-carousel-count" class="cliente-combos-carousel-tag">
+                            0 disponibles
+                        </span>
+                    </div>
+                    <div id="cliente-combos-carousel-rail" class="cliente-combos-carousel-rail"></div>
                 </div>
 
                 <!-- Grid de Productos -->
@@ -2115,7 +2131,7 @@
         </div>
 
         <!-- Selector Multibanco Dinámico & Detalles con Copiado -->
-        <div id="cliente-multibanco-container" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px; margin-bottom:16px; font-size:0.85rem; line-height:1.4;">
+        <div id="cliente-multibanco-container" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px; margin-bottom:16px; font-size:0.85rem; line-height:1.4;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
                 <strong style="color:#1e40af; font-size:0.92rem;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
             </div>
@@ -2125,10 +2141,6 @@
                     Seleccionar Entidad Bancaria:
                 </label>
                 <select id="cliente-banco-selector" onchange="actualizarDetallesBancoCliente(this.value)" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #93c5fd; background:#ffffff; font-weight:700; color:#1e3a8a; cursor:pointer;">
-                    <option value="bdv_pm">Pago Móvil: Banco de Venezuela (0102)</option>
-                    <option value="banesco_pm">Pago Móvil: Banesco (0134)</option>
-                    <option value="mercantil_pm">Pago Móvil: Mercantil (0105)</option>
-                    <option value="bdv_trans">Transferencia: Banco de Venezuela (0102)</option>
                 </select>
             </div>
 

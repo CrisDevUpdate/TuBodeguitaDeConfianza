@@ -41,6 +41,9 @@ function renderizarConfiguracionAdmin() {
             </div>
         </div>
 
+        <!-- MÓDULO: Cuentas Bancarias & Métodos de Pago Móvil (Admin) -->
+        <div id="config-cuentas-bancarias-box"></div>
+
         <!-- MÓDULO 3: Motor de Temas y Paletas Globales -->
         <div id="config-theme-manager-box"></div>
 
@@ -278,6 +281,11 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             </div>
         </div>
     `;
+
+    // Renderizar Gestor de Cuentas Bancarias y Métodos de Pago
+    if (typeof renderizarGestionCuentasBancariasAdmin === 'function') {
+        renderizarGestionCuentasBancariasAdmin();
+    }
 
     // Renderizar Selector de Temas del Administrador
     if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarGestorAdmin === 'function') {
@@ -771,3 +779,572 @@ window.abrirWhatsAppMarketing = abrirWhatsAppMarketing;
 window.abrirModalHardResetSuperAdmin = abrirModalHardResetSuperAdmin;
 window.cerrarModalHardResetSuperAdmin = cerrarModalHardResetSuperAdmin;
 window.procesarEjecucionHardReset = procesarEjecucionHardReset;
+
+/**
+ * =========================================================================
+ * MÓDULO DE GESTIÓN DINÁMICA DE CUENTAS BANCARIAS & MÉTODOS DE PAGO MÓVIL
+ * =========================================================================
+ */
+
+/**
+ * Renderiza el gestor de Cuentas Bancarias en la vista de Configuración
+ */
+function renderizarGestionCuentasBancariasAdmin() {
+    const box = document.getElementById('config-cuentas-bancarias-box');
+    if (!box) return;
+
+    if (!Array.isArray(AppState.cuentasBancarias) || AppState.cuentasBancarias.length === 0) {
+        AppState.cuentasBancarias = [
+            {
+                id: 'bancamiga_pm',
+                banco: 'Bancamiga (0172)',
+                bank: 'Bancamiga (0172)',
+                tipo: 'Pago Móvil / Transferencia',
+                type: 'Pago Móvil',
+                telefono: '0412-1234567',
+                phone: '0412-1234567',
+                cedulaRif: 'V-30.544.641',
+                idNumber: 'V-30.544.641',
+                titular: 'Josnairit Salazar / Tu Bodeguita',
+                cuenta: '01720111223344556677',
+                account: '01720111223344556677',
+                correo: '',
+                activo: true,
+                instrucciones: 'Reportar comprobante con los últimos 6 u 8 dígitos de referencia'
+            },
+            {
+                id: 'bdv_pm',
+                banco: 'Banco de Venezuela (0102)',
+                bank: 'Banco de Venezuela (0102)',
+                tipo: 'Pago Móvil',
+                type: 'Pago Móvil',
+                telefono: '0412-5363849',
+                phone: '0412-5363849',
+                cedulaRif: 'V-28.123.456',
+                idNumber: 'V-28.123.456',
+                titular: 'Tu Bodeguita de Confianza',
+                cuenta: '01020000000000000000',
+                account: '01020000000000000000',
+                correo: '',
+                activo: true,
+                instrucciones: ''
+            },
+            {
+                id: 'banesco_pm',
+                banco: 'Banesco (0134)',
+                bank: 'Banesco (0134)',
+                tipo: 'Pago Móvil',
+                type: 'Pago Móvil',
+                telefono: '0412-5363849',
+                phone: '0412-5363849',
+                cedulaRif: 'V-28.123.456',
+                idNumber: 'V-28.123.456',
+                titular: 'Tu Bodeguita de Confianza',
+                cuenta: '',
+                account: '',
+                correo: '',
+                activo: true,
+                instrucciones: ''
+            },
+            {
+                id: 'mercantil_pm',
+                banco: 'Mercantil (0105)',
+                bank: 'Mercantil (0105)',
+                tipo: 'Pago Móvil',
+                type: 'Pago Móvil',
+                telefono: '0412-5363849',
+                phone: '0412-5363849',
+                cedulaRif: 'V-28.123.456',
+                idNumber: 'V-28.123.456',
+                titular: 'Tu Bodeguita de Confianza',
+                cuenta: '',
+                account: '',
+                correo: '',
+                activo: true,
+                instrucciones: ''
+            }
+        ];
+    }
+
+    const cuentas = AppState.cuentasBancarias;
+    const activasCount = cuentas.filter(c => c.activo !== false).length;
+
+    let cuentasHtml = '';
+    if (cuentas.length === 0) {
+        cuentasHtml = `
+            <div id="sin-cuentas-msg" style="text-align:center; padding:30px 20px; background:var(--bg-main); border-radius:10px; border:1px dashed var(--border-color);">
+                <i class="fas fa-building-columns" style="font-size:2.4rem; color:var(--text-muted); margin-bottom:10px;"></i>
+                <p style="margin:0; font-weight:600; color:var(--text-main);">No hay cuentas bancarias configuradas</p>
+                <small style="color:var(--text-muted);">Haz clic en "+ Agregar Banco / Cuenta" para configurar una cuenta de pago móvil o transferencia.</small>
+            </div>
+        `;
+    } else {
+        cuentasHtml = `
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:14px;">
+                ${cuentas.map(c => {
+                    const esActivo = c.activo !== false;
+                    const bancoNombre = c.banco || c.bank || 'Banco Sin Nombre';
+                    const tipoNombre = c.tipo || c.type || 'Pago Móvil';
+                    const tlf = c.telefono || c.phone || 'No configurado';
+                    const rif = c.cedulaRif || c.idNumber || 'No configurado';
+                    const numCuenta = c.cuenta || c.account || '';
+                    const tit = c.titular || 'Tu Bodeguita';
+                    const notas = c.instrucciones || c.correo || '';
+
+                    const esPagoMovil = tipoNombre.toLowerCase().includes('móvil') || tipoNombre.toLowerCase().includes('movil');
+                    const badgeBg = esPagoMovil ? '#e0f2fe' : (tipoNombre.toLowerCase().includes('divisas') ? '#dcfce7' : '#fef3c7');
+                    const badgeColor = esPagoMovil ? '#0369a1' : (tipoNombre.toLowerCase().includes('divisas') ? '#15803d' : '#b45309');
+
+                    return `
+                        <div class="card" id="cuenta-card-${c.id}" style="padding:14px; margin:0; border: 1.5px solid ${esActivo ? 'var(--border-light)' : '#cbd5e1'}; background:${esActivo ? 'var(--bg-card)' : '#f8fafc'}; opacity:${esActivo ? '1' : '0.78'}; position:relative; display:flex; flex-direction:column; justify-content:space-between; border-radius:10px;">
+                            <div>
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:8px;">
+                                    <div>
+                                        <h4 style="margin:0; font-size:0.98rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                                            <i class="fas fa-building-columns" style="color:var(--primary-accent);"></i> ${bancoNombre}
+                                        </h4>
+                                        <div style="display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+                                            <span style="font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:9999px; background:${badgeBg}; color:${badgeColor};">
+                                                ${tipoNombre}
+                                            </span>
+                                            <span style="font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:9999px; background:${esActivo ? '#dcfce7' : '#f1f5f9'}; color:${esActivo ? '#166534' : '#64748b'};">
+                                                <i class="fas ${esActivo ? 'fa-circle-check' : 'fa-circle-pause'}"></i> ${esActivo ? 'Activa (Visible)' : 'Pausada (Oculta)'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="font-size:0.82rem; display:flex; flex-direction:column; gap:5px; margin-bottom:12px; background:var(--bg-main); padding:10px; border-radius:8px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:var(--text-muted); font-size:0.78rem;">Teléfono Pago Móvil:</span>
+                                        <strong style="color:var(--text-main);">${tlf}</strong>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:var(--text-muted); font-size:0.78rem;">C.I / RIF:</span>
+                                        <strong style="color:var(--text-main);">${rif}</strong>
+                                    </div>
+                                    ${numCuenta ? `
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+                                        <span style="color:var(--text-muted); font-size:0.78rem; white-space:nowrap;">Nº Cuenta:</span>
+                                        <strong style="color:var(--text-main); font-size:0.76rem; word-break:break-all; text-align:right;">${numCuenta}</strong>
+                                    </div>` : ''}
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="color:var(--text-muted); font-size:0.78rem;">Titular:</span>
+                                        <strong style="color:var(--text-main); font-size:0.78rem;">${tit}</strong>
+                                    </div>
+                                    ${notas ? `
+                                    <div style="margin-top:4px; padding-top:4px; border-top:1px dashed var(--border-color); font-size:0.74rem; color:var(--text-muted);">
+                                        <i class="fas fa-info-circle"></i> ${notas}
+                                    </div>` : ''}
+                                </div>
+                            </div>
+
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; border-top:1px solid var(--border-light); padding-top:10px; margin-top:4px;">
+                                <button type="button" id="btn-editar-cuenta-${c.id}" class="btn btn-sm btn-primary" onclick="abrirModalEditarCuentaBancaria('${c.id}')" style="flex:1; padding:5px 8px; font-size:0.78rem; font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px;">
+                                    <i class="fas fa-pen-to-square"></i> Editar
+                                </button>
+                                <button type="button" id="btn-toggle-cuenta-${c.id}" class="btn btn-sm ${esActivo ? 'btn-outline' : 'btn-success'}" onclick="toggleActivarCuentaBancaria('${c.id}')" style="padding:5px 8px; font-size:0.78rem; font-weight:600;" title="${esActivo ? 'Ocultar a clientes' : 'Mostrar a clientes'}">
+                                    <i class="fas ${esActivo ? 'fa-eye-slash' : 'fa-eye'}"></i> ${esActivo ? 'Pausar' : 'Activar'}
+                                </button>
+                                <button type="button" id="btn-copiar-cuenta-${c.id}" class="btn btn-sm btn-outline" onclick="copiarCoordenadasCuenta('${c.id}', this)" style="padding:5px 8px; font-size:0.78rem;" title="Copiar datos al portapapeles">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button type="button" id="btn-eliminar-cuenta-${c.id}" class="btn btn-sm btn-danger" onclick="eliminarCuentaBancaria('${c.id}')" style="padding:5px 8px; font-size:0.78rem;" title="Eliminar cuenta">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    box.innerHTML = `
+        <div class="card" id="card-config-cuentas-bancarias" style="margin-bottom:20px; border-left:4px solid #2563eb;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:12px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-building-columns" style="color:#2563eb;"></i> Cuentas Bancarias & Métodos de Pago Móvil
+                    </h3>
+                    <p style="margin:3px 0 0 0; font-size:0.84rem; color:var(--text-muted); max-width:650px; line-height:1.4;">
+                        Configura las cuentas de banco, pagos móvil, números de cuenta y datos que verán los clientes. <b>Cualquier cambio se asocia y actualiza automáticamente en toda la app</b> (reporte de abonos de clientes, checkout del carrito y WhatsApp).
+                    </p>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span class="badge" style="background:#eff6ff; color:#1d4ed8; font-weight:700; padding:6px 12px; border-radius:20px; font-size:0.8rem;">
+                        ${activasCount} de ${cuentas.length} Activas
+                    </span>
+                    <button type="button" id="btn-admin-agregar-cuenta" class="btn btn-primary" onclick="abrirModalEditarCuentaBancaria()" style="font-weight:700; font-size:0.85rem; padding:8px 14px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-plus-circle"></i> + Agregar Banco / Cuenta
+                    </button>
+                </div>
+            </div>
+
+            ${cuentasHtml}
+        </div>
+    `;
+}
+
+/**
+ * Abre el modal para agregar o editar una cuenta bancaria con diseño limpio y moderno
+ */
+function abrirModalEditarCuentaBancaria(id = null) {
+    let modal = document.getElementById('modal-admin-cuenta-bancaria');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-admin-cuenta-bancaria';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+
+    const cuenta = id ? (AppState.cuentasBancarias || []).find(c => c.id === id) : null;
+    const esEdicion = !!cuenta;
+
+    const bancoVal = cuenta ? (cuenta.banco || cuenta.bank || '') : '';
+    const tipoVal = cuenta ? (cuenta.tipo || cuenta.type || 'Pago Móvil / Transferencia') : 'Pago Móvil / Transferencia';
+    const tlfVal = cuenta ? (cuenta.telefono || cuenta.phone || '') : '';
+    const cedulaVal = cuenta ? (cuenta.cedulaRif || cuenta.idNumber || '') : '';
+    const cuentaVal = cuenta ? (cuenta.cuenta || cuenta.account || '') : '';
+    const titularVal = cuenta ? (cuenta.titular || '') : 'Josnairit Salazar / Tu Bodeguita';
+    const instrucVal = cuenta ? (cuenta.instrucciones || '') : '';
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; padding: 22px 24px; animation: modalPop 0.22s ease-out; border-radius:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px; font-weight:800;">
+                        <i class="fas fa-building-columns" style="color:var(--primary-accent);"></i> ${esEdicion ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'}
+                    </h3>
+                    <p style="margin:4px 0 0 0; font-size:0.78rem; color:var(--text-muted);">
+                        Configura los datos de cobro que verán tus clientes al pagar.
+                    </p>
+                </div>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalEditarCuentaBancaria()" style="cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+
+            <form id="form-admin-cuenta-bancaria" onsubmit="event.preventDefault(); guardarCuentaBancariaAdmin();">
+                <input type="hidden" id="cuenta-bancaria-id" value="${cuenta ? cuenta.id : ''}">
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                        Entidad Bancaria <span style="color:var(--danger);">*</span>
+                    </label>
+                    <input type="text" id="cuenta-bancaria-banco" class="form-control" value="${bancoVal}" placeholder="Ej: Bancamiga (0172), Banco de Venezuela (0102)..." required style="font-weight:700; font-size:0.9rem;">
+                    
+                    <!-- Chips de selección rápida sin selector redundante -->
+                    <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">
+                        <span style="font-size:0.72rem; color:var(--text-muted); align-self:center; font-weight:600;">Sugerencias:</span>
+                        <button type="button" onclick="asignarBancoSugeridoModal('Bancamiga (0172)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">Bancamiga</button>
+                        <button type="button" onclick="asignarBancoSugeridoModal('Banco de Venezuela (0102)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">Venezuela</button>
+                        <button type="button" onclick="asignarBancoSugeridoModal('Banesco (0134)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">Banesco</button>
+                        <button type="button" onclick="asignarBancoSugeridoModal('Mercantil (0105)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">Mercantil</button>
+                        <button type="button" onclick="asignarBancoSugeridoModal('BBVA Provincial (0108)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">Provincial</button>
+                        <button type="button" onclick="asignarBancoSugeridoModal('BNC (0191)', 'Pago Móvil / Transferencia')" style="padding:2px 8px; font-size:0.72rem; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; color:#334155; font-weight:600;">BNC</button>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                        Tipo de Operación / Método <span style="color:var(--danger);">*</span>
+                    </label>
+                    <select id="cuenta-bancaria-tipo" class="form-control" required style="font-weight:600; font-size:0.88rem;">
+                        <option value="Pago Móvil / Transferencia" ${tipoVal === 'Pago Móvil / Transferencia' ? 'selected' : ''}>📱 Pago Móvil y Transferencia Bancaria</option>
+                        <option value="Pago Móvil" ${tipoVal === 'Pago Móvil' ? 'selected' : ''}>📱 Solo Pago Móvil</option>
+                        <option value="Transferencia Bancaria" ${tipoVal === 'Transferencia Bancaria' || tipoVal === 'Transferencia' ? 'selected' : ''}>🏦 Solo Transferencia Bancaria (VES)</option>
+                        <option value="Divisas USD (Digital / Zelle / Zinli)" ${tipoVal.includes('Divisas') || tipoVal.includes('USD') ? 'selected' : ''}>💵 Cuenta en Divisas ($ USD / Digital)</option>
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                            Teléfono Pago Móvil:
+                        </label>
+                        <input type="text" id="cuenta-bancaria-telefono" class="form-control" value="${tlfVal}" placeholder="Ej: 0412-1234567" maxlength="20" style="font-weight:700;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                            Cédula / RIF Titular:
+                        </label>
+                        <input type="text" id="cuenta-bancaria-cedula" class="form-control" value="${cedulaVal}" placeholder="Ej: V-30.544.641" maxlength="20" style="font-weight:700;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                        Número de Cuenta Bancaria (20 dígitos):
+                    </label>
+                    <input type="text" id="cuenta-bancaria-cuenta" class="form-control" value="${cuentaVal}" placeholder="Ej: 01720000000000000000 (Opcional si solo usas Pago Móvil)" maxlength="24" style="letter-spacing:0.5px; font-family:monospace; font-size:0.88rem;">
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                        Nombre del Titular de la Cuenta:
+                    </label>
+                    <input type="text" id="cuenta-bancaria-titular" class="form-control" value="${titularVal}" placeholder="Ej: Josnairit Salazar / Tu Bodeguita">
+                </div>
+
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label style="font-size:0.82rem; font-weight:700; color:var(--text-main); display:block; margin-bottom:5px;">
+                        Instrucciones o Nota Adicional para el Cliente:
+                    </label>
+                    <input type="text" id="cuenta-bancaria-instrucciones" class="form-control" value="${instrucVal}" placeholder="Ej: Reportar comprobante con últimos 6 u 8 dígitos de referencia">
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border-light); padding-top:14px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalEditarCuentaBancaria()">Cancelar</button>
+                    <button type="submit" id="btn-guardar-cuenta-bancaria-modal" class="btn btn-primary" style="font-weight:700; padding:10px 20px;">
+                        <i class="fas fa-check"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+/**
+ * Cierra el modal de edición de cuentas
+ */
+function cerrarModalEditarCuentaBancaria() {
+    const modal = document.getElementById('modal-admin-cuenta-bancaria');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Asigna banco y tipo sugerido rápidamente al formulario
+ */
+function asignarBancoSugeridoModal(banco, tipo = 'Pago Móvil / Transferencia') {
+    const inputBanco = document.getElementById('cuenta-bancaria-banco');
+    if (inputBanco) inputBanco.value = banco;
+    const selectTipo = document.getElementById('cuenta-bancaria-tipo');
+    if (selectTipo) selectTipo.value = tipo;
+}
+window.asignarBancoSugeridoModal = asignarBancoSugeridoModal;
+
+/**
+ * Guarda o actualiza la cuenta bancaria configurada por el admin
+ */
+async function guardarCuentaBancariaAdmin() {
+    const idEl = document.getElementById('cuenta-bancaria-id');
+    const id = idEl ? idEl.value.trim() : '';
+    const banco = (document.getElementById('cuenta-bancaria-banco')?.value || '').trim();
+    const tipo = (document.getElementById('cuenta-bancaria-tipo')?.value || 'Pago Móvil / Transferencia').trim();
+    const telefono = (document.getElementById('cuenta-bancaria-telefono')?.value || '').trim();
+    const cedulaRif = (document.getElementById('cuenta-bancaria-cedula')?.value || '').trim();
+    const cuenta = (document.getElementById('cuenta-bancaria-cuenta')?.value || '').trim();
+    const titular = (document.getElementById('cuenta-bancaria-titular')?.value || '').trim();
+    const instrucciones = (document.getElementById('cuenta-bancaria-instrucciones')?.value || '').trim();
+
+    if (!banco) {
+        if (window.InventoryApp.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Ingresa el nombre de la entidad bancaria', 'danger');
+        }
+        return;
+    }
+
+    if (!telefono && !cuenta) {
+        if (window.InventoryApp.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Indica al menos un teléfono de Pago Móvil o un número de cuenta', 'danger');
+        }
+        return;
+    }
+
+    AppState.cuentasBancarias = Array.isArray(AppState.cuentasBancarias) ? AppState.cuentasBancarias : [];
+    const idFinal = id || `banco_${Date.now()}`;
+
+    // Mantener el estado activo actual de la cuenta si ya existía, o activar por defecto si es nueva
+    const cuentaExistente = id ? AppState.cuentasBancarias.find(c => c.id === id) : null;
+    const activo = cuentaExistente ? (cuentaExistente.activo !== false) : true;
+
+    const nuevaCuenta = {
+        id: idFinal,
+        banco,
+        bank: banco,
+        tipo,
+        type: tipo.includes('Transferencia') && !tipo.includes('Pago Móvil') ? 'Transferencia' : 'Pago Móvil',
+        telefono,
+        phone: telefono,
+        cedulaRif,
+        idNumber: cedulaRif,
+        cuenta,
+        account: cuenta,
+        titular: titular || 'Josnairit Salazar / Tu Bodeguita',
+        instrucciones,
+        correo: '',
+        activo
+    };
+
+    const idx = AppState.cuentasBancarias.findIndex(c => c.id === idFinal);
+    if (idx >= 0) {
+        AppState.cuentasBancarias[idx] = nuevaCuenta;
+    } else {
+        AppState.cuentasBancarias.push(nuevaCuenta);
+    }
+
+    // Persistir localmente en sesión y caché
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    try {
+        localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
+    } catch (e) {}
+
+    // Sincronizar en Firestore
+    if (window.InventoryApp?.Firebase?.guardarCuentasBancarias) {
+        try {
+            await window.InventoryApp.Firebase.guardarCuentasBancarias(AppState.cuentasBancarias);
+        } catch (err) {
+            console.warn('[configuracion.js] Advertencia guardando cuentas bancarias en Firestore:', err);
+        }
+    }
+
+    cerrarModalEditarCuentaBancaria();
+    renderizarGestionCuentasBancariasAdmin();
+
+    // Actualizar dinámicamente vistas del cliente
+    if (typeof poblarSelectorBancosCheckout === 'function') poblarSelectorBancosCheckout();
+    if (typeof actualizarDetallesBancoCliente === 'function') actualizarDetallesBancoCliente();
+    if (typeof actualizarCoordenadasModalAbono === 'function') actualizarCoordenadasModalAbono();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast('✅ Cuenta bancaria guardada y sincronizada exitosamente', 'success');
+    }
+}
+
+/**
+ * Alterna el estado activo/inactivo de una cuenta
+ */
+async function toggleActivarCuentaBancaria(id) {
+    if (!id || !Array.isArray(AppState.cuentasBancarias)) return;
+    const c = AppState.cuentasBancarias.find(x => x.id === id);
+    if (!c) return;
+
+    c.activo = (c.activo === false) ? true : false;
+
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    try {
+        localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
+    } catch (e) {}
+
+    if (window.InventoryApp?.Firebase?.guardarCuentasBancarias) {
+        try {
+            await window.InventoryApp.Firebase.guardarCuentasBancarias(AppState.cuentasBancarias);
+        } catch (err) {
+            console.warn('[configuracion.js] Error sincronizando pausa en Firestore:', err);
+        }
+    }
+
+    renderizarGestionCuentasBancariasAdmin();
+    if (typeof poblarSelectorBancosCheckout === 'function') poblarSelectorBancosCheckout();
+    if (typeof actualizarDetallesBancoCliente === 'function') actualizarDetallesBancoCliente();
+    if (typeof actualizarCoordenadasModalAbono === 'function') actualizarCoordenadasModalAbono();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(
+            c.activo ? `🟢 Cuenta ${c.banco || c.bank} activada para clientes` : `⏸️ Cuenta ${c.banco || c.bank} pausada (oculta para clientes)`,
+            c.activo ? 'success' : 'info'
+        );
+    }
+}
+
+/**
+ * Elimina una cuenta bancaria con confirmación in-app
+ */
+async function eliminarCuentaBancaria(id) {
+    if (!id || !Array.isArray(AppState.cuentasBancarias)) return;
+    const c = AppState.cuentasBancarias.find(x => x.id === id);
+    if (!c) return;
+
+    const nombreBanco = c.banco || c.bank || 'la cuenta seleccionada';
+
+    // Usar modal in-app con promesa (evita interceptor nativo de confirm que siempre retorna false)
+    let confirmado = false;
+    if (window.InventoryApp?.Modal?.confirm) {
+        confirmado = await window.InventoryApp.Modal.confirm(
+            'Eliminar Cuenta Bancaria',
+            `¿Estás seguro de eliminar permanentemente la cuenta de <strong>${nombreBanco}</strong>?<br><small style="color:var(--text-muted);">Los clientes ya no podrán verla ni seleccionarla para compras o abonos.</small>`,
+            { confirmText: 'Sí, Eliminar', cancelText: 'Cancelar', isDanger: true, tipo: 'danger' }
+        );
+    } else if (typeof window.showCustomConfirm === 'function') {
+        confirmado = await window.showCustomConfirm(
+            'Eliminar Cuenta Bancaria',
+            `¿Estás seguro de eliminar la cuenta de ${nombreBanco}?`,
+            { confirmText: 'Sí, Eliminar', cancelText: 'Cancelar', isDanger: true, tipo: 'danger' }
+        );
+    } else {
+        confirmado = true;
+    }
+
+    if (!confirmado) return;
+
+    AppState.cuentasBancarias = AppState.cuentasBancarias.filter(x => x.id !== id);
+
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    try {
+        localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
+    } catch (e) {}
+
+    if (window.InventoryApp?.Firebase?.guardarCuentasBancarias) {
+        try {
+            await window.InventoryApp.Firebase.guardarCuentasBancarias(AppState.cuentasBancarias);
+        } catch (err) {
+            console.warn('[configuracion.js] Error al eliminar cuenta en Firebase:', err);
+        }
+    }
+
+    renderizarGestionCuentasBancariasAdmin();
+    if (typeof poblarSelectorBancosCheckout === 'function') poblarSelectorBancosCheckout();
+    if (typeof actualizarDetallesBancoCliente === 'function') actualizarDetallesBancoCliente();
+    if (typeof actualizarCoordenadasModalAbono === 'function') actualizarCoordenadasModalAbono();
+
+    if (window.InventoryApp.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`🗑️ Cuenta de ${nombreBanco} eliminada exitosamente`, 'info');
+    }
+}
+
+/**
+ * Copia las coordenadas formateadas de una cuenta al portapapeles
+ */
+function copiarCoordenadasCuenta(id, btn = null) {
+    const c = (AppState.cuentasBancarias || []).find(x => x.id === id);
+    if (!c) return;
+
+    const lineas = [
+        `*Coordenadas Bancarias - ${c.banco || c.bank}*`,
+        `• Tipo: ${c.tipo || c.type || 'Pago Móvil'}`,
+        (c.telefono || c.phone) ? `• Teléfono Pago Móvil: ${c.telefono || c.phone}` : null,
+        (c.cedulaRif || c.idNumber) ? `• C.I / RIF: ${c.cedulaRif || c.idNumber}` : null,
+        (c.cuenta || c.account) ? `• Nº Cuenta: ${c.cuenta || c.account}` : null,
+        c.titular ? `• Titular: ${c.titular}` : null,
+        c.instrucciones ? `• Nota: ${c.instrucciones}` : null
+    ].filter(Boolean).join('\n');
+
+    navigator.clipboard.writeText(lineas).then(() => {
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+            setTimeout(() => { btn.innerHTML = original; }, 1800);
+        }
+        if (window.InventoryApp.Modal?.toast) {
+            window.InventoryApp.Modal.toast(`📋 Coordenadas de ${c.banco || c.bank} copiadas`, 'success');
+        }
+    });
+}
+
+window.renderizarGestionCuentasBancariasAdmin = renderizarGestionCuentasBancariasAdmin;
+window.abrirModalEditarCuentaBancaria = abrirModalEditarCuentaBancaria;
+window.cerrarModalEditarCuentaBancaria = cerrarModalEditarCuentaBancaria;
+window.asignarBancoSugeridoModal = asignarBancoSugeridoModal;
+window.alSeleccionarBancoSugeridoAdmin = asignarBancoSugeridoModal;
+window.guardarCuentaBancariaAdmin = guardarCuentaBancariaAdmin;
+window.toggleActivarCuentaBancaria = toggleActivarCuentaBancaria;
+window.eliminarCuentaBancaria = eliminarCuentaBancaria;
+window.copiarCoordenadasCuenta = copiarCoordenadasCuenta;
+
