@@ -253,7 +253,7 @@ textarea:focus {
   }
 }
 
-/* 💳 3. GRILLA MÉTRICA UNIVERSAL (2x2 GRID SYSTEM) */
+/* 💳 3. GRILLA MÉTRICA UNIVERSAL (2x2 GRID SYSTEM) & CATÁLOGO MÓVIL */
 .mobile-kpi-grid,
 .customer-metrics-grid {
   display: grid;
@@ -261,6 +261,20 @@ textarea:focus {
   gap: 12px;
   width: 100%;
   margin-bottom: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  .cliente-catalogo-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+  }
+  .cliente-prod-card {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
 }
 
 .mobile-soft-card,

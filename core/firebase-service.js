@@ -797,6 +797,18 @@ window.InventoryApp = window.InventoryApp || {};
                     AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 }
             }
+            if (snapConfig && snapConfig.exists) {
+                const cfg = snapConfig.data() || {};
+                if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
+                if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                if (Array.isArray(cfg.ciclosRecuperacion)) AppState.ciclosRecuperacion = cfg.ciclosRecuperacion;
+                if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
+                if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
+                if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
+                if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
+            }
             if (snapPagosPorVerificar) {
                 if (!snapPagosPorVerificar.empty) {
                     const pagos = [];
@@ -887,9 +899,11 @@ window.InventoryApp = window.InventoryApp || {};
                 if (safeImagen.startsWith('data:') && safeImagen.length > 400000) {
                     safeImagen = '';
                 }
+                const esComboP = Boolean(p.esCombo || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo') || String(p.codigo || '').toLowerCase().includes('combo'));
                 batch.set(ref, {
                     codigo: p.codigo || '',
                     nombre: p.nombre || '',
+                    categoria: p.categoria || 'General',
                     costo: Number(p.costo) || 0,
                     ganancia: Number(p.ganancia) || 0,
                     precio: Number(p.precio) || 0,
@@ -897,6 +911,12 @@ window.InventoryApp = window.InventoryApp || {};
                     descripcion: p.descripcion || '',
                     contenido: p.contenido || '',
                     imagen: safeImagen,
+                    esCombo: esComboP,
+                    tipo: p.tipo || (esComboP ? 'combo' : 'producto'),
+                    isCombo: esComboP,
+                    items: Array.isArray(p.items) ? p.items : [],
+                    puntosCombo: Number(p.puntosCombo || p.points_given || 0),
+                    badge: p.badge || '',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });
@@ -1591,6 +1611,9 @@ window.InventoryApp = window.InventoryApp || {};
                         if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
                         if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                         if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
+                        if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
+                        if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
+                        if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
                         guardarCacheLocal();
                         solicitarRefrescoVistasDebounced();
                     }
@@ -1707,9 +1730,11 @@ window.InventoryApp = window.InventoryApp || {};
                 }
 
                 const docRef = db.collection(COLLECTIONS.PRODUCTOS).doc(String(producto.id));
+                const esComboP = Boolean(producto.esCombo || producto.tipo === 'combo' || String(producto.categoria || '').toLowerCase().includes('combo') || String(producto.nombre || '').toLowerCase().includes('combo') || String(producto.codigo || '').toLowerCase().includes('combo'));
                 await docRef.set({
                     codigo: producto.codigo || '',
                     nombre: producto.nombre || '',
+                    categoria: producto.categoria || 'General',
                     costo: Number(producto.costo) || 0,
                     ganancia: Number(producto.ganancia) || 0,
                     precio: Number(producto.precio) || 0,
@@ -1717,6 +1742,12 @@ window.InventoryApp = window.InventoryApp || {};
                     descripcion: producto.descripcion || '',
                     contenido: producto.contenido || '',
                     imagen: imagenUrl,
+                    esCombo: esComboP,
+                    tipo: producto.tipo || (esComboP ? 'combo' : 'producto'),
+                    isCombo: esComboP,
+                    items: Array.isArray(producto.items) ? producto.items : [],
+                    puntosCombo: Number(producto.puntosCombo || producto.points_given || 0),
+                    badge: producto.badge || '',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
@@ -2536,6 +2567,23 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * Guarda la lista de cuentas bancarias y métodos de pago en Firestore
+     */
+    async function guardarCuentasBancariasCloud(cuentas) {
+        if (!Array.isArray(cuentas)) return false;
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                await db.collection(COLLECTIONS.CONFIG).doc('global').set({ cuentasBancarias: cuentas }, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar cuentas bancarias en Firestore:', e);
+            return false;
+        }
+    }
+
+    /**
      * Registra un canje de premio en Firestore
      */
     async function guardarCanjePremioCloud(canje) {
@@ -2803,6 +2851,7 @@ window.InventoryApp = window.InventoryApp || {};
         reproducirSonidoNotificacion: reproducirSonidoNotificacion,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         guardarConfiguracionGlobal: guardarConfiguracionGlobalCloud,
+        guardarCuentasBancarias: guardarCuentasBancariasCloud,
         guardarCanjePremio: guardarCanjePremioCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion

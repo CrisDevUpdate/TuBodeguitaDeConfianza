@@ -222,6 +222,25 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
     }
 }
 
+function alCambiarCategoriaFormulario(val) {
+    const wrap = document.getElementById('wrapper-nueva-categoria');
+    const input = document.getElementById('prod-categoria-nueva');
+    if (val === '__NUEVA__') {
+        if (wrap) wrap.style.display = 'block';
+        if (input) {
+            input.focus();
+            input.required = true;
+        }
+    } else {
+        if (wrap) wrap.style.display = 'none';
+        if (input) {
+            input.required = false;
+            input.value = '';
+        }
+    }
+}
+window.alCambiarCategoriaFormulario = alCambiarCategoriaFormulario;
+
 function resetearFormularioProducto() {
     const form = document.getElementById('form-producto');
     if (form) form.reset();
@@ -235,6 +254,15 @@ function resetearFormularioProducto() {
     if (stockInput) {
         stockInput.readOnly = false;
         stockInput.title = 'Stock inicial del nuevo producto.';
+    }
+    const catSelect = document.getElementById('prod-categoria');
+    if (catSelect) catSelect.value = 'Dulces';
+    const wrapNueva = document.getElementById('wrapper-nueva-categoria');
+    if (wrapNueva) wrapNueva.style.display = 'none';
+    const catNueva = document.getElementById('prod-categoria-nueva');
+    if (catNueva) {
+        catNueva.value = '';
+        catNueva.required = false;
     }
     const boton = document.getElementById('btn-prod-save');
     if (boton) boton.innerHTML = '<i class="fas fa-save"></i> Guardar Producto';
@@ -293,18 +321,41 @@ async function guardarProducto(e) {
         }
     }
 
+    let categoria = 'Dulces';
+    const catSelect = document.getElementById('prod-categoria');
+    if (catSelect) {
+        if (catSelect.value === '__NUEVA__') {
+            const catNuevaInput = document.getElementById('prod-categoria-nueva');
+            categoria = (catNuevaInput ? catNuevaInput.value.trim() : '') || 'General';
+            if (Array.isArray(AppState.categoriasPersonalizadas) && !AppState.categoriasPersonalizadas.includes(categoria)) {
+                AppState.categoriasPersonalizadas.push(categoria);
+            }
+        } else {
+            categoria = catSelect.value.trim() || 'General';
+        }
+    }
+
+    const esComboDetectado = Boolean(
+        categoria.toLowerCase().includes('combo') ||
+        document.getElementById('prod-nombre').value.toLowerCase().includes('combo')
+    );
+
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
     // Nunca usamos uno para construir o reemplazar el otro.
     const datosProducto = {
         codigo: document.getElementById('prod-codigo').value,
         nombre: document.getElementById('prod-nombre').value,
+        categoria: categoria,
         costo: parseFloat(document.getElementById('prod-costo').value),
         ganancia: parseFloat(document.getElementById('prod-ganancia').value),
         precio: parseFloat(document.getElementById('prod-precio').value),
         stock: parseInt(document.getElementById('prod-stock').value),
         descripcion,
         contenido,
-        imagen: imagenFinal
+        imagen: imagenFinal,
+        esCombo: esComboDetectado,
+        tipo: esComboDetectado ? 'combo' : 'producto',
+        isCombo: esComboDetectado
     };
 
     let productoGuardado = null;
@@ -327,7 +378,11 @@ async function guardarProducto(e) {
             id: nuevoId,
             ...datosProducto
         };
-        productos.push(productoGuardado);
+        if (esComboDetectado) {
+            productos.unshift(productoGuardado);
+        } else {
+            productos.push(productoGuardado);
+        }
     }
 
     // Persistir directamente en Firebase Firestore
@@ -352,6 +407,12 @@ async function guardarProducto(e) {
     if (typeof renderizarResumenPerdidasEconomicas === 'function') {
         renderizarResumenPerdidasEconomicas();
     }
+    if (typeof renderizarCatalogoCliente === 'function') {
+        renderizarCatalogoCliente();
+    }
+    if (typeof renderizarCategoriasCatalogo === 'function') {
+        renderizarCategoriasCatalogo();
+    }
 }
 
 function editarProducto(id) {
@@ -372,6 +433,35 @@ function editarProducto(id) {
     // Compatibilidad con registros antiguos: si existía "description", también lo recuperamos.
     document.getElementById('prod-descripcion').value = p.descripcion ?? p.description ?? '';
     document.getElementById('prod-contenido').value = p.contenido ?? p.medida ?? p.presentacion ?? '';
+
+    const catSelect = document.getElementById('prod-categoria');
+    const wrapNueva = document.getElementById('wrapper-nueva-categoria');
+    const catNueva = document.getElementById('prod-categoria-nueva');
+    if (catSelect) {
+        const catVal = p.categoria || 'General';
+        let optionExists = false;
+        for (let i = 0; i < catSelect.options.length; i++) {
+            if (catSelect.options[i].value.toLowerCase() === catVal.toLowerCase()) {
+                catSelect.selectedIndex = i;
+                optionExists = true;
+                break;
+            }
+        }
+        if (!optionExists) {
+            const opt = document.createElement('option');
+            opt.value = catVal;
+            opt.textContent = `🏷️ ${catVal}`;
+            const refNode = catSelect.querySelector('option[value="__NUEVA__"]');
+            if (refNode) {
+                catSelect.insertBefore(opt, refNode);
+            } else {
+                catSelect.appendChild(opt);
+            }
+            catSelect.value = catVal;
+        }
+        if (wrapNueva) wrapNueva.style.display = 'none';
+        if (catNueva) catNueva.value = '';
+    }
 
     productoImagenTemporal = p.imagen || '';
     actualizarVistaImagenProducto();
@@ -434,6 +524,11 @@ function renderizarInventario() {
                         <div class="inventory-product-name">${p.nombre}</div>
                     </div>
                 </div>
+            </td>
+            <td>
+                <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
+                    ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
+                </span>
             </td>
             <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
             <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
@@ -926,7 +1021,7 @@ async function guardarComboAdmin(e) {
         fechaCreacion: new Date().toISOString()
     };
 
-    productos.push(nuevoCombo);
+    productos.unshift(nuevoCombo);
     AppState.productos = productos;
 
     // Sincronizar con Firestore si está disponible
@@ -944,6 +1039,9 @@ async function guardarComboAdmin(e) {
     renderizarInventario();
     if (typeof renderizarCatalogoCliente === 'function') {
         renderizarCatalogoCliente();
+    }
+    if (typeof renderizarCategoriasCatalogo === 'function') {
+        renderizarCategoriasCatalogo();
     }
 
     cerrarConstructorCombosAdmin();
