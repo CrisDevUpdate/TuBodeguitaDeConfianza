@@ -68,79 +68,7 @@ const AppState = window.AppState = window.InventoryApp.state = {
     filtroFechaRecuperacion: 'todos',
     rangoFechaPersonalizadoRecuperacion: { desde: '', hasta: '' },
     cicloSeleccionadoRecuperacion: 'actual',
-    filtroTipoHistorialRecuperacion: 'todos',
-    cuentasBancarias: [
-        {
-            id: 'bancamiga_pm',
-            banco: 'Bancamiga (0172)',
-            bank: 'Bancamiga (0172)',
-            tipo: 'Pago Móvil / Transferencia',
-            type: 'Pago Móvil',
-            telefono: '0412-1234567',
-            phone: '0412-1234567',
-            cedulaRif: 'V-30.544.641',
-            idNumber: 'V-30.544.641',
-            titular: 'Josnairit Salazar / Tu Bodeguita',
-            cuenta: '01720111223344556677',
-            account: '01720111223344556677',
-            correo: '',
-            activo: true,
-            instrucciones: 'Reportar comprobante con últimos 6 u 8 dígitos de referencia'
-        },
-        {
-            id: 'bdv_pm',
-            banco: 'Banco de Venezuela (0102)',
-            bank: 'Banco de Venezuela (0102)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '01020000000000000000',
-            account: '01020000000000000000',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'banesco_pm',
-            banco: 'Banesco (0134)',
-            bank: 'Banesco (0134)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'mercantil_pm',
-            banco: 'Mercantil (0105)',
-            bank: 'Mercantil (0105)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        }
-    ],
-    telefonoWhatsApp: '0412-5363849',
-    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General']
+    filtroTipoHistorialRecuperacion: 'todos'
 };
 
 const legacyGlobals = [
@@ -148,8 +76,7 @@ const legacyGlobals = [
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
-    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
-    'telefonoWhatsApp','categoriasPersonalizadas'
+    'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
@@ -158,90 +85,6 @@ legacyGlobals.forEach((key) => {
         set: (value) => { AppState[key] = value; }
     });
 });
-
-/**
- * Normaliza cualquier número de teléfono venezolano o internacional
- * al formato limpio requerido por la API oficial de WhatsApp (ej: 0412-5363849 -> 584125363849)
- * Elimina cualquier guión, espacio, paréntesis o símbolo.
- */
-function normalizarNumeroWhatsApp(tel) {
-    if (!tel) return '584125363849';
-    let clean = String(tel).replace(/\D/g, '');
-    
-    // Si ya empieza por 58 y tiene al menos 12 dígitos (58 + 10 dígitos)
-    if (clean.startsWith('58') && clean.length >= 12) {
-        return clean;
-    }
-    
-    // Si empieza por 0 (ej: 04125363849 -> 584125363849)
-    if (clean.startsWith('0')) {
-        clean = '58' + clean.substring(1);
-    } else if (clean.length === 10 && /^(412|414|424|416|426)/.test(clean)) {
-        // Ej: 4125363849 -> 584125363849
-        clean = '58' + clean;
-    } else if (!clean.startsWith('58') && clean.length <= 11) {
-        clean = '58' + clean;
-    }
-    
-    return clean || '584125363849';
-}
-window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
-
-/**
- * Retorna el número de WhatsApp.
- * Por defecto (o si formateado === false), retorna el número LIMPIO para URLs/APIs (ej: '584125363849').
- * Si formateado === true, retorna el número con formato legible para la interfaz (ej: '0412-5363849').
- */
-function obtenerTelefonoWhatsApp(formateado = false) {
-    const raw = AppState.telefonoWhatsApp || '0412-5363849';
-    if (formateado) {
-        return raw;
-    }
-    return normalizarNumeroWhatsApp(raw);
-}
-window.obtenerTelefonoWhatsApp = obtenerTelefonoWhatsApp;
-
-function obtenerTelefonoWhatsAppLimpio() {
-    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '0412-5363849');
-}
-window.obtenerTelefonoWhatsAppLimpio = obtenerTelefonoWhatsAppLimpio;
-
-/**
- * Genera una URL infalible y directa a WhatsApp sin redirecciones intermedias rotas
- */
-function generarUrlWhatsApp(numero, texto = '') {
-    const numLimpio = normalizarNumeroWhatsApp(numero || AppState.telefonoWhatsApp);
-    let textoCodificado = '';
-    if (texto) {
-        try {
-            // Descodifica primero si ya venía codificado para evitar doble encoding (%2520)
-            const dec = decodeURIComponent(texto);
-            textoCodificado = encodeURIComponent(dec);
-        } catch (e) {
-            textoCodificado = encodeURIComponent(texto);
-        }
-    }
-    return `https://api.whatsapp.com/send?phone=${numLimpio}&text=${textoCodificado}`;
-}
-window.generarUrlWhatsApp = generarUrlWhatsApp;
-
-/**
- * Validador universal de si un producto o combo debe tratarse como combo
- */
-function esProductoCombo(p) {
-    if (!p) return false;
-    if (p.esCombo === true || p.isCombo === true || p.tipo === 'combo') return true;
-    if (typeof p.id === 'string' && (p.id.startsWith('combo_') || p.id.startsWith('combo-'))) return true;
-    const cat = String(p.categoria || '').toLowerCase();
-    if (cat.includes('combo') || cat.includes('oferta') || cat.includes('promo') || cat.includes('paquete')) return true;
-    const nom = String(p.nombre || '').toLowerCase();
-    if (nom.includes('combo') || nom.includes('promo') || nom.includes('pack')) return true;
-    const cod = String(p.codigo || '').toLowerCase();
-    if (cod.includes('combo') || cod.startsWith('cmb')) return true;
-    return false;
-}
-window.esProductoCombo = esProductoCombo;
-window.InventoryApp.esProductoCombo = esProductoCombo;
 
 window.InventoryApp.StockService = {
     _get(productId) {

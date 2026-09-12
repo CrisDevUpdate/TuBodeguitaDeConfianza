@@ -136,11 +136,6 @@ window.InventoryApp = window.InventoryApp || {};
                     localStorage.setItem('bodeguita_cache_premio', JSON.stringify(AppState.premioMes));
                 } catch (e) {}
             }
-            if (Array.isArray(AppState.cuentasBancarias) && AppState.cuentasBancarias.length > 0) {
-                try {
-                    localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
-                } catch (e) {}
-            }
 
             // 3. Purgar cualquier llave obsoleta residual
             purgarResiduosEntidadesLocalStorage();
@@ -219,13 +214,6 @@ window.InventoryApp = window.InventoryApp || {};
                 const parsedPremio = JSON.parse(cachePremio);
                 if (parsedPremio && typeof parsedPremio === 'object') {
                     AppState.premioMes = { ...AppState.premioMes, ...parsedPremio };
-                }
-            }
-            const cacheCuentas = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
-            if (cacheCuentas) {
-                const parsedCuentas = JSON.parse(cacheCuentas);
-                if (Array.isArray(parsedCuentas) && parsedCuentas.length > 0) {
-                    AppState.cuentasBancarias = parsedCuentas;
                 }
             }
         } catch (e) {
