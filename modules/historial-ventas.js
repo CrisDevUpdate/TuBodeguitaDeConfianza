@@ -7,6 +7,234 @@ let filtroHistorialFechaHasta = '';
 let filtroHistorialMetodo = 'TODOS';
 let filtroHistorialEstado = 'TODOS';
 
+// Estado de ordenamiento predeterminado: DE LA MÁS NUEVA A LA MÁS VIEJA
+let ordenHistorialCampo = 'fecha'; // 'fecha' | 'id' | 'total' | 'cliente'
+let ordenHistorialDireccion = 'desc'; // 'desc' (más nueva a más vieja) | 'asc' (más vieja a más nueva)
+
+/**
+ * Extrae un valor numérico en milisegundos a partir de cualquier propiedad de fecha o timestamp de una venta
+ */
+function obtenerTimestampVenta(v) {
+    if (!v) return 0;
+
+    // 1. Timestamp numérico explícito
+    if (typeof v.timestamp === 'number' && !isNaN(v.timestamp) && v.timestamp > 0) {
+        return v.timestamp;
+    }
+    if (typeof v.createdAt === 'number' && !isNaN(v.createdAt) && v.createdAt > 0) {
+        return v.createdAt;
+    }
+
+    // 2. Objeto Date nativo
+    if (v.fecha instanceof Date) {
+        return v.fecha.getTime();
+    }
+    if (v.createdAt instanceof Date) {
+        return v.createdAt.getTime();
+    }
+
+    // 3. Firestore Timestamp (.toDate o .seconds)
+    if (v.createdAt && typeof v.createdAt.toDate === 'function') {
+        return v.createdAt.toDate().getTime();
+    }
+    if (v.creadoEn && typeof v.creadoEn.toDate === 'function') {
+        return v.creadoEn.toDate().getTime();
+    }
+    if (v.fecha && typeof v.fecha.toDate === 'function') {
+        return v.fecha.toDate().getTime();
+    }
+    if (v.createdAt && typeof v.createdAt.seconds === 'number') {
+        return v.createdAt.seconds * 1000;
+    }
+
+    // 4. Cadena en v.fecha (e.g. "2026-09-13 11:04", "2026-09-13", ISO string)
+    if (v.fecha && typeof v.fecha === 'string') {
+        const str = v.fecha.trim();
+        if (str && str !== '—' && str !== '-') {
+            // Normalizar "YYYY-MM-DD HH:mm" a "YYYY-MM-DDTHH:mm:00" para Date.parse estándar
+            const isoLike = str.includes(' ') ? str.replace(' ', 'T') : str;
+            const parsedIso = Date.parse(isoLike);
+            if (!isNaN(parsedIso)) {
+                return parsedIso;
+            }
+
+            // Fallback Regex YYYY-MM-DD o YYYY-MM-DD HH:mm:ss
+            const mIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+            if (mIso) {
+                const y = parseInt(mIso[1], 10);
+                const mo = parseInt(mIso[2], 10) - 1;
+                const d = parseInt(mIso[3], 10);
+                const h = mIso[4] ? parseInt(mIso[4], 10) : 0;
+                const mi = mIso[5] ? parseInt(mIso[5], 10) : 0;
+                const s = mIso[6] ? parseInt(mIso[6], 10) : 0;
+                return new Date(y, mo, d, h, mi, s).getTime();
+            }
+
+            // Formato DD/MM/YYYY o DD-MM-YYYY HH:mm
+            const mLat = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+            if (mLat) {
+                const d = parseInt(mLat[1], 10);
+                const mo = parseInt(mLat[2], 10) - 1;
+                const y = parseInt(mLat[3], 10);
+                const h = mLat[4] ? parseInt(mLat[4], 10) : 0;
+                const mi = mLat[5] ? parseInt(mLat[5], 10) : 0;
+                const s = mLat[6] ? parseInt(mLat[6], 10) : 0;
+                return new Date(y, mo, d, h, mi, s).getTime();
+            }
+        }
+    }
+
+    // 5. Cadena en v.createdAt
+    if (typeof v.createdAt === 'string') {
+        const parsed = Date.parse(v.createdAt);
+        if (!isNaN(parsed)) return parsed;
+    }
+
+    // 6. Si el ID contiene timestamp de milisegundos (ej: TX_1726200000)
+    if (v.id) {
+        const matchTx = String(v.id).match(/TX_(\d{10,13})/);
+        if (matchTx) {
+            const num = parseInt(matchTx[1], 10);
+            return num < 10000000000 ? num * 1000 : num;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Extrae el número secuencial de pedido/venta para desempates (e.g. CRE_17_2403 -> 17)
+ */
+function extraerNumeroSecuencialVenta(id) {
+    if (!id) return 0;
+    const str = String(id);
+    const mPrefix = str.match(/(?:CRE_|PED_|V_?|VENTA_?)(\d+)/i);
+    if (mPrefix) {
+        return parseInt(mPrefix[1], 10);
+    }
+    const mAny = str.match(/\d+/);
+    return mAny ? parseInt(mAny[0], 10) : 0;
+}
+
+/**
+ * Comparador cronológico de más nueva a más vieja (Descendente)
+ */
+function compararVentasMasNuevaAMasVieja(a, b) {
+    const tsA = obtenerTimestampVenta(a);
+    const tsB = obtenerTimestampVenta(b);
+
+    // Mayor timestamp va primero (más reciente primero)
+    if (tsB !== tsA) {
+        return tsB - tsA;
+    }
+
+    // Desempate por número de correlativo de venta (mayor correlativo es más nuevo)
+    const numA = extraerNumeroSecuencialVenta(a.id);
+    const numB = extraerNumeroSecuencialVenta(b.id);
+    if (numB !== numA) {
+        return numB - numA;
+    }
+
+    // Desempate alfanumérico secundario
+    return String(b.id || '').localeCompare(String(a.id || ''));
+}
+
+/**
+ * Ordena un listado de ventas según el campo y dirección configurados
+ */
+function ordenarListadoVentas(lista, campo = ordenHistorialCampo, direccion = ordenHistorialDireccion) {
+    if (!Array.isArray(lista)) return [];
+    const copia = [...lista];
+
+    copia.sort((a, b) => {
+        let resultado = 0;
+
+        if (campo === 'fecha') {
+            resultado = compararVentasMasNuevaAMasVieja(a, b);
+            return direccion === 'desc' ? resultado : -resultado;
+        } else if (campo === 'id') {
+            const numA = extraerNumeroSecuencialVenta(a.id);
+            const numB = extraerNumeroSecuencialVenta(b.id);
+            resultado = (numB !== numA) ? (numB - numA) : String(b.id || '').localeCompare(String(a.id || ''));
+            return direccion === 'desc' ? resultado : -resultado;
+        } else if (campo === 'total') {
+            const totA = Number(a.total || 0);
+            const totB = Number(b.total || 0);
+            resultado = totB - totA;
+            return direccion === 'desc' ? resultado : -resultado;
+        } else if (campo === 'cliente') {
+            const nomA = (a.clienteNombre || a.clienteId || '').toLowerCase();
+            const nomB = (b.clienteNombre || b.clienteId || '').toLowerCase();
+            resultado = nomA.localeCompare(nomB);
+            return direccion === 'asc' ? resultado : -resultado;
+        }
+
+        // Por defecto: Más nueva a más vieja
+        return compararVentasMasNuevaAMasVieja(a, b);
+    });
+
+    return copia;
+}
+
+/**
+ * Cambia el campo de ordenamiento al hacer clic en un encabezado de columna
+ */
+function cambiarOrdenHistorialVentas(campo) {
+    if (ordenHistorialCampo === campo) {
+        ordenHistorialDireccion = (ordenHistorialDireccion === 'desc') ? 'asc' : 'desc';
+    } else {
+        ordenHistorialCampo = campo;
+        ordenHistorialDireccion = (campo === 'cliente') ? 'asc' : 'desc';
+    }
+    renderizarHistorialVentasAdmin();
+}
+
+/**
+ * Cambia el ordenamiento desde el menú selector de opciones
+ */
+function cambiarOrdenHistorialVentasDesdeSelect(valor) {
+    if (!valor) return;
+    const [campo, direccion] = valor.split('-');
+    if (campo && direccion) {
+        ordenHistorialCampo = campo;
+        ordenHistorialDireccion = direccion;
+        renderizarHistorialVentasAdmin();
+    }
+}
+
+/**
+ * Actualiza los íconos de orden en la cabecera de la tabla
+ */
+function actualizarIconosOrdenHistorial() {
+    const iconos = {
+        'sort-icon-fecha': 'fecha',
+        'sort-icon-id': 'id',
+        'sort-icon-cliente': 'cliente',
+        'sort-icon-total': 'total'
+    };
+
+    Object.entries(iconos).forEach(([idElem, campo]) => {
+        const el = document.getElementById(idElem);
+        if (!el) return;
+        if (ordenHistorialCampo === campo) {
+            el.className = ordenHistorialDireccion === 'desc'
+                ? 'fas fa-arrow-down-wide-short'
+                : 'fas fa-arrow-up-short-wide';
+            el.style.color = 'var(--primary-accent)';
+            el.style.opacity = '1';
+        } else {
+            el.className = 'fas fa-sort';
+            el.style.color = '';
+            el.style.opacity = '0.4';
+        }
+    });
+
+    const selector = document.getElementById('historial-selector-orden');
+    if (selector) {
+        selector.value = `${ordenHistorialCampo}-${ordenHistorialDireccion}`;
+    }
+}
+
 /**
  * Obtiene la fecha actual en formato YYYY-MM-DD
  */
@@ -42,7 +270,13 @@ function cambiarSubTabHistorialVentas(subtab) {
  * Renderiza el módulo completo de Historial de Ventas para el Administrador
  */
 function renderizarHistorialVentasAdmin() {
-    const ventas = AppState.ventas || [];
+    // Filtrar ventas reales y válidas (excluyendo documentos de control o no-ventas)
+    const ventas = (AppState.ventas || []).filter(v => {
+        if (!v || !v.id) return false;
+        const idLower = String(v.id).trim().toLowerCase();
+        return idLower !== 'pagosporverificar' && idLower !== 'app_state' && idLower !== 'config' && idLower !== 'global';
+    });
+
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const fechaHoy = obtenerFechaHoyISO();
 
@@ -106,8 +340,8 @@ function renderizarHistorialVentasAdmin() {
                 </tr>
             `;
         } else {
-            // Ordenar de más reciente a más antigua
-            const ventasHoyOrdenadas = [...ventasHoy].reverse();
+            // Ordenar estrictamente de más reciente a más antigua (más nueva a más vieja)
+            const ventasHoyOrdenadas = [...ventasHoy].sort(compararVentasMasNuevaAMasVieja);
             tbodyHoy.innerHTML = ventasHoyOrdenadas.map((v, idx) => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
@@ -175,7 +409,7 @@ function renderizarHistorialVentasAdmin() {
         }
     }
 
-    // 4. Renderizar Tabla de Historial General (con filtros aplicados)
+    // 4. Renderizar Tabla de Historial General (con filtros y orden aplicados)
     const tbodyGeneral = document.getElementById('ventas-general-body');
     if (tbodyGeneral) {
         let filtradas = [...ventas];
@@ -230,7 +464,20 @@ function renderizarHistorialVentasAdmin() {
         }
 
         const countGeneralElem = document.getElementById('ventas-general-count');
-        if (countGeneralElem) countGeneralElem.textContent = `${filtradas.length} transacciones encontradas`;
+        if (countGeneralElem) {
+            const descripOrden = (ordenHistorialCampo === 'fecha' && ordenHistorialDireccion === 'desc')
+                ? 'De más nueva a más vieja'
+                : (ordenHistorialCampo === 'fecha' && ordenHistorialDireccion === 'asc')
+                ? 'De más vieja a más nueva'
+                : `${ordenHistorialCampo} (${ordenHistorialDireccion === 'desc' ? 'descendente' : 'ascendente'})`;
+
+            countGeneralElem.innerHTML = `
+                <span><strong>${filtradas.length}</strong> transacciones encontradas</span>
+                <span style="display:inline-flex; align-items:center; gap:5px; margin-left:8px; font-weight:600; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 10px; border-radius:12px; font-size:0.75rem;">
+                    <i class="fas ${ordenHistorialDireccion === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-arrow-up-short-wide'}"></i> Orden: ${descripOrden}
+                </span>
+            `;
+        }
 
         if (filtradas.length === 0) {
             tbodyGeneral.innerHTML = `
@@ -242,7 +489,8 @@ function renderizarHistorialVentasAdmin() {
                 </tr>
             `;
         } else {
-            const ordenadas = [...filtradas].reverse();
+            // Ordenar rigurosamente de la más nueva a la más vieja (o según orden activo)
+            const ordenadas = ordenarListadoVentas(filtradas, ordenHistorialCampo, ordenHistorialDireccion);
             tbodyGeneral.innerHTML = ordenadas.map(v => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
@@ -293,6 +541,9 @@ function renderizarHistorialVentasAdmin() {
                 `;
             }).join('');
         }
+
+        // Actualizar los iconos de orden en la cabecera
+        actualizarIconosOrdenHistorial();
     }
 }
 
@@ -677,6 +928,10 @@ async function confirmarVentaAdmin(ventaId) {
 window.subtabHistorialVentasActual = subtabHistorialVentasActual;
 window.cambiarSubTabHistorialVentas = cambiarSubTabHistorialVentas;
 window.renderizarHistorialVentasAdmin = renderizarHistorialVentasAdmin;
+window.compararVentasMasNuevaAMasVieja = compararVentasMasNuevaAMasVieja;
+window.ordenarListadoVentas = ordenarListadoVentas;
+window.cambiarOrdenHistorialVentas = cambiarOrdenHistorialVentas;
+window.cambiarOrdenHistorialVentasDesdeSelect = cambiarOrdenHistorialVentasDesdeSelect;
 window.filtrarHistorialGeneralPorCliente = filtrarHistorialGeneralPorCliente;
 window.filtrarHistorialGeneralPorFechas = filtrarHistorialGeneralPorFechas;
 window.filtrarHistorialGeneralPorMetodo = filtrarHistorialGeneralPorMetodo;

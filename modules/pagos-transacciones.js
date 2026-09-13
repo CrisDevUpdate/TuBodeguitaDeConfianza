@@ -938,7 +938,23 @@ function renderizarTransacciones(filtro = null) {
     const normalizado = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(texto) : (texto || '').trim().toUpperCase();
     const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
 
-    const lista = listadoTx.slice().reverse().filter(t => {
+    const lista = listadoTx.slice().sort((a, b) => {
+        const parseDate = (item) => {
+            if (!item) return 0;
+            if (typeof item.timestamp === 'number') return item.timestamp;
+            if (typeof item.createdAt === 'number') return item.createdAt;
+            if (typeof item.fecha === 'string') {
+                const s = item.fecha.trim().replace(' ', 'T');
+                const t = Date.parse(s);
+                if (!isNaN(t)) return t;
+            }
+            return 0;
+        };
+        const tsA = parseDate(a);
+        const tsB = parseDate(b);
+        if (tsB !== tsA) return tsB - tsA;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+    }).filter(t => {
         if (!normalizado) return true;
         const refNorm = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(t.referencia) : (t.referencia || '').trim().toUpperCase();
         const nomNorm = (obtenerNombreClienteTransaccion(t.clienteId) || '').toUpperCase();

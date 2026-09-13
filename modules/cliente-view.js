@@ -1681,7 +1681,7 @@ async function renderizarEstadoCuentaCliente() {
                             <i class="fas fa-box-open"></i>
                             <p>Aún no tienes compras o pedidos registrados en el sistema.</p>
                         </div>
-                    ` : ventasCliente.slice().reverse().map(v => {
+                    ` : (typeof window.ordenarListadoVentas === 'function' ? window.ordenarListadoVentas(ventasCliente, 'fecha', 'desc') : ventasCliente.slice().sort((a,b) => new Date(b.fecha || 0) - new Date(a.fecha || 0))).map(v => {
                         const totalUSD = Number(v.total || 0);
                         const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
                         const esCredito = v.tipo === 'Crédito';

@@ -1901,20 +1901,44 @@
                     </div>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span id="ventas-general-count" style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">0 registros</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;">
+                    <div id="ventas-general-count" style="font-size:0.85rem; color:var(--text-muted); font-weight:600; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <span>0 registros</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label for="historial-selector-orden" style="font-size:0.8rem; color:var(--text-muted); font-weight:600; margin:0; white-space:nowrap;">
+                            <i class="fas fa-arrow-down-short-wide"></i> Orden:
+                        </label>
+                        <select id="historial-selector-orden" class="form-control form-control-sm" style="font-size:0.82rem; padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:#fff; font-weight:600; color:var(--text-main);" onchange="cambiarOrdenHistorialVentasDesdeSelect(this.value)">
+                            <option value="fecha-desc" selected>Fecha: Más nueva a más vieja (Predeterminado)</option>
+                            <option value="fecha-asc">Fecha: Más vieja a más nueva</option>
+                            <option value="id-desc">ID Venta: Mayor correlativo primero</option>
+                            <option value="id-asc">ID Venta: Menor correlativo primero</option>
+                            <option value="total-desc">Monto: Mayor a menor ($)</option>
+                            <option value="total-asc">Monto: Menor a mayor ($)</option>
+                            <option value="cliente-asc">Cliente: A - Z</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
-                                <th>ID Venta</th>
-                                <th>Fecha</th>
-                                <th>Cliente</th>
+                                <th onclick="cambiarOrdenHistorialVentas('id')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por ID Venta">
+                                    ID Venta <i id="sort-icon-id" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
+                                <th onclick="cambiarOrdenHistorialVentas('fecha')" style="cursor:pointer; user-select:none;" title="Clic para alternar orden de fecha">
+                                    Fecha <i id="sort-icon-fecha" class="fas fa-arrow-down-wide-short" style="font-size:0.82rem; color:var(--primary-accent); margin-left:4px;"></i>
+                                </th>
+                                <th onclick="cambiarOrdenHistorialVentas('cliente')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por Cliente">
+                                    Cliente <i id="sort-icon-cliente" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
                                 <th>Cant. Artículos</th>
                                 <th>Método</th>
-                                <th class="num">Total ($)</th>
+                                <th class="num" onclick="cambiarOrdenHistorialVentas('total')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por Monto Total">
+                                    Total ($) <i id="sort-icon-total" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
                                 <th class="num">Total (Bs)</th>
                                 <th style="text-align:center;">Detalle</th>
                             </tr>

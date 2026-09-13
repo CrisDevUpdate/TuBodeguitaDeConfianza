@@ -742,7 +742,13 @@ window.InventoryApp = window.InventoryApp || {};
             }
             if (snapVentas) {
                 if (!snapVentas.empty) {
-                    AppState.ventas = snapVentas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    AppState.ventas = snapVentas.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                    // Limpieza reactiva de documento fantasma en ventas si existiera
+                    try {
+                        db.collection(COLLECTIONS.VENTAS).doc('PagosPorVerificar').delete().catch(() => {});
+                    } catch (e) {}
                 }
             }
             if (snapAbonos) {
@@ -1221,7 +1227,9 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
-                const newVentas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const newVentas = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
                 const hash = calcularHashColeccion(newVentas);
                 if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
                     lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
@@ -2234,17 +2242,12 @@ window.InventoryApp = window.InventoryApp || {};
                     }, { merge: true });
                 } catch (appErr) {}
 
-                // 4. Documento en ventas/PagosPorVerificar
+                // Asegurar que no persista documento PagosPorVerificar dentro de la colección ventas
                 try {
-                    await db.collection('ventas').doc('PagosPorVerificar').set({
-                        ...payload,
-                        ultimoPago: payload,
-                        pagos: unionField,
-                        updatedAt: payload.updatedAt
-                    }, { merge: true });
-                } catch (vErr) {}
+                    await db.collection('ventas').doc('PagosPorVerificar').delete();
+                } catch (vDelErr) {}
 
-                // 5. Documento en transacciones/PagosPorVerificar
+                // 4. Documento en transacciones/PagosPorVerificar
                 try {
                     await db.collection('transacciones').doc('PagosPorVerificar').set({
                         ...payload,
@@ -2320,7 +2323,7 @@ window.InventoryApp = window.InventoryApp || {};
                 } catch (e) {}
 
                 try {
-                    await db.collection('ventas').doc('PagosPorVerificar').set(updateObj, { merge: true });
+                    await db.collection('ventas').doc('PagosPorVerificar').delete();
                 } catch (e) {}
             }
             return true;
