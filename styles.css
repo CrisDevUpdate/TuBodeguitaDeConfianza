@@ -65,6 +65,25 @@ header {
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
 }
 
+@media (max-width: 768px) {
+    header {
+        padding: 12px 10px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        margin-bottom: 12px;
+        border-radius: 12px;
+    }
+    header h1 {
+        font-size: 1.12rem !important;
+        text-align: center;
+    }
+    .hero-calculator-card {
+        padding: 10px !important;
+        border-radius: 10px;
+    }
+}
+
 @media (min-width: 769px) {
     header {
         padding: 20px 25px;
@@ -376,16 +395,37 @@ header h1 {
 }
 
 /* 2. SMARTPHONES Y TABLETS (< 1024px):
-   - Pestañas superiores OCULTAS
-   - Barra inferior móvil FIJA Y ACTIVA */
+   - Pestañas superiores EN CHIPS HORIZONTALES FLUIDOS
+   - Barra inferior móvil FIJA, TÁCTIL Y AUTO-AJUSTABLE */
 @media screen and (max-width: 1023px) {
     .nav-tabs {
+        display: flex !important;
+        visibility: visible !important;
+        height: auto !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 4px 2px 8px 2px !important;
+        gap: 6px !important;
+        margin-bottom: 12px !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .nav-tabs::-webkit-scrollbar {
         display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
+    }
+
+    .nav-btn {
+        flex: 0 0 auto !important;
+        padding: 7px 12px !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap !important;
+        min-height: 36px !important;
+        border-radius: 20px !important;
     }
 
     .bottom-nav-bar {
@@ -399,34 +439,44 @@ header h1 {
         left: 0 !important;
         right: 0 !important;
         width: 100% !important;
+        max-width: 100vw !important;
         z-index: 9999 !important;
         background: rgba(15, 23, 42, 0.98) !important;
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
-        padding: 0.35rem 0.5rem calc(0.5rem + var(--safe-bottom)) 0.5rem !important;
-        justify-content: space-around !important;
-        align-items: center !important;
+        padding: 5px 6px calc(6px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) 6px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35) !important;
         box-sizing: border-box !important;
+        gap: 4px !important;
+    }
+
+    .bottom-nav-bar::-webkit-scrollbar {
+        display: none !important;
     }
 }
 
 .bottom-nav-item {
     all: unset;
-    flex: 1;
+    flex: 0 0 auto !important;
+    min-width: 58px !important;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
     color: #94a3b8 !important;
-    padding: 6px 2px !important;
-    min-height: 48px;
-    font-size: 0.72rem !important;
+    padding: 4px 6px !important;
+    min-height: 44px;
+    font-size: 0.68rem !important;
     font-weight: 600 !important;
     cursor: pointer;
     border-radius: 8px;
@@ -642,8 +692,21 @@ input:focus, select:focus, textarea:focus {
 
 table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
-    min-width: 580px; /* Asegura legibilidad de columnas en móviles */
+}
+
+.table-responsive > table,
+.audit-table-responsive > table {
+    min-width: 520px; /* Asegura legibilidad de columnas con scroll horizontal táctil dentro del contenedor */
+}
+
+/* Tablas compactas que caben completas sin scroll horizontal forzado */
+#pos-carrito-table,
+.cart-table,
+#modal-cliente-carrito table,
+#combo-items-table {
+    min-width: 100% !important;
 }
 
 th, td {
@@ -652,6 +715,21 @@ th, td {
     border-bottom: 1px solid var(--border-light);
     font-size: 0.9rem;
     vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+    th, td {
+        padding: 8px 10px;
+        font-size: 0.82rem;
+    }
+    th {
+        font-size: 0.74rem;
+        padding: 8px 10px;
+    }
+    .inventory-description {
+        min-width: 150px;
+        max-width: 220px;
+    }
 }
 
 th {
@@ -1263,7 +1341,7 @@ th {
     }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 768px) {
     .product-form-top {
         grid-template-columns: 1fr;
     }
@@ -1271,6 +1349,7 @@ th {
     .product-form-actions,
     .product-form-actions .btn {
         width: 100%;
+        min-width: 0 !important;
     }
 }
 
@@ -1878,6 +1957,15 @@ th {
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
+}
+@media (max-width: 768px) {
+    .user-session-badge {
+        display: flex;
+        width: 100%;
+        box-sizing: border-box;
+        justify-content: space-between;
+        padding: 6px 8px;
+    }
 }
 .user-session-badge:hover {
     background: rgba(255, 255, 255, 0.2);
@@ -3339,14 +3427,20 @@ body.dark-mode .cliente-combos-carousel-wrapper {
 @media (max-width: 900px) {
     .pos-grid-container {
         grid-template-columns: 1fr;
+        gap: 14px;
+        width: 100%;
     }
     .pos-products-panel,
     .pos-cart-panel {
         max-height: none;
+        position: static !important;
+        padding: 12px 10px;
+        width: 100%;
+        box-sizing: border-box;
     }
     .pos-products-scrollable,
     .pos-cart-scrollable {
-        max-height: 380px;
+        max-height: 400px;
     }
 }
 
