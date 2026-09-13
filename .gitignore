@@ -4,3 +4,9 @@ bun.lock
 bun.lockb
 .DS_Store
 *.zip
+
+# Project exclude paths
+/android/.gradle/
+/android/app/build/
+/android/app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/
+/android/build/

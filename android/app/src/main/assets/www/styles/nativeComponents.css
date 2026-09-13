@@ -1,0 +1,447 @@
+/**
+ * /styles/nativeComponents.css
+ * Universal Native Components: Card-Lists, Hero Wallets, Status Badges & Action Drawers
+ * Tu Bodeguita de Confianza - PWA Architecture
+ */
+
+/* ==========================================================================
+   1. HERO WALLET & KPI CARDS (Billeteras Digitales y Estados Clave)
+   ========================================================================== */
+.hero-wallet-card,
+.native-hero-card {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-xl, 20px);
+  padding: 20px 18px;
+  color: #ffffff;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.35), 0 4px 12px -2px rgba(15, 23, 42, 0.2);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  margin-bottom: 16px;
+}
+
+/* Variante Deuda Activa (Índigo Profundo OLED con Borde Glow) */
+.hero-wallet-card.wallet-deuda,
+.native-hero-card.hero-debt {
+  background: linear-gradient(135deg, #090d16 0%, #1e1b4b 50%, #312e81 100%);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+
+/* Variante Solvente (Esmeralda Prosperidad con Borde Suave) */
+.hero-wallet-card.wallet-solvente,
+.native-hero-card.hero-solvent {
+  background: linear-gradient(135deg, #042f2e 0%, #065f46 50%, #047857 100%);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+/* Destello sutil de profundidad óptica */
+.hero-wallet-card::after,
+.native-hero-card::after {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-wallet-top,
+.wallet-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.hero-chip-badge,
+.wallet-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.hero-status-pill,
+.wallet-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill, 9999px);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+}
+
+.hero-amount-block,
+.wallet-balance-block {
+  margin-bottom: 18px;
+}
+
+.hero-label-sub,
+.wallet-balance-title {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 4px 0;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.hero-primary-val,
+.wallet-balance-amount {
+  font-size: 2.2rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.hero-primary-val .currency,
+.wallet-balance-amount .wallet-balance-currency {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-secondary-val,
+.wallet-balance-ves {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 5px;
+  display: block;
+  font-weight: 500;
+}
+
+/* Botón CTA Full Width integrado */
+.hero-wallet-cta,
+.wallet-cta-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  background: #ffffff;
+  color: #1e1b4b;
+  border: none;
+  border-radius: var(--radius-md, 14px);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.hero-wallet-card.wallet-solvente .wallet-cta-btn,
+.native-hero-card.hero-solvent .hero-wallet-cta {
+  color: #065f46;
+}
+
+.hero-wallet-cta:active,
+.wallet-cta-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* ==========================================================================
+   2. COMPONENTE UNIVERSAL "CARD-LIST" (Cero Scroll Horizontal)
+   ========================================================================== */
+.card-list,
+.cards-list-wrapper,
+.mobile-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-list-item,
+.transaction-card,
+.mobile-card-row {
+  width: 100%;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+  box-sizing: border-box;
+  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.card-list-item:active,
+.transaction-card:active,
+.mobile-card-row:active {
+  background-color: var(--bg-canvas-subtle, #f8fafc);
+  transform: scale(0.99);
+}
+
+/* Bloque Izquierdo: Icono, Título/Referencia, Metadata */
+.card-list-left,
+.tx-left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  flex: 1;
+}
+
+.card-list-icon,
+.tx-icon-pill {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Iconos de Método / Operación */
+.icon-sale, .tx-icon-sale { background: #eff6ff; color: #2563eb; }
+.icon-credit, .tx-icon-credit { background: #fef3c7; color: #d97706; }
+.icon-payment, .tx-icon-pago { background: #f0fdf4; color: #16a34a; }
+.icon-ves, .tx-icon-ves { background: #e0f2fe; color: #0284c7; }
+.icon-audit { background: #ede9fe; color: #7c3aed; }
+
+[data-theme="dark"] .icon-sale, [data-theme="dark"] .tx-icon-sale { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
+[data-theme="dark"] .icon-credit, [data-theme="dark"] .tx-icon-credit { background: rgba(217, 119, 6, 0.2); color: #fbbf24; }
+[data-theme="dark"] .icon-payment, [data-theme="dark"] .tx-icon-pago { background: rgba(22, 163, 74, 0.2); color: #4ade80; }
+[data-theme="dark"] .icon-ves, [data-theme="dark"] .tx-icon-ves { background: rgba(2, 132, 199, 0.2); color: #38bdf8; }
+[data-theme="dark"] .icon-audit { background: rgba(124, 58, 237, 0.2); color: #c084fc; }
+
+.card-list-meta,
+.tx-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.card-list-ref,
+.tx-ref {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-list-tag,
+.tx-type-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-canvas-subtle, #f1f5f9);
+  padding: 1px 7px;
+  border-radius: var(--radius-xs, 6px);
+}
+
+.card-list-desc,
+.tx-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #475569);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-list-date,
+.tx-date {
+  font-size: 0.7rem;
+  color: var(--text-muted, #94a3b8);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Bloque Derecho: Montos Bimoneda & Badges */
+.card-list-right,
+.tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.card-list-amount,
+.tx-amount {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.card-list-amount-sub,
+.tx-amount-ves {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* Badges Universales de Estado */
+.status-badge,
+.tx-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 9999px);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.status-badge.approved,
+.badge-approved,
+.badge-settled {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-badge.pending,
+.badge-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-badge.rejected,
+.badge-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .status-badge.approved,
+[data-theme="dark"] .badge-approved,
+[data-theme="dark"] .badge-settled {
+  background: rgba(22, 163, 74, 0.22);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .status-badge.pending,
+[data-theme="dark"] .badge-pending {
+  background: rgba(217, 119, 6, 0.22);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .status-badge.rejected,
+[data-theme="dark"] .badge-rejected {
+  background: rgba(239, 68, 68, 0.22);
+  color: #f87171;
+}
+
+/* Estado Vacío de Tarjetas */
+.card-list-empty,
+.empty-cards-state {
+  width: 100%;
+  background: var(--bg-card, #ffffff);
+  border: 1px dashed var(--border-color, #cbd5e1);
+  border-radius: var(--radius-lg, 16px);
+  padding: 32px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.card-list-empty i,
+.empty-cards-state i {
+  font-size: 2.2rem;
+  color: var(--text-light, #94a3b8);
+}
+
+.card-list-empty p,
+.empty-cards-state p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  max-width: 290px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   3. CABECERAS DE SECCIÓN CON ACCIONES RÁPIDAS
+   ========================================================================== */
+.native-section-header,
+.customer-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+  margin-bottom: 8px;
+}
+
+.native-section-title,
+.customer-section-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.native-section-badge,
+.customer-section-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--bg-canvas-subtle, #f1f5f9);
+  color: var(--text-secondary, #475569);
+}
+
+.native-section-btn,
+.customer-section-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border-radius: var(--radius-sm, 10px);
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: var(--accent-primary, #2563eb);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.native-section-btn:active,
+.customer-section-action-btn:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}

@@ -1,0 +1,623 @@
+/* core/persistence.js - Persistencia Cloud-First: Firestore como Fuente Única de Verdad */
+window.InventoryApp = window.InventoryApp || {};
+
+(function () {
+    // Clave exclusiva para persistencia de la sesión del usuario (para futuros inicios de sesión)
+    const SESSION_KEY = 'bodeguita_usuario_sesion';
+    const LEGACY_STORAGE_KEY = 'inventoryapp.beta.v1.state';
+
+    const LLAVES_OBSOLETAS_A_PURGAR = [
+        LEGACY_STORAGE_KEY,
+        'inventoryapp.state',
+        'bodeguita_productos',
+        'bodeguita_clientes',
+        'bodeguita_ventas',
+        'bodeguita_abonos',
+        'bodeguita_transacciones',
+        'bodeguita_auditorias',
+        'bodeguita_conteos',
+        'bodeguita_eliminaciones',
+        'bodeguita_clientes_eliminados',
+        'bodeguita_usuarios'
+    ];
+
+    /**
+     * Purga de inmediato cualquier residuo de entidades o transacciones de localStorage.
+     * En localStorage SOLO se permite la sesión del usuario y el caché de imágenes de productos (ImageCache).
+     */
+    function purgarResiduosEntidadesLocalStorage() {
+        try {
+            LLAVES_OBSOLETAS_A_PURGAR.forEach(k => {
+                if (localStorage.getItem(k) !== null) {
+                    localStorage.removeItem(k);
+                }
+            });
+        } catch (e) {
+            console.warn('[Persistence] Aviso al purgar entidades de localStorage:', e);
+        }
+    }
+
+    function asegurarUsuarioAdminInicial() {
+        if (!AppState.premioMes || typeof AppState.premioMes !== 'object') {
+            AppState.premioMes = {
+                nombre: 'Cafetera Espresso Digital 1.5L',
+                imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
+                puntosRequeridos: 600,
+                puntosPorDolar: 1,
+                costoRealPremio: 40.00,
+                gananciaNetaObjetivo: 60.00,
+                poolClientesEstimado: 10,
+                pointsPerProfitDollar: 10,
+                temporadaActiva: true,
+                modalidad: 'ABIERTA_HASTA_GANADOR',
+                vigenciaTexto: 'Activo hasta tener ganador o cierre manual (Acumulativo)',
+                estado: 'ACTIVO',
+                ganadorActual: null,
+                descripcion: 'Gran premio en juego para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!'
+            };
+        }
+        if (!Array.isArray(AppState.canjesPremios)) {
+            AppState.canjesPremios = [];
+        }
+
+        if (!Array.isArray(AppState.usuarios)) {
+            AppState.usuarios = [];
+        }
+
+        // 1. Garantizar existencia y permisos totales del SuperAdmin
+        let superAdmin = AppState.usuarios.find(u => 
+            (u.id || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.cedula || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.nombre || '').toUpperCase() === 'SUPERADMIN' ||
+            (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com'
+        );
+
+        // Hash SHA-256 criptográfico para SuperAdmin
+        const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+
+        if (!superAdmin) {
+            superAdmin = {
+                id: 'SuperAdmin',
+                cedula: 'SuperAdmin',
+                nombre: 'SuperAdmin',
+                telefono: '0412-0000000',
+                email: 'superadmin@tubodeguita.com',
+                password: HASH_SUPERADMIN,
+                rol: 'admin',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            AppState.usuarios.push(superAdmin);
+        } else {
+            superAdmin.password = HASH_SUPERADMIN;
+            superAdmin.rol = 'admin';
+            superAdmin.estado = 'ACTIVO';
+        }
+    }
+
+    /**
+     * Persiste ÚNICAMENTE la sesión del usuario para futuros inicios de sesión.
+     * Ningún dato de negocio (ventas, abonos, productos, clientes, transacciones) se almacena en localStorage.
+     */
+    function guardar(force = false) {
+        try {
+            // 1. Persistir o actualizar la sesión del usuario activo
+            if (AppState.usuarioActual) {
+                const esSuper = typeof esUsuarioAdmin === 'function' 
+                    ? esUsuarioAdmin(AppState.usuarioActual)
+                    : ((AppState.usuarioActual.id || '').toUpperCase() === 'SUPERADMIN' || (AppState.usuarioActual.cedula || '').toUpperCase() === 'SUPERADMIN');
+                
+                const sesionMinima = {
+                    id: AppState.usuarioActual.id || AppState.usuarioActual.cedula,
+                    cedula: AppState.usuarioActual.cedula || AppState.usuarioActual.id,
+                    nombre: AppState.usuarioActual.nombre || '',
+                    telefono: AppState.usuarioActual.telefono || '',
+                    email: AppState.usuarioActual.email || '',
+                    rol: esSuper ? 'admin' : (AppState.usuarioActual.rol || 'cliente'),
+                    estado: esSuper ? 'ACTIVO' : (AppState.usuarioActual.estado || 'PENDIENTE_APROBACION'),
+                    password: AppState.usuarioActual.password || '',
+                    avatar: AppState.usuarioActual.avatar || ''
+                };
+                localStorage.setItem(SESSION_KEY, JSON.stringify(sesionMinima));
+            } else {
+                localStorage.removeItem(SESSION_KEY);
+            }
+
+            // 2. Persistir caché local de contingencia para catálogo y premios (Carga Inmediata Offline)
+            if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
+                } catch (e) {}
+            }
+            if (AppState.premioMes) {
+                try {
+                    localStorage.setItem('bodeguita_cache_premio', JSON.stringify(AppState.premioMes));
+                } catch (e) {}
+            }
+            if (Array.isArray(AppState.cuentasBancarias) && AppState.cuentasBancarias.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
+                } catch (e) {}
+            }
+
+            // 3. Purgar cualquier llave obsoleta residual
+            purgarResiduosEntidadesLocalStorage();
+        } catch (e) {
+            console.warn('[Persistence] Error guardando sesión en localStorage:', e);
+        }
+        return true;
+    }
+
+    /**
+     * Carga inicial:
+     * - Restaura ÚNICAMENTE la sesión del usuario para evitar requerir login repetitivo.
+     * - Inicializa el estado de negocio en memoria limpio.
+     * - Todas las colecciones (productos, clientes, ventas, abonos, transacciones, etc.)
+     *   se alimentan y sincronizan en tiempo real directamente desde Firebase Firestore.
+     */
+    function cargar() {
+        // 1. Purgar cualquier dato residual previo de entidades en localStorage
+        purgarResiduosEntidadesLocalStorage();
+
+        // 2. Restaurar únicamente la sesión del usuario guardado
+        try {
+            const sesionGuardada = localStorage.getItem(SESSION_KEY);
+            if (sesionGuardada) {
+                const usuarioSesion = JSON.parse(sesionGuardada);
+                if (usuarioSesion && (usuarioSesion.cedula || usuarioSesion.id)) {
+                    const esSuper = typeof esUsuarioAdmin === 'function' 
+                        ? esUsuarioAdmin(usuarioSesion) 
+                        : ((usuarioSesion.id || '').toUpperCase() === 'SUPERADMIN' || (usuarioSesion.cedula || '').toUpperCase() === 'SUPERADMIN');
+                    if (esSuper) {
+                        usuarioSesion.rol = 'admin';
+                        usuarioSesion.estado = 'ACTIVO';
+                    }
+                    AppState.usuarioActual = usuarioSesion;
+                }
+            } else {
+                // Compatibilidad de transición: si había una sesión en el storage anterior, extraer solo el usuario y borrar el resto
+                const backupAnterior = localStorage.getItem(LEGACY_STORAGE_KEY);
+                if (backupAnterior) {
+                    try {
+                        const parsed = JSON.parse(backupAnterior);
+                        if (parsed && parsed.usuarioActual) {
+                            AppState.usuarioActual = parsed.usuarioActual;
+                            localStorage.setItem(SESSION_KEY, JSON.stringify(parsed.usuarioActual));
+                        }
+                    } catch {}
+                    localStorage.removeItem(LEGACY_STORAGE_KEY);
+                }
+            }
+        } catch (e) {
+            console.warn('[Persistence] Error restaurando sesión desde localStorage:', e);
+        }
+
+        // 3. Garantizar SuperAdmin base
+        asegurarUsuarioAdminInicial();
+
+        // Si el usuario en sesión no es SuperAdmin, asegurar su presencia en AppState.usuarios
+        if (AppState.usuarioActual && AppState.usuarioActual.id !== 'SuperAdmin') {
+            const existe = (AppState.usuarios || []).find(u => (u.cedula || u.id) === (AppState.usuarioActual.cedula || AppState.usuarioActual.id));
+            if (!existe) {
+                AppState.usuarios.push(AppState.usuarioActual);
+            }
+        }
+
+        // 4. Restaurar de inmediato el caché local de productos y premio si existen para renderizado instantáneo
+        try {
+            const cacheProds = localStorage.getItem('bodeguita_cache_productos');
+            if (cacheProds) {
+                const parsedProds = JSON.parse(cacheProds);
+                if (Array.isArray(parsedProds) && parsedProds.length > 0) {
+                    AppState.productos = parsedProds;
+                }
+            }
+            const cachePremio = localStorage.getItem('bodeguita_cache_premio');
+            if (cachePremio) {
+                const parsedPremio = JSON.parse(cachePremio);
+                if (parsedPremio && typeof parsedPremio === 'object') {
+                    AppState.premioMes = { ...AppState.premioMes, ...parsedPremio };
+                }
+            }
+            const cacheCuentas = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
+            if (cacheCuentas) {
+                const parsedCuentas = JSON.parse(cacheCuentas);
+                if (Array.isArray(parsedCuentas) && parsedCuentas.length > 0) {
+                    AppState.cuentasBancarias = parsedCuentas;
+                }
+            }
+        } catch (e) {
+            console.warn('[Persistence] Aviso al restaurar caché rápido local:', e);
+        }
+
+        // 5. El resto de las entidades se preparan en memoria para ser alimentadas por Firestore
+        AppState.productos = AppState.productos || [];
+        AppState.clientes = AppState.clientes || [];
+        AppState.ventas = AppState.ventas || [];
+        AppState.abonos = AppState.abonos || [];
+        AppState.pagosPorVerificar = AppState.pagosPorVerificar || [];
+        AppState.transacciones = AppState.transacciones || [];
+        AppState.carrito = [];
+        AppState.clienteSeleccionadoId = null;
+        AppState.conteosFisicos = {};
+        AppState.auditorias = AppState.auditorias || [];
+        AppState.eliminaciones = AppState.eliminaciones || [];
+        AppState.clientesEliminados = AppState.clientesEliminados || [];
+        AppState.canjesPremios = AppState.canjesPremios || [];
+
+        return true;
+    }
+
+    function iniciar() {
+        // 1. Restaurar sesión de usuario y purgar residuos locales de negocio
+        cargar();
+        
+        // 2. Inicializar conexión directa a Firebase Firestore (Fuente Única de Verdad)
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.init === 'function') {
+            window.InventoryApp.Firebase.init().then(() => {
+                console.log('[Persistence] Firebase conectado y datos sincronizados desde Firestore.');
+            }).catch(err => {
+                console.warn('[Persistence] Aviso al inicializar Firebase:', err);
+            });
+        }
+
+        return true;
+    }
+
+    async function limpiarBaseDeDatosVirgen() {
+        // 1. Limpiar estado en memoria
+        AppState.productos = [];
+        AppState.clientes = [];
+        AppState.ventas = [];
+        AppState.abonos = [];
+        AppState.pagosPorVerificar = [];
+        AppState.transacciones = [];
+        AppState.carrito = [];
+        AppState.clienteSeleccionadoId = null;
+        AppState.productoImagenTemporal = '';
+        AppState.conteosFisicos = {};
+        AppState.auditorias = [];
+        AppState.eliminaciones = [];
+        AppState.clientesEliminados = [];
+        AppState.nextProductSequence = 1;
+        AppState.canjesPremios = [];
+        
+        // 2. SuperAdmin intacto con credenciales maestras
+        asegurarUsuarioAdminInicial();
+        AppState.usuarioActual = null;
+
+        // 3. Limpiar sesión y entidades de localStorage
+        localStorage.removeItem(SESSION_KEY);
+        purgarResiduosEntidadesLocalStorage();
+
+        // 4. Limpiar en Firestore si está conectado
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.purgarBaseDeDatosCompleta === 'function') {
+            await window.InventoryApp.Firebase.purgarBaseDeDatosCompleta();
+        }
+
+        return true;
+    }
+
+    function limpiarTodo() {
+        localStorage.removeItem(SESSION_KEY);
+        purgarResiduosEntidadesLocalStorage();
+    }
+
+    /**
+     * Exporta toda la base de datos a un archivo JSON descargable
+     */
+    function exportarRespaldoJSON() {
+        const datos = {};
+        claves.forEach(k => { datos[k] = AppState[k]; });
+        datos.fechaExportacion = new Date().toISOString();
+        datos.version = window.InventoryApp.version || '4.0.0';
+
+        const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bodeguita-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Importa y restaura base de datos desde un archivo JSON
+     */
+    function importarRespaldoJSON(archivo) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const datos = JSON.parse(e.target.result);
+                    if (!datos || typeof datos !== 'object') throw new Error('Formato de archivo inválido');
+
+                    claves.forEach(clave => {
+                        if (datos.hasOwnProperty(clave)) {
+                            AppState[clave] = datos[clave];
+                        }
+                    });
+
+                    guardar(true);
+
+                    // Sincronizar hacia Firebase
+                    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.syncToCloud === 'function') {
+                        await window.InventoryApp.Firebase.syncToCloud();
+                    }
+
+                    resolve(true);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsText(archivo);
+        });
+    }
+
+    /**
+     * Exporta toda la base de datos completa a un archivo máster Excel (.xlsx) multihajas
+     */
+    function exportarMasterExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert('La librería SheetJS (XLSX) no está disponible en este momento.');
+            return;
+        }
+
+        try {
+            const wb = XLSX.utils.book_new();
+
+            // 1. Hoja de Usuarios
+            const dataUsuarios = (AppState.usuarios || []).map(u => ({
+                'Cédula / RIF': u.cedula || u.id || '',
+                'Nombre y Apellido / Razón Social': u.nombre || '',
+                'Teléfono': u.telefono || '',
+                'Correo Electrónico': u.email || '',
+                'Rol': u.rol || 'cliente',
+                'Estado': u.estado || 'PENDIENTE_APROBACION',
+                'Puntos Acumulados': Number(u.puntosAcumulados || 0),
+                'Puntos Canjeados': Number(u.puntosCanjeados || 0),
+                'Fecha de Registro': u.fechaRegistro || ''
+            }));
+            const wsUsuarios = XLSX.utils.json_to_sheet(dataUsuarios.length ? dataUsuarios : [{ 'Cédula / RIF': '', 'Nombre y Apellido / Razón Social': '', 'Teléfono': '', 'Correo Electrónico': '', 'Rol': '', 'Estado': '', 'Puntos Acumulados': 0, 'Puntos Canjeados': 0, 'Fecha de Registro': '' }]);
+            XLSX.utils.book_append_sheet(wb, wsUsuarios, 'Usuarios');
+
+            // 2. Hoja de Premio del Mes & Gamificación
+            const pm = AppState.premioMes || {};
+            const dataPremio = [{
+                'Nombre Premio': pm.nombre || '',
+                'URL Imagen': pm.imagen || '',
+                'Puntos Requeridos': Number(pm.puntosRequeridos || 200),
+                'Puntos por Dólar': Number(pm.puntosPorDolar || 1),
+                'Descripción': pm.descripcion || ''
+            }];
+            const wsPremio = XLSX.utils.json_to_sheet(dataPremio);
+            XLSX.utils.book_append_sheet(wb, wsPremio, 'PremioDelMes');
+
+            // 3. Hoja de Canjes Realizados
+            const dataCanjes = (AppState.canjesPremios || []).map(c => ({
+                'ID Canje': c.id || '',
+                'Cédula Cliente': c.clienteCedula || '',
+                'Nombre Cliente': c.clienteNombre || '',
+                'Premio': c.premioNombre || '',
+                'Puntos Canjeados': Number(c.puntos || 0),
+                'Fecha Canje': c.fecha || '',
+                'Estado Entrega': c.estado || 'ENTREGADO'
+            }));
+            const wsCanjes = XLSX.utils.json_to_sheet(dataCanjes.length ? dataCanjes : [{ 'ID Canje': '', 'Cédula Cliente': '', 'Nombre Cliente': '', 'Premio': '', 'Puntos Canjeados': 0, 'Fecha Canje': '', 'Estado Entrega': '' }]);
+            XLSX.utils.book_append_sheet(wb, wsCanjes, 'Canjes');
+
+            // 4. Hoja de Productos
+            const dataProductos = (AppState.productos || []).map(p => ({
+                'ID': p.id || '',
+                'Código': p.codigo || '',
+                'Nombre': p.nombre || '',
+                'Categoría': p.categoria || '',
+                'Costo ($)': Number(p.costo || 0),
+                'Precio ($)': Number(p.precio || 0),
+                'Stock': Number(p.stock || 0)
+            }));
+            const wsProductos = XLSX.utils.json_to_sheet(dataProductos.length ? dataProductos : [{ 'ID': '', 'Código': '', 'Nombre': '', 'Categoría': '', 'Costo ($)': 0, 'Precio ($)': 0, 'Stock': 0 }]);
+            XLSX.utils.book_append_sheet(wb, wsProductos, 'Productos');
+
+            // 3. Hoja de Clientes
+            const dataClientes = (AppState.clientes || []).map(c => ({
+                'ID / Cédula': c.id || '',
+                'Nombre': c.nombre || '',
+                'Teléfono': c.telefono || ''
+            }));
+            const wsClientes = XLSX.utils.json_to_sheet(dataClientes.length ? dataClientes : [{ 'ID / Cédula': '', 'Nombre': '', 'Teléfono': '' }]);
+            XLSX.utils.book_append_sheet(wb, wsClientes, 'Clientes');
+
+            // 4. Hoja de Ventas
+            const dataVentas = (AppState.ventas || []).map(v => ({
+                'ID Venta': v.id || '',
+                'Cliente ID': v.clienteId || '',
+                'Fecha': v.fecha || '',
+                'Total ($)': Number(v.total || 0),
+                'Condición Pago': v.tipo || 'Contado',
+                'Items': JSON.stringify(v.items || [])
+            }));
+            const wsVentas = XLSX.utils.json_to_sheet(dataVentas.length ? dataVentas : [{ 'ID Venta': '', 'Cliente ID': '', 'Fecha': '', 'Total ($)': 0, 'Condición Pago': '', 'Items': '' }]);
+            XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas');
+
+            // 5. Hoja de Transacciones / Referencias
+            const dataTx = (AppState.transacciones || []).map(t => ({
+                'Referencia': t.referencia || '',
+                'Cliente': t.cliente || '',
+                'Monto': Number(t.monto || 0),
+                'Moneda': t.moneda || 'VES',
+                'Fecha': t.fecha || '',
+                'Estado': t.estado || ''
+            }));
+            const wsTx = XLSX.utils.json_to_sheet(dataTx.length ? dataTx : [{ 'Referencia': '', 'Cliente': '', 'Monto': 0, 'Moneda': '', 'Fecha': '', 'Estado': '' }]);
+            XLSX.utils.book_append_sheet(wb, wsTx, 'Transacciones');
+
+            // 6. Hoja de Auditorías
+            const dataAud = (AppState.auditorias || []).map(a => ({
+                'ID': a.id || '',
+                'Fecha': a.fecha || '',
+                'Responsable': a.responsable || '',
+                'Total Items': a.totalItems || 0,
+                'Items con Diferencia': a.totalDiferencias || 0
+            }));
+            const wsAud = XLSX.utils.json_to_sheet(dataAud.length ? dataAud : [{ 'ID': '', 'Fecha': '', 'Responsable': '', 'Total Items': 0, 'Items con Diferencia': 0 }]);
+            XLSX.utils.book_append_sheet(wb, wsAud, 'Auditorias');
+
+            const nombreArchivo = `TuBodeguita_MasterBackup_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, nombreArchivo);
+            return true;
+        } catch (e) {
+            console.error('Error al exportar máster Excel:', e);
+            alert('Error al generar el archivo máster Excel: ' + e.message);
+            return false;
+        }
+    }
+
+    /**
+     * Importa y sincroniza base de datos completa desde un archivo máster Excel (.xlsx)
+     */
+    function importarMasterExcel(archivo) {
+        return new Promise((resolve, reject) => {
+            if (typeof XLSX === 'undefined') {
+                return reject(new Error('Librería XLSX no disponible.'));
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // 1. Procesar Usuarios
+                    if (workbook.SheetNames.includes('Usuarios')) {
+                        const sheet = workbook.Sheets['Usuarios'];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        if (json.length > 0) {
+                            const usuariosImportados = json.map(row => ({
+                                id: String(row['Cédula / RIF'] || row['cedula'] || row['id'] || '').trim(),
+                                cedula: String(row['Cédula / RIF'] || row['cedula'] || row['id'] || '').trim(),
+                                nombre: String(row['Nombre y Apellido / Razón Social'] || row['nombre'] || '').trim(),
+                                telefono: String(row['Teléfono'] || row['telefono'] || '').trim(),
+                                email: String(row['Correo Electrónico'] || row['email'] || '').trim(),
+                                rol: String(row['Rol'] || row['rol'] || 'cliente').toLowerCase(),
+                                estado: String(row['Estado'] || row['estado'] || 'PENDIENTE_APROBACION').toUpperCase(),
+                                puntosAcumulados: Number(row['Puntos Acumulados'] || row['puntosAcumulados'] || 0),
+                                puntosCanjeados: Number(row['Puntos Canjeados'] || row['puntosCanjeados'] || 0),
+                                fechaRegistro: String(row['Fecha de Registro'] || row['fechaRegistro'] || new Date().toISOString().substring(0, 16)),
+                                password: '123'
+                            })).filter(u => u.cedula && u.nombre);
+
+                            if (usuariosImportados.length > 0) {
+                                AppState.usuarios = usuariosImportados;
+                            }
+                        }
+                    }
+
+                    // 2. Procesar Premio del Mes
+                    if (workbook.SheetNames.includes('PremioDelMes')) {
+                        const sheet = workbook.Sheets['PremioDelMes'];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        if (json.length > 0 && json[0]['Nombre Premio']) {
+                            AppState.premioMes = {
+                                nombre: String(json[0]['Nombre Premio'] || '').trim(),
+                                imagen: String(json[0]['URL Imagen'] || '').trim(),
+                                puntosRequeridos: Number(json[0]['Puntos Requeridos'] || 200),
+                                puntosPorDolar: Number(json[0]['Puntos por Dólar'] || 1),
+                                descripcion: String(json[0]['Descripción'] || '').trim()
+                            };
+                        }
+                    }
+
+                    // 3. Procesar Canjes
+                    if (workbook.SheetNames.includes('Canjes')) {
+                        const sheet = workbook.Sheets['Canjes'];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        if (json.length > 0) {
+                            AppState.canjesPremios = json.map(row => ({
+                                id: String(row['ID Canje'] || row['id'] || ''),
+                                clienteCedula: String(row['Cédula Cliente'] || row['clienteCedula'] || ''),
+                                clienteNombre: String(row['Nombre Cliente'] || row['clienteNombre'] || ''),
+                                premioNombre: String(row['Premio'] || row['premioNombre'] || ''),
+                                puntos: Number(row['Puntos Canjeados'] || row['puntos'] || 0),
+                                fecha: String(row['Fecha Canje'] || row['fecha'] || ''),
+                                estado: String(row['Estado Entrega'] || row['estado'] || 'ENTREGADO')
+                            })).filter(c => c.clienteCedula && c.premioNombre);
+                        }
+                    }
+
+                    // 4. Procesar Productos
+                    if (workbook.SheetNames.includes('Productos')) {
+                        const sheet = workbook.Sheets['Productos'];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        if (json.length > 0) {
+                            const productosImportados = json.map(row => ({
+                                id: String(row['ID'] || row['id'] || ('P' + Math.random().toString(36).substr(2, 6))),
+                                codigo: String(row['Código'] || row['codigo'] || '').trim(),
+                                nombre: String(row['Nombre'] || row['nombre'] || '').trim(),
+                                categoria: String(row['Categoría'] || row['categoria'] || 'General').trim(),
+                                costo: Number(row['Costo ($)'] || row['costo'] || 0),
+                                precio: Number(row['Precio ($)'] || row['precio'] || 0),
+                                stock: Number(row['Stock'] || row['stock'] || 0)
+                            })).filter(p => p.nombre);
+
+                            if (productosImportados.length > 0) {
+                                AppState.productos = productosImportados;
+                            }
+                        }
+                    }
+
+                    // 3. Procesar Clientes
+                    if (workbook.SheetNames.includes('Clientes')) {
+                        const sheet = workbook.Sheets['Clientes'];
+                        const json = XLSX.utils.sheet_to_json(sheet);
+                        if (json.length > 0) {
+                            const clientesImportados = json.map(row => ({
+                                id: String(row['ID / Cédula'] || row['id'] || '').trim(),
+                                nombre: String(row['Nombre'] || row['nombre'] || '').trim(),
+                                telefono: String(row['Teléfono'] || row['telefono'] || '').trim()
+                            })).filter(c => c.id && c.nombre);
+
+                            if (clientesImportados.length > 0) {
+                                AppState.clientes = clientesImportados;
+                            }
+                        }
+                    }
+
+                    asegurarUsuarioAdminInicial();
+                    guardar(true);
+
+                    // Sincronizar hacia Firebase si está disponible
+                    if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.syncToCloud === 'function') {
+                        await window.InventoryApp.Firebase.syncToCloud();
+                    }
+
+                    resolve(true);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(archivo);
+        });
+    }
+
+    window.InventoryApp.Persistence = {
+        cargar,
+        guardar,
+        iniciar,
+        limpiarTodo,
+        limpiarBaseDeDatosVirgen,
+        exportarRespaldoJSON,
+        importarRespaldoJSON,
+        exportarMasterExcel,
+        importarMasterExcel,
+        asegurarUsuarioAdminInicial,
+        SESSION_KEY,
+        STORAGE_KEY: SESSION_KEY
+    };
+})();
