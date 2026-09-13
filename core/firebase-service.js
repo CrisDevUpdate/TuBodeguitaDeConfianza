@@ -2567,6 +2567,71 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * Reinicia los puntos a CERO (0) de todos los usuarios y clientes en Firestore
+     */
+    async function reiniciarPuntosTodosLosUsuariosCloud() {
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                // 1. Resetear puntos en la colección usuarios
+                const snapUsuarios = await db.collection(COLLECTIONS.USUARIOS).get();
+                if (!snapUsuarios.empty) {
+                    let batch = db.batch();
+                    let count = 0;
+                    for (const doc of snapUsuarios.docs) {
+                        batch.update(doc.ref, {
+                            puntosAcumulados: 0,
+                            puntosCanjeados: 0,
+                            puntos: 0,
+                            cicloGamificacion: 1,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        count++;
+                        if (count % 400 === 0) {
+                            await batch.commit();
+                            batch = db.batch();
+                        }
+                    }
+                    if (count % 400 !== 0) {
+                        await batch.commit();
+                    }
+                }
+
+                // 2. Resetear en la colección clientes
+                try {
+                    const snapClientes = await db.collection(COLLECTIONS.CLIENTES).get();
+                    if (!snapClientes.empty) {
+                        let batchCli = db.batch();
+                        let countCli = 0;
+                        for (const doc of snapClientes.docs) {
+                            batchCli.update(doc.ref, {
+                                puntos: 0,
+                                puntosAcumulados: 0,
+                                puntosCanjeados: 0,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            countCli++;
+                            if (countCli % 400 === 0) {
+                                await batchCli.commit();
+                                batchCli = db.batch();
+                            }
+                        }
+                        if (countCli % 400 !== 0) {
+                            await batchCli.commit();
+                        }
+                    }
+                } catch (errCli) {
+                    console.warn('[Firebase] Aviso al reiniciar clientes en Firestore:', errCli);
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('[Firebase] Error al reiniciar puntos en Firestore:', error);
+            return false;
+        }
+    }
+
+    /**
      * Guarda la lista de cuentas bancarias y métodos de pago en Firestore
      */
     async function guardarCuentasBancariasCloud(cuentas) {
@@ -2851,6 +2916,7 @@ window.InventoryApp = window.InventoryApp || {};
         reproducirSonidoNotificacion: reproducirSonidoNotificacion,
         purgarBaseDeDatosCompleta: purgarBaseDeDatosCompletaCloud,
         guardarConfiguracionGlobal: guardarConfiguracionGlobalCloud,
+        reiniciarPuntosTodosLosUsuarios: reiniciarPuntosTodosLosUsuariosCloud,
         guardarCuentasBancarias: guardarCuentasBancariasCloud,
         guardarCanjePremio: guardarCanjePremioCloud,
         actualizarUIEstadoNube,

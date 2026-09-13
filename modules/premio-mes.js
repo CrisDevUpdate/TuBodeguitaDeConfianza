@@ -287,11 +287,15 @@ function guardarConfiguracionPremioMes(e) {
         return;
     }
 
-    // Determinar estado de la temporada: si el admin está guardando un nuevo premio, reactivar si estaba completado
+    // Determinar estado de la temporada: si el admin está guardando un nuevo premio, reactivar si estaba completado o en invierno
     let estadoActual = AppState.premioMes?.estado || 'ACTIVO';
-    if (estadoActual === 'GANADOR_ALCANZADO' && AppState.premioMes?.nombre !== nombre) {
+    if ((estadoActual === 'GANADOR_ALCANZADO' || estadoActual === 'INVIERNO' || estadoActual === 'ELIMINADO') && temporadaActiva) {
         estadoActual = 'ACTIVO';
         AppState.premioMes.ganadorActual = null;
+        AppState.temporadaInviernoActiva = false;
+        AppState.isWinterMode = false;
+        const styleTag = document.getElementById('winter-mode-global-style');
+        if (styleTag) styleTag.textContent = '';
     }
 
     AppState.premioMes = {
@@ -392,6 +396,148 @@ async function togglePausarDesafioPremioAdmin() {
 window.togglePausarDesafioPremioAdmin = togglePausarDesafioPremioAdmin;
 
 /**
+ * Elimina el desafío del premio actual, activa automáticamente la Temporada de Invierno
+ * y reinicia a CERO (0) los puntos acumulados de todos los clientes para cuando se cree otro premio.
+ */
+async function eliminarDesafioPremioAdmin() {
+    const confirmar = await (window.InventoryApp.Modal?.confirm
+        ? window.InventoryApp.Modal.confirm(
+            '❄️ ¿Eliminar Desafío y Entrar en Invierno?',
+            '¿Estás seguro de eliminar el desafío actual?\n\n' +
+            '• El desafío quedará eliminado y sin premio activo.\n' +
+            '• Se activará automáticamente la Temporada de Invierno (hibernación de puntos).\n' +
+            '• Todos los clientes quedarán con CERO (0) puntos acumulados en el sistema y en la nube.\n' +
+            '• Quedará listo para que cuando configures un nuevo premio, todos inicien desde 0.\n\n' +
+            '¿Deseas proceder con la eliminación?'
+          )
+        : confirm('¿Eliminar el desafío actual, entrar en temporada de invierno y reiniciar todos los puntos de clientes a 0?'));
+
+    if (!confirmar) return;
+
+    // 1. Activar de inmediato la Temporada de Invierno
+    AppState.temporadaInviernoActiva = true;
+    AppState.isWinterMode = true;
+
+    // 2. Marcar el premio como eliminado / en receso de invierno
+    AppState.premioMes = {
+        ...(AppState.premioMes || {}),
+        nombre: 'Sin Desafío Activo (Temporada de Invierno)',
+        puntosRequeridos: 0,
+        puntos: 0,
+        costoRealPremio: 0,
+        gananciaNetaObjetivo: 0,
+        descripcion: 'El desafío anterior ha sido eliminado. La tienda se encuentra en receso invernal hasta que la administración active un nuevo premio.',
+        imagen: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
+        estado: 'INVIERNO',
+        temporadaActiva: false,
+        ganadorActual: null,
+        modalidad: 'ABIERTA_HASTA_GANADOR',
+        vigenciaTexto: 'Temporada en Receso Invernal'
+    };
+
+    // 3. Reiniciar a CERO (0) los puntos de todos los usuarios en memoria
+    if (Array.isArray(AppState.usuarios)) {
+        AppState.usuarios.forEach(u => {
+            u.puntosAcumulados = 0;
+            u.puntosCanjeados = 0;
+            u.puntos = 0;
+            u.cicloGamificacion = 1;
+        });
+    }
+
+    // 4. Reiniciar a CERO (0) en clientes si existen
+    if (Array.isArray(AppState.clientes)) {
+        AppState.clientes.forEach(c => {
+            c.puntos = 0;
+            c.puntosAcumulados = 0;
+            c.puntosCanjeados = 0;
+        });
+    }
+
+    // 5. Reiniciar árbol de gamificación
+    AppState.treeProgress = { porcentaje: 0, puntosActuales: 0, puntosMeta: 200, ciclo: 1 };
+    if (window.InventoryApp?.TreeGamification?.actualizarPuntos) {
+        window.InventoryApp.TreeGamification.actualizarPuntos(0);
+    }
+
+    // 6. Inyectar y forzar estilos de ocultación de puntos de inmediato
+    let styleTag = document.getElementById('winter-mode-global-style');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'winter-mode-global-style';
+        document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = `
+        .cliente-prod-points-badge,
+        .combo-points-badge,
+        #cliente-carrito-puntos-row,
+        .puntos-premio-row,
+        [data-points-badge] {
+            display: none !important;
+        }
+    `;
+
+    const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+    if (carritoPuntosRow) carritoPuntosRow.style.display = 'none';
+
+    // 7. Persistir en Firestore: Configuración Global e Invierno
+    if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes,
+            temporadaInviernoActiva: true,
+            isWinterMode: true
+        }).catch(e => console.warn('[Firebase] Error al guardar config global en Firestore:', e));
+    }
+
+    // 8. Sincronizar /config/gamification en Firestore
+    try {
+        if (window.firebase && typeof window.firebase.firestore === 'function') {
+            const db = window.firebase.firestore();
+            db.collection('config').doc('gamification').set({
+                isWinterMode: true,
+                temporadaInviernoActiva: true,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'Admin (Desafío Eliminado)'
+            }, { merge: true }).catch(() => {});
+        }
+    } catch (e) {}
+
+    // 9. Reiniciar puntos de todos los usuarios en la base de datos de Firestore
+    if (window.InventoryApp?.Firebase?.reiniciarPuntosTodosLosUsuarios) {
+        window.InventoryApp.Firebase.reiniciarPuntosTodosLosUsuarios().then(res => {
+            console.log('[Firebase] Puntos de todos los usuarios reseteados a 0 en Firestore');
+        }).catch(err => {
+            console.warn('[Firebase] Advertencia reseteando puntos en Firestore:', err);
+        });
+    }
+
+    // 10. Persistencia local
+    if (window.InventoryApp.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // 11. Actualizar vistas inmediatamente
+    actualizarPreviewPremioAdmin();
+    renderizarPremioMesCliente();
+    if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+    if (typeof actualizarPuntosHeaderCliente === 'function') actualizarPuntosHeaderCliente();
+
+    // 12. Notificar al Admin
+    if (window.InventoryApp.Modal?.alert) {
+        window.InventoryApp.Modal.alert(
+            '❄️ Desafío Eliminado y Modo Invierno Activado',
+            'El desafío fue eliminado exitosamente.\n\n' +
+            '• La tienda entró automáticamente en Temporada de Invierno.\n' +
+            '• Todos los clientes tienen ahora 0 puntos acumulados.\n' +
+            '• Cuando estés listo, puedes usar "Iniciar Nuevo Desafío" para configurar el próximo premio e iniciar la temporada desde cero.'
+        );
+    }
+}
+window.eliminarDesafioPremioAdmin = eliminarDesafioPremioAdmin;
+
+/**
  * Inicia una nueva temporada con un nuevo premio ("Tal premio por tantos puntos activo")
  */
 function iniciarNuevoDesafioModalAdmin() {
@@ -484,6 +630,10 @@ function iniciarNuevoDesafioModalAdmin() {
                         const preset = PRESETS_PREMIOS.find(pr => pr.nombre.toLowerCase() === n.toLowerCase());
                         const img = preset ? preset.imagen : (AppState.premioMes?.imagen || 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=600&auto=format&fit=crop&q=80');
 
+                        // Desactivar Modo Invierno al poner un nuevo premio
+                        AppState.temporadaInviernoActiva = false;
+                        AppState.isWinterMode = false;
+
                         AppState.premioMes = {
                             ...(AppState.premioMes || {}),
                             nombre: n,
@@ -499,17 +649,41 @@ function iniciarNuevoDesafioModalAdmin() {
                             vigenciaTexto: 'Activo hasta tener ganador o cierre manual (Acumulativo)'
                         };
 
+                        // Limpiar estilos de modo invierno
+                        const styleTag = document.getElementById('winter-mode-global-style');
+                        if (styleTag) styleTag.textContent = '';
+
+                        // Mostrar filas de puntos en carrito
+                        const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+                        if (carritoPuntosRow) carritoPuntosRow.style.display = 'flex';
+
                         if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
                             window.InventoryApp.Firebase.guardarConfiguracionGlobal({
                                 premioMes: AppState.premioMes,
-                                temporadaInviernoActiva: false
+                                temporadaInviernoActiva: false,
+                                isWinterMode: false
                             }).catch(e => console.warn(e));
                         }
+
+                        try {
+                            if (window.firebase && typeof window.firebase.firestore === 'function') {
+                                const db = window.firebase.firestore();
+                                db.collection('config').doc('gamification').set({
+                                    isWinterMode: false,
+                                    temporadaInviernoActiva: false,
+                                    updatedAt: new Date().toISOString(),
+                                    updatedBy: 'Admin (Nuevo Desafío Activo)'
+                                }, { merge: true }).catch(() => {});
+                            }
+                        } catch (e) {}
+
                         if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
                         m.close();
                         renderizarConfiguradorPremioAdmin();
                         renderizarPremioMesCliente();
+                        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+                        if (typeof actualizarPuntosHeaderCliente === 'function') actualizarPuntosHeaderCliente();
 
                         if (window.InventoryApp.Modal?.alert) {
                             window.InventoryApp.Modal.alert(
@@ -524,6 +698,8 @@ function iniciarNuevoDesafioModalAdmin() {
     } else {
         const n = prompt('Ingresa el nombre del nuevo premio:', defaultNombre);
         if (n) {
+            AppState.temporadaInviernoActiva = false;
+            AppState.isWinterMode = false;
             AppState.premioMes = {
                 ...(AppState.premioMes || {}),
                 nombre: n,
@@ -534,6 +710,8 @@ function iniciarNuevoDesafioModalAdmin() {
                 temporadaActiva: true,
                 ganadorActual: null
             };
+            const styleTag = document.getElementById('winter-mode-global-style');
+            if (styleTag) styleTag.textContent = '';
             if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
             renderizarConfiguradorPremioAdmin();
             renderizarPremioMesCliente();
@@ -698,10 +876,35 @@ function actualizarPreviewPremioAdmin() {
     const statusBanner = document.getElementById('premio-admin-status-banner');
     const btnPausar = document.getElementById('btn-admin-pausar-desafio');
     const estado = AppState.premioMes?.estado || 'ACTIVO';
+    const esInvierno = Boolean(AppState.temporadaInviernoActiva || AppState.isWinterMode || estado === 'INVIERNO' || estado === 'ELIMINADO');
     const ganadorActual = AppState.premioMes?.ganadorActual;
 
     if (statusBanner) {
-        if (estado === 'GANADOR_ALCANZADO') {
+        if (esInvierno) {
+            statusBanner.className = 'reward-status-banner banner-paused';
+            statusBanner.style.background = '#f0f9ff';
+            statusBanner.style.borderColor = '#bae6fd';
+            statusBanner.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            ❄️ TEMPORADA DE INVIERNO (DESAFÍO ELIMINADO / EN RECESO)
+                        </span>
+                        <div style="margin-top:6px; font-size:0.88rem; color:#0c4a6e; font-weight:600;">
+                            No hay ningún desafío activo. El sistema está en hibernación y todos los clientes están con 0 puntos.
+                        </div>
+                        <div style="font-size:0.8rem; color:#0284c7;">
+                            Cuando estés listo, activa un nuevo premio para que todos comiencen a acumular desde cero.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-primary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700;">
+                            <i class="fas fa-wand-magic-sparkles"></i> Activar Nuevo Premio / Temporada
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (estado === 'GANADOR_ALCANZADO') {
             statusBanner.className = 'reward-status-banner banner-winner';
             statusBanner.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
@@ -719,6 +922,9 @@ function actualizarPreviewPremioAdmin() {
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700;">
                             <i class="fas fa-wand-magic-sparkles"></i> Activar Nuevo Premio / Temporada
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarDesafioPremioAdmin()" title="Eliminar desafío, pasar a modo invierno y reiniciar puntos a 0">
+                            <i class="fas fa-trash-can"></i> Eliminar
                         </button>
                     </div>
                 </div>
@@ -739,6 +945,9 @@ function actualizarPreviewPremioAdmin() {
                         <button type="button" class="btn btn-success" onclick="togglePausarDesafioPremioAdmin()" style="font-weight:700;">
                             <i class="fas fa-play"></i> Reactivar Desafío
                         </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarDesafioPremioAdmin()" title="Eliminar desafío, entrar en modo invierno y poner puntos en cero">
+                            <i class="fas fa-trash-can"></i> Eliminar Desafío
+                        </button>
                     </div>
                 </div>
             `;
@@ -754,12 +963,15 @@ function actualizarPreviewPremioAdmin() {
                             Premio en disputa activa. Se retirará cuando un cliente alcance los <strong>${puntos} Pts</strong> o cuando decidas pausarlo/cambiarlo.
                         </div>
                     </div>
-                    <div style="display:flex; gap:8px;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button type="button" class="btn btn-outline btn-sm" onclick="togglePausarDesafioPremioAdmin()" title="Pausar desafío temporalmente">
                             <i class="fas fa-pause"></i> Pausar
                         </button>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="iniciarNuevoDesafioModalAdmin()" title="Cambiar a un nuevo premio">
                             <i class="fas fa-arrows-rotate"></i> Cambiar Premio
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarDesafioPremioAdmin()" title="Eliminar desafío, pasar a modo invierno y reiniciar puntos a 0">
+                            <i class="fas fa-trash-can"></i> Eliminar Desafío
                         </button>
                     </div>
                 </div>
@@ -768,9 +980,17 @@ function actualizarPreviewPremioAdmin() {
     }
 
     if (btnPausar) {
-        btnPausar.innerHTML = estado === 'PAUSADO' 
-            ? '<i class="fas fa-play"></i> Reactivar Desafío' 
-            : '<i class="fas fa-pause"></i> Pausar Desafío';
+        if (esInvierno) {
+            btnPausar.innerHTML = '<i class="fas fa-snowflake"></i> Modo Invierno';
+            btnPausar.disabled = true;
+            btnPausar.title = 'El desafío ha sido eliminado y el sistema está en invierno.';
+        } else {
+            btnPausar.disabled = false;
+            btnPausar.innerHTML = estado === 'PAUSADO' 
+                ? '<i class="fas fa-play"></i> Reactivar Desafío' 
+                : '<i class="fas fa-pause"></i> Pausar Desafío';
+            btnPausar.title = 'Pausar o reactivar el desafío actual';
+        }
     }
 
     const imgEl = document.getElementById('preview-premio-img');
@@ -1219,6 +1439,8 @@ async function renderizarPremioMesCliente() {
     const reputacion = calcularReputacionCliente(cedula);
     const ciclo = usuario.cicloGamificacion || 1;
 
+    const esInvierno = Boolean(AppState.temporadaInviernoActiva || AppState.isWinterMode || pm.estado === 'INVIERNO' || pm.estado === 'ELIMINADO' || pm.temporadaActiva === false);
+
     container.innerHTML = `
         <!-- Widget Árbol de la Fidelización (Gamificación Reactiva) -->
         <div id="tree-gamification-root" style="margin-bottom:24px;"></div>
@@ -1268,12 +1490,17 @@ async function renderizarPremioMesCliente() {
                         <h3 style="margin:0; font-size:1.15rem; display:flex; align-items:center; gap:8px;">
                             <i class="fas fa-trophy" style="color:var(--primary-accent);"></i> Gran Premio en Juego
                         </h3>
-                        <span class="badge" style="background:${pm.estado === 'GANADOR_ALCANZADO' ? '#fef08a' : (pm.estado === 'PAUSADO' ? '#e2e8f0' : '#fef3c7')}; color:${pm.estado === 'GANADOR_ALCANZADO' ? '#854d0e' : (pm.estado === 'PAUSADO' ? '#475569' : '#d97706')}; font-weight:700;">
-                            ${pm.estado === 'GANADOR_ALCANZADO' ? '🏆 Concluido' : (pm.estado === 'PAUSADO' ? '⏸️ En Pausa' : `Meta: ${puntosRequeridos} pts`)}
+                        <span class="badge" style="background:${esInvierno ? '#e0f2fe' : (pm.estado === 'GANADOR_ALCANZADO' ? '#fef08a' : (pm.estado === 'PAUSADO' ? '#e2e8f0' : '#fef3c7'))}; color:${esInvierno ? '#0369a1' : (pm.estado === 'GANADOR_ALCANZADO' ? '#854d0e' : (pm.estado === 'PAUSADO' ? '#475569' : '#d97706'))}; font-weight:700;">
+                            ${esInvierno ? '❄️ Modo Invierno' : (pm.estado === 'GANADOR_ALCANZADO' ? '🏆 Concluido' : (pm.estado === 'PAUSADO' ? '⏸️ En Pausa' : `Meta: ${puntosRequeridos} pts`))}
                         </span>
                     </div>
 
-                    ${pm.estado === 'GANADOR_ALCANZADO' ? `
+                    ${esInvierno ? `
+                        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#0369a1; line-height:1.4;">
+                            <div style="font-weight:800; margin-bottom:4px; font-size:0.92rem;"><i class="fas fa-snowflake" style="color:#0284c7;"></i> Temporada en Receso Invernal</div>
+                            El desafío anterior ha concluido y el sistema está en hibernación. Todos los clientes se encuentran con 0 puntos para que todos comiencen en igualdad de condiciones en cuanto se anuncie el próximo premio.
+                        </div>
+                    ` : (pm.estado === 'GANADOR_ALCANZADO' ? `
                         <div style="background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#854d0e; line-height:1.4;">
                             <div style="font-weight:800; margin-bottom:4px; font-size:0.92rem;"><i class="fas fa-crown" style="color:#ca8a04;"></i> ¡Temporada Concluida!</div>
                             ¡Felicitaciones a <strong>${pm.ganadorActual?.nombre || 'un cliente leal'}</strong> quien completó los puntos y se llevó este premio!
@@ -1290,7 +1517,7 @@ async function renderizarPremioMesCliente() {
                         <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:0.8rem; color:#166534;">
                             <i class="fas fa-hourglass-half"></i> <strong>Desafío Acumulativo:</strong> Tus puntos no se vencen a fin de mes; se acumulan compra tras compra hasta alcanzar la meta o hasta que haya un ganador.
                         </div>
-                    `)}
+                    `))}
 
                     <div style="position:relative; border-radius:12px; overflow:hidden; height:170px; margin-bottom:14px; background:#f1f5f9;">
                         <img src="${pm.imagen}" alt="${pm.nombre}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80'">
@@ -1305,19 +1532,23 @@ async function renderizarPremioMesCliente() {
                     <div style="margin-bottom:16px;">
                         <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
                             <span>Progreso hacia el premio</span>
-                            <span style="color:var(--primary-accent);">${puntosDisponibles} / ${puntosRequeridos} Pts (${porcentaje}%)</span>
+                            <span style="color:var(--primary-accent);">${puntosDisponibles} / ${puntosRequeridos || 200} Pts (${porcentaje}%)</span>
                         </div>
                         <div style="height:10px; background:#e2e8f0; border-radius:10px; overflow:hidden;">
                             <div style="height:100%; width:${porcentaje}%; background:linear-gradient(90deg, #10b981, #059669); border-radius:10px; transition:width 0.5s ease;"></div>
                         </div>
                         <small style="display:block; margin-top:6px; font-size:0.78rem; color:${puedeCanjear ? '#16a34a' : 'var(--text-muted)'}; font-weight:${puedeCanjear ? '700' : 'normal'};">
-                            ${pm.estado === 'GANADOR_ALCANZADO' ? 'Premio otorgado · Próxima temporada en breve' : (puedeCanjear ? '🎉 ¡Felicidades! Tienes puntos suficientes para solicitar este premio.' : `Te faltan ${puntosFaltantes} puntos para desbloquear este premio.`)}
+                            ${esInvierno ? '❄️ Temporada en pausa invernal · Próximo desafío en breve' : (pm.estado === 'GANADOR_ALCANZADO' ? 'Premio otorgado · Próxima temporada en breve' : (puedeCanjear ? '🎉 ¡Felicidades! Tienes puntos suficientes para solicitar este premio.' : `Te faltan ${puntosFaltantes} puntos para desbloquear este premio.`))}
                         </small>
                     </div>
                 </div>
 
                 <div>
-                    ${pm.estado === 'GANADOR_ALCANZADO' ? `
+                    ${esInvierno ? `
+                        <button type="button" class="btn btn-block btn-secondary" disabled style="padding:12px; font-weight:700; font-size:0.95rem;">
+                            <i class="fas fa-snowflake"></i> Temporada en Invierno · Próximo Desafío en Breve
+                        </button>
+                    ` : (pm.estado === 'GANADOR_ALCANZADO' ? `
                         <button type="button" class="btn btn-block btn-secondary" disabled style="padding:12px; font-weight:700; font-size:0.95rem;">
                             <i class="fas fa-flag-checkered"></i> Temporada Concluida · Próximo Desafío en Breve
                         </button>
@@ -1331,7 +1562,7 @@ async function renderizarPremioMesCliente() {
                             style="padding:12px; font-weight:700; font-size:0.95rem;">
                             <i class="fas ${puedeCanjear ? 'fa-gift' : 'fa-lock'}"></i> ${puedeCanjear ? `¡Reclamar ${pm.nombre}!` : `Faltan ${puntosFaltantes} pts para reclamar`}
                         </button>
-                    `)}
+                    `))}
                 </div>
             </div>
         </div>
