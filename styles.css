@@ -4339,26 +4339,33 @@ header.bodeguita-main-header .btn-action-carrito:active {
 /* RESPONSIVIDAD PARA MÓVILES (TELÉFONO) - HORIZONTAL Y COMPACTO SIN ESPACIOS VACÍOS */
 @media (max-width: 768px) {
     header.bodeguita-main-header {
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: column !important;
+        gap: 10px !important;
     }
     header.bodeguita-main-header .bodeguita-brand-banner {
+        flex: 0 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
         flex-direction: row !important;
         align-items: center !important;
         justify-content: flex-start !important;
         text-align: left !important;
-        padding: 12px 14px !important;
-        gap: 12px !important;
+        padding: 10px 12px !important;
+        gap: 10px !important;
+    }
+    header.bodeguita-main-header .bodeguita-control-widget {
+        flex: 0 0 auto !important;
         height: auto !important;
-        min-height: 0 !important;
+        padding: 10px 12px !important;
     }
     header.bodeguita-main-header .brand-logo-glow-box {
-        width: 48px !important;
-        height: 48px !important;
+        width: 46px !important;
+        height: 46px !important;
         border-radius: 12px !important;
     }
     header.bodeguita-main-header .logo-store-icon {
-        font-size: 1.5rem !important;
+        font-size: 1.4rem !important;
     }
     header.bodeguita-main-header .brand-info-wrapper {
         flex-direction: column !important;
@@ -4375,7 +4382,7 @@ header.bodeguita-main-header .btn-action-carrito:active {
         display: none !important;
     }
     header.bodeguita-main-header .categories-items-row {
-        font-size: 0.8rem !important;
+        font-size: 0.78rem !important;
     }
     header.bodeguita-main-header .categories-tagline {
         font-size: 0.56rem !important;
