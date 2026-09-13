@@ -4388,6 +4388,11 @@ header.bodeguita-main-header .btn-action-carrito:active {
         font-size: 0.56rem !important;
         letter-spacing: 1px !important;
     }
+    /* Ocultar barra redundante de pestañas de cliente en teléfono (ya existe en cabezal y barra inferior) */
+    #main-nav-tabs .nav-cliente-only,
+    .nav-tabs .nav-cliente-only {
+        display: none !important;
+    }
 }
 
 /* ==========================================================================
