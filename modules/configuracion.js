@@ -350,6 +350,7 @@ async function toggleTemporadaInviernoConfig() {
             const db = window.firebase.firestore();
             await db.collection('config').doc('gamification').set({
                 isWinterMode: nuevoEstado,
+                temporadaInviernoActiva: nuevoEstado,
                 updatedAt: new Date().toISOString(),
                 updatedBy: 'Admin'
             }, { merge: true });
@@ -362,6 +363,14 @@ async function toggleTemporadaInviernoConfig() {
         }
     } catch (fsErr) {
         console.warn('[configuracion.js] Advertencia escribiendo /config/gamification en Firestore:', fsErr.message);
+    }
+
+    if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            premioMes: AppState.premioMes,
+            temporadaInviernoActiva: nuevoEstado,
+            isWinterMode: nuevoEstado
+        }).catch(e => console.warn(e));
     }
 
     // Persistir estado localmente

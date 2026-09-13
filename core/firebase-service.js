@@ -1609,7 +1609,18 @@ window.InventoryApp = window.InventoryApp || {};
                         if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
                         if (Array.isArray(cfg.ciclosRecuperacion)) AppState.ciclosRecuperacion = cfg.ciclosRecuperacion;
                         if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
-                        if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                        if (typeof cfg.temporadaInviernoActiva === 'boolean') {
+                            AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                            AppState.isWinterMode = cfg.temporadaInviernoActiva;
+                            const styleTag = document.getElementById('winter-mode-global-style');
+                            if (styleTag) {
+                                styleTag.textContent = cfg.temporadaInviernoActiva
+                                    ? '.cliente-prod-points-badge, .combo-points-badge, #cliente-carrito-puntos-row, .puntos-premio-row, [data-points-badge] { display: none !important; }'
+                                    : '';
+                            }
+                            const row = document.getElementById('cliente-carrito-puntos-row');
+                            if (row) row.style.display = cfg.temporadaInviernoActiva ? 'none' : 'flex';
+                        }
                         if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
                         if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                         if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
@@ -1626,11 +1637,35 @@ window.InventoryApp = window.InventoryApp || {};
                 const unsubGamification = db.collection('config').doc('gamification').onSnapshot(doc => {
                     if (doc.exists) {
                         const gData = doc.data();
-                        const isWinter = Boolean(gData?.isWinterMode);
+                        let isWinter = Boolean(gData?.isWinterMode);
+
+                        // Si en memoria o en config el premio fue activado (ACTIVO y temporadaActiva===true),
+                        // evitamos que una bandera residual obsoleta de /config/gamification sobreescriba y oculte los puntos
+                        const premioActivoEnSistema = Boolean(
+                            AppState.premioMes && 
+                            AppState.premioMes.temporadaActiva === true && 
+                            AppState.premioMes.estado === 'ACTIVO' && 
+                            !AppState.temporadaInviernoActiva
+                        );
+
+                        if (premioActivoEnSistema && isWinter) {
+                            // Reconciliación automática: corregir /config/gamification en la nube para que no vuelva a colisionar
+                            isWinter = false;
+                            db.collection('config').doc('gamification').set({
+                                isWinterMode: false,
+                                temporadaInviernoActiva: false,
+                                updatedAt: new Date().toISOString(),
+                                updatedBy: 'Auto-Reconciliación (Temporada Premios Activa)'
+                            }, { merge: true }).catch(() => {});
+                        }
+
                         AppState.isWinterMode = isWinter;
                         AppState.temporadaInviernoActiva = isWinter;
                         if (AppState.premioMes) {
                             AppState.premioMes.temporadaActiva = !isWinter;
+                            if (!isWinter && (AppState.premioMes.estado === 'INVIERNO' || AppState.premioMes.estado === 'ELIMINADO')) {
+                                AppState.premioMes.estado = 'ACTIVO';
+                            }
                         }
                         let styleTag = document.getElementById('winter-mode-global-style');
                         if (!styleTag) {
@@ -2558,6 +2593,26 @@ window.InventoryApp = window.InventoryApp || {};
             if (!db) await inicializarFirebase();
             if (db) {
                 await db.collection(COLLECTIONS.CONFIG).doc('global').set(configData, { merge: true });
+
+                // Sincronizar automáticamente estado de gamificación / modo invierno en todas las colecciones espejo
+                const hayInvierno = ('temporadaInviernoActiva' in configData) 
+                    ? Boolean(configData.temporadaInviernoActiva)
+                    : (('isWinterMode' in configData)
+                        ? Boolean(configData.isWinterMode)
+                        : (configData.premioMes ? (configData.premioMes.temporadaActiva === false || configData.premioMes.estado === 'INVIERNO' || configData.premioMes.estado === 'ELIMINADO') : null));
+
+                if (hayInvierno !== null) {
+                    const gamifPayload = {
+                        isWinterMode: hayInvierno,
+                        temporadaInviernoActiva: hayInvierno,
+                        updatedAt: new Date().toISOString(),
+                        updatedBy: 'Sistema (guardarConfiguracionGlobal)'
+                    };
+                    await Promise.all([
+                        db.collection('config').doc('gamification').set(gamifPayload, { merge: true }).catch(() => {}),
+                        db.collection('configuracion').doc('gamificacion').set(gamifPayload, { merge: true }).catch(() => {})
+                    ]);
+                }
             }
             return true;
         } catch (e) {

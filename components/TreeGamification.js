@@ -103,7 +103,7 @@ class TreeGamificationWidget {
      * Genera el contenido SVG del Árbol según la etapa o temporada de invierno
      */
     generarSVGArbol(pct) {
-        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false && !Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.estado === 'INVIERNO' || AppState.premioMes?.estado === 'ELIMINADO');
 
         const CHISTES_INVIERNO = [
             "❄️ <b>Humor de Invierno:</b> ¿Por qué el bodeguero no tiene frío en invierno? ¡Porque siempre está cerca del calor de los clientes y las buenas ofertas!",
@@ -550,7 +550,7 @@ class TreeGamificationWidget {
         this.premioActual = premio || AppState.premioMes || { nombre: 'Premio del Mes', puntosRequeridos: meta };
         this.nivelCiclo = ciclo || 1;
 
-        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false;
+        const temporadaActiva = AppState.premioMes?.temporadaActiva !== false && !Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.estado === 'INVIERNO' || AppState.premioMes?.estado === 'ELIMINADO');
 
         this.porcentaje = Math.min(100, Math.round((this.puntosActuales / this.puntosMeta) * 100));
 
@@ -819,6 +819,15 @@ class TreeGamificationWidget {
 
         // Re-renderizar
         if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+    }
+
+    /**
+     * Actualiza directamente los puntos en el widget y redibuja
+     */
+    actualizarPuntos(nuevosPuntos) {
+        this.puntosActuales = Number(nuevosPuntos) || 0;
+        const meta = this.puntosMeta || AppState.premioMes?.puntosRequeridos || 200;
+        this.render(this.puntosActuales, meta, this.premioActual, this.nivelCiclo);
     }
 }
 

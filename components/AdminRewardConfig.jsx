@@ -294,7 +294,21 @@ export default function AdminRewardConfig({
     // Actualizar AppState en tiempo de ejecución
     if (typeof window !== 'undefined') {
       window.AppState = window.AppState || {};
-      window.AppState.premioMes = { ...window.AppState.premioMes, ...payload };
+      window.AppState.temporadaInviernoActiva = false;
+      window.AppState.isWinterMode = false;
+      window.AppState.premioMes = { 
+        ...window.AppState.premioMes, 
+        ...payload, 
+        estado: 'ACTIVO', 
+        temporadaActiva: true,
+        ganadorActual: null 
+      };
+
+      // Remover cualquier override CSS residual de invierno
+      const styleTag = document.getElementById('winter-mode-global-style');
+      if (styleTag) styleTag.textContent = '';
+      const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+      if (carritoPuntosRow) carritoPuntosRow.style.display = 'flex';
 
       // Sincronizar inputs nativos del DOM si existen
       const inTit = document.getElementById('premio-admin-titulo');
@@ -303,25 +317,37 @@ export default function AdminRewardConfig({
       const inMes = document.getElementById('premio-admin-mes');
       const inDesc = document.getElementById('premio-admin-desc');
       const inImg = document.getElementById('premio-admin-img');
+      const inTemp = document.getElementById('premio-temporada-activa');
       if (inTit) inTit.value = payload.nombre;
       if (inPts) inPts.value = payload.puntosRequeridos;
       if (inPtsDol) inPtsDol.value = payload.puntosPorDolar;
       if (inMes) inMes.value = payload.mes;
       if (inDesc) inDesc.value = payload.descripcion;
       if (inImg) inImg.value = payload.imagen;
+      if (inTemp) inTemp.checked = true;
     }
 
     // Persistir directamente en Cloud Firestore
     try {
       if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
         await window.InventoryApp.Firebase.guardarConfiguracionGlobal({
-          premioMes: payload
+          premioMes: { ...payload, estado: 'ACTIVO', temporadaActiva: true },
+          temporadaInviernoActiva: false,
+          isWinterMode: false
         });
       } else if (window.firebase?.firestore) {
         const db = window.firebase.firestore();
         await db.collection('premios').doc('mes').set(payload, { merge: true });
-        await db.collection('configuracion').doc('gamificacion').set({ premioMes: payload }, { merge: true });
-        await db.collection('config').doc('premioMes').set(payload, { merge: true });
+        await db.collection('configuracion').doc('gamificacion').set({ 
+          premioMes: payload,
+          isWinterMode: false,
+          temporadaInviernoActiva: false 
+        }, { merge: true });
+        await db.collection('config').doc('gamification').set({ 
+          isWinterMode: false, 
+          temporadaInviernoActiva: false,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
       }
     } catch (fsErr) {
       console.warn('[AdminRewardConfig] Aviso Firestore (usando fallback local):', fsErr.message);
@@ -335,6 +361,12 @@ export default function AdminRewardConfig({
     // Refrescar vistas conectadas
     if (typeof window.renderizarPremioMesCliente === 'function') {
       window.renderizarPremioMesCliente();
+    }
+    if (typeof window.renderizarCatalogoCliente === 'function') {
+      window.renderizarCatalogoCliente();
+    }
+    if (typeof window.renderizarCarritoCliente === 'function') {
+      window.renderizarCarritoCliente();
     }
   };
 

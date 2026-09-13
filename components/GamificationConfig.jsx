@@ -150,6 +150,7 @@ export default function GamificationConfig({ onStatusChange = null }) {
       if (db) {
         await db.collection('config').doc('gamification').set({
           isWinterMode: newStatus,
+          temporadaInviernoActiva: newStatus,
           updatedAt: new Date().toISOString(),
           updatedBy: 'Admin'
         }, { merge: true });
@@ -160,6 +161,25 @@ export default function GamificationConfig({ onStatusChange = null }) {
           temporadaInviernoActiva: newStatus,
           updatedAt: new Date().toISOString()
         }, { merge: true }).catch(() => {});
+      }
+
+      if (window.AppState) {
+        window.AppState.isWinterMode = newStatus;
+        window.AppState.temporadaInviernoActiva = newStatus;
+        if (window.AppState.premioMes) {
+          window.AppState.premioMes.temporadaActiva = !newStatus;
+          if (!newStatus && (window.AppState.premioMes.estado === 'INVIERNO' || window.AppState.premioMes.estado === 'ELIMINADO')) {
+            window.AppState.premioMes.estado = 'ACTIVO';
+          }
+        }
+      }
+
+      if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        await window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+          premioMes: window.AppState?.premioMes,
+          temporadaInviernoActiva: newStatus,
+          isWinterMode: newStatus
+        }).catch(err => console.warn(err));
       }
 
       // 3. Persistencia local para contingencia offline

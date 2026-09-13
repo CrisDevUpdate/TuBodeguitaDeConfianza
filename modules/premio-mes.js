@@ -262,7 +262,7 @@ function guardarConfiguracionPremioMes(e) {
     const descripcion = (descInput?.value || '').trim();
     const modalidad = modalidadInput?.value || 'ABIERTA_HASTA_GANADOR';
     const mes = (mesInput?.value || '').trim() || 'Activo hasta tener ganador o cierre manual (Acumulativo)';
-    const temporadaActiva = temporadaInput ? temporadaInput.checked : (AppState.premioMes?.temporadaActiva !== false);
+    const temporadaActiva = temporadaInput ? Boolean(temporadaInput.checked) : true;
 
     // Parámetros de Ingeniería Financiera
     const costoRealPremio = Math.max(0, parseFloat(document.getElementById('premio-admin-costo-real')?.value) || 40);
@@ -287,15 +287,21 @@ function guardarConfiguracionPremioMes(e) {
         return;
     }
 
-    // Determinar estado de la temporada: si el admin está guardando un nuevo premio, reactivar si estaba completado o en invierno
+    // Determinar estado de la temporada: si el admin está guardando y activando premio
     let estadoActual = AppState.premioMes?.estado || 'ACTIVO';
-    if ((estadoActual === 'GANADOR_ALCANZADO' || estadoActual === 'INVIERNO' || estadoActual === 'ELIMINADO') && temporadaActiva) {
+    if (temporadaActiva) {
         estadoActual = 'ACTIVO';
-        AppState.premioMes.ganadorActual = null;
+        if (AppState.premioMes) AppState.premioMes.ganadorActual = null;
         AppState.temporadaInviernoActiva = false;
         AppState.isWinterMode = false;
         const styleTag = document.getElementById('winter-mode-global-style');
         if (styleTag) styleTag.textContent = '';
+        const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+        if (carritoPuntosRow) carritoPuntosRow.style.display = 'flex';
+    } else {
+        estadoActual = 'INVIERNO';
+        AppState.temporadaInviernoActiva = true;
+        AppState.isWinterMode = true;
     }
 
     AppState.premioMes = {
@@ -322,9 +328,24 @@ function guardarConfiguracionPremioMes(e) {
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
         window.InventoryApp.Firebase.guardarConfiguracionGlobal({
             premioMes: AppState.premioMes,
-            temporadaInviernoActiva: !temporadaActiva
+            temporadaInviernoActiva: !temporadaActiva,
+            isWinterMode: !temporadaActiva
         }).catch(err => console.warn('[PremioMes] Error guardando config en Firestore:', err));
     }
+
+    try {
+        if (window.firebase && typeof window.firebase.firestore === 'function') {
+            const db = window.firebase.firestore();
+            const gamifPayload = {
+                isWinterMode: !temporadaActiva,
+                temporadaInviernoActiva: !temporadaActiva,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'Admin (Guardar y Activar Premio)'
+            };
+            db.collection('config').doc('gamification').set(gamifPayload, { merge: true }).catch(() => {});
+            db.collection('configuracion').doc('gamificacion').set(gamifPayload, { merge: true }).catch(() => {});
+        }
+    } catch (e) {}
 
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
         window.InventoryApp.Persistence.guardar(true);
@@ -341,6 +362,8 @@ function guardarConfiguracionPremioMes(e) {
 
     renderizarConfiguradorPremioAdmin();
     renderizarPremioMesCliente();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+    if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
 }
 
 window.guardarConfiguracionPremio = guardarConfiguracionPremioMes;
@@ -367,6 +390,12 @@ async function togglePausarDesafioPremioAdmin() {
     if (estaPausado) {
         AppState.premioMes.estado = 'ACTIVO';
         AppState.premioMes.temporadaActiva = true;
+        AppState.temporadaInviernoActiva = false;
+        AppState.isWinterMode = false;
+        const styleTag = document.getElementById('winter-mode-global-style');
+        if (styleTag) styleTag.textContent = '';
+        const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+        if (carritoPuntosRow) carritoPuntosRow.style.display = 'flex';
     } else {
         AppState.premioMes.estado = 'PAUSADO';
         AppState.premioMes.temporadaActiva = false;
@@ -376,13 +405,31 @@ async function togglePausarDesafioPremioAdmin() {
     if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
         window.InventoryApp.Firebase.guardarConfiguracionGlobal({
             premioMes: AppState.premioMes,
-            temporadaInviernoActiva: !AppState.premioMes.temporadaActiva
+            temporadaInviernoActiva: !AppState.premioMes.temporadaActiva,
+            isWinterMode: !AppState.premioMes.temporadaActiva
         }).catch(e => console.warn(e));
     }
+
+    try {
+        if (window.firebase && typeof window.firebase.firestore === 'function') {
+            const db = window.firebase.firestore();
+            const gamifPayload = {
+                isWinterMode: !AppState.premioMes.temporadaActiva,
+                temporadaInviernoActiva: !AppState.premioMes.temporadaActiva,
+                updatedAt: new Date().toISOString(),
+                updatedBy: `Admin (${estaPausado ? 'Reactivar Desafío' : 'Pausar Desafío'})`
+            };
+            db.collection('config').doc('gamification').set(gamifPayload, { merge: true }).catch(() => {});
+            db.collection('configuracion').doc('gamificacion').set(gamifPayload, { merge: true }).catch(() => {});
+        }
+    } catch (e) {}
+
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
 
     actualizarPreviewPremioAdmin();
     renderizarPremioMesCliente();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+    if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
 
     if (window.InventoryApp.Modal?.alert) {
         window.InventoryApp.Modal.alert(
@@ -712,9 +759,39 @@ function iniciarNuevoDesafioModalAdmin() {
             };
             const styleTag = document.getElementById('winter-mode-global-style');
             if (styleTag) styleTag.textContent = '';
+            const carritoPuntosRow = document.getElementById('cliente-carrito-puntos-row');
+            if (carritoPuntosRow) carritoPuntosRow.style.display = 'flex';
+
+            if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+                window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+                    premioMes: AppState.premioMes,
+                    temporadaInviernoActiva: false,
+                    isWinterMode: false
+                }).catch(e => console.warn(e));
+            }
+
+            try {
+                if (window.firebase && typeof window.firebase.firestore === 'function') {
+                    const db = window.firebase.firestore();
+                    db.collection('config').doc('gamification').set({
+                        isWinterMode: false,
+                        temporadaInviernoActiva: false,
+                        updatedAt: new Date().toISOString(),
+                        updatedBy: 'Admin (Nuevo Desafío Fallback)'
+                    }, { merge: true }).catch(() => {});
+                    db.collection('configuracion').doc('gamificacion').set({
+                        isWinterMode: false,
+                        temporadaInviernoActiva: false,
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true }).catch(() => {});
+                }
+            } catch (e) {}
+
             if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
             renderizarConfiguradorPremioAdmin();
             renderizarPremioMesCliente();
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+            if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
         }
     }
 }
@@ -1156,6 +1233,12 @@ function renderizarConfiguradorPremioAdmin() {
     if (metaInput && pm.gananciaNetaObjetivo !== undefined) metaInput.value = pm.gananciaNetaObjetivo;
     if (poolInput && pm.poolClientesEstimado !== undefined) poolInput.value = pm.poolClientesEstimado;
     if (factorInput && pm.pointsPerProfitDollar !== undefined) factorInput.value = pm.pointsPerProfitDollar;
+
+    const temporadaInput = document.getElementById('premio-temporada-activa');
+    if (temporadaInput) {
+        const esInvierno = Boolean(AppState.temporadaInviernoActiva || AppState.isWinterMode || pm.estado === 'INVIERNO' || pm.estado === 'ELIMINADO');
+        temporadaInput.checked = pm.temporadaActiva !== false && !esInvierno;
+    }
 
     // Renderizar presets en chips horizontales modernos
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');

@@ -1520,6 +1520,21 @@
                             <h3><i class="fas fa-sliders" style="color:var(--rc-emerald-600);"></i> Parámetros de la Temporada</h3>
                         </div>
 
+                        <!-- Interruptor de Estado de Temporada de Premios -->
+                        <div class="reward-form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <label for="premio-temporada-activa" style="font-size:0.88rem; font-weight:700; color:#166534; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-trophy" style="color:#d97706;"></i> Temporada de Premios Activa
+                                    </label>
+                                    <div style="font-size:0.75rem; color:#15803d; margin-top:2px;">
+                                        Los clientes acumulan puntos con sus compras y compiten por el premio.
+                                    </div>
+                                </div>
+                                <input type="checkbox" id="premio-temporada-activa" checked onchange="actualizarPreviewPremioAdmin()" style="width:20px; height:20px; cursor:pointer; accent-color:#16a34a;">
+                            </div>
+                        </div>
+
                         <div class="reward-form-group">
                             <label for="premio-admin-titulo">
                                 Nombre del Premio del Mes <span class="required-mark">*</span>
