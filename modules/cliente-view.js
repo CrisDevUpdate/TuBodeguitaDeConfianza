@@ -1044,8 +1044,17 @@ function solicitarConfirmacionCompraCliente() {
     const totalUSD = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+    
+    // Validar estado de la temporada de invierno / pausas de incentivos
+    const inviernoActivo = Boolean(
+        AppState.isWinterMode || 
+        AppState.temporadaInviernoActiva || 
+        AppState.premioMes?.temporadaActiva === false ||
+        AppState.premioMes?.estado === 'PAUSADO' ||
+        AppState.premioMes?.estado === 'GANADOR_ALCANZADO'
+    );
     const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
-    const puntosEstimados = Math.floor(totalUSD * ptsPorDolar);
+    const puntosEstimados = inviernoActivo ? 0 : Math.floor(totalUSD * ptsPorDolar);
 
     const comentarioInput = document.getElementById('cliente-pago-comentario');
     const comentario = (comentarioInput ? comentarioInput.value : '').trim();
@@ -1059,6 +1068,7 @@ function solicitarConfirmacionCompraCliente() {
         referencia: referencia,
         comentario: comentario,
         esCredito: esCredito,
+        inviernoActivo: inviernoActivo,
         puntosEstimados: puntosEstimados,
         usuario: usuario
     };
@@ -1080,6 +1090,7 @@ function mostrarModalDobleConfirmacion(datosPedido) {
     }
 
     const cantArticulos = datosPedido.carrito.reduce((sum, i) => sum + i.cantidad, 0);
+    const inviernoActivo = Boolean(datosPedido.inviernoActivo);
 
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 480px; text-align:center; padding:24px; animation: modalPop 0.25s ease-out;">
@@ -1109,10 +1120,12 @@ function mostrarModalDobleConfirmacion(datosPedido) {
                     <span style="color:var(--text-muted);">Equivalente en Bolívares:</span>
                     <strong style="font-size:1.05rem; color:#16a34a;">Bs. ${datosPedido.totalVES.toFixed(2)}</strong>
                 </div>
+                ${(!inviernoActivo && datosPedido.puntosEstimados > 0) ? `
                 <div style="display:flex; justify-content:space-between; border-top:1px dashed #cbd5e1; padding-top:8px; margin-top:4px;">
                     <span style="color:#d97706; font-weight:600;"><i class="fas fa-trophy"></i> Puntos a ganar:</span>
                     <strong style="color:#d97706;">+${datosPedido.puntosEstimados} pts</strong>
                 </div>
+                ` : ''}
             </div>
 
             <div style="display:flex; gap:12px; justify-content:center;">
@@ -1193,9 +1206,16 @@ async function ejecutarCompraConfirmadaCliente() {
     const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
-    // 3. Otorgar puntos de fidelización al cliente
+    // 3. Otorgar puntos de fidelización al cliente (Solo si la temporada de premios está activa)
     let puntosGanados = 0;
-    if (typeof otorgarPuntosPorCompra === 'function') {
+    const inviernoActivo = Boolean(
+        AppState.isWinterMode || 
+        AppState.temporadaInviernoActiva || 
+        AppState.premioMes?.temporadaActiva === false ||
+        AppState.premioMes?.estado === 'PAUSADO' ||
+        AppState.premioMes?.estado === 'GANADOR_ALCANZADO'
+    );
+    if (!inviernoActivo && typeof otorgarPuntosPorCompra === 'function') {
         puntosGanados = otorgarPuntosPorCompra(clienteCedula, totalUSD, esCredito ? 'Compra a Crédito Cliente' : 'Compra en Tienda Cliente');
     }
 

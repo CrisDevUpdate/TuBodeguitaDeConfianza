@@ -2359,20 +2359,14 @@
             <!-- PIE DE ACCIÓN FIJO / STICKY: El botón Confirmar siempre está visible y accesible -->
             <div class="cart-modal-footer" style="padding:10px 14px calc(14px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) 14px; border-top:1px solid #e2e8f0; background:#ffffff; box-shadow:0 -4px 14px rgba(0,0,0,0.06); flex-shrink:0; display:flex; flex-direction:column; gap:8px;">
                 <button type="submit" id="btn-cliente-confirmar-pedido" class="btn btn-success" 
-                    style="width:100%; font-weight:700; font-size:0.95rem; padding:12px 14px; display:flex; align-items:center; justify-content:center; gap:8px; border-radius:10px; box-shadow:0 3px 10px rgba(22, 163, 74, 0.35); cursor:pointer;">
-                    <i class="fas fa-check-circle" style="font-size:1.1rem;"></i> Confirmar Pedido a Crédito
+                    style="width:100%; font-weight:700; font-size:0.95rem; padding:11px 14px; display:flex; align-items:center; justify-content:center; gap:8px; border-radius:10px; box-shadow:0 3px 10px rgba(22, 163, 74, 0.35); cursor:pointer;">
+                    <i class="fas fa-check-circle" style="font-size:1.05rem;"></i> Confirmar Pedido a Crédito
                 </button>
                 
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button type="button" class="btn" onclick="abrirWhatsAppComprobante()" 
-                        style="flex:1; background:#25d366; color:#ffffff; font-weight:600; font-size:0.82rem; padding:8px 10px; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; min-height:38px;">
-                        <i class="fab fa-whatsapp" style="font-size:1.1rem;"></i> <span id="btn-cliente-wa-label">WhatsApp</span>
-                    </button>
-                    <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()" 
-                        style="flex:1; font-size:0.82rem; padding:8px 10px; color:#64748b; border-color:#cbd5e1; border-radius:8px; min-height:38px;">
-                        Continuar Comprando
-                    </button>
-                </div>
+                <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()" 
+                    style="width:100%; font-size:0.82rem; padding:8px 10px; color:#64748b; border-color:#cbd5e1; border-radius:8px; min-height:36px; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    <i class="fas fa-arrow-left"></i> Continuar Comprando
+                </button>
             </div>
         </form>
     </div>

@@ -68,7 +68,7 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
     if (!clienteCedulaOId || Number(montoUSD) <= 0) return 0;
 
     // Si la temporada está inactiva (Temporada de Invierno / Descanso), no se acumulan puntos
-    if (AppState.temporadaInviernoActiva || (AppState.premioMes && AppState.premioMes.temporadaActiva === false)) {
+    if (AppState.temporadaInviernoActiva || AppState.isWinterMode || (AppState.premioMes && AppState.premioMes.temporadaActiva === false) || AppState.premioMes?.estado === 'PAUSADO' || AppState.premioMes?.estado === 'GANADOR_ALCANZADO') {
         console.log('[Puntos] Temporada de invierno activa: acumulación pausada.');
         return 0;
     }
