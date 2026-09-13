@@ -321,6 +321,7 @@ function switchTab(tabId) {
             if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
             if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
         } else if (tabId === 'historial-ventas') {
+            if (typeof marcarHistorialVentasRevisado === 'function') marcarHistorialVentasRevisado();
             if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
             if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         } else if (tabId === 'notificaciones') {

@@ -426,7 +426,7 @@
         </button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
             <i class="fas fa-chart-line"></i> Historial de Ventas
-            <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff;">0</span>
+            <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff; display:none;">0</span>
         </button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')">
             <i class="fas fa-bell"></i> Notificaciones
@@ -2604,9 +2604,10 @@
         <span>Usuarios</span>
         <span id="badge-pendientes-mobile" class="badge-dot" style="display:none;"></span>
     </button>
-    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')" aria-label="Historial de Ventas">
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')" aria-label="Historial de Ventas" style="position:relative;">
         <i class="fas fa-chart-line"></i>
         <span>Ventas</span>
+        <span id="badge-ventas-hoy-mobile" class="badge-dot" style="background:#16a34a; display:none;"></span>
     </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')" aria-label="Notificaciones" style="position:relative;">
         <i class="fas fa-bell"></i>

@@ -270,6 +270,10 @@ function cambiarSubTabHistorialVentas(subtab) {
  * Renderiza el módulo completo de Historial de Ventas para el Administrador
  */
 function renderizarHistorialVentasAdmin() {
+    // Cuando el usuario abre el historial de ventas, se marca como revisado
+    // para que la notificación de ventas vuelva a cero
+    marcarHistorialVentasRevisado();
+
     // Filtrar ventas reales y válidas (excluyendo documentos de control o no-ventas)
     const ventas = (AppState.ventas || []).filter(v => {
         if (!v || !v.id) return false;
@@ -341,6 +345,9 @@ function renderizarHistorialVentasAdmin() {
     if (kpiHistUSD) kpiHistUSD.textContent = `$${totalVentasHistoricoUSD.toFixed(2)}`;
     if (kpiCreditoUSD) kpiCreditoUSD.textContent = `$${totalVentasCreditoUSD.toFixed(2)}`;
     if (badgeHoy) badgeHoy.textContent = ventasHoy.length;
+
+    // Actualizar badges de notificación en la barra de navegación
+    actualizarBadgeVentasHoy();
 
     // 3. Renderizar Tabla de Ventas de Hoy
     const tbodyHoy = document.getElementById('ventas-hoy-body');
@@ -909,15 +916,100 @@ async function ejecutarLimpiezaVentas(tipo) {
 }
 
 /**
- * Actualiza el contador del badge de ventas de hoy
+ * Clave de almacenamiento para rastrear las ventas que ya han sido revisadas por el administrador.
  */
-function actualizarBadgeVentasHoy() {
-    const ventas = AppState.ventas || [];
+const STORAGE_KEY_VENTAS_REVISADAS = 'app_historial_ventas_ultima_revision_ts';
+
+/**
+ * Marca el historial de ventas como revisado, actualizando la marca de tiempo de lectura
+ */
+function marcarHistorialVentasRevisado() {
+    try {
+        const ahora = Date.now();
+        localStorage.setItem(STORAGE_KEY_VENTAS_REVISADAS, String(ahora));
+        if (window.AppState) {
+            window.AppState._historialVentasUltimaRevision = ahora;
+        }
+        actualizarBadgeVentasHoy();
+    } catch (e) {
+        console.warn('[HistorialVentas] Error al marcar ventas como revisadas:', e);
+    }
+}
+
+/**
+ * Obtiene el número de ventas no revisadas (nuevas después de la última revisión).
+ * Si el usuario se encuentra actualmente en la pestaña de 'historial-ventas',
+ * automáticamente cuenta como 0 ya que las está revisando.
+ */
+function obtenerVentasNoRevisadasCount() {
+    // Si la vista de historial de ventas está activa en pantalla, no hay pendientes sin ver
+    const vistaHistorial = document.getElementById('historial-ventas');
+    if (vistaHistorial && vistaHistorial.classList.contains('active')) {
+        return 0;
+    }
+
+    const ventas = (AppState.ventas || []).filter(v => {
+        if (!v || !v.id) return false;
+        const idLower = String(v.id).trim().toLowerCase();
+        return idLower !== 'pagosporverificar' && idLower !== 'app_state' && idLower !== 'config' && idLower !== 'global';
+    });
+
     const fechaHoy = obtenerFechaHoyISO();
     const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
-    const badgeHoy = document.getElementById('badge-ventas-hoy-count');
-    if (badgeHoy) {
-        badgeHoy.textContent = ventasHoy.length;
+
+    let ultimaRevision = 0;
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_VENTAS_REVISADAS);
+        if (stored) ultimaRevision = Number(stored) || 0;
+        else if (window.AppState && window.AppState._historialVentasUltimaRevision) {
+            ultimaRevision = Number(window.AppState._historialVentasUltimaRevision) || 0;
+        }
+    } catch {
+        ultimaRevision = 0;
+    }
+
+    // Si nunca ha revisado, o si hay ventas registradas después de la última revisión
+    if (ultimaRevision === 0) {
+        return ventasHoy.length;
+    }
+
+    const ventasNuevas = ventasHoy.filter(v => {
+        const tsVenta = Number(v.timestamp || v.createdAt || 0) || (v.fecha ? new Date(v.fecha).getTime() : 0);
+        // Si no tiene timestamp rastreable, consideramos la fecha
+        if (tsVenta > 0) {
+            return tsVenta > ultimaRevision;
+        }
+        return false;
+    });
+
+    return ventasNuevas.length;
+}
+
+/**
+ * Actualiza el contador del badge de ventas de hoy.
+ * Si el administrador ya abrió el historial de ventas o no hay ventas nuevas no revisadas,
+ * el badge vuelve a cero y se oculta automáticamente.
+ */
+function actualizarBadgeVentasHoy() {
+    const noRevisadas = obtenerVentasNoRevisadasCount();
+    const badgeDesktop = document.getElementById('badge-ventas-hoy-count');
+    const badgeMobile = document.getElementById('badge-ventas-hoy-mobile');
+
+    if (badgeDesktop) {
+        badgeDesktop.textContent = noRevisadas;
+        if (noRevisadas > 0) {
+            badgeDesktop.style.display = 'inline-flex';
+        } else {
+            badgeDesktop.style.display = 'none';
+        }
+    }
+
+    if (badgeMobile) {
+        if (noRevisadas > 0) {
+            badgeMobile.style.display = 'block';
+        } else {
+            badgeMobile.style.display = 'none';
+        }
     }
 }
 
@@ -959,3 +1051,5 @@ window.abrirModalLimpiadorVentas = abrirModalLimpiadorVentas;
 window.cerrarModalLimpiadorVentas = cerrarModalLimpiadorVentas;
 window.ejecutarLimpiezaVentas = ejecutarLimpiezaVentas;
 window.actualizarBadgeVentasHoy = actualizarBadgeVentasHoy;
+window.marcarHistorialVentasRevisado = marcarHistorialVentasRevisado;
+window.obtenerVentasNoRevisadasCount = obtenerVentasNoRevisadasCount;
