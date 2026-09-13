@@ -2192,6 +2192,7 @@ async function procesarReportePagoCliente() {
     let cuentaDestinoId = '';
     let cuentaDestinoNumero = '';
     let cuentaDestinoTelefono = '';
+    let cuentaSeleccionada = null;
 
     if (cuentaId === 'efectivo_usd') {
         metodo = 'Efectivo Divisas ($ USD)';
@@ -2203,7 +2204,7 @@ async function procesarReportePagoCliente() {
         if (!referencia) referencia = 'EFECTIVO-VES';
     } else {
         const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
-        const cuentaSeleccionada = cuentas.find(c => c.id === cuentaId) || cuentas[0];
+        cuentaSeleccionada = cuentas.find(c => c.id === cuentaId) || cuentas[0] || null;
         if (cuentaSeleccionada) {
             bancoDestino = cuentaSeleccionada.banco || cuentaSeleccionada.bank || 'Banco';
             const tipo = cuentaSeleccionada.tipo || cuentaSeleccionada.type || 'Pago Móvil';
