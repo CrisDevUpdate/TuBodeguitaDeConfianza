@@ -784,16 +784,14 @@
                         return `
                             <div class="card notificacion-card-item" 
                                  onclick="irANotificacion('${n.id}')"
-                                 style="margin:0; padding:14px 18px; cursor:pointer; transition:all 0.18s ease; ${noLeidaClase} position:relative; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; justify-content:space-between; align-items:center; gap:14px;"
-                                 onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';"
-                                 onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)';">
+                                 style="${noLeidaClase}">
                                 
-                                <div style="display:flex; align-items:flex-start; gap:14px; flex:1;">
-                                    <div style="width:40px; height:40px; border-radius:10px; background:#dcfce7; color:#16a34a; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; margin-top:2px;">
+                                <div class="notif-item-left-block">
+                                    <div class="notif-item-icon-box" style="background:#dcfce7; color:#16a34a;">
                                         <i class="fas fa-circle-check"></i>
                                     </div>
-                                    <div style="flex:1;">
-                                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                                    <div class="notif-item-body">
+                                        <div class="notif-item-header-meta">
                                             <span style="background:#dcfce7; color:#16a34a; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
                                                 TRANSACCIÓN APROBADA
                                             </span>
@@ -802,7 +800,7 @@
                                             </span>
                                             ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;" title="Nueva"></span>` : ''}
                                         </div>
-                                        <div style="font-size:0.95rem; color:var(--text-main); margin-bottom:4px; line-height:1.4;">
+                                        <div class="notif-item-msg">
                                             ${n.mensaje}
                                         </div>
                                         <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
@@ -814,7 +812,7 @@
                                     </div>
                                 </div>
 
-                                <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                                <div class="notif-item-actions-block">
                                     <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none; color:#16a34a; border-color:#86efac;">
                                         <span>Ver Estado de Cuenta</span>
                                         <i class="fas fa-arrow-right"></i>
@@ -970,16 +968,14 @@
                     return `
                         <div class="card notificacion-card-item" 
                              onclick="irANotificacion('${n.id}')"
-                             style="margin:0; padding:14px 18px; cursor:pointer; border-left:4px solid ${cfg.borderLeft}; transition:all 0.18s ease; ${noLeidaClase} position:relative; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; justify-content:space-between; align-items:center; gap:14px;"
-                             onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';"
-                             onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)';">
+                             style="border-left:4px solid ${cfg.borderLeft}; ${noLeidaClase}">
                             
-                            <div style="display:flex; align-items:flex-start; gap:14px; flex:1;">
-                                <div style="width:40px; height:40px; border-radius:10px; background:${cfg.bgBadge}; color:${cfg.color}; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; margin-top:2px;">
+                            <div class="notif-item-left-block">
+                                <div class="notif-item-icon-box" style="background:${cfg.bgBadge}; color:${cfg.color};">
                                     <i class="fas ${cfg.icon}"></i>
                                 </div>
-                                <div style="flex:1;">
-                                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                                <div class="notif-item-body">
+                                    <div class="notif-item-header-meta">
                                         <span style="background:${cfg.bgBadge}; color:${cfg.color}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
                                             ${cfg.label}
                                         </span>
@@ -988,7 +984,7 @@
                                         </span>
                                         ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;" title="No leída"></span>` : ''}
                                     </div>
-                                    <div style="font-size:0.95rem; color:var(--text-main); margin-bottom:4px; line-height:1.4;">
+                                    <div class="notif-item-msg">
                                         ${n.mensaje}
                                     </div>
                                     <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
@@ -1001,7 +997,7 @@
                                 </div>
                             </div>
 
-                            <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+                            <div class="notif-item-actions-block">
                                 <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none;">
                                     <span>Ir al sitio</span>
                                     <i class="fas fa-arrow-right"></i>
