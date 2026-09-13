@@ -69,9 +69,8 @@ function obtenerCostoHistoricoProducto(productoId, item = null) {
 function esVentaOTransaccionConfirmada(venta) {
     if (!venta) return false;
 
-    // 1. Verificación de flags explícitos
-    if (venta.confirmada === true) return true;
-    if (venta.pendiente === true || venta.confirmada === false) return false;
+    // 1. Verificación de flags explícitos de no confirmación o pendiente
+    if (venta.confirmada === false || venta.pendiente === true) return false;
 
     // 2. Verificación de estado de la venta
     const estado = String(venta.estado || '').trim().toUpperCase();
@@ -89,38 +88,49 @@ function esVentaOTransaccionConfirmada(venta) {
         return false;
     }
 
-    // 3. Si la venta tiene una referencia o transacción bancaria vinculada en AppState.transacciones
+    const vId = String(venta.id || '').trim();
     const ref = String(venta.referencia || '').trim();
+    const refNorm = (ref && ref !== 'N/A' && ref !== 'CRÉDITO-REGISTRADO') ? ref.toLowerCase() : '';
+
+    // 3. Si existe en la lista de PagosPorVerificar de Firestore/AppState
+    const pagosVerif = Array.isArray(window.AppState?.pagosPorVerificar) ? window.AppState.pagosPorVerificar : [];
+    if (pagosVerif.length > 0) {
+        const pago = pagosVerif.find(p => {
+            const pId = String(p.id || '').trim();
+            const pVentaId = String(p.ventaId || p.pedidoId || '').trim();
+            const pRef = String(p.referencia || '').trim().toLowerCase();
+            return (vId && (pId === vId || pVentaId === vId)) ||
+                   (refNorm && pRef && pRef === refNorm);
+        });
+        if (pago) {
+            const pEst = String(pago.estado || 'PENDIENTE_VERIFICACION').trim().toUpperCase();
+            if (pEst !== 'APROBADO' && pEst !== 'CONFIRMADO' && pEst !== 'PAGO AGREGADO') {
+                return false;
+            }
+        }
+    }
+
+    // 4. Si la venta tiene una referencia o transacción bancaria vinculada en AppState.transacciones
     const txList = Array.isArray(window.AppState?.transacciones) 
         ? window.AppState.transacciones 
         : (typeof transacciones !== 'undefined' && Array.isArray(transacciones) ? transacciones : []);
 
-    const txAsociada = txList.find(t =>
-        (t.id && (t.id === venta.id || t.pedidoId === venta.id)) ||
-        (t.pedidoId && t.pedidoId === venta.id) ||
-        (ref && ref !== 'N/A' && ref !== 'CRÉDITO-REGISTRADO' && String(t.referencia || '').trim() === ref)
-    );
-    if (txAsociada) {
-        const estadoTx = String(txAsociada.estado || '').trim().toLowerCase();
-        if (estadoTx === 'confirmando' || estadoTx === 'fallido' || estadoTx.includes('pendiente')) {
-            return false;
+    if (txList.length > 0) {
+        const txAsociada = txList.find(t => {
+            const tId = String(t.id || '').trim();
+            const tPedidoId = String(t.pedidoId || '').trim();
+            const tRef = String(t.referencia || '').trim().toLowerCase();
+            return (vId && (tId === vId || tPedidoId === vId)) ||
+                   (refNorm && tRef && tRef === refNorm);
+        });
+        if (txAsociada) {
+            const estadoTx = String(txAsociada.estado || '').trim().toLowerCase();
+            if (estadoTx === 'confirmando' || estadoTx === 'fallido' || estadoTx.includes('pendiente') || estadoTx === 'rechazado' || estadoTx === 'cancelado') {
+                return false;
+            }
         }
     }
 
-    // 4. Si existe en la lista de PagosPorVerificar de Firestore/AppState
-    const pagosVerif = Array.isArray(window.AppState?.pagosPorVerificar) ? window.AppState.pagosPorVerificar : [];
-    const pago = pagosVerif.find(p =>
-        p.id === venta.id || p.ventaId === venta.id || p.pedidoId === venta.id ||
-        (ref && ref !== 'N/A' && String(p.referencia || '').trim() === ref)
-    );
-    if (pago) {
-        const pEst = String(pago.estado || '').trim().toUpperCase();
-        if (pEst !== 'APROBADO' && pEst !== 'CONFIRMADO' && pEst !== 'PAGO AGREGADO') {
-            return false;
-        }
-    }
-
-    // Por defecto, si el estado no está pendiente
     return true;
 }
 window.esVentaOTransaccionConfirmada = esVentaOTransaccionConfirmada;

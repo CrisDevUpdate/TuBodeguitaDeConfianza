@@ -1234,7 +1234,8 @@ async function ejecutarCompraConfirmadaCliente() {
         tipo: tipoPago,
         tipoPago: tipoPago,
         referencia: referencia || (esCredito ? 'CRÉDITO-REGISTRADO' : 'N/A'),
-        estado: 'CONFIRMADO',
+        estado: esCredito ? 'CONFIRMADO' : 'PENDIENTE_CONFIRMACION',
+        confirmada: esCredito ? true : false,
         descontadoInventario: true,
         confirmacionWhatsApp: false
     };
@@ -1253,9 +1254,11 @@ async function ejecutarCompraConfirmadaCliente() {
             montoUSD: totalUSD,
             tasaMomento: tasa,
             fecha: fechaHora,
-            estado: 'Confirmado',
+            estado: esCredito ? 'Confirmado' : 'Confirmando',
             verificando: false,
-            observacion: `Compra #${nuevoPedidoId} procesada con éxito para ${usuario.nombre}. Stock descontado automáticamente.`
+            observacion: esCredito
+                ? `Compra #${nuevoPedidoId} a crédito procesada para ${usuario.nombre}. Stock descontado automáticamente.`
+                : `Compra #${nuevoPedidoId} por verificar pago para ${usuario.nombre}. Pendiente de confirmación bancaria.`
         };
         AppState.transacciones.push(nuevaTx);
     }

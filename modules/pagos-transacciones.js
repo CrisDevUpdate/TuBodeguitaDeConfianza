@@ -203,6 +203,8 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
 
         renderizarTransacciones();
         renderizarClientes();
+        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
         if (clienteSeleccionadoId === tx.clienteId) verDetalleCliente(tx.clienteId);
         if (!silencioso) {
@@ -470,9 +472,15 @@ function limpiarLoteTransacciones() {
 }
 
 function limpiarVistaConciliacion() {
-    if (typeof limpiarLoteTransacciones === 'function') limpiarLoteTransacciones();
+    try {
+        if (typeof limpiarLoteTransacciones === 'function') limpiarLoteTransacciones();
+    } catch (e) {
+        console.warn('[Transacciones] Error al limpiar lote:', e);
+    }
     const busqueda = document.getElementById('transaccion-busqueda');
-    if (busqueda) busqueda.value = '';
+    if (busqueda) {
+        busqueda.value = '';
+    }
     renderizarTransacciones('');
 }
 
@@ -1502,14 +1510,28 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
 
     // 1. Si es venta, confirmar en AppState.ventas
     const ventaId = item.ventaId || item.pedidoId || (item.tipoRegistro === 'VENTA' ? item.id : null);
-    if (ventaId) {
-        const venta = (AppState.ventas || []).find(v => v.id === ventaId);
-        if (venta) {
-            venta.estado = 'CONFIRMADO';
-            if (window.InventoryApp?.Firebase?.registrarVenta) {
-                window.InventoryApp.Firebase.registrarVenta(venta, venta.items || []).catch(() => {});
-            }
+    const refVenta = item.referencia && item.referencia !== 'N/A' ? String(item.referencia).trim().toLowerCase() : '';
+    
+    const venta = (AppState.ventas || []).find(v => 
+        (ventaId && v.id === ventaId) || 
+        (refVenta && v.referencia && String(v.referencia).trim().toLowerCase() === refVenta)
+    );
+    if (venta) {
+        venta.estado = 'CONFIRMADO';
+        venta.confirmada = true;
+        if (window.InventoryApp?.Firebase?.registrarVenta) {
+            window.InventoryApp.Firebase.registrarVenta(venta, venta.items || []).catch(() => {});
         }
+    }
+
+    // 1.1 Si existe una transacción contable en AppState.transacciones, confirmarla
+    const txAsociada = (AppState.transacciones || []).find(t => 
+        (ventaId && (t.id === ventaId || t.pedidoId === ventaId)) ||
+        (refVenta && t.referencia && String(t.referencia).trim().toLowerCase() === refVenta)
+    );
+    if (txAsociada) {
+        txAsociada.estado = 'Confirmado';
+        txAsociada.verificando = false;
     }
 
     // 2. Si es abono, confirmar en AppState.abonos
@@ -1595,12 +1617,25 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
     }
 
     const ventaId = item?.ventaId || item?.pedidoId || (item?.tipoRegistro === 'VENTA' ? item.id : null);
-    if (ventaId) {
-        const venta = (AppState.ventas || []).find(v => v.id === ventaId);
-        if (venta) {
-            venta.estado = 'RECHAZADO';
-            venta.motivoRechazo = motivo;
-        }
+    const refVenta = item?.referencia && item.referencia !== 'N/A' ? String(item.referencia).trim().toLowerCase() : '';
+    
+    const venta = (AppState.ventas || []).find(v => 
+        (ventaId && v.id === ventaId) || 
+        (refVenta && v.referencia && String(v.referencia).trim().toLowerCase() === refVenta)
+    );
+    if (venta) {
+        venta.estado = 'RECHAZADO';
+        venta.confirmada = false;
+        venta.motivoRechazo = motivo;
+    }
+
+    const txAsociada = (AppState.transacciones || []).find(t => 
+        (ventaId && (t.id === ventaId || t.pedidoId === ventaId)) ||
+        (refVenta && t.referencia && String(t.referencia).trim().toLowerCase() === refVenta)
+    );
+    if (txAsociada) {
+        txAsociada.estado = 'Rechazado';
+        txAsociada.verificando = false;
     }
 
     const abonoId = item?.abonoId || (item?.tipoRegistro === 'ABONO' ? item.id : null);
@@ -1621,6 +1656,9 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
     }
 
     renderizarAbonosPendientesReportados();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (window.InventoryApp?.Modal?.toast) {
         window.InventoryApp.Modal.toast(`⚠️ Pago #${id} marcado como Rechazado.`, 'warning');
     }

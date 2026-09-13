@@ -299,11 +299,11 @@
                 }
             } else if (tab === 'historial-ventas') {
                 const idRef = destino.idRef || notif.referenciaId;
-                const inputFiltro = document.getElementById('historial-filtro-texto');
+                const inputFiltro = document.getElementById('historial-filtro-cliente');
                 if (inputFiltro && idRef) {
                     inputFiltro.value = idRef;
-                    if (typeof window.filtrarHistorialGeneral === 'function') {
-                        window.filtrarHistorialGeneral();
+                    if (typeof window.filtrarHistorialGeneralPorCliente === 'function') {
+                        window.filtrarHistorialGeneralPorCliente(idRef);
                     }
                 }
             } else if (tab === 'inventario') {

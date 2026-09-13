@@ -290,7 +290,7 @@ function renderizarHistorialVentasAdmin() {
         return f.startsWith(fechaHoy);
     });
 
-    // 2. Calcular KPIs de Ventas
+    // 2. Calcular KPIs de Ventas (SOLO transacciones y ventas confirmadas)
     let totalVentasHoyUSD = 0;
     let totalVentasHoyVES = 0;
     let totalCreditoHoyUSD = 0;
@@ -301,29 +301,51 @@ function renderizarHistorialVentasAdmin() {
 
     ventas.forEach(v => {
         const total = Number(v.total || 0);
-        totalVentasHistoricoUSD += total;
-
         const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
+        const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+            ? window.esVentaOTransaccionConfirmada(v)
+            : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
+
         if (esCredito) {
-            totalVentasCreditoUSD += total;
+            // Ventas a crédito acumuladas (si no fueron rechazadas ni canceladas)
+            if (v.estado !== 'RECHAZADO' && v.estado !== 'CANCELADO') {
+                totalVentasCreditoUSD += total;
+                totalVentasHistoricoUSD += total;
+            }
         } else {
-            totalVentasContadoUSD += total;
+            // Ventas de contado/pagos: ÚNICAMENTE se suman al histórico si la transacción fue CONFIRMADA
+            if (esConf) {
+                totalVentasContadoUSD += total;
+                totalVentasHistoricoUSD += total;
+            }
         }
     });
 
-    // "Ventas de hoy" sólo se suma cuando el cliente paga (contado/pagado).
+    // "Ventas de hoy" sólo se suma cuando el cliente paga (contado/pagado) Y LA TRANSACCIÓN ESTÁ CONFIRMADA.
     // Si sólo sacó a crédito, no se suma a ventas de hoy, sino a "Total Ventas a crédito" y "Crédito de Hoy".
+    // Si la transacción está por verificar o pendiente de validación, NO se suma a ventas de hoy hasta que sea aprobada.
+    let pedidosProcesadosHoy = 0;
     ventasHoy.forEach(v => {
         const total = Number(v.total || 0);
         const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
         const totalV = Number(v.totalVES || 0) || (tasa > 0 ? (total * tasa) : 0);
+        const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+            ? window.esVentaOTransaccionConfirmada(v)
+            : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
 
         if (esCredito) {
-            totalCreditoHoyUSD += total;
-            totalCreditoHoyVES += totalV;
+            if (v.estado !== 'RECHAZADO' && v.estado !== 'CANCELADO') {
+                totalCreditoHoyUSD += total;
+                totalCreditoHoyVES += totalV;
+                pedidosProcesadosHoy++;
+            }
         } else {
-            totalVentasHoyUSD += total;
-            totalVentasHoyVES += totalV;
+            // Venta de contado: SOLO suma si está plenamente confirmada
+            if (esConf) {
+                totalVentasHoyUSD += total;
+                totalVentasHoyVES += totalV;
+                pedidosProcesadosHoy++;
+            }
         }
     });
 
@@ -341,12 +363,10 @@ function renderizarHistorialVentasAdmin() {
     if (kpiHoyVES) kpiHoyVES.textContent = `Bs. ${totalVentasHoyVES.toFixed(2)}`;
     if (kpiCreditoHoyUSD) kpiCreditoHoyUSD.textContent = `$${totalCreditoHoyUSD.toFixed(2)}`;
     if (kpiCreditoHoyVES) kpiCreditoHoyVES.textContent = `Bs. ${totalCreditoHoyVES.toFixed(2)}`;
-    if (kpiHoyCant) kpiHoyCant.textContent = ventasHoy.length;
+    if (kpiHoyCant) kpiHoyCant.textContent = pedidosProcesadosHoy;
     if (kpiHistUSD) kpiHistUSD.textContent = `$${totalVentasHistoricoUSD.toFixed(2)}`;
     if (kpiCreditoUSD) kpiCreditoUSD.textContent = `$${totalVentasCreditoUSD.toFixed(2)}`;
-    if (badgeHoy) badgeHoy.textContent = ventasHoy.length;
-
-    // Actualizar badges de notificación en la barra de navegación
+    // El badge de la barra de navegación se actualiza a continuación con ventas no revisadas
     actualizarBadgeVentasHoy();
 
     // 3. Renderizar Tabla de Ventas de Hoy
@@ -480,7 +500,16 @@ function renderizarHistorialVentasAdmin() {
         // Filtro por estado
         if (filtroHistorialEstado !== 'TODOS') {
             filtradas = filtradas.filter(v => {
-                const est = String(v.estado || 'CONFIRMADO');
+                const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+                    ? window.esVentaOTransaccionConfirmada(v)
+                    : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
+
+                if (filtroHistorialEstado === 'CONFIRMADO') {
+                    return esConf;
+                } else if (filtroHistorialEstado === 'PENDIENTE_CONFIRMACION' || filtroHistorialEstado === 'PENDIENTE') {
+                    return !esConf;
+                }
+                const est = String(v.estado || (esConf ? 'CONFIRMADO' : 'PENDIENTE_CONFIRMACION'));
                 return est === filtroHistorialEstado;
             });
         }
@@ -925,10 +954,19 @@ const STORAGE_KEY_VENTAS_REVISADAS = 'app_historial_ventas_ultima_revision_ts';
  */
 function marcarHistorialVentasRevisado() {
     try {
+        // Obtenemos el mayor timestamp entre Date.now() y cualquiera de las ventas existentes para asegurar que ninguna quede marcada como "posterior"
         const ahora = Date.now();
-        localStorage.setItem(STORAGE_KEY_VENTAS_REVISADAS, String(ahora));
+        let maxTs = ahora;
+        const ventas = Array.isArray(AppState.ventas) ? AppState.ventas : [];
+        ventas.forEach(v => {
+            const ts = typeof obtenerTimestampVenta === 'function' ? obtenerTimestampVenta(v) : (Number(v.timestamp || v.createdAt || 0) || 0);
+            if (ts > maxTs) maxTs = ts;
+        });
+        const nuevaMarca = maxTs + 1000; // 1 segundo por delante del máximo existente
+
+        localStorage.setItem(STORAGE_KEY_VENTAS_REVISADAS, String(nuevaMarca));
         if (window.AppState) {
-            window.AppState._historialVentasUltimaRevision = ahora;
+            window.AppState._historialVentasUltimaRevision = nuevaMarca;
         }
         actualizarBadgeVentasHoy();
     } catch (e) {
@@ -944,7 +982,7 @@ function marcarHistorialVentasRevisado() {
 function obtenerVentasNoRevisadasCount() {
     // Si la vista de historial de ventas está activa en pantalla, no hay pendientes sin ver
     const vistaHistorial = document.getElementById('historial-ventas');
-    if (vistaHistorial && vistaHistorial.classList.contains('active')) {
+    if (vistaHistorial && (vistaHistorial.classList.contains('active') || vistaHistorial.style.display === 'block')) {
         return 0;
     }
 
@@ -969,13 +1007,21 @@ function obtenerVentasNoRevisadasCount() {
     }
 
     // Si nunca ha revisado, o si hay ventas registradas después de la última revisión
+    // Solo se consideran ventas confirmadas para notificaciones de ventas
+    const ventasHoyConfirmadas = ventasHoy.filter(v => {
+        return typeof window.esVentaOTransaccionConfirmada === 'function'
+            ? window.esVentaOTransaccionConfirmada(v)
+            : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
+    });
+
     if (ultimaRevision === 0) {
-        return ventasHoy.length;
+        return ventasHoyConfirmadas.length;
     }
 
-    const ventasNuevas = ventasHoy.filter(v => {
-        const tsVenta = Number(v.timestamp || v.createdAt || 0) || (v.fecha ? new Date(v.fecha).getTime() : 0);
-        // Si no tiene timestamp rastreable, consideramos la fecha
+    const ventasNuevas = ventasHoyConfirmadas.filter(v => {
+        const tsVenta = typeof obtenerTimestampVenta === 'function'
+            ? obtenerTimestampVenta(v)
+            : (Number(v.timestamp || v.createdAt || 0) || (v.fecha ? new Date(v.fecha).getTime() : 0));
         if (tsVenta > 0) {
             return tsVenta > ultimaRevision;
         }

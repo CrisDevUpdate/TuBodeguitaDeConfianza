@@ -49,6 +49,81 @@ function fechaHoraActual() {
 }
 
 /**
+ * Determina si una venta o transacción se encuentra debidamente confirmada.
+ * - Una venta pendiente de verificación/aprobación bancaria o con transacción en estado "Confirmando"/"Pendiente"
+ *   NO se considera confirmada y NO debe sumarse a "Ventas de hoy" ni a "Total histórico acumulado".
+ * - Las ventas a crédito ya otorgadas/registradas se consideran válidas en el módulo de crédito a menos que sean rechazadas/canceladas.
+ */
+function esVentaOTransaccionConfirmada(venta) {
+    if (!venta) return false;
+
+    // 1. Verificación de flags explícitos de no confirmación o pendiente
+    if (venta.confirmada === false || venta.pendiente === true) return false;
+
+    // 2. Verificación de estados no confirmados
+    const estado = String(venta.estado || '').trim().toUpperCase();
+    const estadosNoConfirmados = [
+        'PENDIENTE',
+        'PENDIENTE_CONFIRMACION',
+        'PENDIENTE_VERIFICACION',
+        'POR_VERIFICAR',
+        'CONFIRMANDO',
+        'FALLIDO',
+        'RECHAZADO',
+        'CANCELADO'
+    ];
+    if (estadosNoConfirmados.includes(estado)) {
+        return false;
+    }
+
+    const vId = String(venta.id || '').trim();
+    const ref = String(venta.referencia || '').trim();
+    const refNorm = (ref && ref !== 'N/A' && ref !== 'CRÉDITO-REGISTRADO') ? ref.toLowerCase() : '';
+
+    // 3. Si existe un registro pendiente en PagosPorVerificar de Firestore/AppState para esta venta
+    const pagosVerif = Array.isArray(window.AppState?.pagosPorVerificar) ? window.AppState.pagosPorVerificar : [];
+    if (pagosVerif.length > 0) {
+        const pago = pagosVerif.find(p => {
+            const pId = String(p.id || '').trim();
+            const pVentaId = String(p.ventaId || p.pedidoId || '').trim();
+            const pRef = String(p.referencia || '').trim().toLowerCase();
+            return (vId && (pId === vId || pVentaId === vId)) ||
+                   (refNorm && pRef && pRef === refNorm);
+        });
+        if (pago) {
+            const pEst = String(pago.estado || 'PENDIENTE_VERIFICACION').trim().toUpperCase();
+            if (pEst !== 'APROBADO' && pEst !== 'CONFIRMADO' && pEst !== 'PAGO AGREGADO') {
+                return false;
+            }
+        }
+    }
+
+    // 4. Si existe una transacción contable en AppState.transacciones vinculada
+    const txList = Array.isArray(window.AppState?.transacciones) 
+        ? window.AppState.transacciones 
+        : (typeof transacciones !== 'undefined' && Array.isArray(transacciones) ? transacciones : []);
+
+    if (txList.length > 0) {
+        const txAsociada = txList.find(t => {
+            const tId = String(t.id || '').trim();
+            const tPedidoId = String(t.pedidoId || '').trim();
+            const tRef = String(t.referencia || '').trim().toLowerCase();
+            return (vId && (tId === vId || tPedidoId === vId)) ||
+                   (refNorm && tRef && tRef === refNorm);
+        });
+        if (txAsociada) {
+            const estadoTx = String(txAsociada.estado || '').trim().toLowerCase();
+            if (estadoTx === 'confirmando' || estadoTx === 'fallido' || estadoTx.includes('pendiente') || estadoTx === 'rechazado' || estadoTx === 'cancelado') {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+window.esVentaOTransaccionConfirmada = esVentaOTransaccionConfirmada;
+
+/**
  * Normaliza URLs de imágenes de Vercel Blob.
  * Si la URL pertenece a un store privado de Vercel Blob (que daría error 403 al navegador directo),
  * la convierte automáticamente al proxy seguro autenticado /api/avatar/view.
