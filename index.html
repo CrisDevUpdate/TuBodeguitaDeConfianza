@@ -7,6 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
     <!-- Font Awesome para los íconos del BCV -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -2935,6 +2938,16 @@
 <script src="modules/notificaciones.js?v=4.5.0_anti_dup"></script>
 <script src="modules/configuracion.js?v=4.5.0_anti_dup"></script>
 <script src="app.js?v=4.5.0_anti_dup"></script>
+    <script>
+      // Registro del Service Worker (requerido para que la app sea "instalable" y para el empaquetado en Android)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+            console.warn('No se pudo registrar el service worker:', err);
+          });
+        });
+      }
+    </script>
 </body>
 </html>
 
