@@ -1,0 +1,21 @@
+{
+  "name": "tu-bodeguita-de-confianza",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Static build ready'",
+    "lint": "node -c server.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "adm-zip": "^0.6.0",
+    "archiver": "^8.0.0"
+  }
+}

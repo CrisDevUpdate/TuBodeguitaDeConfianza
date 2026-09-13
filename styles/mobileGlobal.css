@@ -1,0 +1,464 @@
+/**
+ * /styles/mobileGlobal.css
+ * Mobile-First Global Design System & Viewport Engine
+ * Tu Bodeguita de Confianza - PWA Architecture
+ */
+
+:root {
+  /* Dynamic Viewport & Safe Areas */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --mobile-bottom-safe-padding: calc(88px + var(--sab));
+  
+  /* System Layout Constraints */
+  --app-max-width: 640px;
+  --touch-target-min: 44px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Global Typography Scale */
+  --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Theme Tokens: High-Contrast Light Mode Default */
+  --bg-canvas: #f8fafc;
+  --bg-canvas-subtle: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-elevated: #ffffff;
+  --bg-input: #ffffff;
+  --border-color: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --text-inverted: #ffffff;
+
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #1d4ed8;
+  --accent-success: #10b981;
+  --accent-success-dark: #047857;
+  --accent-warning: #f59e0b;
+  --accent-warning-dark: #b45309;
+  --accent-danger: #ef4444;
+  --accent-danger-dark: #b91c1c;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+/* OLED Deep Dark Theme Tokens */
+[data-theme="dark"],
+body.dark-mode,
+.theme-dark,
+.theme-oled {
+  --bg-canvas: #090d16;
+  --bg-canvas-subtle: #0f172a;
+  --bg-card: #131b2e;
+  --bg-card-elevated: #1a243b;
+  --bg-input: #101726;
+  --border-color: #1e293b;
+  --border-subtle: #172033;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --text-inverted: #0f172a;
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 10px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.6);
+}
+
+/* 📱 1. ARQUITECTURA GLOBAL MOBILE-FIRST & VIEWPORT SEGURO */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-family: var(--font-system);
+  -webkit-text-size-adjust: 100%;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 8px 8px calc(80px + var(--sab, env(safe-area-inset-bottom, 0px))) 8px;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+}
+
+@media screen and (min-width: 1024px) {
+  body {
+    padding: 20px 24px;
+  }
+}
+
+/* Contenedor Universal Centrado PWA Mobile */
+.mobile-app-container,
+.app-screen-container,
+.customer-account-container,
+.main-content-mobile {
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-bottom: var(--mobile-bottom-safe-padding);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ergonomía y Targets Táctiles Universales */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.btn,
+.mobile-touch-target {
+  min-height: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1;
+  padding: 10px 18px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  user-select: none;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.12s ease,
+              background-color 0.15s ease,
+              box-shadow 0.15s ease;
+}
+
+button:active,
+.btn:active,
+.mobile-touch-target:active {
+  transform: scale(0.97);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="email"],
+input[type="tel"],
+select,
+textarea {
+  min-height: var(--touch-target-min);
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+/* Inputs & Controls ergonomía móvil: 16px para evitar auto-zoom en iOS Safari */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  input[type="email"],
+  input[type="tel"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* 📊 2. TABLAS FLUIDAS Y RESPONSIVAS EN MÓVIL (SIN DESBORDAMIENTO HORIZONTAL) */
+@media screen and (max-width: 768px) {
+  .table-responsive,
+  .audit-table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    border-radius: 8px !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent !important;
+    margin-top: 8px !important;
+    background: var(--bg-card) !important;
+  }
+
+  .table-responsive::-webkit-scrollbar,
+  .audit-table-responsive::-webkit-scrollbar {
+    height: 4px !important;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb,
+  .audit-table-responsive::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.5) !important;
+    border-radius: 4px !important;
+  }
+
+  .table-responsive > table,
+  .audit-table-responsive > table,
+  table.mobile-zero-table {
+    display: table !important;
+    width: 100% !important;
+    min-width: 520px !important;
+    border-collapse: collapse !important;
+  }
+
+  /* Tablas compactas que caben al 100% sin scroll */
+  #pos-carrito-body table,
+  #pos-carrito-table,
+  #modal-cliente-carrito table,
+  #combo-items-table {
+    min-width: 100% !important;
+  }
+
+  .table-responsive > table thead,
+  .audit-table-responsive > table thead,
+  table.mobile-zero-table thead {
+    display: table-header-group !important;
+  }
+
+  .table-responsive > table tbody,
+  .audit-table-responsive > table tbody,
+  table.mobile-zero-table tbody {
+    display: table-row-group !important;
+  }
+
+  .table-responsive > table tr,
+  .audit-table-responsive > table tr,
+  table.mobile-zero-table tr {
+    display: table-row !important;
+  }
+
+  .table-responsive > table th,
+  .audit-table-responsive > table th {
+    display: table-cell !important;
+    padding: 8px 10px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+  }
+
+  .table-responsive > table td,
+  .audit-table-responsive > table td,
+  table.mobile-zero-table td {
+    display: table-cell !important;
+    padding: 8px 10px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+  }
+
+  .table-responsive table td .btn,
+  .audit-table-responsive table td .btn {
+    padding: 4px 8px !important;
+    font-size: 0.78rem !important;
+    min-height: 32px !important;
+  }
+}
+
+/* 💳 3. GRILLA MÉTRICA UNIVERSAL (2x2 GRID SYSTEM) & CATÁLOGO MÓVIL */
+.mobile-kpi-grid,
+.customer-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  .cliente-catalogo-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+  }
+  .cliente-prod-card {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+}
+
+.mobile-soft-card,
+.metric-soft-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.mobile-soft-card:active {
+  transform: scale(0.99);
+}
+
+.mobile-soft-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-soft-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.mobile-soft-card-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-soft-card-val {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.mobile-soft-card-sub {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 🎨 4. SEGURIDAD DE NAVEGACIÓN Y OVERFLOW */
+.no-horizontal-scroll {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+.mobile-bottom-nav-safe {
+  padding-bottom: var(--mobile-bottom-safe-padding) !important;
+}
+
+/* 🔒 UNIVERSAL ANTI-HORIZONTAL BLOWOUT & MOBILE ERGONOMICS */
+@media screen and (max-width: 768px) {
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .container,
+  .main-content,
+  .view-content,
+  .card,
+  .form-grid,
+  .pos-grid,
+  .pos-grid-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Modales universales adaptados a teléfono sin zoom */
+  .modal-content,
+  .modal-card,
+  .custom-modal-card,
+  .audit-modal-content-wide {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 18px 14px calc(24px + var(--sab, 0px)) 14px !important;
+    box-sizing: border-box !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Modal de Carrito de Compras: estructura compacta con pie fijo */
+  #modal-cliente-carrito .modal-content {
+    padding: 0 !important;
+    max-height: 85vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Grillas de Formularios y Modales en Móvil */
+  #form-admin-combo-builder > div,
+  .reward-config-grid,
+  .reward-presets-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Botones principales en pantallas móviles */
+  .btn,
+  button[type="submit"] {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Tipografía fluida para evitar texto desbordado */
+  h1 { font-size: 1.22rem !important; }
+  h2 { font-size: 1.12rem !important; }
+  h3 { font-size: 1.02rem !important; }
+}

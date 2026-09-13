@@ -1,0 +1,2953 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
+    <!-- Font Awesome para los íconos del BCV -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/themeEngine.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v6">
+    <style id="mobile-frase-priority-style">
+        /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
+        #cliente-frase-sabiduria-card {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-left: 3px solid #fde047 !important;
+            padding: 8px 12px !important;
+            border-radius: 0 8px 8px 0 !important;
+            margin-top: 6px !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        #cliente-frase-texto {
+            display: block !important;
+            visibility: visible !important;
+            color: #f1f5f9 !important;
+            font-size: 0.84rem !important;
+            line-height: 1.35 !important;
+            margin: 0 !important;
+        }
+        #cliente-frase-autor {
+            display: inline-block !important;
+            visibility: visible !important;
+            color: #cbd5e1 !important;
+            font-size: 0.72rem !important;
+        }
+        #cliente-frase-categoria {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+
+        /* 📱 Prioridad Absoluta: Cuadrícula de 2 columnas en Móvil / Tablets (Evita tarjetas gigantes de 1 sola columna) */
+        @media (max-width: 768px) {
+            .cliente-catalogo-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 8px !important;
+                margin-top: 10px !important;
+                width: 100% !important;
+            }
+            .cliente-prod-card {
+                min-width: 0 !important;
+                width: 100% !important;
+                border-radius: 10px !important;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+                overflow: hidden !important;
+            }
+            .cliente-prod-img-wrapper {
+                height: 115px !important;
+                min-height: 115px !important;
+                max-height: 115px !important;
+                width: 100% !important;
+            }
+            .cliente-prod-img {
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+            }
+            .cliente-prod-badge-cat {
+                font-size: 0.6rem !important;
+                padding: 2px 5px !important;
+                top: 4px !important;
+                left: 4px !important;
+            }
+            .badge-stock-pill,
+            .badge-agotado-pill {
+                font-size: 0.6rem !important;
+                padding: 2px 5px !important;
+                top: 4px !important;
+                right: 4px !important;
+            }
+            .cliente-prod-points-badge {
+                font-size: 0.64rem !important;
+                padding: 2px 5px !important;
+                bottom: 4px !important;
+                left: 4px !important;
+            }
+            .cliente-prod-body {
+                padding: 8px 8px 10px 8px !important;
+                gap: 2px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 !important;
+            }
+            .cliente-prod-code {
+                font-size: 0.62rem !important;
+                margin-bottom: 0px !important;
+            }
+            .cliente-prod-title {
+                font-size: 0.82rem !important;
+                font-weight: 700 !important;
+                line-height: 1.2 !important;
+                margin-bottom: 4px !important;
+                min-height: 2.3em !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+            }
+            .cliente-prod-points-row {
+                margin-bottom: 4px !important;
+            }
+            .cliente-prod-points-chip {
+                font-size: 0.64rem !important;
+                padding: 2px 5px !important;
+            }
+            .cliente-prod-prices {
+                padding-top: 4px !important;
+                margin-bottom: 6px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1px !important;
+            }
+            .cliente-prod-prices .price-usd {
+                font-size: 1.05rem !important;
+                line-height: 1.1 !important;
+                font-weight: 800 !important;
+            }
+            .cliente-prod-prices .price-ves {
+                font-size: 0.72rem !important;
+                line-height: 1.1 !important;
+            }
+            .cliente-btn-add {
+                min-height: 35px !important;
+                padding: 6px 8px !important;
+                font-size: 0.78rem !important;
+                border-radius: 6px !important;
+                font-weight: 700 !important;
+                width: 100% !important;
+            }
+
+            #modal-admin-combo-builder {
+                padding: 0 !important;
+                align-items: flex-end !important;
+            }
+            #modal-admin-combo-builder .modal-card {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 16px 14px calc(24px + var(--sab, 0px)) 14px !important;
+                border-radius: 20px 20px 0 0 !important;
+                max-height: 90vh !important;
+            }
+            .combo-builder-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+        }
+        @media (min-width: 769px) and (max-width: 1023px) {
+            .cliente-catalogo-grid {
+                display: grid !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 12px !important;
+                margin-top: 12px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- BARRERA DE AUTENTICACIÓN ABSOLUTA (AUTH GATEWALL CERO-ACCESO) -->
+<div id="auth-gatewall">
+    <div class="gatewall-wrapper">
+        <div class="gatewall-brand">
+            <div class="gatewall-logo-icon">
+                <i class="fas fa-store"></i>
+            </div>
+            <h2>Tu Bodeguita de Confianza</h2>
+            <p>Sistema Integral de Gestión, POS y Fidelización</p>
+        </div>
+
+        <!-- 1. Tarjeta de Entrada: Login / Registro -->
+        <div class="gatewall-card" id="gatewall-card-auth">
+            <div class="gatewall-nav-tabs">
+                <button type="button" class="gw-tab-btn active" id="gw-tab-login" onclick="cambiarTabGatewall('login')">
+                    <i class="fas fa-key"></i> Iniciar Sesión
+                </button>
+                <button type="button" class="gw-tab-btn" id="gw-tab-register" onclick="cambiarTabGatewall('register')">
+                    <i class="fas fa-user-plus"></i> Registrarse
+                </button>
+            </div>
+
+            <!-- Subvista: Iniciar Sesión -->
+            <div id="gw-view-login">
+                <form onsubmit="procesarLoginGatewall(event)">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="gw-login-id">Cédula, RIF o Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-login-id" required placeholder="Ej: V-12345678 o usuario@correo.com" autocomplete="username">
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label for="gw-login-pass">Contraseña de Acceso <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="gw-login-pass" required placeholder="••••••••" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700;">
+                        <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                    </button>
+                </form>
+            </div>
+
+            <!-- Subvista: Formulario de Registro -->
+            <div id="gw-view-register" style="display:none;">
+                <form onsubmit="registrarUsuarioDesdeGatewall(event)">
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="gw-reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-telefono">Número de Teléfono (WhatsApp) <span style="color:var(--danger);">*</span></label>
+                        <input type="tel" id="gw-reg-telefono" required placeholder="Ej: 0414-1234567" autocomplete="tel">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label for="gw-reg-email">Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="email" id="gw-reg-email" required placeholder="Ej: usuario@correo.com" autocomplete="email">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label for="gw-reg-password">Contraseña <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="gw-reg-password" required placeholder="••••••••" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label for="gw-reg-rol">Rol Solicitado</label>
+                        <select id="gw-reg-rol">
+                            <option value="cliente">Cliente (Catálogo y Estado de Cuenta)</option>
+                            <option value="vendedor">Vendedor / Operador de Caja</option>
+                            <option value="admin">Administrador General</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700;">
+                        <i class="fas fa-user-plus"></i> Enviar Solicitud de Registro
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Tarjeta: Solicitud Pendiente de Aprobación -->
+        <div class="gatewall-card" id="gatewall-card-pending" style="display:none; text-align:center;">
+            <div class="gatewall-status-icon-box pending">
+                <i class="fas fa-clock fa-spin"></i>
+            </div>
+            <h3 style="color:var(--text-main); margin-bottom:6px;">Solicitud en Revisión</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.5;">
+                Tu cuenta ha sido creada exitosamente y se encuentra en estado <strong>PENDIENTE DE APROBACIÓN</strong> por el Administrador.
+            </p>
+
+            <div class="gatewall-info-summary">
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Cédula / RIF:</span>
+                    <strong id="gw-pending-cedula">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Solicitante:</span>
+                    <strong id="gw-pending-nombre">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Teléfono:</span>
+                    <strong id="gw-pending-telefono">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Correo:</span>
+                    <strong id="gw-pending-email">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Rol solicitado:</span>
+                    <strong id="gw-pending-rol">-</strong>
+                </div>
+                <div class="gatewall-info-row">
+                    <span style="color:var(--text-muted);">Fecha de registro:</span>
+                    <strong id="gw-pending-fecha">-</strong>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+                <a id="gatewall-pending-btn-wa" href="#" target="_blank" class="btn btn-success" style="padding:12px; font-weight:700; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> Notificar al Administrador por WhatsApp
+                </a>
+                <button type="button" class="btn btn-outline" onclick="abrirModalEditarDatosGatewall()" style="font-weight:700;">
+                    <i class="fas fa-user-pen"></i> Corregir Mis Datos
+                </button>
+                <button type="button" class="btn btn-outline" onclick="verificarEstadoAprobacionGatewall()">
+                    <i class="fas fa-rotate"></i> Comprobar Estado de Aprobación
+                </button>
+                <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:#fecaca;" onclick="cerrarSesionUsuario()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Salir / Iniciar con otra cuenta
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. Tarjeta: Solicitud Rechazada -->
+        <div class="gatewall-card" id="gatewall-card-rejected" style="display:none; text-align:center;">
+            <div class="gatewall-status-icon-box rejected">
+                <i class="fas fa-ban"></i>
+            </div>
+            <h3 style="color:var(--danger); margin-bottom:6px;">Acceso No Autorizado</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; line-height:1.5;">
+                Tu solicitud de acceso ha sido rechazada por la administración del sistema.
+            </p>
+
+            <div style="background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin:16px 0; text-align:left;">
+                <strong style="color:#991b1b; font-size:0.85rem; display:block; margin-bottom:4px;"><i class="fas fa-circle-exclamation"></i> Motivo del Rechazo:</strong>
+                <span id="gatewall-rejected-motivo" style="color:#991b1b; font-size:0.88rem;"></span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" class="btn btn-primary" onclick="cerrarSesionUsuario()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Volver a Iniciar Sesión
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONTENEDOR PRINCIPAL DE LA APLICACIÓN (OCULTO HASTA AUTENTICACIÓN ACTIVA) -->
+<div id="app-main-container" style="display:none;">
+<div class="container">
+    <header>
+        <h1>TuBodeguitaDeConfianza Josnairit Salazar</h1>
+
+        <!-- Sección de Tasa Oficial BCV -->
+        <div class="hero-calculator-card">
+            <div class="currency-switch">
+                <button type="button" class="currency-btn active" id="btn-usd" onclick="seleccionarMonedaBCV('USD')">
+                    <i class="fas fa-dollar-sign"></i> Dólar BCV
+                </button>
+                <button type="button" class="currency-btn" id="btn-eur" onclick="seleccionarMonedaBCV('EUR')">
+                    <i class="fas fa-euro-sign"></i> Euro BCV
+                </button>
+            </div>
+
+            <div class="persistence-status" id="persistencia-status" onclick="abrirModalCloudSync()" title="Ver estado y opciones de sincronización en la nube">
+                <i class="fas fa-cloud"></i> <span id="persistencia-texto">Conectando nube...</span>
+            </div>
+
+            <!-- Sesión de Usuario Activa con Rol, Puntos y Salir -->
+            <div class="user-session-badge" id="btn-user-session-header" title="Gestionar sesión de usuario, permisos o cambiar operador">
+                <div class="user-avatar-mini"><i class="fas fa-user"></i></div>
+                <div class="user-info-mini">
+                    <span id="header-user-name" class="user-name-txt">Administrador Principal</span>
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                        <span id="header-user-status" class="badge-status-pill badge-success">ADMIN</span>
+                        <span id="header-user-pts-pill" style="display:none; font-size:0.72rem; font-weight:700; color:#fde047; background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:10px;">
+                            <i class="fas fa-star" style="color:#fde047;"></i> <span id="header-user-pts-val">0</span> pts
+                        </span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-warning" id="btn-volver-admin" onclick="event.stopPropagation(); volverASesionAdmin();" title="Regresar al modo Administrador" style="display:none; font-size:0.75rem; padding:3px 8px; margin-left:6px; font-weight:700; border-radius:6px; white-space:nowrap;">
+                    <i class="fas fa-shield-halved"></i> Volver Admin
+                </button>
+                <button type="button" class="btn-icon-tasa" id="btn-header-notificaciones" onclick="switchTab('notificaciones')" title="Centro de Notificaciones" style="margin-left:6px; color:#f59e0b; position:relative;">
+                    <i class="fas fa-bell"></i>
+                    <span id="badge-header-notificaciones" class="badge-pill-counter" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:#ffffff; font-size:0.65rem; padding:1px 5px; display:none;">0</span>
+                </button>
+                <button type="button" class="btn-icon-tasa" onclick="event.stopPropagation(); cerrarSesionUsuario();" title="Cerrar sesión" style="margin-left:6px; color:#f87171;">
+                    <i class="fas fa-power-off"></i>
+                </button>
+            </div>
+
+            <div class="rate-box">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <small class="rate-text" style="margin:0;">
+                        <i class="fas fa-chart-line"></i>
+                        <strong>Tasa oficial:</strong>
+                        <span id="tasaActual" style="color: #fde047; font-weight: bold;">Consultando BCV...</span>
+                    </small>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <button type="button" id="btn-refresh-tasa" class="btn-icon-tasa" onclick="obtenerTasaOficialBCV(true)" title="Actualizar precio del dólar BCV en vivo">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                        <button type="button" id="btn-editar-tasa-manual" class="btn-icon-tasa" onclick="abrirModalTasaManual()" title="Ajustar o fijar tasa manualmente">
+                            <i class="fas fa-sliders"></i>
+                        </button>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <small class="rate-date" style="margin:0;">
+                        <i class="far fa-clock"></i>
+                        <span id="fechaActualizacion">Actualizando...</span>
+                    </small>
+                    <span id="tasa-badge-tipo" class="tasa-badge" style="display:none;"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVEGACIÓN PRINCIPAL DINÁMICA POR ROL (ADMIN VS CLIENTE) -->
+    <div class="nav-tabs" id="main-nav-tabs">
+        <!-- Pestañas EXCLUSIVAS de Administrador -->
+        <button type="button" class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
+            <i class="fas fa-hand-holding-dollar"></i> Transacciones / Pagos
+            <span id="badge-abonos-desktop" class="badge-pill-counter" style="background:#d97706; color:#ffffff; display:none;">0</span>
+        </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
+            <i class="fas fa-user-shield"></i> Usuarios & Aprobación
+            <span id="badge-pendientes-desktop" class="badge-pill-counter" style="display:none;">0</span>
+        </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')">
+            <i class="fas fa-chart-line"></i> Historial de Ventas
+            <span id="badge-ventas-hoy-count" class="badge-pill-counter" style="background:#16a34a; color:#ffffff; display:none;">0</span>
+        </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')">
+            <i class="fas fa-bell"></i> Notificaciones
+            <span id="badge-notificaciones-desktop" class="badge-pill-counter" style="background:#ef4444; color:#ffffff; display:none;">0</span>
+        </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')">
+            <i class="fas fa-gift" style="color:#f59e0b;"></i> Premio del Mes (Config)
+        </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')">
+            <i class="fas fa-gear"></i> Configuración
+        </button>
+
+        <!-- Pestañas EXCLUSIVAS de Cliente -->
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')">
+            <i class="fas fa-store"></i> Catálogo de Productos
+        </button>
+        <button type="button" class="nav-btn nav-cliente-only" id="btn-cliente-nav-cart" onclick="abrirModalCarritoCliente()">
+            <i class="fas fa-shopping-cart"></i> Mi Carrito (<span id="cliente-carrito-count">0</span>)
+        </button>
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')">
+            <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
+        </button>
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')">
+            <i class="fas fa-trophy" style="color:#f59e0b;"></i> Mis Puntos & Premios
+        </button>
+        <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')">
+            <i class="fas fa-user-gear" style="color:var(--primary-accent);"></i> Mi Perfil & Ajustes
+        </button>
+    </div>
+
+    <!-- VISTA 1: POS -->
+    <div id="pos" class="view-content active">
+        <!-- Banner de Guardia de Seguridad POS -->
+        <div id="pos-user-security-banner" class="security-guard-banner banner-warning" style="display:none;"></div>
+
+        <div class="pos-grid">
+            <div class="card">
+                <h3>Catálogo de Productos</h3>
+                <div style="margin: 15px 0;">
+                    <input type="text" id="pos-search" placeholder="Buscar por código o nombre..." oninput="filtrarPosProductos()" style="width: 100%;">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th class="num">Precio ($)</th>
+                                <th class="num">Precio (Bs)</th>
+                                <th class="num">Stock</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pos-productos-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Carrito de Venta</h3>
+                <div style="margin: 15px 0;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Cliente:</label>
+                    <select id="pos-cliente-select" style="width: 100%; margin-top: 5px;"></select>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="num">Cant.</th>
+                                <th class="num">Total ($)</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="pos-carrito-body"></tbody>
+                    </table>
+                </div>
+                <hr style="margin: 15px 0;">
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold;">
+                        <span>Total Divisa:</span>
+                        <span id="pos-total-usd">$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1rem; color: var(--text-muted); font-weight: 600; margin-top: 5px;">
+                        <span>Total VES:</span>
+                        <span id="pos-total-ves">Bs. 0.00</span>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Condición de Pago:</label>
+                    <select id="pos-tipo-pago">
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="procesarVenta()">Completar Transacción</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 2: INVENTARIO -->
+    <div id="inventario" class="view-content">
+        <!-- TASAS OFICIALES BCV - Inventario -->
+        <div class="inventory-bcv-card">
+            <div class="inventory-bcv-header">
+                <div>
+                    <div class="inventory-bcv-title">
+                        <i class="fas fa-landmark"></i>
+                        Tasas Oficiales BCV
+                    </div>
+                    <div class="inventory-bcv-subtitle">
+                        Actualización automática al abrir el sistema
+                    </div>
+                </div>
+                <div id="bcv-sync-status" class="bcv-sync-status">
+                    <i class="fas fa-sync-alt"></i> Actualizando...
+                </div>
+            </div>
+
+            <div class="inventory-bcv-rates">
+                <div class="inventory-bcv-rate">
+                    <div class="inventory-bcv-currency">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>Dólar BCV</span>
+                    </div>
+                    <strong id="inventario-tasa-usd">Cargando...</strong>
+                    <small>1 USD = Bs.</small>
+                </div>
+
+                <div class="inventory-bcv-rate">
+                    <div class="inventory-bcv-currency">
+                        <i class="fas fa-euro-sign"></i>
+                        <span>Euro BCV</span>
+                    </div>
+                    <strong id="inventario-tasa-eur">Cargando...</strong>
+                    <small>1 EUR = Bs.</small>
+                </div>
+            </div>
+
+            <div class="inventory-bcv-footer">
+                <span>
+                    <i class="far fa-calendar-alt"></i>
+                    Fecha de la tasa:
+                    <strong id="inventario-fecha-tasa">Cargando...</strong>
+                </span>
+                <span>
+                    <i class="far fa-clock"></i>
+                    Consulta:
+                    <strong id="inventario-hora-consulta">--</strong>
+                </span>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:#fff; border:1px solid rgba(255,255,255,0.25);" onclick="obtenerTasaOficialBCV(true)">
+                    <i class="fas fa-rotate"></i> Actualizar en Vivo (BCV)
+                </button>
+                <button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:#fff; border:1px solid rgba(255,255,255,0.25);" onclick="abrirModalTasaManual()">
+                    <i class="fas fa-sliders"></i> Fijar Tasa Manual
+                </button>
+            </div>
+        </div>
+
+        <div class="card product-form-card">
+            <h3>Registrar / Editar Producto</h3>
+            <form id="form-producto" class="product-form" style="margin-top: 15px;" onsubmit="guardarProducto(event)">
+                <input type="hidden" id="prod-id">
+
+                <div class="product-image-panel">
+                    <div class="product-image-title">IMAGEN DEL PRODUCTO</div>
+                    <div
+                        id="product-image-dropzone"
+                        class="product-image-dropzone"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Adjuntar imagen del producto"
+                        onclick="abrirSelectorImagenProducto()"
+                        onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); abrirSelectorImagenProducto(); }"
+                        ondragover="manejarDragImagenProducto(event)"
+                        ondragleave="manejarDragLeaveImagenProducto(event)"
+                        ondrop="manejarDropImagenProducto(event)"
+                    >
+                        <input type="file" id="prod-imagen-input" accept="image/jpeg,image/png,image/webp" hidden onchange="seleccionarImagenProducto(event)">
+                        <div id="product-image-empty" class="product-image-empty">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <strong>Arrastra y suelta una imagen aquí</strong>
+                            <span>o haz clic para seleccionar</span>
+                            <span class="image-select-hint"><i class="fas fa-folder-open"></i> Seleccionar imagen</span>
+                            <span class="image-format-hint">JPG, PNG o WEBP · Máximo 2 MB</span>
+                        </div>
+                        <div id="product-image-preview" class="product-image-preview" hidden>
+                            <img id="prod-imagen-preview" src="" alt="Vista previa del producto">
+                            <button type="button" class="product-image-remove" title="Eliminar imagen" aria-label="Eliminar imagen" onclick="eliminarImagenProducto(event)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="product-image-actions" class="product-image-actions" hidden>
+                            <button type="button" class="btn product-image-change" onclick="cambiarImagenProducto(event)">
+                                <i class="fas fa-upload"></i> Cambiar imagen
+                            </button>
+                        </div>
+                    </div>
+                    <small class="product-image-help">Formatos: JPG, PNG, WEBP · Máx. 2 MB</small>
+                </div>
+
+                <div class="product-form-fields">
+                    <div class="product-form-top">
+                        <div class="form-group">
+                            <label>Código</label>
+                            <input type="text" id="prod-codigo" required readonly title="El código se genera automáticamente en secuencia">
+                            <small>Se genera automáticamente en secuencia.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Nombre del Producto</label>
+                            <input type="text" id="prod-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-categoria">Categoría del Producto</label>
+                            <select id="prod-categoria" class="form-control" onchange="alCambiarCategoriaFormulario(this.value)" style="height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; width: 100%; background: var(--bg-card); color: var(--text-main); font-size: 0.9rem;">
+                                <option value="Dulces">🍬 Dulces</option>
+                                <option value="Bebidas">🥤 Bebidas</option>
+                                <option value="Snacks">🍿 Snacks & Salados</option>
+                                <option value="Galletas">🍪 Galletas</option>
+                                <option value="Chocolates">🍫 Chocolates</option>
+                                <option value="Chucherías">🍭 Chucherías Variadas</option>
+                                <option value="Combos & Ofertas">🔥 Combos & Ofertas</option>
+                                <option value="Víveres">🥫 Víveres</option>
+                                <option value="General">📦 General</option>
+                                <option value="__NUEVA__">➕ Crear Nueva Categoría...</option>
+                            </select>
+                            <div id="wrapper-nueva-categoria" style="display:none; margin-top:6px;">
+                                <input type="text" id="prod-categoria-nueva" class="form-control" placeholder="Escribe el nombre de la nueva categoría" style="height: 36px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; width: 100%; font-size: 0.88rem;">
+                            </div>
+                            <small>Clasificación de bodega / chucherías.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Costo Compra ($)</label>
+                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" required>
+                        </div>
+                        <div class="form-group">
+                            <label>% Ganancia</label>
+                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="calcularPreciosDesdeCosto()" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio Venta ($)</label>
+                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularGananciaDesdePrecio()" required>
+                        </div>
+                        <div class="form-group product-stock-group">
+                            <label class="product-stock-label">
+                                Stock Inicial
+                                <span class="product-stock-help-trigger" tabindex="0" aria-label="Información sobre el stock" data-tooltip="Al crear: define el stock inicial. Al editar: el stock queda bloqueado y solo cambia mediante Venta, Retiro o Auditoría.">
+                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                                </span>
+                            </label>
+                            <input type="number" id="prod-stock" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group product-description-group">
+                        <label>Descripción del Producto</label>
+                        <textarea id="prod-descripcion" rows="3" placeholder="Describe brevemente el producto, sabor, características, etc."></textarea>
+                        <small>Puedes incluir detalles adicionales sobre el producto.</small>
+                    </div>
+
+                    <div class="product-form-bottom">
+                        <div class="form-group">
+                            <label>Detalle del Contenido / Medida</label>
+                            <input type="text" id="prod-contenido" placeholder="Ej. 500g, 250ml, 12 unidades, 1 litro, 6 pack">
+                            <small>Indica la presentación exacta que se vende.</small>
+                        </div>
+                    </div>
+
+                    <div class="product-form-actions">
+                        <button type="submit" class="btn" id="btn-prod-save"><i class="fas fa-save"></i> Guardar Producto</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Resumen del Inventario</h3>
+            <div class="kpi-grid" style="margin-top: 15px;">
+                <div class="kpi-card">
+                    <div class="kpi-title">VALOR DEL INVENTARIO (COSTO)</div>
+                    <div class="kpi-value-usd" id="inventario-total-costo-usd">$0.00</div>
+                    <div class="kpi-value-ves" id="inventario-total-costo-ves">Bs. —</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: var(--success);">
+                    <div class="kpi-title">GANANCIA ESPERADA</div>
+                    <div class="kpi-value-usd" id="inventario-ganancia-esperada-usd" style="color: var(--success);">$0.00</div>
+                    <div class="kpi-value-ves" id="inventario-ganancia-esperada-ves">Bs. —</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                <h3 style="margin:0;">Listado de Inventario</h3>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-primary" onclick="if(window.abrirConstructorCombosAdmin) window.abrirConstructorCombosAdmin();" style="font-size:0.85rem; padding:6px 14px; display:flex; align-items:center; gap:6px; font-weight:700; background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; box-shadow:0 2px 6px rgba(234,88,12,0.3);">
+                        <i class="fas fa-burger"></i> Constructor de Combos & Ofertas
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="font-size:0.85rem; padding:6px 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
+                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Ver Fotos en Vercel Blob
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th>Contenido / Medida</th>
+                            <th class="num">Costo ($)</th>
+                            <th class="num">% Margen</th>
+                            <th class="num">Precio ($)</th>
+                            <th class="num">Precio (Bs)</th>
+                            <th class="num">Stock</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventario-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <h3 style="margin:0;"><i class="fas fa-trash-alt"></i> Historial de Productos Retirados</h3>
+                <button type="button" class="btn btn-danger" onclick="limpiarHistorialEliminaciones()"><i class="fas fa-broom"></i> Limpiar Historial</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 8px 0 15px;">
+                Registra las unidades retiradas del inventario, el motivo y el comentario. Si retiras todo el stock de un producto, el producto se elimina y los códigos posteriores se corren automáticamente.
+            </p>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código Anterior</th>
+                            <th>Producto</th>
+                            <th class="num">Stock Antes</th>
+                            <th class="num">Cantidad Retirada</th>
+                            <th class="num">Stock Después</th>
+                            <th>Motivo</th>
+                            <th>Comentario</th>
+                            <th class="num">Costo ($)</th>
+                            <th class="num">Pérdida ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eliminaciones-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 3: CLIENTES -->
+    <div id="clientes" class="view-content">
+        <!-- Contenedor dinámico de Abonos Pendientes Reportados por Clientes -->
+        <div id="abonos-pendientes-clientes-container" style="margin-bottom:18px;"></div>
+
+        <div class="card">
+            <h3>Registrar Nuevo Cliente</h3>
+            <form id="form-cliente" class="form-grid" style="margin-top: 15px;" onsubmit="guardarCliente(event)">
+                <div class="form-group">
+                    <label>ID / Cédula / RIF</label>
+                    <input type="text" id="cli-id" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="cli-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" id="cli-telefono" required>
+                </div>
+                <button type="submit" class="btn btn-success">Crear Cliente</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Directorio de Clientes</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th class="num">Total Comprado ($)</th>
+                            <th class="num">Deuda ($)</th>
+                            <th class="num">Deuda Equivalente (Bs)</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+                <h3 style="margin:0;">Historial de Clientes Eliminados</h3>
+                <button class="btn btn-danger" type="button" onclick="limpiarHistorialClientesEliminados()">
+                    <i class="fas fa-broom"></i> Limpiar Historial
+                </button>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:12px;">
+                Aquí se conserva quién fue eliminado, cuándo, el motivo y el comentario. Las ventas y pagos históricos no se borran.
+            </p>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FECHA</th>
+                            <th>ID</th>
+                            <th>CLIENTE</th>
+                            <th class="num">DEUDA AL ELIMINAR ($)</th>
+                            <th class="num">PÉRDIDA ($)</th>
+                            <th>MOTIVO</th>
+                            <th>COMENTARIO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-eliminados-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Panel 360° Cliente -->
+        <div id="cliente-detalle-card" class="card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="det-cliente-nombre">Detalle del Cliente</h3>
+                <button class="btn btn-warning" onclick="abrirModalAbono()">+ Registrar Abono / Pago</button>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">TOTAL COMPRADO</div>
+                    <div class="kpi-value-usd" id="det-kpi-comprado-usd">$0.00</div>
+                    <div class="kpi-value-ves" id="det-kpi-comprado-ves">Bs. 0.00</div>
+                </div>
+                <div class="kpi-card danger">
+                    <div class="kpi-title">DEUDA ACTUAL</div>
+                    <div class="kpi-value-usd" id="det-kpi-deuda-usd" style="color: var(--danger);">$0.00</div>
+                    <div class="kpi-value-ves" id="det-kpi-deuda-ves">Bs. 0.00</div>
+                </div>
+            </div>
+
+            <h4 style="margin: 15px 0;">Historial de Transacciones y Abonos Multimoneda</h4>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Concepto</th>
+                            <th>Método / Detalle</th>
+                            <th class="num">Cargo ($)</th>
+                            <th class="num">Abono ($)</th>
+                            <th class="num">Monto Pagado (Bs)</th>
+                            <th class="num">Saldo ($)</th>
+                            <th class="num">Saldo (Bs)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="det-historial-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 4: TIPOS DE TRANSACCIONES -->
+    <div id="transacciones" class="view-content">
+        <!-- MÓDULO 4: Contenedor de Abonos Pendientes Reportados por Clientes -->
+        <div id="abonos-pendientes-admin-container" style="margin-bottom:18px;"></div>
+
+        <div class="card transaction-module-card">
+            <div class="transaction-module-header">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-hand-holding-dollar"></i> Registrar Pago / Abono de Cliente</h3>
+                    <p style="color:var(--text-muted); margin:6px 0 0;">Registra pagos directos de clientes (efectivo, pago móvil o transferencia) para rebajar su saldo y deuda al instante.</p>
+                </div>
+                <div class="transaction-status-legend">
+                    <span class="transaction-badge transaction-approved"><i class="fas fa-check-circle"></i> Pago agregado</span>
+                    <span class="transaction-badge transaction-pending"><i class="fas fa-clock"></i> Por verificar</span>
+                </div>
+            </div>
+
+            <form id="form-transaccion" class="transaction-form" onsubmit="registrarTransaccion(event)">
+                <input type="hidden" id="transaccion-edit-id" value="">
+                
+                <div class="form-group">
+                    <label style="font-weight:600; font-size:0.88rem;"><i class="fas fa-user"></i> Cliente</label>
+                    <select id="transaccion-cliente" required class="input-control"></select>
+                    <small id="transaccion-cliente-hint" class="transaction-field-hint">Titular de la cuenta</small>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight:600; font-size:0.88rem;"><i class="fas fa-wallet"></i> Método de Pago</label>
+                    <select id="transaccion-tipo" required class="input-control" onchange="alCambiarMetodoTransaccionDirecta()">
+                        <option value="Efectivo USD">Efectivo ($ USD)</option>
+                        <option value="Efectivo VES">Efectivo (Bs)</option>
+                        <option value="Pago Móvil">Pago Móvil (Bs)</option>
+                        <option value="Transferencia Bancaria">Transferencia Bancaria (Bs)</option>
+                    </select>
+                    <small class="transaction-field-hint">Canal y divisa</small>
+                </div>
+                
+                <div class="form-group">
+                    <label id="lbl-transaccion-monto" style="font-weight:600; font-size:0.88rem;"><i class="fas fa-dollar-sign"></i> Monto ($ USD)</label>
+                    <input type="number" id="transaccion-monto" step="0.01" min="0.01" inputmode="decimal" autocomplete="off" placeholder="0.00" required class="input-control" oninput="alEscribirMontoTransaccionDirecta()">
+                    <small id="transaccion-monto-equiv" class="transaction-field-hint" style="font-weight:600; color:var(--primary-accent);">Equiv: Bs. 0.00</small>
+                </div>
+                
+                <div class="form-group" id="transaccion-referencia-group">
+                    <label id="lbl-transaccion-referencia" style="font-weight:600; font-size:0.88rem;"><i class="fas fa-hashtag"></i> N° de Referencia (opcional)</label>
+                    <input type="text" id="transaccion-referencia" maxlength="40" placeholder="Efectivo (opcional)" autocomplete="off" class="input-control">
+                    <small id="transaccion-referencia-hint" class="transaction-field-hint">Opcional para efectivo</small>
+                </div>
+                
+                <div class="form-group transaction-submit">
+                    <label class="transaction-submit-spacer" aria-hidden="true">&nbsp;</label>
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <button type="submit" class="btn btn-success" style="flex:1; justify-content:center; padding:11px 16px; font-weight:700; gap:8px;">
+                            <i class="fas fa-check-circle"></i> Registrar y Rebajar Deuda
+                        </button>
+                        <button type="button" id="btn-cancelar-edicion-tx" class="btn btn-outline" style="display:none; padding:11px 14px;" onclick="cancelarEdicionTransaccion()">
+                            Cancelar
+                        </button>
+                    </div>
+                    <small class="transaction-field-hint" style="visibility:hidden;" aria-hidden="true">&nbsp;</small>
+                </div>
+            </form>
+
+            <div class="transaction-search-row">
+                <div class="form-group" style="flex:1; min-width:240px;">
+                    <label><i class="fas fa-magnifying-glass"></i> Buscar por Referencia o Cliente</label>
+                    <input type="search" id="transaccion-busqueda" placeholder="Escribe el nombre del cliente o referencia..." oninput="filtrarTransacciones()">
+                </div>
+                <div id="transaccion-resumen" class="transaction-summary">0 pagos registrados</div>
+                <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Tipo</th>
+                            <th>Referencia</th>
+                            <th class="num">Monto (Bs)</th>
+                            <th class="num">Equiv. ($)</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transacciones-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card transaction-info-card">
+            <div class="transaction-info-icon"><i class="fas fa-shield-check"></i></div>
+            <div>
+                <strong>Conciliación segura</strong>
+                <p>Mientras una transferencia o pago móvil esté en <b>Confirmando</b>, su monto no modifica la deuda del cliente. Solo una transacción validada pasa a <b>Pago agregado</b> y se incorpora al historial financiero.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 4: AUDITORÍA E INVENTARIO FÍSICO -->
+    <div id="auditoria" class="view-content">
+        <div class="audit-dashboard">
+            <!-- 💎 1. MÉTRICAS SUPERIORES (KPI STRIP - GLASSMORPHISM / SOFT-CARD) -->
+            <div class="audit-kpi-strip">
+                <div class="audit-kpi-card" id="kpi-card-contados">
+                    <div class="audit-kpi-icon-wrap primary">
+                        <i class="fas fa-barcode"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Productos Contados</span>
+                        <div class="audit-kpi-value primary" id="auditoria-kpi-contados">0</div>
+                        <span class="audit-kpi-subtext">Inventario físico registrado</span>
+                    </div>
+                </div>
+
+                <div class="audit-kpi-card" id="kpi-card-sobrantes">
+                    <div class="audit-kpi-icon-wrap success">
+                        <i class="fas fa-arrow-trend-up"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Sobrantes Físicos</span>
+                        <div class="audit-kpi-value success" id="auditoria-kpi-sobrantes">0</div>
+                        <span class="audit-kpi-subtext">Físico mayor al digital</span>
+                    </div>
+                </div>
+
+                <div class="audit-kpi-card" id="kpi-card-faltantes">
+                    <div class="audit-kpi-icon-wrap danger">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Faltantes Físicos</span>
+                        <div class="audit-kpi-value danger" id="auditoria-kpi-faltantes">0</div>
+                        <span class="audit-kpi-subtext">Requiere ajuste contable</span>
+                    </div>
+                </div>
+
+                <div class="audit-kpi-card" id="kpi-card-conformes">
+                    <div class="audit-kpi-icon-wrap indigo">
+                        <i class="fas fa-circle-check"></i>
+                    </div>
+                    <div class="audit-kpi-content">
+                        <span class="audit-kpi-label">Conformes (Exactos)</span>
+                        <div class="audit-kpi-value indigo" id="auditoria-kpi-conformes">0</div>
+                        <span class="audit-kpi-subtext">Coincidencia 100% precisa</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ⚡ 2. BARRA DE ACCIONES Y ENTRADA DE DATOS (COMMAND BAR FLOTANTE) -->
+            <div class="audit-command-bar">
+                <div class="audit-input-group">
+                    <span class="audit-input-icon-left"><i class="fas fa-barcode"></i></span>
+                    <input type="text" class="audit-input-field" id="auditoria-scan" placeholder="Escanear o escribir código..." onkeyup="escanearProductoAuditoria(event)">
+                    <span class="audit-shortcut-badge">↵ Enter</span>
+                </div>
+
+                <div class="audit-input-group">
+                    <span class="audit-input-icon-left"><i class="fas fa-magnifying-glass"></i></span>
+                    <input type="text" class="audit-input-field" id="auditoria-search" placeholder="Filtrar por código o nombre..." oninput="filtrarAuditoria()">
+                    <button type="button" class="audit-clear-btn" onclick="document.getElementById('auditoria-search').value=''; filtrarAuditoria();" title="Limpiar búsqueda">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="audit-btn-apply-all" onclick="aplicarTodosLosAjustes()" id="btn-aplicar-todos-ajustes">
+                    <i class="fas fa-rotate"></i>
+                    <span>Aplicar Todos los Ajustes</span>
+                </button>
+            </div>
+
+            <!-- 📋 3. TABLA DE CONCILIACIÓN EN TIEMPO REAL -->
+            <div class="audit-table-card">
+                <div class="audit-table-header-bar">
+                    <h3 class="audit-table-title">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Conteo Físico vs. Stock Digital Teórico</span>
+                    </h3>
+                </div>
+
+                <div class="audit-table-responsive">
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th style="width:120px;">Código</th>
+                                <th>Producto</th>
+                                <th class="text-center" style="width:130px;">Stock Digital</th>
+                                <th class="text-center" style="width:140px;">Stock Físico</th>
+                                <th class="text-center" style="width:120px;">Diferencia</th>
+                                <th class="text-center" style="width:130px;">Estado</th>
+                                <th class="text-right" style="width:110px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoria-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 🛡️ 4. SECCIÓN "RESUMEN DE PÉRDIDAS Y RECUPERACIÓN" (FINANCIAL AUDIT) -->
+            <div class="audit-financial-card">
+                <div class="audit-financial-header">
+                    <div class="audit-financial-titles">
+                        <h3>
+                            <i class="fas fa-scale-balanced" style="color:var(--audit-primary);"></i>
+                            <span>Auditoría Financiera: Pérdidas y Recuperación</span>
+                        </h3>
+                        <p>
+                            Las mermas por productos vencidos/dañados, deudas incobrables y faltantes de inventario se van compensando progresivamente con el margen generado por las ventas confirmadas.
+                        </p>
+                    </div>
+                    
+                    <div class="audit-financial-actions">
+                        <div class="audit-financial-status-badge healthy" id="audit-financial-status-badge">
+                            <i class="fas fa-circle-check"></i>
+                            <span>Balance Financiero</span>
+                        </div>
+                        <button type="button" id="btn-reiniciar-ciclo-recuperacion" class="audit-action-btn audit-btn-reset-cycle" onclick="solicitarReinicioCicloRecuperacion()" title="Reiniciar ciclo al 100% recuperado">
+                            <i class="fas fa-rotate"></i>
+                            <span>Reiniciar Ciclo (100% Recuperado)</span>
+                        </button>
+                        <button type="button" id="btn-ver-informe-ciclo" class="audit-action-btn audit-btn-report" onclick="abrirModalInformeRecuperacion()" title="Ver informe detallado y diagrama de balance">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Ver Informe & Diagrama</span>
+                        </button>
+                        <button type="button" id="btn-exportar-excel-ciclo" class="audit-action-btn audit-btn-excel" onclick="descargarInformeRecuperacionExcel()" title="Exportar reporte contable a Excel">
+                            <i class="fas fa-file-excel"></i>
+                            <span>Exportar a Excel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 📅 Barra de Filtros de Fecha & Selector de Ciclo Contable -->
+                <div class="audit-filters-bar">
+                    <div class="audit-cycle-selector-group">
+                        <label for="audit-filtro-ciclo">
+                            <i class="fas fa-layer-group" style="color:var(--audit-primary);"></i>
+                            Ciclo:
+                        </label>
+                        <select id="audit-filtro-ciclo" class="audit-cycle-select" onchange="cambiarCicloRecuperacion(this.value)">
+                            <option value="actual">Ciclo Actual (En curso)</option>
+                        </select>
+                    </div>
+
+                    <div class="audit-date-pills-group">
+                        <button type="button" class="audit-filter-pill active" data-filtro="todos" onclick="establecerFiltroFechaRecuperacion('todos')">
+                            Todo el Ciclo
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="hoy" onclick="establecerFiltroFechaRecuperacion('hoy')">
+                            Hoy
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="semana" onclick="establecerFiltroFechaRecuperacion('semana')">
+                            Esta Semana
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="mes" onclick="establecerFiltroFechaRecuperacion('mes')">
+                            Este Mes
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="ultimos30" onclick="establecerFiltroFechaRecuperacion('ultimos30')">
+                            Últimos 30 días
+                        </button>
+                        <button type="button" class="audit-filter-pill" data-filtro="personalizado" onclick="establecerFiltroFechaRecuperacion('personalizado')">
+                            <i class="fas fa-sliders"></i> Personalizado
+                        </button>
+                    </div>
+
+                    <div id="audit-custom-dates-box" class="audit-custom-date-inputs" style="display:none;">
+                        <label>Desde:</label>
+                        <input type="date" id="audit-fecha-desde" onchange="aplicarRangoPersonalizadoRecuperacion()">
+                        <label>Hasta:</label>
+                        <input type="date" id="audit-fecha-hasta" onchange="aplicarRangoPersonalizadoRecuperacion()">
+                    </div>
+
+                    <div id="audit-active-filter-badge" class="audit-active-filter-badge">
+                        <i class="fas fa-calendar-check"></i> Mostrando: <strong>Historial Completo</strong>
+                    </div>
+                </div>
+
+                <div class="audit-balance-grid">
+                    <div class="audit-balance-item top-danger">
+                        <span class="audit-balance-item-label">Dañados / Vencidos</span>
+                        <div class="audit-currency-display danger" id="perdidas-productos-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-warning">
+                        <span class="audit-balance-item-label">Clientes Incobrables</span>
+                        <div class="audit-currency-display danger" id="perdidas-clientes-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-slate">
+                        <span class="audit-balance-item-label">Faltantes en Conteo</span>
+                        <div class="audit-currency-display" id="perdidas-faltantes-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-success">
+                        <span class="audit-balance-item-label">Ganancia Neta Ventas</span>
+                        <div class="audit-currency-display success" id="ganancia-generada-usd">$0.00</div>
+                    </div>
+
+                    <div class="audit-balance-item top-primary" id="perdida-pendiente-global-card">
+                        <span class="audit-balance-item-label">Pérdida Pendiente</span>
+                        <div class="audit-currency-display danger" id="perdida-pendiente-global-usd">$0.00</div>
+                    </div>
+                </div>
+
+                <!-- Barra de Progreso Visual: Ganancia vs. Pérdida Pendiente -->
+                <div class="audit-progress-section">
+                    <div class="audit-progress-meta">
+                        <span class="audit-progress-label">
+                            <i class="fas fa-chart-pie" style="color:var(--audit-primary);"></i>
+                            Tasa de Recuperación con Ganancias
+                        </span>
+                        <span class="audit-progress-percentage" id="audit-recovery-percentage">
+                            100% Recuperado
+                        </span>
+                    </div>
+                    <div class="audit-progress-track">
+                        <div class="audit-progress-fill" id="audit-recovery-progress-fill" style="width: 100%;"></div>
+                    </div>
+                    <div class="audit-progress-legend">
+                        <div class="audit-legend-item">
+                            <span class="audit-legend-dot recovered"></span>
+                            <span id="audit-legend-ganancias">Compensado con Ganancias ($0.00)</span>
+                        </div>
+                        <div class="audit-legend-item">
+                            <span class="audit-legend-dot pending"></span>
+                            <span id="audit-legend-pendientes">Por Recuperar ($0.00)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📋 Historial Detallado de Movimientos y Amortizaciones -->
+                <div class="audit-movements-section">
+                    <div class="audit-movements-header">
+                        <h4 class="audit-movements-title">
+                            <i class="fas fa-list-check" style="color:var(--audit-primary);"></i>
+                            <span>Historial de Amortización & Movimientos Contables</span>
+                        </h4>
+                        <div class="audit-movements-tabs">
+                            <button type="button" class="audit-mov-tab active" data-tipo="todos" onclick="cambiarTabMovimientosRecuperacion('todos')">Todos</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="merma" onclick="cambiarTabMovimientosRecuperacion('merma')"><i class="fas fa-trash-can"></i> Mermas</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="cliente" onclick="cambiarTabMovimientosRecuperacion('cliente')"><i class="fas fa-user-xmark"></i> Incobrables</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="faltante" onclick="cambiarTabMovimientosRecuperacion('faltante')"><i class="fas fa-boxes-stacked"></i> Faltantes</button>
+                            <button type="button" class="audit-mov-tab" data-tipo="venta" onclick="cambiarTabMovimientosRecuperacion('venta')"><i class="fas fa-sack-dollar"></i> Ventas</button>
+                        </div>
+                    </div>
+
+                    <div class="audit-movements-table-wrapper">
+                        <table class="audit-movements-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha / Hora</th>
+                                    <th>Tipo</th>
+                                    <th>Concepto y Detalle</th>
+                                    <th style="text-align:right;">Pérdida Originada</th>
+                                    <th style="text-align:right;">Ganancia Aportada</th>
+                                    <th style="text-align:right;">Saldo Resultante</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-movements-tbody">
+                                <!-- Poblado por modules/perdidas.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 6: USUARIOS, CONTROL DE ACCESO & APROBACIONES -->
+    <div id="usuarios" class="view-content">
+        <!-- 1. FORMULARIO DE AUTOREGISTRO DE USUARIOS -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:15px; flex-wrap:wrap; margin-bottom:12px;">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-user-plus" style="color:var(--primary-accent);"></i> Formulario de Registro de Usuarios</h3>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
+                        Captura de datos obligatoria para clientes, vendedores y administradores. Estado inicial por defecto: <strong style="color:#d97706;">PENDIENTE_APROBACION</strong>.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalAuth()">
+                    <i class="fas fa-arrow-right-to-bracket"></i> Iniciar Sesión / Cambiar Usuario
+                </button>
+            </div>
+
+            <!-- Feedback de Registro -->
+            <div id="reg-feedback" style="display:none; padding:12px 16px; border-radius:8px; margin-bottom:16px; border:1px solid transparent; align-items:flex-start; gap:10px; font-size:0.9rem;"></div>
+
+            <form onsubmit="registrarUsuario(event)" style="margin-top:10px;">
+                <div class="register-form-grid">
+                    <div class="form-group">
+                        <label for="reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Identificación única obligatoria.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
+                        <input type="text" id="reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-telefono">Número de Teléfono (Contacto) <span style="color:var(--danger);">*</span></label>
+                        <input type="tel" id="reg-telefono" required placeholder="Ej: 0414-1234567" autocomplete="tel">
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Contacto directo para validación de cuenta.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-email">Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                        <input type="email" id="reg-email" required placeholder="Ej: usuario@correo.com" autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-password">Contraseña de Acceso <span style="color:var(--danger);">*</span></label>
+                        <input type="password" id="reg-password" required placeholder="••••••••" autocomplete="new-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-rol">Rol Solicitado</label>
+                        <select id="reg-rol">
+                            <option value="cliente">Cliente (Compras y Cuentas x Cobrar)</option>
+                            <option value="vendedor">Vendedor / Operador de Caja</option>
+                            <option value="admin">Administrador General</option>
+                        </select>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Sujeto a validación del Administrador.</small>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                    <div style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i>
+                        <span>El usuario quedará en espera de validación administrativa antes de operar en el POS.</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding:10px 24px; font-weight:700;">
+                        <i class="fas fa-user-plus"></i> Enviar Solicitud de Registro
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 2. PANEL DE CONTROL Y FLUJO DE APROBACIÓN ADMINISTRATIVA -->
+        <div class="card" style="margin-top:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0;"><i class="fas fa-shield-halved" style="color:#f59e0b;"></i> Panel de Control & Flujo de Aprobación</h3>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-muted);">
+                        Exclusivo Administrador: Aprueba, rechaza o administra permisos de usuarios en tiempo real.
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPIs de Usuarios -->
+            <div class="users-kpi-grid">
+                <div class="user-kpi-card">
+                    <div class="user-kpi-icon" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-users"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-total">0</span>
+                        <span class="user-kpi-lbl">Total Registrados</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#fde68a;">
+                    <div class="user-kpi-icon" style="background:#fef3c7; color:#d97706;"><i class="fas fa-clock fa-spin"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-pendientes" style="color:#d97706;">0</span>
+                        <span class="user-kpi-lbl">Pendientes Aprobación</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#bbf7d0;">
+                    <div class="user-kpi-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-user-check"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-activos" style="color:#16a34a;">0</span>
+                        <span class="user-kpi-lbl">Usuarios Activos</span>
+                    </div>
+                </div>
+                <div class="user-kpi-card" style="border-color:#fecaca;">
+                    <div class="user-kpi-icon" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-user-xmark"></i></div>
+                    <div class="user-kpi-info">
+                        <span class="user-kpi-val" id="kpi-user-rechazados" style="color:#dc2626;">0</span>
+                        <span class="user-kpi-lbl">Rechazados / Inactivos</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Búsqueda y Pestañas de Filtro -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0 12px 0;">
+                <div style="flex:1; min-width:240px;">
+                    <input type="text" id="usuarios-search" placeholder="Buscar por Cédula, Nombre, Correo o Teléfono..." oninput="renderizarUsuarios(this.value)" style="width:100%;">
+                </div>
+                <div class="user-filter-tabs">
+                    <button type="button" class="filter-btn-user active" data-status="TODOS" onclick="filtrarUsuariosPorEstado('TODOS')">
+                        <i class="fas fa-list"></i> Todos
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="PENDIENTE_APROBACION" onclick="filtrarUsuariosPorEstado('PENDIENTE_APROBACION')">
+                        <i class="fas fa-clock"></i> Pendientes
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="ACTIVO" onclick="filtrarUsuariosPorEstado('ACTIVO')">
+                        <i class="fas fa-check-circle"></i> Activos
+                    </button>
+                    <button type="button" class="filter-btn-user" data-status="RECHAZADO" onclick="filtrarUsuariosPorEstado('RECHAZADO')">
+                        <i class="fas fa-ban"></i> Rechazados
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de Usuarios -->
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cédula / RIF</th>
+                            <th>Nombre & Correo</th>
+                            <th>Teléfono (WhatsApp)</th>
+                            <th>Rol Asignado</th>
+                            <th>Estado</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones de Aprobación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usuarios-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. PERSISTENCIA PORTÁTIL & EXPORTACIÓN MÁSTER EXCEL (.XLSX) / JSON -->
+        <div class="card" style="margin-top:18px;">
+            <h3><i class="fas fa-file-excel" style="color:#16a34a;"></i> Persistencia Portátil & Base de Datos Máster</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">
+                Estructura máster multihajas (.xlsx) y JSON que almacena la tabla de <strong>Usuarios</strong> junto con <strong>Inventario de Productos</strong>, <strong>Clientes</strong>, <strong>Ventas</strong> y <strong>Auditorías</strong> para funcionamiento 100% offline o respaldo físico.
+            </p>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px;">
+                <!-- Máster Excel -->
+                <div style="border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; padding:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-excel" style="font-size:1.4rem; color:#16a34a;"></i>
+                        <strong style="color:#166534;">Archivo Máster Excel (.xlsx)</strong>
+                    </div>
+                    <p style="font-size:0.8rem; color:#166534; margin-bottom:12px;">
+                        Descarga o sincroniza todas las hojas de cálculo del sistema en formato nativo Excel (.xlsx).
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="width:100%;">
+                            <i class="fas fa-download"></i> Descargar Máster Excel (.xlsx)
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fas fa-upload"></i> Importar Máster Excel (.xlsx)
+                            <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Respaldo JSON -->
+                <div style="border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-code" style="font-size:1.4rem; color:#2563eb;"></i>
+                        <strong style="color:#1e40af;">Copia de Seguridad JSON</strong>
+                    </div>
+                    <p style="font-size:0.8rem; color:#1e40af; margin-bottom:12px;">
+                        Respaldo liviano para migración rápida de estado de datos y sincronización de base local.
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button type="button" class="btn btn-primary" onclick="descargarRespaldoLocal()" style="width:100%;">
+                            <i class="fas fa-download"></i> Descargar Respaldo JSON
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fas fa-upload"></i> Importar Respaldo JSON
+                            <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 7 (ADMIN): CONFIGURADOR DE PREMIO DEL MES & FIDELIZACIÓN -->
+    <div id="premio-mes-admin" class="view-content">
+        <div class="reward-config-container">
+            <div class="reward-config-header">
+                <div class="reward-config-header-title">
+                    <div class="reward-config-header-icon" aria-hidden="true">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div>
+                        <h2 id="reward-config-title">Configuración del Premio del Mes & Sistema de Puntos</h2>
+                        <p>Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y gestiona la imagen en Vercel Blob.</p>
+                    </div>
+                </div>
+                <button type="button" class="reward-config-back-btn" onclick="switchTab('usuarios')">
+                    <i class="fas fa-users-gear"></i> Ir a Panel de Usuarios
+                </button>
+            </div>
+
+            <!-- Banner Dinámico del Estado de la Temporada (Activo / Pausado / Ganador Alcanzado) -->
+            <div id="premio-admin-status-banner" class="reward-status-banner banner-active" style="margin-bottom:18px; padding:14px 18px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
+                    <div>
+                        <span class="badge" style="background:#dcfce7; color:#166534; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
+                            🟢 DESAFÍO EN JUEGO (ABIERTO HASTA GANADOR)
+                        </span>
+                        <div style="margin-top:4px; font-size:0.85rem; color:#334155;">
+                            Premio en disputa activa. Se retirará automáticamente cuando un cliente alcance la meta de puntos o cuando decidas pausarlo/cambiarlo.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="togglePausarDesafioPremioAdmin()" title="Pausar desafío temporalmente">
+                            <i class="fas fa-pause"></i> Pausar
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="iniciarNuevoDesafioModalAdmin()" title="Iniciar nuevo desafío o cambiar premio">
+                            <i class="fas fa-arrows-rotate"></i> Cambiar Premio
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form id="form-premio-mes-admin" onsubmit="guardarConfiguracionPremio(event)">
+                <div class="reward-config-grid">
+                    
+                    <!-- Columna Izquierda: Datos y Parámetros -->
+                    <div class="reward-config-card">
+                        <div class="reward-config-card-header">
+                            <h3><i class="fas fa-sliders" style="color:var(--rc-emerald-600);"></i> Parámetros de la Temporada</h3>
+                        </div>
+
+                        <!-- Interruptor de Estado de Temporada de Premios -->
+                        <div class="reward-form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <label for="premio-temporada-activa" style="font-size:0.88rem; font-weight:700; color:#166534; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-trophy" style="color:#d97706;"></i> Temporada de Premios Activa
+                                    </label>
+                                    <div style="font-size:0.75rem; color:#15803d; margin-top:2px;">
+                                        Los clientes acumulan puntos con sus compras y compiten por el premio.
+                                    </div>
+                                </div>
+                                <input type="checkbox" id="premio-temporada-activa" checked onchange="actualizarPreviewPremioAdmin()" style="width:20px; height:20px; cursor:pointer; accent-color:#16a34a;">
+                            </div>
+                        </div>
+
+                        <div class="reward-form-group">
+                            <label for="premio-admin-titulo">
+                                Nombre del Premio del Mes <span class="required-mark">*</span>
+                            </label>
+                            <input type="text" id="premio-admin-titulo" class="reward-input" required placeholder="Ej: Cafetera Espresso Digital 1.5L / Freidora de Aire" oninput="actualizarPreviewPremioAdmin()">
+                        </div>
+
+                        <div class="reward-form-row">
+                            <div class="reward-form-group">
+                                <label for="premio-admin-mes">Período de Vigencia</label>
+                                <input type="text" id="premio-admin-mes" class="reward-input" placeholder="Ej: Mes en Curso / Octubre 2026" oninput="actualizarPreviewPremioAdmin()">
+                            </div>
+                            <div class="reward-form-group">
+                                <label for="premio-admin-pts-dolar">
+                                    Puntos por cada $1.00 de Gasto <span class="required-mark">*</span>
+                                </label>
+                                <input type="number" id="premio-admin-pts-dolar" class="reward-input" min="0.1" step="0.1" required placeholder="Ej: 1" oninput="actualizarPreviewPremioAdmin()">
+                            </div>
+                        </div>
+
+                        <!-- 2. ASISTENTE FINANCIERO DEL PREMIO (GANANCIA META Y POOL DE CLIENTES) -->
+                        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h4 style="margin:0; font-size:0.9rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-calculator" style="color:var(--rc-emerald-600);"></i> Asistente Financiero & Pool de Competidores
+                                </h4>
+                                <span style="font-size:0.7rem; font-weight:800; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:9999px;">
+                                    Fórmula Rentable
+                                </span>
+                            </div>
+
+                            <div class="reward-form-row">
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-costo-real" style="font-size:0.78rem; font-weight:700;">
+                                        Costo Real del Premio ($ USD) <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-costo-real" class="reward-input" min="0" step="0.5" value="40.00" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Inversión del artículo (ej. $40.00)</span>
+                                </div>
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-ganancia-meta" style="font-size:0.78rem; font-weight:700;">
+                                        Ganancia Neta Objetivo por Ganador ($) <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-ganancia-meta" class="reward-input" min="1" step="0.5" value="60.00" oninput="actualizarPreviewPremioAdmin()" style="font-weight:800; color:#059669;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Beneficio neto que debe dejar (ej. $60.00)</span>
+                                </div>
+                            </div>
+
+                            <div class="reward-form-row" style="margin-top:8px;">
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-pool-clientes" style="font-size:0.78rem; font-weight:700;">
+                                        Pool Estimado de Clientes Activos <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-pool-clientes" class="reward-input" min="1" step="1" value="10" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Clientes compitiendo (ej. 10)</span>
+                                </div>
+                                <div class="reward-form-group">
+                                    <label for="premio-admin-pts-profit" style="font-size:0.78rem; font-weight:700;">
+                                        Factor: Pts por $1 de Ganancia Neta <span class="required-mark">*</span>
+                                    </label>
+                                    <input type="number" id="premio-admin-pts-profit" class="reward-input" min="1" step="1" value="10" oninput="actualizarPreviewPremioAdmin()" style="font-weight:700;">
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">$1 ganancia = 10 pts</span>
+                                </div>
+                            </div>
+
+                            <!-- Meta de Puntos del Ganador Calculada -->
+                            <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-size:0.78rem; font-weight:700; color:#1e293b;">Meta de Puntos del Ganador (Calculada):</div>
+                                    <div id="premio-admin-meta-formula" style="font-size:0.72rem; color:#64748b; font-family:monospace;">$60.00 × 10 pts/$ = 600 Pts</div>
+                                </div>
+                                <div>
+                                    <input type="number" id="premio-admin-puntos" class="reward-input" min="1" step="1" required value="600" oninput="actualizarPreviewPremioAdmin()" style="width:110px; font-weight:900; font-size:1.05rem; color:#ea580c; text-align:right;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="reward-form-group">
+                            <label for="premio-admin-desc">
+                                <span>Descripción Detallada del Premio <span class="required-mark">*</span></span>
+                            </label>
+                            <textarea id="premio-admin-desc" class="reward-textarea" rows="3" required placeholder="Describe qué incluye el premio y condiciones de canje para tus clientes..." oninput="actualizarPreviewPremioAdmin()"></textarea>
+                            <div id="reward-desc-char-count" class="reward-char-counter">0 / 280 caracteres</div>
+                        </div>
+
+                        <!-- Plantillas Rápidas Preconfiguradas (Chips Horizontales) -->
+                        <div class="reward-presets-section">
+                            <div class="reward-presets-title">
+                                <i class="fas fa-wand-magic-sparkles" style="color:var(--rc-amber-500);"></i>
+                                <span>Plantillas Rápidas Preconfiguradas</span>
+                            </div>
+                            <div class="reward-presets-grid" id="premio-admin-presets"></div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Dropzone Multimedia Vercel Blob & Live Preview -->
+                    <div class="reward-config-card">
+                        <div class="reward-config-card-header">
+                            <h3><i class="fas fa-cloud-arrow-up" style="color:var(--rc-emerald-600);"></i> Multimedia & Live Preview</h3>
+                            <span class="reward-dropzone-badge">
+                                <i class="fas fa-bolt"></i> Vercel Blob Storage
+                            </span>
+                        </div>
+
+                        <!-- Dropzone Multimedia -->
+                        <div id="reward-dropzone-box" class="reward-dropzone" onclick="document.getElementById('premio-file-blob-input').click()">
+                            <input type="file" id="premio-file-blob-input" class="reward-dropzone-input" accept="image/png, image/jpeg, image/webp" onchange="manejarSubidaImagenPremioBlob(event)">
+                            <div class="reward-dropzone-content">
+                                <div class="reward-dropzone-icon" id="dropzone-icon-status">
+                                    <i class="fas fa-cloud-arrow-up"></i>
+                                </div>
+                                <div>
+                                    <p class="reward-dropzone-title" id="dropzone-title-status">Arrastra una imagen o haz clic aquí</p>
+                                    <p class="reward-dropzone-hint">Sube directo a Vercel Blob (.png, .jpg, .webp hasta 8MB)</p>
+                                </div>
+                            </div>
+                            <!-- Barra de progreso oculta por defecto -->
+                            <div id="reward-upload-progress-container" class="reward-upload-progress" style="display:none;">
+                                <div class="reward-progress-bar-track">
+                                    <div id="reward-progress-bar-fill" class="reward-progress-bar-fill" style="width:0%;"></div>
+                                </div>
+                                <div class="reward-upload-status">
+                                    <span id="reward-upload-status-text">Subiendo...</span>
+                                    <span id="reward-upload-status-percent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="premio-admin-img" value="">
+
+                        <!-- Panel de Balance Proyectado de Rentabilidad (Ingeniería Financiera) -->
+                        <div style="margin-bottom:14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <div style="font-size:0.8rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-chart-line" style="color:#059669;"></i> Balance Proyectado de Temporada
+                                </div>
+                                <span id="premio-balance-status-badge" style="font-size:0.68rem; font-weight:800; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:9999px;">
+                                    Rentabilidad Garantizada
+                                </span>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:1fr; gap:6px; font-size:0.75rem;">
+                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                    <span>Ganancia neta aportada por el ganador:</span>
+                                    <strong id="premio-balance-winner" style="color:#059669;">+$60.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                    <span>Ganancia neta resto del pool (<span id="premio-balance-competing-count">9</span> clientes al ~50%):</span>
+                                    <strong id="premio-balance-pool" style="color:#0284c7;">+$270.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#1e293b; font-weight:700; border-top:1px dashed #cbd5e1; padding-top:4px;">
+                                    <span>Ganancia Neta Total Generada:</span>
+                                    <strong id="premio-balance-total" style="color:#0f172a;">+$330.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; color:#dc2626;">
+                                    <span>Costo del Premio a Entregar:</span>
+                                    <strong id="premio-balance-costo">-$40.00</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px; margin-top:2px;">
+                                    <span style="font-weight:800; color:#065f46;">Utilidad Neta Final para la Bodega:</span>
+                                    <strong id="premio-balance-utilidad" style="font-size:0.95rem; font-weight:900; color:#047857;">+$290.00 USD libres</strong>
+                                </div>
+                            </div>
+                            <div id="premio-balance-horizonte-info" style="margin-top:8px; font-size:0.75rem; color:#475569; line-height:1.4; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;">
+                                <strong>⏱️ Ventas Acumuladas Necesarias:</strong> Ventas distribuidas en 1, 2 o 3 meses según el ritmo del cliente. El negocio retiene la ganancia en caja antes de entregar el premio.
+                            </div>
+                        </div>
+
+                        <!-- Tarjeta Live Preview (Vista del Cliente) -->
+                        <div>
+                            <div style="margin-bottom:10px; font-size:0.82rem; font-weight:700; color:var(--rc-slate-600); display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-eye" style="color:var(--rc-emerald-600);"></i> Vista Previa del Cliente (En Vivo):
+                            </div>
+
+                            <div class="reward-preview-box">
+                                <div class="reward-preview-img-wrapper">
+                                    <img id="preview-premio-img" src="https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80" alt="Premio" class="reward-preview-img">
+                                    <div id="preview-premio-puntos" class="reward-preview-badge-points">
+                                        <i class="fas fa-star"></i> 200 Pts Requeridos
+                                    </div>
+                                    <div id="preview-premio-vigencia" class="reward-preview-vigencia-badge">
+                                        <i class="fas fa-calendar-check"></i> Mes en Curso
+                                    </div>
+                                </div>
+                                <div class="reward-preview-body">
+                                    <h4 id="preview-premio-titulo" class="reward-preview-title">Cafetera Espresso Digital 1.5L</h4>
+                                    <p id="preview-premio-desc" class="reward-preview-desc">Premio exclusivo del mes para nuestros clientes más fieles. ¡Acumula puntos con cada compra completada!</p>
+                                    <div class="reward-preview-footer">
+                                        <span>Equivalencia:</span>
+                                        <span id="preview-premio-rate" class="reward-preview-rate">$1.00 = +1 Pts</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Barra de Acción Inferior -->
+                <div class="reward-action-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <button type="button" id="btn-admin-pausar-desafio" class="btn btn-outline" onclick="togglePausarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px;">
+                            <i class="fas fa-pause"></i> Pausar Desafío
+                        </button>
+                        <button type="button" id="btn-admin-eliminar-desafio" class="btn btn-outline" onclick="eliminarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px; color:#dc2626; border-color:#fca5a5;" title="Elimina el desafío, activa el modo invierno y reinicia a 0 los puntos de todos los clientes">
+                            <i class="fas fa-trash-can"></i> Eliminar Desafío
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700; padding:10px 16px;">
+                            <i class="fas fa-wand-magic-sparkles"></i> Iniciar Nuevo Desafío
+                        </button>
+                        <button type="button" class="reward-btn-whatsapp" onclick="anunciarTemporadaWhatsApp()" style="padding:10px 16px;">
+                            <i class="fab fa-whatsapp" style="font-size:1.15rem;"></i>
+                            <span>Anunciar por WhatsApp</span>
+                        </button>
+                    </div>
+                    <div>
+                        <button type="submit" id="btn-guardar-activar-premio-mes" class="reward-btn-save" style="padding:12px 22px;">
+                            <i class="fas fa-floppy-disk"></i>
+                            <span>Guardar y Activar Premio</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Historial de Canjes Realizados -->
+        <div class="card" style="margin-top:18px;">
+            <h3 style="margin-bottom:12px;"><i class="fas fa-clock-rotate-left"></i> Historial de Canjes de Clientes</h3>
+            <div id="premio-admin-historial-canjes">
+                <p style="color:var(--text-muted); font-size:0.88rem;">No hay canjes registrados aún.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 7B (ADMIN): HISTORIAL DE VENTAS DIARIO Y ACUMULADO -->
+    <div id="historial-ventas" class="view-content">
+        <!-- Barra de Encabezado con Política de Confirmación -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px; padding:14px 18px; background:var(--card-bg, #ffffff); border:1px solid var(--border); border-radius:12px;">
+            <div>
+                <h2 style="margin:0; font-size:1.3rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-clock-rotate-left" style="color:var(--primary-accent);"></i> Historial de Ventas Diario y Acumulado
+                </h2>
+                <div style="margin-top:4px; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                    <span role="button" onclick="if(typeof switchTab==='function')switchTab('transacciones')" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:2px 8px; background:#eff6ff; color:#1d4ed8; border-radius:6px; font-weight:600;" title="Ir a Transacciones / Pagos para verificar o aprobar reportes de pago">
+                        <i class="fas fa-shield"></i> Las confirmaciones y validaciones de pago se procesan en Transacciones / Pagos
+                    </span>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
+                    <i class="fas fa-rotate"></i> Actualizar
+                </button>
+            </div>
+        </div>
+
+        <!-- KPIs de Ventas -->
+        <div class="kpi-grid" style="margin-bottom:18px;">
+            <div class="kpi-card" style="border-left-color:#16a34a;">
+                <div class="kpi-title"><i class="fas fa-calendar-day"></i> VENTAS DE HOY (USD)</div>
+                <div class="kpi-value-usd" id="kpi-ventas-hoy-usd" style="color:#16a34a;">$0.00</div>
+                <div class="kpi-value-ves" id="kpi-ventas-hoy-ves">Bs. 0.00</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#ea580c;">
+                <div class="kpi-title"><i class="fas fa-hand-holding-dollar"></i> CRÉDITO DE HOY (USD)</div>
+                <div class="kpi-value-usd" id="kpi-ventas-credito-hoy-usd" style="color:#ea580c;">$0.00</div>
+                <div class="kpi-value-ves" id="kpi-ventas-credito-hoy-ves">Bs. 0.00</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title"><i class="fas fa-receipt"></i> PEDIDOS PROCESADOS HOY</div>
+                <div class="kpi-value-usd" id="kpi-ventas-hoy-cant" style="color:var(--primary-accent);">0</div>
+                <div class="kpi-value-ves">Transacciones de hoy</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#2563eb;">
+                <div class="kpi-title"><i class="fas fa-chart-line"></i> TOTAL HISTÓRICO ACUMULADO</div>
+                <div class="kpi-value-usd" id="kpi-ventas-historico-usd">$0.00</div>
+                <div class="kpi-value-ves">Ventas totales registradas</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#d97706;">
+                <div class="kpi-title"><i class="fas fa-hand-holding-dollar"></i> TOTAL VENTAS A CRÉDITO</div>
+                <div class="kpi-value-usd" id="kpi-ventas-credito-usd" style="color:#d97706;">$0.00</div>
+                <div class="kpi-value-ves">Acumulado crédito histórico</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <!-- Pestañas del Módulo de Historial -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:18px;">
+                <div style="display:flex; gap:10px;">
+                    <button type="button" id="tab-historial-hoy" class="btn btn-outline active" onclick="cambiarSubTabHistorialVentas('hoy')" style="display:flex; align-items:center; gap:8px; font-weight:700;">
+                        <i class="fas fa-calendar-day"></i> Ventas de Hoy
+                    </button>
+                    <button type="button" id="tab-historial-general" class="btn btn-outline" onclick="cambiarSubTabHistorialVentas('general')" style="display:flex; align-items:center; gap:8px; font-weight:700;">
+                        <i class="fas fa-list-check"></i> Historial General (Filtros)
+                    </button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
+                        <i class="fas fa-rotate"></i> Actualizar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subview 1: Ventas de Hoy -->
+            <div id="subview-historial-hoy">
+                <div style="margin-bottom:12px; color:var(--text-muted); font-size:0.88rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-info-circle" style="color:var(--primary-accent);"></i>
+                    <span>Mostrando únicamente las compras y pedidos procesados durante la jornada de hoy con descuento automático de inventario.</span>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Venta</th>
+                                <th>Hora</th>
+                                <th>Cliente</th>
+                                <th>Productos</th>
+                                <th>Método de Pago</th>
+                                <th class="num">Total ($ / Bs)</th>
+                                <th style="text-align:center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventas-hoy-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Subview 2: Historial General Acumulado con Filtros -->
+            <div id="subview-historial-general" style="display:none;">
+                <!-- Barra de Filtros Interactivos -->
+                <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:18px;">
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; align-items:end;">
+                        <div class="form-group">
+                            <label for="historial-filtro-cliente"><i class="fas fa-search"></i> Buscar Cliente / ID</label>
+                            <input type="text" id="historial-filtro-cliente" placeholder="Nombre, Cédula o #ID..." oninput="filtrarHistorialGeneralPorCliente(this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-desde"><i class="far fa-calendar"></i> Desde</label>
+                            <input type="date" id="historial-filtro-desde" onchange="filtrarHistorialGeneralPorFechas(document.getElementById('historial-filtro-desde').value, document.getElementById('historial-filtro-hasta').value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-hasta"><i class="far fa-calendar-check"></i> Hasta</label>
+                            <input type="date" id="historial-filtro-hasta" onchange="filtrarHistorialGeneralPorFechas(document.getElementById('historial-filtro-desde').value, document.getElementById('historial-filtro-hasta').value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-metodo"><i class="fas fa-wallet"></i> Método de Pago</label>
+                            <select id="historial-filtro-metodo" onchange="filtrarHistorialGeneralPorMetodo(this.value)">
+                                <option value="TODOS">Todos los Métodos</option>
+                                <option value="Crédito">Crédito / Fiado</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Transferencia">Transferencia Bancaria</option>
+                                <option value="Efectivo">Efectivo (USD / VES)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="historial-filtro-estado"><i class="fas fa-tag"></i> Estado</label>
+                            <select id="historial-filtro-estado" onchange="filtrarHistorialGeneralPorEstado(this.value)">
+                                <option value="TODOS">Todos los Estados</option>
+                                <option value="CONFIRMADO">Confirmado</option>
+                                <option value="PENDIENTE_CONFIRMACION">Pendiente de Confirmación</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-outline" onclick="limpiarFiltrosHistorialVentas()" style="width:100%;">
+                                <i class="fas fa-broom"></i> Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;">
+                    <div id="ventas-general-count" style="font-size:0.85rem; color:var(--text-muted); font-weight:600; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <span>0 registros</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label for="historial-selector-orden" style="font-size:0.8rem; color:var(--text-muted); font-weight:600; margin:0; white-space:nowrap;">
+                            <i class="fas fa-arrow-down-short-wide"></i> Orden:
+                        </label>
+                        <select id="historial-selector-orden" class="form-control form-control-sm" style="font-size:0.82rem; padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:#fff; font-weight:600; color:var(--text-main);" onchange="cambiarOrdenHistorialVentasDesdeSelect(this.value)">
+                            <option value="fecha-desc" selected>Fecha: Más nueva a más vieja (Predeterminado)</option>
+                            <option value="fecha-asc">Fecha: Más vieja a más nueva</option>
+                            <option value="id-desc">ID Venta: Mayor correlativo primero</option>
+                            <option value="id-asc">ID Venta: Menor correlativo primero</option>
+                            <option value="total-desc">Monto: Mayor a menor ($)</option>
+                            <option value="total-asc">Monto: Menor a mayor ($)</option>
+                            <option value="cliente-asc">Cliente: A - Z</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th onclick="cambiarOrdenHistorialVentas('id')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por ID Venta">
+                                    ID Venta <i id="sort-icon-id" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
+                                <th onclick="cambiarOrdenHistorialVentas('fecha')" style="cursor:pointer; user-select:none;" title="Clic para alternar orden de fecha">
+                                    Fecha <i id="sort-icon-fecha" class="fas fa-arrow-down-wide-short" style="font-size:0.82rem; color:var(--primary-accent); margin-left:4px;"></i>
+                                </th>
+                                <th onclick="cambiarOrdenHistorialVentas('cliente')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por Cliente">
+                                    Cliente <i id="sort-icon-cliente" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
+                                <th>Cant. Artículos</th>
+                                <th>Método</th>
+                                <th class="num" onclick="cambiarOrdenHistorialVentas('total')" style="cursor:pointer; user-select:none;" title="Clic para ordenar por Monto Total">
+                                    Total ($) <i id="sort-icon-total" class="fas fa-sort" style="font-size:0.75rem; opacity:0.4; margin-left:4px;"></i>
+                                </th>
+                                <th class="num">Total (Bs)</th>
+                                <th style="text-align:center;">Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventas-general-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 7B2: CENTRO DE NOTIFICACIONES -->
+    <div id="notificaciones" class="view-content">
+        <!-- Renderizado dinámicamente por renderizarNotificaciones() en modules/notificaciones.js -->
+    </div>
+
+    <!-- VISTA 7C (ADMIN): CONFIGURACIÓN GENERAL DEL SISTEMA & REINICIO DE FÁBRICA -->
+    <div id="configuracion" class="view-content">
+        <!-- Renderizado dinámicamente por renderizarConfiguracionAdmin() en modules/configuracion.js -->
+    </div>
+
+    <!-- VISTA 8 (CLIENTE): CATÁLOGO DE PRODUCTOS & CARRITO -->
+    <div id="cliente-catalogo" class="view-content">
+        <!-- Banner de Bienvenida Dinámico y Resumen de Puntos -->
+        <div class="card cliente-catalog-header-card" id="cliente-banner-welcome-card" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#ffffff; margin-bottom:12px; border:none; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="flex:1; min-width:240px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span id="cliente-saludo-icono" style="font-size:1.2rem; color:#fde047;"><i class="fas fa-sun"></i></span>
+                        <h2 style="margin:0; font-size:1.2rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
+                    </div>
+                    <!-- Frase de Sabiduría Dinámica & Motivacional (Optimizada para Móvil y Desktop) -->
+                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex !important; visibility:visible !important; opacity:1 !important; align-items:flex-start; gap:8px;">
+                        <i class="fas fa-quote-left" style="color:#fde047; font-size:0.85rem; margin-top:2px; flex-shrink:0;"></i>
+                        <div>
+                            <p id="cliente-frase-texto" style="margin:0; font-size:0.84rem; color:#f1f5f9; font-style:italic; line-height:1.3;">
+                                "La perseverancia convierte los pequeños esfuerzos diarios en grandes victorias."
+                            </p>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                                <small id="cliente-frase-autor" style="font-size:0.72rem; color:#cbd5e1; font-weight:600;">— Sabiduría Universal</small>
+                                <span id="cliente-frase-categoria" style="font-size:0.65rem; background:rgba(253,224,71,0.2); color:#fde047; padding:1px 5px; border-radius:4px;">Motivación</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <div style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:6px 12px; text-align:center;">
+                        <span style="font-size:0.7rem; text-transform:uppercase; color:#94a3b8; display:block;">Mis Puntos</span>
+                        <strong style="font-size:1.15rem; color:#fde047;" id="cliente-banner-puntos-val">0 pts</strong>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="switchTab('cliente-cuenta')" style="font-weight:700; padding:8px 14px; font-size:0.85rem;">
+                        <i class="fas fa-file-invoice-dollar"></i> Mi Cuenta
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
+            <!-- Catálogo y Filtros -->
+            <div class="card" style="padding:14px;">
+                <!-- Controles de búsqueda y filtros con soporte sticky en móvil -->
+                <div class="cliente-catalog-controls-sticky">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                        <div style="flex:1; min-width:200px;">
+                            <input type="text" id="cliente-search" placeholder="🔍 Buscar productos o combos..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%; border-radius:20px; padding:8px 14px; font-size:0.9rem;">
+                        </div>
+                    </div>
+
+                    <!-- Chips de Categorías con scroll horizontal suave -->
+                    <div id="cliente-categorias-chips" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; scrollbar-width:none;">
+                        <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
+                    </div>
+                </div>
+
+                <!-- Carrusel Rápido de Combos Destacados en Móvil / Desktop (Reduce scroll drásticamente) -->
+                <div id="cliente-combos-carousel-wrapper" class="cliente-combos-carousel-wrapper" style="display:none;">
+                    <div class="cliente-combos-carousel-header">
+                        <span class="cliente-combos-carousel-title">
+                            <i class="fas fa-fire"></i> Super Combos Destacados
+                        </span>
+                        <span id="cliente-combos-carousel-count" class="cliente-combos-carousel-tag">
+                            0 disponibles
+                        </span>
+                    </div>
+                    <div id="cliente-combos-carousel-rail" class="cliente-combos-carousel-rail"></div>
+                </div>
+
+                <!-- Grid de Productos -->
+                <div class="cliente-catalogo-grid" id="cliente-catalogo-grid"></div>
+            </div>
+        </div>
+
+        <!-- Barra Flotante de Carrito del Cliente Compacta (Pill) -->
+        <div id="cliente-floating-cart-bar" class="cliente-floating-cart-bar" style="display:none;" onclick="abrirModalCarritoCliente()">
+            <div class="cliente-floating-cart-info">
+                <div class="cliente-floating-cart-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span id="cliente-floating-cart-count" class="cliente-floating-cart-badge">0</span>
+                </div>
+                <div class="cliente-floating-cart-text">
+                    <strong id="cliente-floating-total-usd" class="cliente-floating-cart-val">$0.00</strong>
+                    <small id="cliente-floating-total-ves" class="cliente-floating-cart-sub">Bs. —</small>
+                </div>
+            </div>
+            <button type="button" class="btn-cliente-floating-action" onclick="event.stopPropagation(); abrirModalCarritoCliente();">
+                <span>Pagar</span> <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- VISTA 9 (CLIENTE): ESTADO DE CUENTA, DEUDAS & HISTORIAL -->
+    <div id="cliente-cuenta" class="view-content">
+        <div id="cliente-estado-cuenta-container">
+            <!-- Se renderiza reactivamente por renderizarEstadoCuentaCliente() -->
+        </div>
+    </div>
+
+    <!-- VISTA 10 (CLIENTE): PREMIO DEL MES & FIDELIZACIÓN -->
+    <div id="cliente-premio" class="view-content">
+        <div id="cliente-premio-mes-container">
+            <!-- Se renderiza reactivamente por renderizarPremioMesCliente() -->
+        </div>
+    </div>
+
+    <!-- VISTA 11 (CLIENTE): MI PERFIL, TEMA & AJUSTES -->
+    <div id="cliente-perfil" class="view-content">
+        <div id="cliente-perfil-container">
+            <!-- Se renderiza reactivamente por renderizarPerfilCliente() -->
+        </div>
+    </div>
+</div>
+</div>
+
+
+<!-- Modal para eliminar productos del inventario -->
+<div id="modal-eliminar-producto" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-trash-alt"></i> Retirar producto del inventario</h3>
+        <p style="color: var(--text-muted); margin-top: 6px; font-size: 0.9rem;">
+            Puedes retirar una cantidad parcial o todo el stock. Si retiras todo el stock, el producto se eliminará y los códigos posteriores se correrán automáticamente hacia atrás.
+        </p>
+        <form style="margin-top: 15px;" onsubmit="confirmarEliminacionProducto(event)">
+            <input type="hidden" id="eliminar-producto-id">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Código</label>
+                <input type="text" id="eliminar-producto-codigo" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Producto</label>
+                <input type="text" id="eliminar-producto-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Stock actual</label>
+                <input type="number" id="eliminar-stock-actual" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Cantidad a retirar del inventario <span style="color:var(--danger)">*</span></label>
+                <input type="number" id="eliminar-cantidad" min="1" step="1" required placeholder="Ej. 5">
+                <small style="display:block; margin-top:5px; color:var(--text-muted);">Si retiras todo el stock, el producto será eliminado y los códigos posteriores se renumerarán.</small>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>¿Por qué se está eliminando? <span style="color:var(--danger)">*</span></label>
+                <select id="eliminar-motivo" required>
+                    <option value="">Selecciona un motivo</option>
+                    <option value="Producto descontinuado">Producto descontinuado</option>
+                    <option value="Producto dañado">Producto dañado</option>
+                    <option value="Producto vencido">Producto vencido</option>
+                    <option value="Pérdida / merma">Pérdida / merma</option>
+                    <option value="Error de registro">Error de registro</option>
+                    <option value="Devolución al proveedor">Devolución al proveedor</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Comentario sobre el producto <span style="color:var(--danger)">*</span></label>
+                <textarea id="eliminar-comentario" rows="4" required placeholder="Escribe qué ocurrió, condición del producto, observaciones, etc."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn" onclick="cerrarModalEliminarProducto()">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Confirmar Eliminación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Eliminar Cliente -->
+<div id="modal-eliminar-cliente" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-user-times"></i> Eliminar Cliente</h3>
+        <p style="color:var(--text-muted); margin-top:6px; font-size:0.9rem;">
+            El cliente se quitará del directorio activo, pero sus ventas y pagos permanecerán en el sistema para conservar la auditoría.
+        </p>
+        <form style="margin-top:15px;" onsubmit="confirmarEliminacionCliente(event)">
+            <input type="hidden" id="eliminar-cliente-id">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>ID / Cédula / RIF</label>
+                <input type="text" id="eliminar-cliente-identificador" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Cliente</label>
+                <input type="text" id="eliminar-cliente-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Teléfono</label>
+                <input type="text" id="eliminar-cliente-telefono" readonly style="background:#f1f5f9;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Deuda al momento de eliminar</label>
+                <input type="text" id="eliminar-cliente-deuda" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>¿Por qué se está eliminando? <span style="color:var(--danger)">*</span></label>
+                <select id="eliminar-cliente-motivo" required>
+                    <option value="">Selecciona un motivo</option>
+                    <option value="Cliente inactivo">Cliente inactivo / sin compras</option>
+                    <option value="Solicitud del cliente">Solicitud del cliente</option>
+                    <option value="Datos duplicados">Datos duplicados / registro incorrecto</option>
+                    <option value="Relación comercial terminada">Relación comercial terminada</option>
+                    <option value="Cuenta incobrable">Cuenta incobrable</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Comentario <span style="color:var(--danger)">*</span></label>
+                <textarea id="eliminar-cliente-comentario" rows="4" required placeholder="Explica el motivo y cualquier observación relevante."></textarea>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn" onclick="cerrarModalEliminarCliente()">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="fas fa-user-times"></i> Confirmar Eliminación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Configuración de Tasa Manual / Personalizada -->
+<div id="modal-tasa-manual" class="modal" onclick="if(event.target === this) cerrarModalTasaManual();">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:15px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-sliders" style="color:var(--primary-accent);"></i> Configuración de Tasa de Cambio
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalTasaManual()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <p id="modal-tasa-actual-info" style="font-size:0.88rem; color:var(--text-muted); margin-bottom:15px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;"></p>
+
+        <form onsubmit="guardarTasaManualDesdeModal(event)">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Tasa Dólar USD (Bs. por 1 USD) <span style="color:var(--danger);">*</span></label>
+                <input type="number" id="manual-tasa-usd" step="0.01" min="0.01" required placeholder="Ej: 791.32" style="font-size:1.1rem; font-weight:700;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Tasa Euro EUR (Bs. por 1 EUR) <small style="color:var(--text-muted);">(Opcional)</small></label>
+                <input type="number" id="manual-tasa-eur" step="0.01" min="0.01" placeholder="Ej: 921.81" style="font-size:1.1rem; font-weight:700;">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <button type="button" id="btn-restaurar-auto-bcv" class="btn btn-outline btn-sm" onclick="restaurarAutoSincronizacionBCV()" style="color:var(--primary-accent); border-color:var(--primary-accent);">
+                    <i class="fas fa-cloud-arrow-down"></i> Sincronizar en Vivo (Internet)
+                </button>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn" onclick="cerrarModalTasaManual()">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Aplicar Tasa</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Registrar Abonos Multimoneda -->
+<div id="modal-abono" class="modal">
+    <div class="modal-content">
+        <h3>Registrar Abono / Pago</h3>
+        <form style="margin-top: 15px;" onsubmit="guardarAbono(event)">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Método de Pago</label>
+                <select id="abono-metodo" onchange="actualizarMonedaAbono()">
+                    <option value="Efectivo USD">Efectivo ($)</option>
+                    <option value="Efectivo VES">Efectivo (Bs)</option>
+                    <option value="Transferencia VES">Transferencia Bancaria (Bs)</option>
+                    <option value="Pago Móvil VES">Pago Móvil (Bs)</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label id="lbl-abono-monto">Monto a Abonar ($)</label>
+                <input type="number" id="abono-monto" step="0.01" min="0.01" oninput="calcularEquivalenteAbono()" required>
+            </div>
+            <div class="form-group transaction-reference-field" id="abono-referencia-group" style="margin-bottom: 12px; display:none;">
+                <label>Número de Referencia</label>
+                <input type="text" id="abono-referencia" maxlength="40" placeholder="Referencia bancaria / pago móvil" autocomplete="off">
+                <small style="color:var(--text-muted);">Se aplicará y rebajará de inmediato la deuda del cliente.</small>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Equivalente Convertido</label>
+                <input type="text" id="abono-equivalente" readonly style="background: #f1f5f9; font-weight: bold;">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-danger" onclick="cerrarModalAbono()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Procesar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Rechazar Usuario con Motivo Obligatorio -->
+<div id="modal-rechazar-usuario" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; color:var(--danger); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-ban"></i> Rechazar Solicitud de Usuario
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalRechazarUsuario()"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:14px;">
+            Ingresa el motivo detallado del rechazo. Este motivo quedará registrado en el expediente del usuario y se notificará para aclaratorias.
+        </p>
+
+        <input type="hidden" id="rechazo-user-id">
+
+        <div class="form-group" style="margin-bottom:12px;">
+            <label>Usuario / Solicitante</label>
+            <input type="text" id="rechazo-user-nombre" readonly style="background:#f1f5f9; font-weight:700;">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+            <label for="rechazo-motivo">Motivo del Rechazo <span style="color:var(--danger);">*</span></label>
+            <textarea id="rechazo-motivo" rows="3" required placeholder="Ej: Cédula o RIF no coincide con el registro oficial, o teléfono no verificado." style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; font-size:0.9rem;"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn btn-outline" onclick="cerrarModalRechazarUsuario()">Cancelar</button>
+            <button type="button" class="btn btn-danger" onclick="confirmarRechazoUsuario()">
+                <i class="fas fa-ban"></i> Confirmar Rechazo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Alerta POS Bloqueado (Guardia de Acceso) -->
+<div id="modal-alerta-pos-bloqueado" class="modal">
+    <div class="modal-content" style="max-width: 500px; text-align:center; padding:24px;">
+        <div style="width:64px; height:64px; border-radius:50%; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 16px auto;">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h3 id="modal-pos-bloqueado-titulo" style="margin-bottom:8px; color:var(--text-main);">Acceso al Punto de Venta Restringido</h3>
+        <p id="modal-pos-bloqueado-mensaje" style="color:var(--text-muted); font-size:0.95rem; line-height:1.5; margin-bottom:16px;">
+            Tu cuenta se encuentra en estado <strong>PENDIENTE DE APROBACIÓN</strong>. No puedes procesar ventas ni modificar inventario hasta que el Administrador active tu cuenta.
+        </p>
+        <div id="modal-pos-bloqueado-motivo-box" style="display:none; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin-bottom:16px; text-align:left;">
+            <strong style="color:#991b1b; font-size:0.85rem; display:block; margin-bottom:4px;"><i class="fas fa-circle-exclamation"></i> Motivo de Rechazo:</strong>
+            <span id="modal-pos-bloqueado-motivo-txt" style="color:#991b1b; font-size:0.85rem;"></span>
+        </div>
+        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="cerrarModalPosBloqueado(); switchTab('usuarios');">
+                <i class="fas fa-user-shield"></i> Ver Panel de Usuarios
+            </button>
+            <button type="button" class="btn btn-outline" onclick="cerrarModalPosBloqueado(); abrirModalAuth();">
+                <i class="fas fa-arrow-right-to-bracket"></i> Iniciar con Otra Cuenta
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Carrito & Checkout del Cliente -->
+<div id="modal-cliente-carrito" class="modal" onclick="if(event.target === this) cerrarModalCarritoCliente();">
+    <div class="modal-content cliente-cart-modal-content" style="max-width: 480px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px 20px 0 0;">
+        <!-- Encabezado Fijo del Carrito -->
+        <div class="cart-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #ffffff; flex-shrink: 0;">
+            <h3 style="margin:0; font-size: 1.05rem; display:flex; align-items:center; gap:8px; font-weight: 700;">
+                <i class="fas fa-cart-shopping" style="color:var(--primary-accent);"></i> Mi Carrito de Compras
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalCarritoCliente()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <!-- Formulario que envuelve el cuerpo desplazable y pie de acciones fijo -->
+        <form id="form-cliente-checkout" onsubmit="event.preventDefault(); procesarCompraCliente();" style="display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; margin:0;">
+            <!-- Cuerpo Desplazable del Carrito -->
+            <div class="cart-modal-body" style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding: 12px 14px;">
+                
+                <!-- Lista de Productos en el Carrito con Miniaturas de Imagen (Sin tabla ni barra de scroll horizontal) -->
+                <div id="cliente-carrito-body" class="cliente-cart-items-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px; overflow-x:hidden;"></div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="vaciarCarritoCliente()" style="color:var(--danger); border-color:#fecaca; font-size:0.75rem; padding:4px 8px;">
+                        <i class="fas fa-trash"></i> Vaciar Carrito
+                    </button>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Sincronizado al Dólar BCV</span>
+                </div>
+
+                <!-- Resumen Compacto de Totales y Puntos -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                        <span style="color:#64748b; font-size:0.85rem; font-weight:600;">Total a Pagar:</span>
+                        <div style="text-align:right;">
+                            <strong id="cliente-carrito-total-usd" style="font-size:1.15rem; color:var(--primary-accent); margin-right:4px;">$0.00</strong>
+                            <span style="color:#cbd5e1;">|</span>
+                            <strong id="cliente-carrito-total-ves" style="font-size:1.05rem; color:#16a34a; margin-left:4px;">Bs. 0.00</strong>
+                        </div>
+                    </div>
+                    <div id="cliente-carrito-puntos-row" style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                        <span style="color:#d97706; font-size:0.8rem; font-weight:600;"><i class="fas fa-trophy"></i> Puntos Premio del Mes:</span>
+                        <strong id="cliente-carrito-puntos-preview" style="color:#d97706; font-size:0.85rem; background:#fef3c7; padding:2px 8px; border-radius:12px; font-weight:700;">+0 Pts</strong>
+                    </div>
+                </div>
+
+                <!-- Selector Multibanco Dinámico & Detalles con Copiado -->
+                <div id="cliente-multibanco-container" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:0.82rem; line-height:1.4;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="color:#1e40af; font-size:0.85rem;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
+                    </div>
+                    
+                    <div style="margin-bottom:8px;">
+                        <label for="cliente-banco-selector" style="display:block; font-size:0.75rem; font-weight:700; color:#1e40af; margin-bottom:3px;">
+                            Seleccionar Entidad Bancaria:
+                        </label>
+                        <select id="cliente-banco-selector" onchange="actualizarDetallesBancoCliente(this.value)" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #93c5fd; background:#ffffff; font-weight:600; color:#1e3a8a; font-size:0.82rem; cursor:pointer;">
+                        </select>
+                    </div>
+
+                    <!-- Tarjeta Dinámica de Detalles del Banco Seleccionado -->
+                    <div id="cliente-banco-card" style="background:#ffffff; border:1px solid #dbeafe; border-radius:6px; padding:8px 10px;">
+                    </div>
+                </div>
+
+                <!-- Formulario de Método de Pago -->
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label for="cliente-tipo-pago" style="font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <select id="cliente-tipo-pago" required style="font-weight:600; font-size:0.85rem; padding:8px 10px;" onchange="manejarCambioMetodoPagoCliente(this.value)">
+                        <option value="Crédito" selected>⭐ Crédito / Fiado (Confirmación Directa)</option>
+                        <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
+                        <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
+                        <option value="Efectivo USD">Efectivo ($ Dólares)</option>
+                        <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
+                    </select>
+                </div>
+
+                <!-- Campo de Referencia (Oculto por defecto en Crédito para máxima ergonomía) -->
+                <div class="form-group" id="cliente-grupo-referencia" style="display:none; margin-bottom:10px;">
+                    <label for="cliente-pago-referencia" id="cliente-label-referencia" style="font-size:0.8rem; font-weight:600; margin-bottom:3px; display:block;">
+                        Número de Referencia de Pago <span id="cliente-ref-asterisco" style="color:var(--danger); display:none;">*</span>
+                    </label>
+                    <input type="text" id="cliente-pago-referencia" maxlength="40" placeholder="Ej: 123456789012" style="font-weight:600; font-size:0.84rem; padding:7px 10px; background:#f8fafc;">
+                </div>
+
+                <div id="cliente-pago-ayuda-box" style="margin-bottom:10px; padding:6px 10px; background:#f8fafc; border-radius:6px; border-left:3px solid var(--primary-accent);">
+                    <small id="cliente-pago-ayuda-texto" style="color:var(--text-muted); font-size:0.75rem; display:block; line-height:1.35;">
+                        * Al comprar a <b>Crédito</b> se procesará y descontará el inventario inmediatamente, sumando a tu historial de deudas y puntos.
+                    </small>
+                </div>
+
+                <div class="form-group" id="cliente-grupo-comentario" style="margin-bottom:6px;">
+                    <label for="cliente-pago-comentario" style="font-size:0.78rem; font-weight:600; color:var(--text-muted); margin-bottom:3px; display:block;">
+                        <i class="fas fa-comment-dots" style="color:#0284c7;"></i> Observación para la Tienda (Opcional):
+                    </label>
+                    <input type="text" id="cliente-pago-comentario" maxlength="120" placeholder="Ej: Entregar por la tarde, cambio para $20..." style="font-size:0.82rem; padding:6px 10px; background:#f8fafc;">
+                </div>
+            </div>
+
+            <!-- PIE DE ACCIÓN FIJO / STICKY: El botón Confirmar siempre está visible y accesible -->
+            <div class="cart-modal-footer" style="padding:10px 14px calc(14px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) 14px; border-top:1px solid #e2e8f0; background:#ffffff; box-shadow:0 -4px 14px rgba(0,0,0,0.06); flex-shrink:0; display:flex; flex-direction:column; gap:8px;">
+                <button type="submit" id="btn-cliente-confirmar-pedido" class="btn btn-success" 
+                    style="width:100%; font-weight:700; font-size:0.95rem; padding:11px 14px; display:flex; align-items:center; justify-content:center; gap:8px; border-radius:10px; box-shadow:0 3px 10px rgba(22, 163, 74, 0.35); cursor:pointer;">
+                    <i class="fas fa-check-circle" style="font-size:1.05rem;"></i> Confirmar Pedido a Crédito
+                </button>
+                
+                <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()" 
+                    style="width:100%; font-size:0.82rem; padding:8px 10px; color:#64748b; border-color:#cbd5e1; border-radius:8px; min-height:36px; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    <i class="fas fa-arrow-left"></i> Continuar Comprando
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Autenticación y Cambio Rápido de Usuario -->
+<div id="modal-auth" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-users-gear" style="color:var(--primary-accent);"></i> Control de Acceso & Sesión
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalAuth()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="auth-modal-tabs">
+            <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="cambiarSubTabAuth('login')">
+                <i class="fas fa-key"></i> Iniciar Sesión
+            </button>
+            <button type="button" class="auth-tab-btn" id="tab-auth-switch" onclick="cambiarSubTabAuth('switch')">
+                <i class="fas fa-user-group"></i> Cambiar Operador
+            </button>
+        </div>
+
+        <!-- Subtab 1: Login -->
+        <div id="auth-subview-login">
+            <form onsubmit="procesarLoginUsuario(event)">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label for="login-identificador">Cédula, RIF o Correo Electrónico <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="login-identificador" required placeholder="Ingresa tu usuario, documento o correo" autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="login-password">Contraseña <span style="color:var(--danger);">*</span></label>
+                    <input type="password" id="login-password" required placeholder="Ingresa tu contraseña" autocomplete="current-password">
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalAuth()">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Ingresar al Sistema
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Subtab 2: Cambio Rápido de Usuario -->
+        <div id="auth-subview-switch" style="display:none;">
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+                Selecciona uno de los perfiles autorizados para operar la caja en esta sesión:
+            </p>
+            <div id="auth-usuarios-list" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+            <div style="margin-top:14px; text-align:right;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModalAuth()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sincronización y Configuración Firebase Cloud Firestore -->
+<div id="modal-cloud-sync" class="modal">
+    <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:16px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px; font-size:1.2rem;">
+                <i class="fas fa-cloud-bolt" style="color:var(--primary-accent);"></i> Sincronización Firebase Cloud
+            </h3>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalCloudSync()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- Estado de Conexión y Proyecto -->
+        <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <div>
+                    <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:0.5px;">Estado Firestore:</span>
+                    <div id="modal-cloud-status-badge" style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; font-size:0.85rem; font-weight:700; background:#dcfce7; color:#15803d; margin-left:6px;">
+                        <i class="fas fa-cloud-check"></i> Conectado
+                    </div>
+                </div>
+                <div>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Proyecto:</span>
+                    <code id="modal-cloud-project-id" style="background:var(--card-bg); padding:3px 8px; border-radius:6px; font-size:0.85rem; font-weight:700; color:var(--primary-accent); border:1px solid var(--border-light);">tubodeguitadeconfianza</code>
+                </div>
+            </div>
+
+            <!-- Resumen de Datos Sincronizados -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap:8px; margin-top:10px; text-align:center;">
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-prods" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Productos</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-cli" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Clientes</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-ventas" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Ventas</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-usuarios" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Usuarios</div>
+                </div>
+                <div style="background:var(--card-bg); padding:8px 4px; border-radius:8px; border:1px solid var(--border-light);">
+                    <div id="cloud-stat-abonos" style="font-size:1.1rem; font-weight:800; color:var(--text-main);">0</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">Abonos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner de Resultado de Diagnóstico / Test -->
+        <div id="cloud-test-result-box" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:0.9rem;"></div>
+
+        <!-- Botones de Acción de Sincronización -->
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <button type="button" id="btn-cloud-sync-now" class="btn btn-success" style="padding:12px; font-weight:700; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="ejecutarSincronizacionNube()">
+                <i class="fas fa-rotate"></i> Forzar Sincronización (Descargar de la Nube)
+            </button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button type="button" id="btn-cloud-upload-all" class="btn btn-primary" style="padding:10px; font-weight:600; display:flex; justify-content:center; align-items:center; gap:6px; font-size:0.85rem;" onclick="ejecutarSubidaCompletaNube()">
+                    <i class="fas fa-cloud-arrow-up"></i> Subir Todo a Firestore
+                </button>
+                <button type="button" id="btn-cloud-test-conn" class="btn btn-outline" style="padding:10px; font-weight:600; display:flex; justify-content:center; align-items:center; gap:6px; font-size:0.85rem;" onclick="probarConexionFirebaseModal()">
+                    <i class="fas fa-bolt"></i> Probar Conexión (Ping)
+                </button>
+            </div>
+        </div>
+
+        <!-- Sección de Configuración de Proyecto Firebase -->
+        <div style="border-top:1px solid var(--border-light); padding-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h4 style="margin:0; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-sliders" style="color:var(--primary-accent);"></i> Configuración del Proyecto Firebase
+                </h4>
+                <button type="button" class="btn btn-outline" style="font-size:0.75rem; padding:4px 8px;" onclick="restablecerConfiguracionFirebaseUI()">
+                    <i class="fas fa-arrow-rotate-left"></i> Restablecer Proyecto Oficial
+                </button>
+            </div>
+
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
+                💡 <strong>Multi-dispositivo:</strong> Para que tu teléfono y tu PC compartan exactamente los mismos usuarios, productos y ventas en tiempo real, ambos deben apuntar al proyecto <strong><code>tubodeguitadeconfianza</code></strong>.
+            </p>
+
+            <form id="form-firebase-config" onsubmit="guardarConfiguracionFirebaseUI(event)">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; font-weight:600;">Project ID <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="cfg-firebase-projectid" required style="font-family:monospace; font-size:0.85rem;" placeholder="tubodeguitadeconfianza">
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; font-weight:600;">API Key <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="cfg-firebase-apikey" required style="font-family:monospace; font-size:0.85rem;" placeholder="AIzaSy...">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label style="font-size:0.8rem; font-weight:600;">Auth Domain</label>
+                    <input type="text" id="cfg-firebase-authdomain" style="font-family:monospace; font-size:0.85rem;" placeholder="tubodeguitadeconfianza.firebaseapp.com">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCloudSync()">Cerrar</button>
+                    <button type="submit" class="btn btn-primary" style="font-weight:700;">
+                        <i class="fas fa-save"></i> Guardar y Reconectar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de Navegación Inferior Móvil (Mobile Bottom Navigation Bar) Adaptativa por Rol -->
+<nav class="bottom-nav-bar" id="mobile-bottom-nav" aria-label="Navegación Móvil">
+    <!-- Botones Admin Móvil -->
+    <button type="button" class="bottom-nav-item nav-admin-only active" data-tab="pos" onclick="switchTab('pos')" aria-label="Punto de Venta">
+        <i class="fas fa-cash-register"></i>
+        <span>Venta</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')" aria-label="Inventario y Precios">
+        <i class="fas fa-boxes-stacked"></i>
+        <span>Inventario</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')" aria-label="Clientes y Fiados">
+        <i class="fas fa-users"></i>
+        <span>Clientes</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')" aria-label="Pagos y Transacciones" style="position:relative;">
+        <i class="fas fa-hand-holding-dollar"></i>
+        <span>Pagos</span>
+        <span id="badge-abonos-mobile" class="badge-dot" style="background:#d97706; display:none;"></span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
+        <i class="fas fa-clipboard-check"></i>
+        <span>Auditoría</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')" aria-label="Usuarios y Aprobaciones" style="position:relative;">
+        <i class="fas fa-user-shield"></i>
+        <span>Usuarios</span>
+        <span id="badge-pendientes-mobile" class="badge-dot" style="display:none;"></span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="historial-ventas" onclick="switchTab('historial-ventas')" aria-label="Historial de Ventas" style="position:relative;">
+        <i class="fas fa-chart-line"></i>
+        <span>Ventas</span>
+        <span id="badge-ventas-hoy-mobile" class="badge-dot" style="background:#16a34a; display:none;"></span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="notificaciones" onclick="switchTab('notificaciones')" aria-label="Notificaciones" style="position:relative;">
+        <i class="fas fa-bell"></i>
+        <span>Notif</span>
+        <span id="badge-notificaciones-mobile" class="badge-dot" style="background:#ef4444; display:none;"></span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="premio-mes-admin" onclick="switchTab('premio-mes-admin')" aria-label="Premio del Mes Config">
+        <i class="fas fa-gift"></i>
+        <span>Premio</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="configuracion" onclick="switchTab('configuracion')" aria-label="Configuración">
+        <i class="fas fa-gear"></i>
+        <span>Config</span>
+    </button>
+
+    <!-- Botones Cliente Móvil -->
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-catalogo" onclick="switchTab('cliente-catalogo')" aria-label="Catálogo">
+        <i class="fas fa-store"></i>
+        <span>Catálogo</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-cuenta" onclick="switchTab('cliente-cuenta')" aria-label="Mi Estado de Cuenta">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <span>Mi Cuenta</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-premio" onclick="switchTab('cliente-premio')" aria-label="Mis Premios">
+        <i class="fas fa-trophy"></i>
+        <span>Premios</span>
+    </button>
+    <button type="button" class="bottom-nav-item nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')" aria-label="Mi Perfil y Ajustes">
+        <i class="fas fa-user-gear"></i>
+        <span>Perfil</span>
+    </button>
+</nav>
+
+<!-- 📊 Modal de Informe Contable & Diagrama de Recuperación de Pérdidas -->
+<div id="modal-informe-recuperacion" class="modal" onclick="if(event.target === this) cerrarModalInformeRecuperacion();">
+    <div class="audit-modal-content-wide">
+        <div class="audit-report-header">
+            <div>
+                <h3 style="margin:0; display:flex; align-items:center; gap:0.5rem; font-size:1.2rem; color:var(--audit-slate-900);">
+                    <i class="fas fa-scale-balanced" style="color:var(--audit-primary);"></i>
+                    <span>Informe de Auditoría Financiera: Pérdidas y Recuperación</span>
+                </h3>
+                <p style="margin:0.25rem 0 0 0; font-size:0.82rem; color:var(--audit-slate-500);">
+                    Análisis contable del ciclo de amortización, cobertura de mermas y balance patrimonial del inventario.
+                </p>
+            </div>
+            <button type="button" class="btn-icon-tasa" onclick="cerrarModalInformeRecuperacion()" aria-label="Cerrar modal" style="background:transparent; border:none; font-size:1.2rem; cursor:pointer; color:var(--audit-slate-500);">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- 4 Tarjetas KPIs de Resumen -->
+        <div class="audit-report-kpis-grid">
+            <div class="audit-report-kpi-card">
+                <span class="label">Pérdidas Absorbidas</span>
+                <span class="val danger" id="audit-report-perdida-total">$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Ganancia Neta Ventas</span>
+                <span class="val success" id="audit-report-ganancia-total">$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Excedente Favorable</span>
+                <span class="val success" id="audit-report-excedente">+$0.00</span>
+            </div>
+            <div class="audit-report-kpi-card">
+                <span class="label">Tasa de Cobertura</span>
+                <span class="val primary" id="audit-report-tasa">100%</span>
+            </div>
+        </div>
+
+        <!-- 📈 Diagrama Visual Proporcional de Compensación -->
+        <div class="audit-diagram-card">
+            <h4 class="audit-diagram-title">
+                <i class="fas fa-chart-column" style="color:var(--audit-primary);"></i>
+                <span>Diagrama de Balance: Composición de Pérdidas vs. Ganancias Comerciales</span>
+            </h4>
+            <div id="audit-report-diagram-svg-wrap">
+                <!-- Inyectado dinámicamente con barras interactivas SVG -->
+            </div>
+        </div>
+
+        <!-- Veredicto Contable -->
+        <div id="audit-report-verdict-box" class="audit-verdict-box">
+            <i class="fas fa-circle-check" style="font-size:1.4rem; color:#10b981; margin-top:2px;"></i>
+            <div>
+                <strong>Auditoría Contable 100% Saneada y Compensada</strong>
+                <p style="margin:4px 0 0 0;">
+                    Toda la merma económica ha sido amortizada en su totalidad.
+                </p>
+            </div>
+        </div>
+
+        <!-- Acciones del Reporte -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; border-top:1px solid var(--audit-slate-200); padding-top:1rem; margin-top:0.25rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <button type="button" class="btn btn-success" onclick="descargarInformeRecuperacionExcel()" style="background:#16a34a; border-color:#15803d; color:#ffffff; display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-file-excel"></i> Descargar en Excel (.csv)
+                </button>
+                <button type="button" class="btn btn-outline" onclick="imprimirReporteAuditoria()" style="display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-print"></i> Imprimir Reporte
+                </button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <button type="button" id="audit-report-btn-confirmar-cierre" class="btn btn-primary" onclick="confirmarReinicioCiclo()" style="background:#059669; border-color:#047857; color:#ffffff; display:inline-flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-rotate"></i> Confirmar Cierre y Reiniciar Barra
+                </button>
+                <button type="button" class="btn btn-outline" onclick="cerrarModalInformeRecuperacion()">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Constructor de Combos / Ofertas con Cálculo Seguro de Puntos -->
+<div id="modal-admin-combo-builder" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:9999; justify-content:center; align-items:center; padding:16px;">
+    <div class="modal-card" style="background:#ffffff; border-radius:16px; max-width:860px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; padding:24px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:18px;">
+            <div>
+                <h3 style="margin:0; font-size:1.25rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-burger" style="color:#ea580c;"></i> Constructor de Combos & Ofertas Rentables
+                </h3>
+                <p style="margin:4px 0 0; font-size:0.8rem; color:#64748b;">
+                    Ensambla paquetes de productos con extracción automática de costo y asignación de puntos protegida por margen neto.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline" onclick="cerrarConstructorCombosAdmin()" style="border-radius:50%; width:36px; height:36px; padding:0; display:flex; align-items:center; justify-content:center;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="form-admin-combo-builder" onsubmit="guardarComboAdmin(event)">
+            <div class="combo-builder-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap:16px;">
+                
+                <!-- Columna 1: Selección y Composición -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                    <h4 style="margin:0 0 12px; font-size:0.95rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-boxes-packing" style="color:#0284c7;"></i> 1. Composición del Combo
+                    </h4>
+
+                    <div style="display:flex; gap:8px; margin-bottom:14px;">
+                        <div style="flex:1;">
+                            <label for="combo-select-producto" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#475569;">
+                                Agregar Artículo del Inventario
+                            </label>
+                            <select id="combo-select-producto" class="reward-input" style="width:100%; font-size:0.82rem; padding:8px 10px;">
+                                <option value="">-- Selecciona un producto --</option>
+                            </select>
+                        </div>
+                        <div style="width:75px;">
+                            <label for="combo-item-cantidad" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#475569;">
+                                Cantidad
+                            </label>
+                            <input type="number" id="combo-item-cantidad" class="reward-input" min="1" step="1" value="1" style="width:100%; font-size:0.82rem; padding:8px 6px; text-align:center;">
+                        </div>
+                        <div style="align-self:flex-end;">
+                            <button type="button" class="btn btn-primary" onclick="agregarProductoAComboAdmin()" style="height:38px; padding:0 14px; font-weight:700; font-size:0.82rem; background:#0284c7; border-color:#0284c7;">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Artículos Seleccionados -->
+                    <div class="table-responsive" style="border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; overflow-x:auto;">
+                        <table id="combo-items-table" style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="padding:6px 10px; text-align:left;">Producto</th>
+                                    <th style="padding:6px 8px; text-align:center;">Cant.</th>
+                                    <th style="padding:6px 8px; text-align:right;">Costo U.</th>
+                                    <th style="padding:6px 8px; text-align:right;">Subtotal</th>
+                                    <th style="padding:6px 8px; text-align:center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="combo-items-table-body"></tbody>
+                        </table>
+                        <div id="combo-items-empty-msg" style="padding:20px; text-align:center; color:#94a3b8; font-size:0.8rem;">
+                            No has agregado productos al combo todavía.
+                        </div>
+                    </div>
+
+                    <!-- Costo Consolidado -->
+                    <div style="margin-top:12px; padding:10px 14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.82rem; font-weight:700; color:#0369a1;">Costo Base Consolidado:</span>
+                        <strong id="combo-builder-costo-total" style="font-size:1.1rem; font-weight:900; color:#0284c7;">$0.00</strong>
+                    </div>
+                </div>
+
+                <!-- Columna 2: Parámetros Económicos & Fidelización -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                    <h4 style="margin:0 0 12px; font-size:0.95rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-coins" style="color:#ea580c;"></i> 2. Precios & Puntos Rentables
+                    </h4>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label for="combo-builder-codigo" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Código de Combo
+                            </label>
+                            <input type="text" id="combo-builder-codigo" class="reward-input" required readonly style="background:#e2e8f0; font-weight:700; width:100%;">
+                        </div>
+                        <div>
+                            <label for="combo-builder-nombre" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Nombre del Combo <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="text" id="combo-builder-nombre" class="reward-input" required placeholder="Ej: Combo Merienda Familiar" style="width:100%;">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label for="combo-builder-precio" style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Precio de Venta ($ USD) <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="number" id="combo-builder-precio" class="reward-input" min="0.1" step="0.5" required placeholder="Ej: 12.00" oninput="recalcularMatematicaComboModal()" style="font-weight:800; font-size:1rem; width:100%;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                                Ganancia Neta Calculada
+                            </label>
+                            <div id="combo-builder-margen-neto" style="padding:9px 12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-weight:900; font-size:1rem; color:#059669;">
+                                $0.00
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parámetros de Seguridad de Puntos -->
+                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:12px;">
+                        <div style="font-size:0.78rem; font-weight:800; color:#334155; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-shield-halved" style="color:#10b981;"></i> Parámetros de Fidelización Segura
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div>
+                                <label for="combo-builder-pct-fidelidad" style="display:block; font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:3px;">
+                                    % Margen a Premios
+                                </label>
+                                <input type="number" id="combo-builder-pct-fidelidad" class="reward-input" min="1" max="100" step="1" value="15" oninput="recalcularMatematicaComboModal()" style="width:100%; font-size:0.85rem;">
+                                <span style="font-size:0.68rem; color:#94a3b8;">Recomendado: 10% - 25%</span>
+                            </div>
+                            <div>
+                                <label for="combo-builder-factor-puntos" style="display:block; font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:3px;">
+                                    Pts por $1 Ganancia
+                                </label>
+                                <input type="number" id="combo-builder-factor-puntos" class="reward-input" min="1" step="1" value="10" oninput="recalcularMatematicaComboModal()" style="width:100%; font-size:0.85rem;">
+                                <span style="font-size:0.68rem; color:#94a3b8;">Base: 10 pts/$1</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:8px;">
+                            <span style="font-size:0.75rem; color:#64748b;">Puntos Sugeridos Seguros:</span>
+                            <span id="combo-builder-puntos-sugeridos" style="font-weight:900; color:#ea580c; font-size:0.95rem;">0 Pts</span>
+                        </div>
+                    </div>
+
+                    <!-- Puntos Asignados Finales -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
+                        <label for="combo-builder-puntos" style="font-size:0.8rem; font-weight:800; color:#0f172a;">
+                            Puntos a Otorgar por Venta <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="number" id="combo-builder-puntos" class="reward-input" min="1" step="1" required value="0" oninput="this.dataset.manual='true'; recalcularMatematicaComboModal();" style="width:110px; font-weight:900; font-size:1.1rem; color:#ea580c; text-align:right;">
+                    </div>
+
+                    <!-- Advertencia de Rentabilidad -->
+                    <div id="combo-builder-alerta-rentabilidad" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:8px 12px; border-radius:8px; font-size:0.75rem; margin-bottom:12px;"></div>
+
+                    <!-- Preview Badge del Catálogo -->
+                    <div style="margin-bottom:14px;">
+                        <div style="font-size:0.72rem; font-weight:700; color:#64748b; margin-bottom:6px;">Badge que verán tus clientes en el Catálogo:</div>
+                        <div id="combo-builder-preview-badge" style="display:inline-block; padding:6px 14px; background:linear-gradient(135deg, #ea580c, #f59e0b); color:#ffffff; font-weight:900; border-radius:9999px; font-size:0.85rem; box-shadow:0 4px 10px rgba(234,88,12,0.35);">
+                            🔥 Super Combo: +0 Puntos
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="combo-builder-desc" value="Super Combo Promocional">
+                </div>
+            </div>
+
+            <!-- Footer con Botones -->
+            <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:16px; display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="cerrarConstructorCombosAdmin()">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; font-weight:800; padding:10px 22px; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-check"></i> Guardar Combo en Catálogo & Firestore
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Firebase SDK Compat (Firestore + Auth) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+
+<!-- Scripts de Arquitectura y Módulos -->
+<script type="module" src="lib/comboFinancialMath.js?v=4.5.0_anti_dup"></script>
+<script src="core/app-state.js?v=4.5.0_anti_dup"></script>
+<script src="core/modal.js?v=4.5.0_anti_dup"></script>
+<script src="core/helpers.js?v=4.5.0_anti_dup"></script>
+<script src="core/firebase-service.js?v=4.5.0_anti_dup"></script>
+<script src="core/image-cache-service.js?v=4.5.0_anti_dup"></script>
+<script src="core/google-drive-service.js?v=4.5.0_anti_dup"></script>
+<script src="core/persistence.js?v=4.5.0_anti_dup"></script>
+<script src="core/bcv.js?v=4.5.0_anti_dup"></script>
+<script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
+<script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
+<script src="components/Catalog.js?v=4.5.0_anti_dup"></script>
+<script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
+<script src="modules/productos.js?v=4.5.0_anti_dup"></script>
+<script src="modules/pos.js?v=4.5.0_anti_dup"></script>
+<script src="modules/clientes.js?v=4.5.0_anti_dup"></script>
+<script src="modules/pagos-transacciones.js?v=4.5.0_anti_dup"></script>
+<script src="modules/auditoria.js?v=4.5.0_anti_dup"></script>
+<script src="modules/perdidas.js?v=4.5.0_anti_dup"></script>
+<script src="modules/premio-mes.js?v=4.5.0_anti_dup"></script>
+<script src="modules/cliente-view.js?v=4.5.0_anti_dup"></script>
+<script src="modules/historial-ventas.js?v=4.5.0_anti_dup"></script>
+<script src="modules/usuarios.js?v=4.5.0_anti_dup"></script>
+<script src="modules/notificaciones.js?v=4.5.0_anti_dup"></script>
+<script src="modules/configuracion.js?v=4.5.0_anti_dup"></script>
+<script src="app.js?v=4.5.0_anti_dup"></script>
+    <script>
+      // Registro del Service Worker (requerido para que la app sea "instalable" y para el empaquetado en Android)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+            console.warn('No se pudo registrar el service worker:', err);
+          });
+        });
+      }
+    </script>
+</body>
+</html>
+
