@@ -289,6 +289,8 @@ function renderizarHistorialVentasAdmin() {
     // 2. Calcular KPIs de Ventas
     let totalVentasHoyUSD = 0;
     let totalVentasHoyVES = 0;
+    let totalCreditoHoyUSD = 0;
+    let totalCreditoHoyVES = 0;
     let totalVentasHistoricoUSD = 0;
     let totalVentasCreditoUSD = 0;
     let totalVentasContadoUSD = 0;
@@ -297,7 +299,7 @@ function renderizarHistorialVentasAdmin() {
         const total = Number(v.total || 0);
         totalVentasHistoricoUSD += total;
 
-        const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito');
+        const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
         if (esCredito) {
             totalVentasCreditoUSD += total;
         } else {
@@ -305,16 +307,27 @@ function renderizarHistorialVentasAdmin() {
         }
     });
 
+    // "Ventas de hoy" sólo se suma cuando el cliente paga (contado/pagado).
+    // Si sólo sacó a crédito, no se suma a ventas de hoy, sino a "Total Ventas a crédito" y "Crédito de Hoy".
     ventasHoy.forEach(v => {
         const total = Number(v.total || 0);
-        totalVentasHoyUSD += total;
+        const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
         const totalV = Number(v.totalVES || 0) || (tasa > 0 ? (total * tasa) : 0);
-        totalVentasHoyVES += totalV;
+
+        if (esCredito) {
+            totalCreditoHoyUSD += total;
+            totalCreditoHoyVES += totalV;
+        } else {
+            totalVentasHoyUSD += total;
+            totalVentasHoyVES += totalV;
+        }
     });
 
     // Actualizar elementos de KPI en UI
     const kpiHoyUSD = document.getElementById('kpi-ventas-hoy-usd');
     const kpiHoyVES = document.getElementById('kpi-ventas-hoy-ves');
+    const kpiCreditoHoyUSD = document.getElementById('kpi-ventas-credito-hoy-usd');
+    const kpiCreditoHoyVES = document.getElementById('kpi-ventas-credito-hoy-ves');
     const kpiHoyCant = document.getElementById('kpi-ventas-hoy-cant');
     const kpiHistUSD = document.getElementById('kpi-ventas-historico-usd');
     const kpiCreditoUSD = document.getElementById('kpi-ventas-credito-usd');
@@ -322,6 +335,8 @@ function renderizarHistorialVentasAdmin() {
 
     if (kpiHoyUSD) kpiHoyUSD.textContent = `$${totalVentasHoyUSD.toFixed(2)}`;
     if (kpiHoyVES) kpiHoyVES.textContent = `Bs. ${totalVentasHoyVES.toFixed(2)}`;
+    if (kpiCreditoHoyUSD) kpiCreditoHoyUSD.textContent = `$${totalCreditoHoyUSD.toFixed(2)}`;
+    if (kpiCreditoHoyVES) kpiCreditoHoyVES.textContent = `Bs. ${totalCreditoHoyVES.toFixed(2)}`;
     if (kpiHoyCant) kpiHoyCant.textContent = ventasHoy.length;
     if (kpiHistUSD) kpiHistUSD.textContent = `$${totalVentasHistoricoUSD.toFixed(2)}`;
     if (kpiCreditoUSD) kpiCreditoUSD.textContent = `$${totalVentasCreditoUSD.toFixed(2)}`;

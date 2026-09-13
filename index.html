@@ -1770,7 +1770,7 @@
 
     <!-- VISTA 7B (ADMIN): HISTORIAL DE VENTAS DIARIO Y ACUMULADO -->
     <div id="historial-ventas" class="view-content">
-        <!-- Barra de Encabezado con Limpiador y Política de Confirmación -->
+        <!-- Barra de Encabezado con Política de Confirmación -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px; padding:14px 18px; background:var(--card-bg, #ffffff); border:1px solid var(--border); border-radius:12px;">
             <div>
                 <h2 style="margin:0; font-size:1.3rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:10px;">
@@ -1783,8 +1783,8 @@
                 </div>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
-                <button type="button" id="btn-limpiador-ventas-top" class="btn btn-danger" onclick="abrirModalLimpiadorVentas()" title="Depurar y limpiar transacciones del historial de ventas" style="display:inline-flex; align-items:center; gap:8px; font-weight:700; padding:8px 16px;">
-                    <i class="fas fa-broom"></i> Limpiador de Ventas
+                <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
+                    <i class="fas fa-rotate"></i> Actualizar
                 </button>
             </div>
         </div>
@@ -1795,6 +1795,11 @@
                 <div class="kpi-title"><i class="fas fa-calendar-day"></i> VENTAS DE HOY (USD)</div>
                 <div class="kpi-value-usd" id="kpi-ventas-hoy-usd" style="color:#16a34a;">$0.00</div>
                 <div class="kpi-value-ves" id="kpi-ventas-hoy-ves">Bs. 0.00</div>
+            </div>
+            <div class="kpi-card" style="border-left-color:#ea580c;">
+                <div class="kpi-title"><i class="fas fa-hand-holding-dollar"></i> CRÉDITO DE HOY (USD)</div>
+                <div class="kpi-value-usd" id="kpi-ventas-credito-hoy-usd" style="color:#ea580c;">$0.00</div>
+                <div class="kpi-value-ves" id="kpi-ventas-credito-hoy-ves">Bs. 0.00</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title"><i class="fas fa-receipt"></i> PEDIDOS PROCESADOS HOY</div>
@@ -1809,7 +1814,7 @@
             <div class="kpi-card" style="border-left-color:#d97706;">
                 <div class="kpi-title"><i class="fas fa-hand-holding-dollar"></i> TOTAL VENTAS A CRÉDITO</div>
                 <div class="kpi-value-usd" id="kpi-ventas-credito-usd" style="color:#d97706;">$0.00</div>
-                <div class="kpi-value-ves">Acumulado crédito en cuenta</div>
+                <div class="kpi-value-ves">Acumulado crédito histórico</div>
             </div>
         </div>
 
@@ -1827,9 +1832,6 @@
                 <div style="display:flex; gap:8px; align-items:center;">
                     <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
                         <i class="fas fa-rotate"></i> Actualizar
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalLimpiadorVentas()" title="Limpiar historial de ventas" style="display:inline-flex; align-items:center; gap:6px; font-weight:700;">
-                        <i class="fas fa-broom"></i> Limpiador
                     </button>
                 </div>
             </div>
