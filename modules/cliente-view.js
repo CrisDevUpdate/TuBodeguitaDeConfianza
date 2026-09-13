@@ -157,6 +157,7 @@ async function actualizarEncabezadoClienteDinamico() {
  */
 function manejarCambioMetodoPagoCliente(metodo) {
     const inputRef = document.getElementById('cliente-pago-referencia');
+    const grupoRef = document.getElementById('cliente-grupo-referencia');
     const asterisco = document.getElementById('cliente-ref-asterisco');
     const textoAyuda = document.getElementById('cliente-pago-ayuda-texto');
     const btnConfirmar = document.getElementById('btn-cliente-confirmar-pedido');
@@ -172,22 +173,26 @@ function manejarCambioMetodoPagoCliente(metodo) {
         }
     }
 
-    if (!inputRef) return;
-
     if (metodo === 'Crédito') {
-        inputRef.required = false;
-        inputRef.placeholder = 'No requerida para compras a Crédito';
+        if (grupoRef) grupoRef.style.display = 'none';
+        if (inputRef) {
+            inputRef.required = false;
+            inputRef.placeholder = 'No requerida para compras a Crédito';
+        }
         if (asterisco) asterisco.style.display = 'none';
         if (textoAyuda) {
-            textoAyuda.innerHTML = '* Al comprar a <b>Crédito</b> el inventario se descontará de inmediato, sumará a tu historial de deudas y puntos, y se abrirá WhatsApp para registrar la solicitud.';
+            textoAyuda.innerHTML = '* Al comprar a <b>Crédito</b> el inventario se descontará de inmediato, sumará a tu historial de deudas y puntos, y podrás notificar a la tienda.';
         }
         if (btnConfirmar) {
             btnConfirmar.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar Pedido a Crédito';
             btnConfirmar.className = 'btn btn-success';
         }
     } else if (metodo === 'Pago Móvil VES' || metodo === 'Transferencia Bancaria VES') {
-        inputRef.required = true;
-        inputRef.placeholder = 'Ej: 123456789012 (Obligatorio para conciliar)';
+        if (grupoRef) grupoRef.style.display = 'block';
+        if (inputRef) {
+            inputRef.required = true;
+            inputRef.placeholder = 'Ej: 123456789012 (Obligatorio para conciliar)';
+        }
         if (asterisco) asterisco.style.display = 'inline';
         if (textoAyuda) {
             textoAyuda.innerHTML = '* La orden quedará como <b>PENDIENTE DE CONFIRMACIÓN</b> y el inventario se descontará cuando el Administrador valide la transferencia o pago móvil.';
@@ -198,8 +203,11 @@ function manejarCambioMetodoPagoCliente(metodo) {
         }
     } else {
         // Efectivo USD / VES
-        inputRef.required = false;
-        inputRef.placeholder = 'Opcional para pagos en efectivo';
+        if (grupoRef) grupoRef.style.display = 'none';
+        if (inputRef) {
+            inputRef.required = false;
+            inputRef.placeholder = 'Opcional para pagos en efectivo';
+        }
         if (asterisco) asterisco.style.display = 'none';
         if (textoAyuda) {
             textoAyuda.innerHTML = '* Pago en efectivo directo en caja física al retirar tus productos.';
@@ -358,7 +366,10 @@ function renderizarCatalogoCliente() {
                 : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
 
         return `
-            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}">
+            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}"
+                onclick="if (!event.target.closest('button') && !${agotado}) agregarAlCarritoCliente('${p.id}');"
+                style="${agotado ? '' : 'cursor: pointer;'}"
+                title="${agotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
                 <div class="cliente-prod-img-wrapper">
                     <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
                     <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
@@ -493,7 +504,7 @@ function filtrarCatalogoCliente(val) {
  * Agrega un producto al carrito del cliente
  */
 function agregarAlCarritoCliente(id) {
-    const p = (AppState.productos || []).find(prod => prod.id === id);
+    const p = (AppState.productos || []).find(prod => prod.id === id) || (AppState.combos || []).find(c => c.id === id);
     if (!p || Number(p.stock || 0) <= 0) {
         alert('Producto no disponible o sin existencia.');
         return;
@@ -508,6 +519,7 @@ function agregarAlCarritoCliente(id) {
     if (itemEnCarrito) {
         if (itemEnCarrito.cantidad < Number(p.stock || 0)) {
             itemEnCarrito.cantidad++;
+            if (!itemEnCarrito.imagen && p.imagen) itemEnCarrito.imagen = p.imagen;
         } else {
             alert(`Stock máximo disponible alcanzado (${p.stock} unid).`);
             return;
@@ -517,7 +529,8 @@ function agregarAlCarritoCliente(id) {
             productoId: id,
             nombre: p.nombre,
             precio: Number(p.precio || 0),
-            cantidad: 1
+            cantidad: 1,
+            imagen: p.imagen || ''
         });
     }
 
@@ -534,7 +547,7 @@ function agregarAlCarritoCliente(id) {
 }
 
 /**
- * Renderiza el carrito para la vista de cliente
+ * Renderiza el carrito para la vista de cliente (Con miniaturas de imagen y cero scroll horizontal)
  */
 function renderizarCarritoCliente() {
     const tbody = document.getElementById('cliente-carrito-body');
@@ -553,28 +566,54 @@ function renderizarCarritoCliente() {
 
     if (tbody) {
         if (carrito.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--text-muted);">Tu carrito está vacío. ¡Explora el catálogo y agrega tus productos!</td></tr>`;
+            tbody.innerHTML = `
+                <div style="text-align:center; padding:24px 12px; color:var(--text-muted);">
+                    <i class="fas fa-shopping-basket" style="font-size:2.2rem; color:#cbd5e1; margin-bottom:8px; display:block;"></i>
+                    <p style="margin:0 0 4px 0; font-size:0.92rem; font-weight:700; color:#475569;">Tu carrito está vacío</p>
+                    <small style="color:#94a3b8; font-size:0.78rem;">Agrega productos desde el catálogo para continuar</small>
+                </div>
+            `;
         } else {
             tbody.innerHTML = carrito.map((item, idx) => {
                 const subtotal = item.cantidad * item.precio;
                 totalUSD += subtotal;
                 cantTotal += item.cantidad;
+
+                const prod = (AppState.productos || []).find(p => p.id === item.productoId) 
+                          || (AppState.combos || []).find(c => c.id === item.productoId);
+                const rawImg = item.imagen || prod?.imagen || '';
+                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) 
+                    || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+
                 return `
-                    <tr>
-                        <td>
-                            <strong>${item.nombre}</strong><br>
-                            <small style="color:var(--text-muted);">$${item.precio.toFixed(2)} c/u</small>
-                        </td>
-                        <td class="num" style="white-space:nowrap;">
-                            <button type="button" class="btn-qty" onclick="modificarCantidadCarritoCliente(${idx}, -1)">-</button>
-                            <span style="display:inline-block; min-width:24px; text-align:center; font-weight:700;">${item.cantidad}</span>
-                            <button type="button" class="btn-qty" onclick="modificarCantidadCarritoCliente(${idx}, 1)">+</button>
-                        </td>
-                        <td class="num font-bold">$${subtotal.toFixed(2)}</td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="eliminarDelCarritoCliente(${idx})" title="Eliminar"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
+                    <div class="cliente-cart-item-row" id="cart-item-${idx}">
+                        <!-- Miniatura con la imagen del producto -->
+                        <div class="cliente-cart-item-img">
+                            <img src="${imagenSrc}" alt="${item.nombre}" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                        </div>
+
+                        <!-- Información: Nombre, Precio unitario y Subtotal -->
+                        <div class="cliente-cart-item-info">
+                            <div class="cliente-cart-item-name" title="${item.nombre}">${item.nombre}</div>
+                            <div class="cliente-cart-item-meta">
+                                <span class="cliente-cart-item-price">$${item.precio.toFixed(2)} c/u</span>
+                                <span style="color:#cbd5e1;">•</span>
+                                <strong class="cliente-cart-item-subtotal">$${subtotal.toFixed(2)}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Controles de Cantidad -->
+                        <div class="cliente-cart-item-qty">
+                            <button type="button" class="btn-qty-client" onclick="modificarCantidadCarritoCliente(${idx}, -1)" title="Disminuir" aria-label="Disminuir cantidad">-</button>
+                            <span style="display:inline-block; min-width:24px; text-align:center; font-weight:700; font-size:0.85rem; color:#0f172a;">${item.cantidad}</span>
+                            <button type="button" class="btn-qty-client" onclick="modificarCantidadCarritoCliente(${idx}, 1)" title="Aumentar" aria-label="Aumentar cantidad">+</button>
+                        </div>
+
+                        <!-- Botón para Eliminar Producto -->
+                        <button type="button" class="cliente-cart-item-del" onclick="eliminarDelCarritoCliente(${idx})" title="Eliminar producto" aria-label="Eliminar ${item.nombre}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 `;
             }).join('');
         }
@@ -614,7 +653,8 @@ function modificarCantidadCarritoCliente(idx, delta) {
     const item = AppState.carrito[idx];
     if (!item) return;
 
-    const producto = (AppState.productos || []).find(p => p.id === item.productoId);
+    const producto = (AppState.productos || []).find(p => p.id === item.productoId) 
+                  || (AppState.combos || []).find(c => c.id === item.productoId);
     const nuevaCant = item.cantidad + delta;
 
     if (nuevaCant <= 0) {

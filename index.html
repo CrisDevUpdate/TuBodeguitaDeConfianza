@@ -1989,7 +1989,7 @@
             </div>
         </div>
 
-        <!-- Barra Flotante de Carrito del Cliente -->
+        <!-- Barra Flotante de Carrito del Cliente Compacta (Pill) -->
         <div id="cliente-floating-cart-bar" class="cliente-floating-cart-bar" style="display:none;" onclick="abrirModalCarritoCliente()">
             <div class="cliente-floating-cart-info">
                 <div class="cliente-floating-cart-icon">
@@ -1997,13 +1997,12 @@
                     <span id="cliente-floating-cart-count" class="cliente-floating-cart-badge">0</span>
                 </div>
                 <div class="cliente-floating-cart-text">
-                    <span class="cliente-floating-cart-lbl">Total Carrito:</span>
                     <strong id="cliente-floating-total-usd" class="cliente-floating-cart-val">$0.00</strong>
                     <small id="cliente-floating-total-ves" class="cliente-floating-cart-sub">Bs. —</small>
                 </div>
             </div>
-            <button type="button" class="btn btn-warning" onclick="event.stopPropagation(); abrirModalCarritoCliente();" style="font-weight:700; padding:10px 20px; border-radius:8px;">
-                <i class="fas fa-arrow-right"></i> Ver Carrito / Pagar
+            <button type="button" class="btn-cliente-floating-action" onclick="event.stopPropagation(); abrirModalCarritoCliente();">
+                <span>Pagar</span> <i class="fas fa-arrow-right"></i>
             </button>
         </div>
     </div>
@@ -2264,113 +2263,114 @@
 
 <!-- Modal Carrito & Checkout del Cliente -->
 <div id="modal-cliente-carrito" class="modal" onclick="if(event.target === this) cerrarModalCarritoCliente();">
-    <div class="modal-content" style="max-width: 620px; max-height: 90vh; overflow-y: auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:14px; position:sticky; top:0; background:#ffffff; z-index:10;">
-            <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+    <div class="modal-content cliente-cart-modal-content" style="max-width: 480px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px 20px 0 0;">
+        <!-- Encabezado Fijo del Carrito -->
+        <div class="cart-modal-header" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #ffffff; flex-shrink: 0;">
+            <h3 style="margin:0; font-size: 1.05rem; display:flex; align-items:center; gap:8px; font-weight: 700;">
                 <i class="fas fa-cart-shopping" style="color:var(--primary-accent);"></i> Mi Carrito de Compras
             </h3>
-            <button type="button" class="btn btn-sm" onclick="cerrarModalCarritoCliente()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalCarritoCliente()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
         </div>
 
-        <!-- Tabla de Productos en el Carrito -->
-        <div class="table-responsive" style="margin-bottom: 15px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th class="num">Cant.</th>
-                        <th class="num">Subtotal</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="cliente-carrito-body"></tbody>
-            </table>
-        </div>
+        <!-- Formulario que envuelve el cuerpo desplazable y pie de acciones fijo -->
+        <form id="form-cliente-checkout" onsubmit="event.preventDefault(); procesarCompraCliente();" style="display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; margin:0;">
+            <!-- Cuerpo Desplazable del Carrito -->
+            <div class="cart-modal-body" style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding: 12px 14px;">
+                
+                <!-- Lista de Productos en el Carrito con Miniaturas de Imagen (Sin tabla ni barra de scroll horizontal) -->
+                <div id="cliente-carrito-body" class="cliente-cart-items-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px; overflow-x:hidden;"></div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="vaciarCarritoCliente()" style="color:var(--danger); border-color:#fecaca;">
-                <i class="fas fa-trash"></i> Vaciar Carrito
-            </button>
-            <span style="font-size:0.85rem; color:var(--text-muted);">Precios sincronizados al Dólar BCV</span>
-        </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="vaciarCarritoCliente()" style="color:var(--danger); border-color:#fecaca; font-size:0.75rem; padding:4px 8px;">
+                        <i class="fas fa-trash"></i> Vaciar Carrito
+                    </button>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Sincronizado al Dólar BCV</span>
+                </div>
 
-        <!-- Resumen de Totales y Puntos -->
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="color:var(--text-muted); font-size:0.95rem;">Total a Pagar (USD):</span>
-                <strong id="cliente-carrito-total-usd" style="font-size:1.3rem; color:var(--primary-accent);">$0.00</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="color:var(--text-muted); font-size:0.95rem;">Total en Bolívares (VES):</span>
-                <strong id="cliente-carrito-total-ves" style="font-size:1.2rem; color:#16a34a;">Bs. 0.00</strong>
-            </div>
-            <div id="cliente-carrito-puntos-row" style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #cbd5e1; padding-top:8px;">
-                <span style="color:#d97706; font-size:0.88rem; font-weight:600;"><i class="fas fa-trophy"></i> Puntos para el Premio del Mes:</span>
-                <strong id="cliente-carrito-puntos-preview" style="color:#d97706; font-size:1rem;">+0 Pts</strong>
-            </div>
-        </div>
+                <!-- Resumen Compacto de Totales y Puntos -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                        <span style="color:#64748b; font-size:0.85rem; font-weight:600;">Total a Pagar:</span>
+                        <div style="text-align:right;">
+                            <strong id="cliente-carrito-total-usd" style="font-size:1.15rem; color:var(--primary-accent); margin-right:4px;">$0.00</strong>
+                            <span style="color:#cbd5e1;">|</span>
+                            <strong id="cliente-carrito-total-ves" style="font-size:1.05rem; color:#16a34a; margin-left:4px;">Bs. 0.00</strong>
+                        </div>
+                    </div>
+                    <div id="cliente-carrito-puntos-row" style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                        <span style="color:#d97706; font-size:0.8rem; font-weight:600;"><i class="fas fa-trophy"></i> Puntos Premio del Mes:</span>
+                        <strong id="cliente-carrito-puntos-preview" style="color:#d97706; font-size:0.85rem; background:#fef3c7; padding:2px 8px; border-radius:12px; font-weight:700;">+0 Pts</strong>
+                    </div>
+                </div>
 
-        <!-- Selector Multibanco Dinámico & Detalles con Copiado -->
-        <div id="cliente-multibanco-container" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px; margin-bottom:16px; font-size:0.85rem; line-height:1.4;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-                <strong style="color:#1e40af; font-size:0.92rem;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
-            </div>
-            
-            <div style="margin-bottom:10px;">
-                <label for="cliente-banco-selector" style="display:block; font-size:0.8rem; font-weight:700; color:#1e40af; margin-bottom:4px;">
-                    Seleccionar Entidad Bancaria:
-                </label>
-                <select id="cliente-banco-selector" onchange="actualizarDetallesBancoCliente(this.value)" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #93c5fd; background:#ffffff; font-weight:700; color:#1e3a8a; cursor:pointer;">
-                </select>
-            </div>
+                <!-- Selector Multibanco Dinámico & Detalles con Copiado -->
+                <div id="cliente-multibanco-container" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:0.82rem; line-height:1.4;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="color:#1e40af; font-size:0.85rem;"><i class="fas fa-building-columns"></i> Cuentas para Pago Móvil y Transferencias:</strong>
+                    </div>
+                    
+                    <div style="margin-bottom:8px;">
+                        <label for="cliente-banco-selector" style="display:block; font-size:0.75rem; font-weight:700; color:#1e40af; margin-bottom:3px;">
+                            Seleccionar Entidad Bancaria:
+                        </label>
+                        <select id="cliente-banco-selector" onchange="actualizarDetallesBancoCliente(this.value)" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #93c5fd; background:#ffffff; font-weight:600; color:#1e3a8a; font-size:0.82rem; cursor:pointer;">
+                        </select>
+                    </div>
 
-            <!-- Tarjeta Dinámica de Detalles del Banco Seleccionado -->
-            <div id="cliente-banco-card" style="background:#ffffff; border:1px solid #dbeafe; border-radius:8px; padding:10px 12px;">
-                <!-- Rellenado dinámicamente por actualizarDetallesBancoCliente() -->
-            </div>
-        </div>
+                    <!-- Tarjeta Dinámica de Detalles del Banco Seleccionado -->
+                    <div id="cliente-banco-card" style="background:#ffffff; border:1px solid #dbeafe; border-radius:6px; padding:8px 10px;">
+                    </div>
+                </div>
 
-        <!-- Formulario de Pago con Crédito como Primer Método -->
-        <form onsubmit="event.preventDefault(); procesarCompraCliente();">
-            <div class="form-group" style="margin-bottom:12px;">
-                <label for="cliente-tipo-pago">Método de Pago <span style="color:var(--danger);">*</span></label>
-                <select id="cliente-tipo-pago" required style="font-weight:600;" onchange="manejarCambioMetodoPagoCliente(this.value)">
-                    <option value="Crédito" selected>⭐ Crédito / Fiado (Confirmación Directa x WhatsApp)</option>
-                    <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
-                    <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
-                    <option value="Efectivo USD">Efectivo ($ Dólares)</option>
-                    <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
-                </select>
-            </div>
+                <!-- Formulario de Método de Pago -->
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label for="cliente-tipo-pago" style="font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <select id="cliente-tipo-pago" required style="font-weight:600; font-size:0.85rem; padding:8px 10px;" onchange="manejarCambioMetodoPagoCliente(this.value)">
+                        <option value="Crédito" selected>⭐ Crédito / Fiado (Confirmación Directa)</option>
+                        <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
+                        <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
+                        <option value="Efectivo USD">Efectivo ($ Dólares)</option>
+                        <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
+                    </select>
+                </div>
 
-            <div class="form-group" id="cliente-grupo-referencia" style="margin-bottom:16px;">
-                <label for="cliente-pago-referencia" id="cliente-label-referencia">
-                    Número de Referencia de Pago <span id="cliente-ref-asterisco" style="display:none; color:var(--danger);">*</span>
-                </label>
-                <input type="text" id="cliente-pago-referencia" maxlength="40" placeholder="Opcional para Crédito (Obligatorio en Pago Móvil / Transferencia)" style="font-weight:700; letter-spacing:0.5px; background:#f8fafc;">
-                <small id="cliente-pago-ayuda-texto" style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:4px;">
-                    * Al comprar a <b>Crédito</b> se procesará y descontará el inventario inmediatamente, enviando los detalles y registro de deuda al WhatsApp de la tienda.
-                </small>
-            </div>
+                <!-- Campo de Referencia (Oculto por defecto en Crédito para máxima ergonomía) -->
+                <div class="form-group" id="cliente-grupo-referencia" style="display:none; margin-bottom:10px;">
+                    <label for="cliente-pago-referencia" id="cliente-label-referencia" style="font-size:0.8rem; font-weight:600; margin-bottom:3px; display:block;">
+                        Número de Referencia de Pago <span id="cliente-ref-asterisco" style="color:var(--danger); display:none;">*</span>
+                    </label>
+                    <input type="text" id="cliente-pago-referencia" maxlength="40" placeholder="Ej: 123456789012" style="font-weight:600; font-size:0.84rem; padding:7px 10px; background:#f8fafc;">
+                </div>
 
-            <div class="form-group" id="cliente-grupo-comentario" style="margin-bottom:16px;">
-                <label for="cliente-pago-comentario">
-                    <i class="fas fa-comment-dots" style="color:#0284c7;"></i> Comentario u Observación para la Tienda (Opcional)
-                </label>
-                <input type="text" id="cliente-pago-comentario" maxlength="120" placeholder="Ej: Entregar por la tarde, cambio para $20, etc." style="background:#f8fafc;">
+                <div id="cliente-pago-ayuda-box" style="margin-bottom:10px; padding:6px 10px; background:#f8fafc; border-radius:6px; border-left:3px solid var(--primary-accent);">
+                    <small id="cliente-pago-ayuda-texto" style="color:var(--text-muted); font-size:0.75rem; display:block; line-height:1.35;">
+                        * Al comprar a <b>Crédito</b> se procesará y descontará el inventario inmediatamente, sumando a tu historial de deudas y puntos.
+                    </small>
+                </div>
+
+                <div class="form-group" id="cliente-grupo-comentario" style="margin-bottom:6px;">
+                    <label for="cliente-pago-comentario" style="font-size:0.78rem; font-weight:600; color:var(--text-muted); margin-bottom:3px; display:block;">
+                        <i class="fas fa-comment-dots" style="color:#0284c7;"></i> Observación para la Tienda (Opcional):
+                    </label>
+                    <input type="text" id="cliente-pago-comentario" maxlength="120" placeholder="Ej: Entregar por la tarde, cambio para $20..." style="font-size:0.82rem; padding:6px 10px; background:#f8fafc;">
+                </div>
             </div>
 
-            <!-- Botones de Acción: WhatsApp directo y Confirmar Compra -->
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <button type="button" class="btn btn-block" onclick="abrirWhatsAppComprobante()" 
-                    style="background:#25d366; color:#ffffff; font-weight:700; font-size:0.95rem; padding:12px; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="fab fa-whatsapp" style="font-size:1.3rem;"></i> <span id="btn-cliente-wa-label">Enviar comprobante por WhatsApp</span>
+            <!-- PIE DE ACCIÓN FIJO / STICKY: El botón Confirmar siempre está visible y accesible -->
+            <div class="cart-modal-footer" style="padding:10px 14px calc(14px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) 14px; border-top:1px solid #e2e8f0; background:#ffffff; box-shadow:0 -4px 14px rgba(0,0,0,0.06); flex-shrink:0; display:flex; flex-direction:column; gap:8px;">
+                <button type="submit" id="btn-cliente-confirmar-pedido" class="btn btn-success" 
+                    style="width:100%; font-weight:700; font-size:0.95rem; padding:12px 14px; display:flex; align-items:center; justify-content:center; gap:8px; border-radius:10px; box-shadow:0 3px 10px rgba(22, 163, 74, 0.35); cursor:pointer;">
+                    <i class="fas fa-check-circle" style="font-size:1.1rem;"></i> Confirmar Pedido a Crédito
                 </button>
                 
-                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
-                    <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()">Continuar Comprando</button>
-                    <button type="submit" id="btn-cliente-confirmar-pedido" class="btn btn-success" style="font-weight:700; padding:10px 20px;">
-                        <i class="fas fa-check-circle"></i> Confirmar Pedido a Crédito
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn" onclick="abrirWhatsAppComprobante()" 
+                        style="flex:1; background:#25d366; color:#ffffff; font-weight:600; font-size:0.82rem; padding:8px 10px; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; min-height:38px;">
+                        <i class="fab fa-whatsapp" style="font-size:1.1rem;"></i> <span id="btn-cliente-wa-label">WhatsApp</span>
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCarritoCliente()" 
+                        style="flex:1; font-size:0.82rem; padding:8px 10px; color:#64748b; border-color:#cbd5e1; border-radius:8px; min-height:38px;">
+                        Continuar Comprando
                     </button>
                 </div>
             </div>

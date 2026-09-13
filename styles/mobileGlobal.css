@@ -433,6 +433,15 @@ textarea:focus {
     -webkit-overflow-scrolling: touch !important;
   }
 
+  /* Modal de Carrito de Compras: estructura compacta con pie fijo */
+  #modal-cliente-carrito .modal-content {
+    padding: 0 !important;
+    max-height: 85vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
   /* Grillas de Formularios y Modales en Móvil */
   #form-admin-combo-builder > div,
   .reward-config-grid,
