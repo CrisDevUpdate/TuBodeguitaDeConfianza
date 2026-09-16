@@ -138,9 +138,12 @@ function actualizarSelectClientes() {
         asegurarSincronizacionUsuariosAClientes();
     }
     const select = document.getElementById('pos-cliente-select');
-    if (!select) return;
+    const selectMobile = document.getElementById('pos-cliente-select-mobile');
+    if (!select && !selectMobile) return;
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    select.innerHTML = lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    const optionsHTML = lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if (select) select.innerHTML = optionsHTML;
+    if (selectMobile) selectMobile.innerHTML = optionsHTML;
 }
 
 function calcularEstadoFinancieroCliente(clienteId) {

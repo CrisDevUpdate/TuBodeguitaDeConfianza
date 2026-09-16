@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v6">
     <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v6">
     <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v6">
+    <link rel="stylesheet" href="styles/posMobile.css?v=20260915_v1">
     <style id="mobile-frase-priority-style">
         /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
         #cliente-frase-sabiduria-card {
@@ -467,6 +468,18 @@
         </div>
     </header>
 
+    <!-- BARRA COLAPSIBLE DE MÓDULOS EN MÓVIL (MAXIMIZA ESPACIO VERTICAL EN POS) -->
+    <div class="main-nav-mobile-bar" id="main-nav-mobile-bar" onclick="toggleMainNavTabs()">
+        <div class="main-nav-mobile-title">
+            <i class="fas fa-th"></i>
+            <span>Módulos del Sistema</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+            <small style="color:var(--text-muted); font-size:0.75rem;">Toca para alternar</small>
+            <i class="fas fa-chevron-down main-nav-mobile-chevron"></i>
+        </div>
+    </div>
+
     <!-- NAVEGACIÓN PRINCIPAL DINÁMICA POR ROL (ADMIN VS CLIENTE) -->
     <div class="nav-tabs" id="main-nav-tabs">
         <!-- Pestañas EXCLUSIVAS de Administrador -->
@@ -515,72 +528,219 @@
         </button>
     </div>
 
-    <!-- VISTA 1: POS -->
-    <div id="pos" class="view-content active">
+    <!-- VISTA 1: POS (PUNTO DE VENTA REDISEÑADO) -->
+    <div id="pos" class="view-content active pos-module-view">
         <!-- Banner de Guardia de Seguridad POS -->
         <div id="pos-user-security-banner" class="security-guard-banner banner-warning" style="display:none;"></div>
 
-        <div class="pos-grid">
-            <div class="card">
-                <h3>Catálogo de Productos</h3>
-                <div style="margin: 15px 0;">
-                    <input type="text" id="pos-search" placeholder="Buscar por código o nombre..." oninput="filtrarPosProductos()" style="width: 100%;">
+        <div class="pos-layout-wrapper">
+            <!-- PANEL PRINCIPAL: CATÁLOGO DE PRODUCTOS -->
+            <div class="pos-products-panel">
+                <!-- Barra de Búsqueda y Filtros Sticky -->
+                <div class="pos-sticky-header">
+                    <div class="pos-search-row">
+                        <div class="pos-search-box">
+                            <i class="fas fa-search pos-search-icon"></i>
+                            <input type="text" id="pos-search" class="pos-search-input" 
+                                   placeholder="Buscar por código, nombre o categoría..." 
+                                   oninput="filtrarPosProductos()" autocomplete="off">
+                            <button type="button" class="pos-search-clear" id="pos-search-clear" 
+                                    onclick="limpiarBusquedaPOS()" title="Limpiar búsqueda" style="display:none;">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </div>
+                        <!-- Selector de Vista (Cuadrícula / Lista) -->
+                        <div class="pos-view-mode-toggle" role="group" aria-label="Modo de visualización">
+                            <button type="button" class="pos-view-btn active" id="btn-pos-view-grid" 
+                                    onclick="cambiarModoVistaPOS('grid')" title="Vista en Cuadrícula">
+                                <i class="fas fa-th-large"></i>
+                                <span class="pos-view-label">Cuadrícula</span>
+                            </button>
+                            <button type="button" class="pos-view-btn" id="btn-pos-view-list" 
+                                    onclick="cambiarModoVistaPOS('list')" title="Vista en Lista">
+                                <i class="fas fa-list"></i>
+                                <span class="pos-view-label">Lista</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Chips Horizontales de Categorías -->
+                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist">
+                        <!-- Generado dinámicamente -->
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Producto</th>
-                                <th class="num">Precio ($)</th>
-                                <th class="num">Precio (Bs)</th>
-                                <th class="num">Stock</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pos-productos-body"></tbody>
-                    </table>
+
+                <!-- Contador de Resultados y Filtro Activo -->
+                <div class="pos-catalog-status-bar">
+                    <span class="pos-catalog-count" id="pos-catalog-count">Cargando catálogo...</span>
+                    <span class="pos-catalog-active-cat" id="pos-catalog-active-cat" style="display:none;"></span>
+                </div>
+
+                <!-- Contenedor Principal de Productos -->
+                <div id="pos-catalog-container" class="pos-catalog-container pos-mode-grid">
+                    <!-- Cuadrícula Compacta -->
+                    <div id="pos-grid-view" class="pos-grid-cards"></div>
+
+                    <!-- Lista Compacta -->
+                    <div id="pos-list-view" class="pos-list-table-wrap" style="display:none;">
+                        <table class="pos-compact-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">Foto</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="num">Precio ($)</th>
+                                    <th class="num">Precio (Bs)</th>
+                                    <th class="num">Stock</th>
+                                    <th style="text-align:center;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pos-productos-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <div class="card">
-                <h3>Carrito de Venta</h3>
-                <div style="margin: 15px 0;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Cliente:</label>
-                    <select id="pos-cliente-select" style="width: 100%; margin-top: 5px;"></select>
+            <!-- PANEL DERECHO: CARRITO DE VENTA (DESKTOP / TABLET >= 900px) -->
+            <div class="pos-cart-panel" id="pos-desktop-cart-panel">
+                <div class="pos-cart-header">
+                    <div class="pos-cart-title-row">
+                        <h3 class="pos-cart-title">
+                            <i class="fas fa-shopping-cart" style="color:var(--accent-primary, #2563eb);"></i>
+                            Carrito de Venta
+                        </h3>
+                        <span class="pos-cart-counter-pill" id="pos-cart-badge-count">0 items</span>
+                    </div>
+                    <button type="button" class="btn-vaciar-cart" onclick="vaciarCarritoPOS()" title="Vaciar Carrito">
+                        <i class="fas fa-trash-can"></i> Vaciar
+                    </button>
                 </div>
-                <div class="table-responsive">
-                    <table>
+
+                <!-- Selector de Cliente -->
+                <div class="pos-cart-client-box">
+                    <label for="pos-cliente-select" class="pos-cart-label">
+                        <i class="fas fa-user-tag"></i> Cliente:
+                    </label>
+                    <select id="pos-cliente-select" class="pos-cart-select" onchange="sincronizarClienteSelects('pos-cliente-select')"></select>
+                </div>
+
+                <!-- Lista de Ítems en Carrito Desktop -->
+                <div class="pos-cart-items-scrollable" id="pos-cart-items-container">
+                    <table class="pos-cart-table" id="pos-cart-table">
                         <thead>
                             <tr>
                                 <th>Producto</th>
-                                <th class="num">Cant.</th>
-                                <th class="num">Total ($)</th>
-                                <th></th>
+                                <th class="num" style="width:110px;">Cant.</th>
+                                <th class="num">Subtotal</th>
+                                <th style="width:36px;"></th>
                             </tr>
                         </thead>
                         <tbody id="pos-carrito-body"></tbody>
                     </table>
+                    <div id="pos-cart-empty-state" class="pos-cart-empty">
+                        <i class="fas fa-cart-arrow-down"></i>
+                        <p>El carrito está vacío</p>
+                        <small>Toca "+ Agregar" en los productos que deseas cobrar</small>
+                    </div>
                 </div>
-                <hr style="margin: 15px 0;">
-                <div style="margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold;">
+
+                <!-- Resumen y Totales -->
+                <div class="pos-cart-summary-box">
+                    <div class="pos-cart-summary-row pos-total-usd-row">
                         <span>Total Divisa:</span>
-                        <span id="pos-total-usd">$0.00</span>
+                        <strong id="pos-total-usd" class="pos-total-usd-val">$0.00</strong>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 1rem; color: var(--text-muted); font-weight: 600; margin-top: 5px;">
-                        <span>Total VES:</span>
-                        <span id="pos-total-ves">Bs. 0.00</span>
+                    <div class="pos-cart-summary-row pos-total-ves-row">
+                        <span>Total Bolívares:</span>
+                        <strong id="pos-total-ves" class="pos-total-ves-val">Bs. 0.00</strong>
+                    </div>
+                    <div class="pos-cart-payment-type" style="margin-top:10px;">
+                        <label class="pos-cart-label" for="pos-tipo-pago">Condición:</label>
+                        <select id="pos-tipo-pago" class="pos-cart-select-compact">
+                            <option value="Contado" selected>Contado</option>
+                            <option value="Crédito">Crédito (Fiado)</option>
+                        </select>
                     </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label>Condición de Pago:</label>
-                    <select id="pos-tipo-pago">
-                        <option value="Contado">Contado</option>
-                        <option value="Crédito">Crédito</option>
-                    </select>
+
+                <!-- Botón de Completar Venta -->
+                <button type="button" class="pos-btn-checkout" id="btn-pos-checkout-desktop" onclick="procesarVenta()">
+                    <i class="fas fa-check-circle"></i> Completar Transacción
+                </button>
+            </div>
+        </div>
+
+        <!-- 📱 BARRA FLOTANTE INFERIOR FIJA (STICKY BOTTOM BAR PARA MÓVIL) -->
+        <div class="pos-mobile-cart-bar" id="pos-mobile-cart-bar" onclick="abrirDrawerCarritoMobile()">
+            <div class="pos-mobile-bar-left">
+                <div class="pos-mobile-cart-icon-wrap">
+                    <i class="fas fa-shopping-bag"></i>
+                    <span class="pos-mobile-cart-badge" id="pos-mobile-badge-count">0</span>
                 </div>
-                <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="procesarVenta()">Completar Transacción</button>
+                <div class="pos-mobile-bar-totals">
+                    <div class="pos-mobile-total-usd" id="pos-mobile-total-usd">$0.00</div>
+                    <div class="pos-mobile-total-ves" id="pos-mobile-total-ves">Bs. 0.00</div>
+                </div>
+            </div>
+            <button type="button" class="pos-mobile-bar-btn" onclick="event.stopPropagation(); abrirDrawerCarritoMobile();">
+                <span>Ver Carrito / Cobrar</span>
+                <i class="fas fa-chevron-up"></i>
+            </button>
+        </div>
+
+        <!-- 📱 DRAWER / HOJA DESLIZABLE (BOTTOM SHEET) DE CARRITO MÓVIL -->
+        <div class="pos-drawer-overlay" id="pos-cart-drawer-overlay" onclick="cerrarDrawerCarritoMobile()">
+            <div class="pos-cart-drawer" id="pos-cart-drawer" onclick="event.stopPropagation();">
+                <!-- Barra de agarre para Bottom Sheet -->
+                <div class="pos-drawer-handle-bar"><div class="pos-drawer-handle"></div></div>
+
+                <div class="pos-drawer-header">
+                    <div class="pos-drawer-title-row">
+                        <h3 class="pos-drawer-title">
+                            <i class="fas fa-shopping-cart" style="color:var(--accent-primary, #2563eb);"></i>
+                            Carrito de Venta
+                        </h3>
+                        <span class="pos-cart-counter-pill" id="pos-drawer-badge-count">0 items</span>
+                    </div>
+                    <div class="pos-drawer-header-actions">
+                        <button type="button" class="btn-vaciar-cart" onclick="vaciarCarritoPOS()" title="Vaciar Carrito">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                        <button type="button" class="pos-drawer-close-btn" onclick="cerrarDrawerCarritoMobile()" aria-label="Cerrar carrito">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selector de Cliente en Drawer Móvil -->
+                <div class="pos-drawer-client-box">
+                    <label for="pos-cliente-select-mobile" class="pos-cart-label">
+                        <i class="fas fa-user-tag"></i> Cliente Asignado:
+                    </label>
+                    <select id="pos-cliente-select-mobile" class="pos-cart-select" onchange="sincronizarClienteSelects('pos-cliente-select-mobile')"></select>
+                </div>
+
+                <!-- Lista de Productos en Carrito Móvil -->
+                <div class="pos-drawer-items-list" id="pos-drawer-items-list">
+                    <!-- Dinámico -->
+                </div>
+
+                <!-- Resumen y Botón de Pago en Drawer Móvil -->
+                <div class="pos-drawer-footer">
+                    <div class="pos-drawer-totals">
+                        <div class="pos-drawer-total-row">
+                            <span class="label">Total a Cobrar:</span>
+                            <strong class="val-usd" id="pos-drawer-total-usd">$0.00</strong>
+                        </div>
+                        <div class="pos-drawer-total-row">
+                            <span class="label">Total Bolívares:</span>
+                            <span class="val-ves" id="pos-drawer-total-ves">Bs. 0.00</span>
+                        </div>
+                    </div>
+                    <button type="button" class="pos-btn-checkout-drawer" onclick="procesarVentaDesdeDrawer()">
+                        <i class="fas fa-check-circle"></i> Confirmar & Cobrar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -2992,7 +3152,6 @@
 <script src="modules/usuarios.js?v=4.5.0_anti_dup"></script>
 <script src="modules/notificaciones.js?v=4.5.0_anti_dup"></script>
 <script src="modules/configuracion.js?v=4.5.0_anti_dup"></script>
-<script>window.__BODEGUITA_ANDROID__=true;</script>
 <script src="app.js?v=4.5.0_anti_dup"></script>
 </body>
 </html>

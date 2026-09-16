@@ -376,6 +376,8 @@ function switchTab(tabId) {
         if (tabId === 'pos') {
             if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
             if (typeof renderizarCarrito === 'function') renderizarCarrito();
+            if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+            if (typeof sincronizarClienteSelects === 'function') sincronizarClienteSelects('pos-cliente-select');
         } else if (tabId === 'inventario') {
             if (typeof renderizarInventario === 'function') renderizarInventario();
             if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
@@ -418,6 +420,14 @@ function switchTab(tabId) {
         }
 
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
+
+        // En pantallas móviles, colapsar el menú de navegación para maximizar el espacio de trabajo
+        if (window.innerWidth <= 768) {
+            const navTabs = document.getElementById('main-nav-tabs');
+            const chevron = document.querySelector('.main-nav-mobile-chevron');
+            if (navTabs) navTabs.classList.add('nav-tabs-collapsed-mobile');
+            if (chevron) chevron.classList.remove('open');
+        }
     } catch (err) {
         console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
     }
