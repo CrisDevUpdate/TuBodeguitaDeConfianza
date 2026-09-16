@@ -133,12 +133,19 @@ window.InventoryApp = window.InventoryApp || {};
      * Muestra un Modal de Confirmación personalizado (sustituto de window.confirm)
      */
     function showConfirm(titulo, mensaje, opciones = {}) {
+        let opts = opciones;
+        if (typeof opciones === 'string') {
+            opts = { tipo: opciones, isDanger: opciones === 'danger' };
+        } else if (typeof opciones !== 'object' || opciones === null) {
+            opts = {};
+        }
+
         const {
             confirmText = 'Confirmar',
             cancelText = 'Cancelar',
-            isDanger = false,
-            tipo = isDanger ? 'danger' : 'info'
-        } = opciones;
+            isDanger = (opts.tipo === 'danger'),
+            tipo = isDanger ? 'danger' : (opts.tipo || 'info')
+        } = opts;
 
         return new Promise((resolve) => {
             inicializarDOMModales();

@@ -379,13 +379,18 @@ function establecerCantidadCarrito(idx, valor) {
 }
 
 function vaciarCarritoPOS() {
-    if (!carrito || carrito.length === 0) return;
-    if (confirm("¿Estás seguro de vaciar el carrito?")) {
-        carrito = [];
-        renderizarCarrito();
+    if (!carrito || carrito.length === 0) {
         if (typeof showCustomToast === 'function') {
-            showCustomToast("Carrito vaciado", "info");
+            showCustomToast("El carrito ya está vacío", "info");
         }
+        return;
+    }
+
+    carrito = [];
+    renderizarCarrito();
+    animarBarraCarritoMobile();
+    if (typeof showCustomToast === 'function') {
+        showCustomToast("Carrito vaciado", "info");
     }
 }
 

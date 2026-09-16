@@ -674,12 +674,18 @@ function eliminarDelCarritoCliente(idx) {
 }
 
 function vaciarCarritoCliente() {
-    if (AppState.carrito && AppState.carrito.length > 0) {
-        if (confirm('¿Deseas vaciar todos los productos del carrito?')) {
-            AppState.carrito = [];
-            renderizarCarritoCliente();
-            if (typeof renderizarCarrito === 'function') renderizarCarrito();
+    if (!AppState.carrito || AppState.carrito.length === 0) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast("El carrito ya está vacío", "info");
         }
+        return;
+    }
+
+    AppState.carrito = [];
+    renderizarCarritoCliente();
+    if (typeof renderizarCarrito === 'function') renderizarCarrito();
+    if (typeof showCustomToast === 'function') {
+        showCustomToast("Carrito vaciado", "info");
     }
 }
 

@@ -366,36 +366,32 @@ function renderizarCatalogoCliente() {
                 : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
 
         return `
-            <div class="cliente-prod-card ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}"
+            <div class="cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}"
                 onclick="if (!event.target.closest('button') && !${agotado}) agregarAlCarritoCliente('${p.id}');"
                 style="${agotado ? '' : 'cursor: pointer;'}"
                 title="${agotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
                 <div class="cliente-prod-img-wrapper">
                     <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
-                    <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
-                    ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
-                    <span class="cliente-prod-points-badge ${esCombo ? 'combo-points-badge' : ''}" data-points-badge style="${inviernoActivo ? 'display: none !important;' : ''}">
-                        <i class="fas fa-star" style="color:#fbbf24;"></i> ${esCombo ? `Combo: +${puntosGanados} pts` : `+${puntosGanados} pts`}
-                    </span>
+                    ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : ''}
                 </div>
                 <div class="cliente-prod-body">
-                    <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
-                    <h4 class="cliente-prod-title">${p.nombre}</h4>
+                    <div class="cliente-prod-meta">
+                        <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
+                        <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
+                        ${!agotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                    </div>
+                    <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
                     
-                    <div class="cliente-prod-points-row" data-points-badge style="${inviernoActivo ? 'display: none !important;' : ''}">
-                        <span class="cliente-prod-points-chip ${esCombo ? 'combo-chip' : ''}">
-                            <i class="fas fa-star"></i> Otorga <strong>+${puntosGanados} Pts</strong>
-                        </span>
-                    </div>
-
                     <div class="cliente-prod-prices">
-                        <div class="price-usd">$${precioUSD.toFixed(2)}</div>
-                        <div class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</div>
+                        <span class="price-usd">$${precioUSD.toFixed(2)}</span>
+                        <span class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                     </div>
-
-                    <button type="button" class="btn btn-block ${agotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" 
-                        onclick="agregarAlCarritoCliente('${p.id}')" ${agotado ? 'disabled' : ''}>
-                        <i class="fas fa-cart-plus"></i> ${agotado ? 'Agotado' : (esCombo ? 'Pedir Combo' : 'Agregar')}
+                </div>
+                <div class="cliente-prod-action">
+                    <button type="button" class="btn ${agotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" 
+                        onclick="agregarAlCarritoCliente('${p.id}')" ${agotado ? 'disabled' : ''} title="${agotado ? 'Agotado' : 'Agregar al carrito'}">
+                        <i class="fas fa-plus"></i>
+                        <span class="cliente-btn-text">${agotado ? 'Agotado' : (esCombo ? 'Pedir Combo' : 'Agregar')}</span>
                     </button>
                 </div>
             </div>
@@ -678,12 +674,18 @@ function eliminarDelCarritoCliente(idx) {
 }
 
 function vaciarCarritoCliente() {
-    if (AppState.carrito && AppState.carrito.length > 0) {
-        if (confirm('¿Deseas vaciar todos los productos del carrito?')) {
-            AppState.carrito = [];
-            renderizarCarritoCliente();
-            if (typeof renderizarCarrito === 'function') renderizarCarrito();
+    if (!AppState.carrito || AppState.carrito.length === 0) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast("El carrito ya está vacío", "info");
         }
+        return;
+    }
+
+    AppState.carrito = [];
+    renderizarCarritoCliente();
+    if (typeof renderizarCarrito === 'function') renderizarCarrito();
+    if (typeof showCustomToast === 'function') {
+        showCustomToast("Carrito vaciado", "info");
     }
 }
 
