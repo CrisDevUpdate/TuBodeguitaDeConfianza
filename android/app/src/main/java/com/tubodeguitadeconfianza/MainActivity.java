@@ -1,6 +1,9 @@
 package com.tubodeguitadeconfianza;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -8,11 +11,14 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.webkit.CookieManager;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -27,6 +33,12 @@ import android.widget.TextView;
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.OnBackPressedDispatcher;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.FileProvider;
+
+import java.io.File;
+import java.io.IOException;
 
 public class MainActivity extends ComponentActivity {
     private static final String APP_URL = "https://tubodeguitadeconfianza.vercel.app/";
@@ -37,6 +49,10 @@ public class MainActivity extends ComponentActivity {
     private boolean localFallbackShown = false;
     private boolean pageReady = false;
     private final Handler splashHandler = new Handler(Looper.getMainLooper());
+
+    private ValueCallback<Uri[]> uploadMessage;
+    private ActivityResultLauncher<Intent> fileChooserLauncher;
+    private Uri cameraImageUri;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -60,6 +76,38 @@ public class MainActivity extends ComponentActivity {
         ));
 
         setContentView(root);
+
+        // Configuración para manejar la respuesta del selector de archivos y cámara
+        fileChooserLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (uploadMessage == null) return;
+                    Uri[] results = null;
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Intent data = result.getData();
+                        if (data == null || data.getData() == null) {
+                            // Si los datos son nulos, lo más probable es que sea de la cámara
+                            if (cameraImageUri != null) {
+                                results = new Uri[]{cameraImageUri};
+                            }
+                        } else {
+                            String dataString = data.getDataString();
+                            if (dataString != null) {
+                                results = new Uri[]{Uri.parse(dataString)};
+                            } else if (data.getClipData() != null) {
+                                int count = data.getClipData().getItemCount();
+                                results = new Uri[count];
+                                for (int i = 0; i < count; i++) {
+                                    results[i] = data.getClipData().getItemAt(i).getUri();
+                                }
+                            }
+                        }
+                    }
+                    uploadMessage.onReceiveValue(results);
+                    uploadMessage = null;
+                    cameraImageUri = null;
+                }
+        );
 
         configureWebView();
 
@@ -101,7 +149,58 @@ public class MainActivity extends ComponentActivity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (uploadMessage != null) {
+                    uploadMessage.onReceiveValue(null);
+                    uploadMessage = null;
+                }
+                uploadMessage = filePathCallback;
+
+                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                    File photoFile = null;
+                    try {
+                        photoFile = File.createTempFile("JPEG_", ".jpg", getExternalCacheDir());
+                    } catch (IOException ex) {
+                        Log.e("MainActivity", "Error creating image file", ex);
+                    }
+                    if (photoFile != null) {
+                        cameraImageUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fileprovider", photoFile);
+                        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
+                    }
+                }
+
+                Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                contentSelectionIntent.setType("*/*");
+                if (fileChooserParams.getAcceptTypes() != null && fileChooserParams.getAcceptTypes().length > 0) {
+                    contentSelectionIntent.setType(fileChooserParams.getAcceptTypes()[0]);
+                }
+
+                Intent[] intentArray;
+                if (takePictureIntent.resolveActivity(getPackageManager()) != null && cameraImageUri != null) {
+                    intentArray = new Intent[]{takePictureIntent};
+                } else {
+                    intentArray = new Intent[0];
+                }
+
+                Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
+                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
+                chooserIntent.putExtra(Intent.EXTRA_TITLE, "Selecciona una acción");
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
+
+                try {
+                    fileChooserLauncher.launch(chooserIntent);
+                } catch (ActivityNotFoundException e) {
+                    uploadMessage.onReceiveValue(null);
+                    uploadMessage = null;
+                    return false;
+                }
+                return true;
+            }
+        });
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -148,7 +247,7 @@ public class MainActivity extends ComponentActivity {
         splash.addView(content, contentParams);
 
         ImageView logo = new ImageView(this);
-        logo.setImageResource(com.tubodeguitadeconfianza.R.drawable.ic_launcher_source);
+        logo.setImageResource(R.drawable.ic_launcher_source);
         logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         GradientDrawable glow = new GradientDrawable();
         glow.setShape(GradientDrawable.OVAL);
