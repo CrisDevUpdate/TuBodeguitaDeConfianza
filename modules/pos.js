@@ -485,37 +485,35 @@ function renderizarCarrito() {
             drawerList.innerHTML = carrito.map((item, idx) => {
                 const subtotal = item.cantidad * item.precio;
                 const prod = (productos || []).find(p => p.id === item.productoId);
-                const thumbSrc = item.imagen || (prod ? prod.imagen : '');
-
-                const thumbHTML = thumbSrc ? `
-                    <img src="${thumbSrc}" alt="${item.nombre}" class="pos-drawer-item-thumb" 
-                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\' fill=\\'%23cbd5e1\\'><rect width=\\'40\\' height=\\'40\\'/></svg>';">
-                ` : `
-                    <div class="pos-drawer-item-thumb" style="display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8;">
-                        <i class="fas fa-box"></i>
-                    </div>
-                `;
+                const rawImg = item.imagen || (prod ? prod.imagen : '');
+                const thumbSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) 
+                    || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
                 return `
-                    <div class="pos-drawer-item-row">
-                        <div class="pos-drawer-item-left">
-                            ${thumbHTML}
-                            <div class="pos-drawer-item-info">
-                                <span class="pos-drawer-item-name">${item.nombre}</span>
-                                <span class="pos-drawer-item-price">$${item.precio.toFixed(2)} c/u</span>
-                            </div>
+                    <div class="pos-drawer-item-row" id="pos-drawer-item-${idx}">
+                        <div class="pos-drawer-item-thumb-wrap">
+                            <img src="${thumbSrc}" alt="${item.nombre}" class="pos-drawer-item-thumb" 
+                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&amp;auto=format&amp;fit=crop&amp;q=60';">
                         </div>
-                        <div class="pos-drawer-item-right">
-                            <div class="pos-stepper">
-                                <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, -1)">-</button>
-                                <input type="number" class="pos-stepper-val" value="${item.cantidad}" min="1" 
-                                       onchange="establecerCantidadCarrito(${idx}, this.value)" inputmode="numeric">
-                                <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, 1)">+</button>
+                        <div class="pos-drawer-item-content">
+                            <div class="pos-drawer-item-header-row">
+                                <span class="pos-drawer-item-name" title="${item.nombre}">${item.nombre}</span>
+                                <button type="button" class="pos-btn-del-item" onclick="eliminarDelCarrito(${idx})" title="Eliminar ítem" aria-label="Eliminar ${item.nombre}">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
                             </div>
-                            <span class="pos-drawer-item-subtotal">$${subtotal.toFixed(2)}</span>
-                            <button type="button" class="pos-btn-del-item" onclick="eliminarDelCarrito(${idx})" title="Eliminar">
-                                <i class="fas fa-trash-can" style="font-size:0.78rem;"></i>
-                            </button>
+                            <div class="pos-drawer-item-footer-row">
+                                <div class="pos-drawer-item-prices">
+                                    <span class="pos-drawer-item-price">$${item.precio.toFixed(2)} c/u</span>
+                                </div>
+                                <div class="pos-stepper">
+                                    <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, -1)" aria-label="Disminuir">-</button>
+                                    <input type="number" class="pos-stepper-val" value="${item.cantidad}" min="1" 
+                                           onchange="establecerCantidadCarrito(${idx}, this.value)" inputmode="numeric">
+                                    <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, 1)" aria-label="Aumentar">+</button>
+                                </div>
+                                <span class="pos-drawer-item-subtotal">$${subtotal.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -531,6 +529,7 @@ function eliminarDelCarrito(idx) {
 
 function abrirDrawerCarritoMobile() {
     sincronizarClienteSelects('pos-cliente-select');
+    sincronizarCondicionPago('pos-tipo-pago');
     const overlay = document.getElementById('pos-cart-drawer-overlay');
     if (overlay) {
         overlay.classList.add('active');
@@ -564,6 +563,54 @@ function sincronizarClienteSelects(origenId) {
         mobileSel.value = desktopSel.value;
     } else if (origenId === 'pos-cliente-select-mobile' && mobileSel.value) {
         desktopSel.value = mobileSel.value;
+    }
+}
+
+/**
+ * Sincroniza el selector de condición (Contado vs Crédito) entre escritorio y móvil
+ * y actualiza dinámicamente el estilo y texto del botón de cobro
+ */
+function sincronizarCondicionPago(origenId) {
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    let val = 'Contado';
+
+    if (origenId === 'pos-tipo-pago' && desktopSel) {
+        val = desktopSel.value;
+        if (mobileSel) mobileSel.value = val;
+    } else if (origenId === 'pos-tipo-pago-mobile' && mobileSel) {
+        val = mobileSel.value;
+        if (desktopSel) desktopSel.value = val;
+    } else if (desktopSel) {
+        val = desktopSel.value;
+        if (mobileSel) mobileSel.value = val;
+    } else if (mobileSel) {
+        val = mobileSel.value;
+    }
+
+    const btnDesktop = document.getElementById('btn-pos-checkout-desktop');
+    const btnMobile = document.getElementById('btn-pos-checkout-mobile');
+
+    if (val === 'Crédito') {
+        if (btnDesktop) {
+            btnDesktop.innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Asentar Venta a Crédito';
+            btnDesktop.style.background = 'linear-gradient(135deg, #2563eb, #1d4ed8)';
+            btnDesktop.style.borderColor = '#1d4ed8';
+        }
+        if (btnMobile) {
+            btnMobile.innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Asentar Venta a Crédito';
+            btnMobile.style.background = 'linear-gradient(135deg, #2563eb, #1d4ed8)';
+        }
+    } else {
+        if (btnDesktop) {
+            btnDesktop.innerHTML = '<i class="fas fa-check-circle"></i> Completar Transacción';
+            btnDesktop.style.background = '';
+            btnDesktop.style.borderColor = '';
+        }
+        if (btnMobile) {
+            btnMobile.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar & Cobrar';
+            btnMobile.style.background = '';
+        }
     }
 }
 
@@ -630,11 +677,297 @@ function procesarVenta() {
         }
     }
 
+    // Detectar si la condición de venta es Contado o Crédito
+    const desktopCond = document.getElementById('pos-tipo-pago')?.value;
+    const mobileCond = document.getElementById('pos-tipo-pago-mobile')?.value;
+    const condicion = desktopCond || mobileCond || 'Contado';
+
+    const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
+    const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
+    const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = listaClientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+
+    if (condicion === 'Crédito') {
+        // En ventas a crédito es indispensable tener un cliente asignado con cuenta
+        if (!clienteId || clienteId === 'V-00000000' || (clienteObj.nombre && clienteObj.nombre.toLowerCase().includes('mostrador'))) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Cliente Requerido', 'Para registrar una venta a Crédito (Fiado), debes seleccionar un cliente registrado en el selector de clientes.', 'warning');
+            } else {
+                alert('Para vender a crédito debes seleccionar un cliente registrado.');
+            }
+            return;
+        }
+
+        // Flujo directo y simplificado para crédito: Solo confirmación directa a cuenta corriente
+        abrirModalConfirmacionCreditoPOS(clienteObj);
+    } else {
+        // Flujo al contado: Abre el modal para registrar método de cobro en caja
+        abrirModalCheckoutPOS();
+    }
+}
+
+/**
+ * Abre el Modal de Confirmación Simplificado para Ventas a Crédito (Fiado)
+ * No pide método de pago ni número de referencia redundantes.
+ */
+function abrirModalConfirmacionCreditoPOS(clienteObj) {
+    let modal = document.getElementById('modal-pos-confirmar-credito');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-pos-confirmar-credito';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+
+    const totalUSD = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+    const totalArticulos = carrito.reduce((s, i) => s + i.cantidad, 0);
+
+    const deudaActual = Number(clienteObj.deudaUSD || 0);
+    const nuevaDeuda = deudaActual + totalUSD;
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 480px; animation: modalPop 0.25s ease-out; border-radius: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border, #e2e8f0); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:1.2rem; display:flex; align-items:center; gap:8px; color:var(--text-main, #0f172a);">
+                    <i class="fas fa-file-invoice-dollar" style="color:var(--accent-primary, #2563eb);"></i> Confirmar Venta a Crédito
+                </h3>
+                <button type="button" class="btn-icon-tasa" onclick="cerrarModalConfirmacionCreditoPOS()"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Resumen Directo de la Operación -->
+            <div style="background:var(--bg-canvas-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:12px; padding:14px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Cliente Asignado:</span>
+                    <strong style="color:var(--text-main, #0f172a); font-size:0.95rem;">${clienteObj.nombre} (${clienteObj.id})</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Artículos en Carrito:</span>
+                    <strong>${totalArticulos} unidades</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-top:1px dashed #cbd5e1; padding-top:8px;">
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Monto a Fiar (USD):</span>
+                    <strong style="color:var(--accent-primary, #2563eb); font-size:1.25rem;">$${totalUSD.toFixed(2)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Equivalente Bolívares:</span>
+                    <strong style="color:#16a34a; font-size:1.05rem;">Bs. ${totalVES > 0 ? totalVES.toFixed(2) : '—'}</strong>
+                </div>
+
+                ${deudaActual > 0 ? `
+                <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; font-size:0.84rem;">
+                    <span style="color:#dc2626;">Deuda pendiente previa:</span>
+                    <strong style="color:#dc2626;">$${deudaActual.toFixed(2)} USD</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.86rem; font-weight:700;">
+                    <span style="color:var(--text-main, #0f172a);">Nuevo saldo deudor:</span>
+                    <span style="color:#b91c1c;">$${nuevaDeuda.toFixed(2)} USD</span>
+                </div>
+                ` : `
+                <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.82rem; color:#16a34a;">
+                    <span><i class="fas fa-check-circle"></i> El cliente no tiene deudas pendientes</span>
+                </div>
+                `}
+            </div>
+
+            <!-- Información al Cajero -->
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 12px; margin-bottom:14px; display:flex; gap:10px; align-items:flex-start;">
+                <i class="fas fa-info-circle" style="color:#2563eb; font-size:1.1rem; margin-top:2px;"></i>
+                <div style="font-size:0.84rem; color:#1e40af; line-height:1.4;">
+                    Esta venta se registrará automáticamente como <strong>Crédito (Fiado)</strong> en la cuenta corriente del cliente. No requiere método de pago en caja ni comprobante bancario.
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-bottom:14px;">
+                <a href="javascript:void(0)" onclick="cambiarAContadoDesdeModal()" style="font-size:0.82rem; color:var(--text-muted, #64748b); text-decoration:underline;">
+                    <i class="fas fa-cash-register"></i> ¿Cobrar al Contado en caja en vez de fiar?
+                </a>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="cerrarModalConfirmacionCreditoPOS()">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-ejecutar-credito-pos" onclick="ejecutarVentaCreditoDirecta('${clienteObj.id}')" style="font-weight:700; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, #2563eb, #1d4ed8); border-color:#1d4ed8;">
+                    <i class="fas fa-check"></i> Asentar Venta a Crédito
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+function cerrarModalConfirmacionCreditoPOS() {
+    const modal = document.getElementById('modal-pos-confirmar-credito');
+    if (modal) modal.classList.remove('active');
+}
+
+function cambiarACreditoDesdeModal() {
+    cerrarModalCheckoutPOS();
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    if (desktopSel) desktopSel.value = 'Crédito';
+    if (mobileSel) mobileSel.value = 'Crédito';
+    sincronizarCondicionPago('pos-tipo-pago');
+
+    const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
+    const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
+    const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = listaClientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+
+    if (!clienteId || clienteId === 'V-00000000' || (clienteObj.nombre && clienteObj.nombre.toLowerCase().includes('mostrador'))) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Cliente Requerido', 'Para registrar una venta a Crédito (Fiado), debes seleccionar un cliente registrado.', 'warning');
+        }
+        return;
+    }
+    abrirModalConfirmacionCreditoPOS(clienteObj);
+}
+
+function cambiarAContadoDesdeModal() {
+    cerrarModalConfirmacionCreditoPOS();
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    if (desktopSel) desktopSel.value = 'Contado';
+    if (mobileSel) mobileSel.value = 'Contado';
+    sincronizarCondicionPago('pos-tipo-pago');
     abrirModalCheckoutPOS();
 }
 
 /**
- * Abre el Modal Unificado de Checkout para POS (Admin / Vendedor)
+ * Asienta la venta a crédito directamente en cuenta corriente sin pedir métodos de pago en caja
+ */
+async function ejecutarVentaCreditoDirecta(clienteIdParam) {
+    const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
+    const clienteId = clienteIdParam || (clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000'));
+    const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = listaClientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+
+    const total = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const totalVES = tasa > 0 ? (total * tasa) : 0;
+
+    const btnConfirmar = document.getElementById('btn-ejecutar-credito-pos');
+    if (btnConfirmar) {
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Asentando...';
+    }
+
+    // Prevalidación de stock atómica
+    for (const item of carrito) {
+        const producto = productos.find(p => p.id === item.productoId);
+        if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${item.nombre}. Operación cancelada.`, 'warning');
+            }
+            cerrarModalConfirmacionCreditoPOS();
+            return;
+        }
+    }
+
+    // Débito atómico de inventario
+    for (const item of carrito) {
+        InventoryApp.StockService.sale(item.productoId, item.cantidad);
+    }
+
+    const itemsVendidos = carrito.map(item => {
+        const producto = productos.find(p => p.id === item.productoId);
+        return { ...item, costo: Number(producto?.costo || item.costo || 0) };
+    });
+
+    const vendedor = AppState.usuarioActual || { cedula: 'SuperAdmin', nombre: 'SuperAdmin' };
+
+    const nuevaVenta = {
+        id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
+        clienteId: clienteId,
+        vendedorId: vendedor.cedula || vendedor.id || '',
+        vendedorNombre: vendedor.nombre || '',
+        fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        items: itemsVendidos,
+        total: total,
+        tipo: 'Crédito',
+        metodoDetalle: 'Crédito (Fiado)',
+        referencia: 'Cuenta Corriente',
+        estado: 'PENDIENTE',
+        confirmada: false
+    };
+
+    ventas.push(nuevaVenta);
+
+    // Actualizar cuenta corriente / deuda del cliente
+    const clienteExistente = listaClientes.find(c => c.id === clienteId);
+    if (clienteExistente) {
+        clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
+        }
+    }
+
+    // Sincronizar con Firebase Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
+        window.InventoryApp.Firebase.registrarVenta(nuevaVenta, itemsVendidos).catch(err => {
+            console.warn('[POS] Error al registrar venta a crédito en Firestore:', err);
+        });
+    }
+
+    // Notificación en Centro de Notificaciones
+    if (typeof window.registrarNotificacion === 'function') {
+        const nomCliente = clienteObj ? clienteObj.nombre : clienteId;
+        const bsStr = Number(totalVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        window.registrarNotificacion({
+            tipo: 'credito',
+            titulo: 'Crédito Concedido',
+            mensaje: `${nomCliente} sacó un crédito por Bs. ${bsStr} ($${Number(total).toFixed(2)} USD) (Venta POS #${nuevaVenta.id})`,
+            clienteId: clienteId,
+            clienteNombre: nomCliente,
+            montoUSD: Number(total),
+            montoVES: Number(totalVES),
+            referenciaId: nuevaVenta.id,
+            destino: {
+                tab: 'clientes',
+                subAccion: 'verCliente',
+                clienteId: clienteId,
+                idRef: nuevaVenta.id
+            }
+        });
+    }
+
+    // Sincronizar con backend local si está disponible
+    try {
+        fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clienteId,
+                totalUSD: total,
+                nuevaVentaId: nuevaVenta.id
+            })
+        }).catch(() => {});
+    } catch {}
+
+    carrito = [];
+    cerrarModalConfirmacionCreditoPOS();
+    cerrarDrawerCarritoMobile();
+    renderizarCarrito();
+    renderizarPosProductos();
+    renderizarInventario();
+    renderizarClientes();
+    renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
+    renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`¡Venta a Crédito #${nuevaVenta.id} registrada en cuenta de ${clienteObj.nombre}! ($${total.toFixed(2)})`, 'success');
+    } else if (typeof showCustomAlert === 'function') {
+        showCustomAlert('¡Crédito Registrado!', `La venta fue cargada a la cuenta de ${clienteObj.nombre} por $${total.toFixed(2)} USD.`, 'success');
+    }
+}
+
+/**
+ * Abre el Modal Unificado de Checkout para POS (Ventas al Contado)
  */
 function abrirModalCheckoutPOS() {
     let modal = document.getElementById('modal-pos-checkout-unificado');
@@ -645,9 +978,10 @@ function abrirModalCheckoutPOS() {
         document.body.appendChild(modal);
     }
 
-    const clienteIdSelect = document.getElementById('pos-cliente-select');
+    const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
     const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
-    const clienteObj = clientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+    const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = listaClientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
 
     const totalUSD = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
@@ -657,30 +991,30 @@ function abrirModalCheckoutPOS() {
     const ptsEstimados = temporadaActiva ? Math.floor(totalUSD * ptsPorDolar) : 0;
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 520px; animation: modalPop 0.25s ease-out;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
-                <h3 style="margin:0; font-size:1.25rem; display:flex; align-items:center; gap:8px; color:var(--text-main);">
-                    <i class="fas fa-cash-register" style="color:var(--primary-accent);"></i> Confirmación de Checkout POS
+        <div class="modal-content" style="max-width: 520px; animation: modalPop 0.25s ease-out; border-radius:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border, #e2e8f0); padding-bottom:10px;">
+                <h3 style="margin:0; font-size:1.25rem; display:flex; align-items:center; gap:8px; color:var(--text-main, #0f172a);">
+                    <i class="fas fa-cash-register" style="color:var(--primary-accent, #2563eb);"></i> Confirmación de Cobro (Contado)
                 </h3>
                 <button type="button" class="btn-icon-tasa" onclick="cerrarModalCheckoutPOS()"><i class="fas fa-times"></i></button>
             </div>
 
             <!-- Resumen de Cliente y Montos -->
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="background:var(--bg-canvas-subtle, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:10px; padding:14px; margin-bottom:16px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                    <span style="color:var(--text-muted); font-size:0.88rem;">Cliente Asignado:</span>
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Cliente Asignado:</span>
                     <strong>${clienteObj.nombre} (${clienteObj.id})</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                    <span style="color:var(--text-muted); font-size:0.88rem;">Total Artículos:</span>
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Total Artículos:</span>
                     <strong>${carrito.reduce((s, i) => s + i.cantidad, 0)} unidades</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                    <span style="color:var(--text-muted); font-size:0.88rem;">Total a Cobrar (USD):</span>
-                    <strong style="color:var(--primary-accent); font-size:1.2rem;">$${totalUSD.toFixed(2)}</strong>
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Total a Cobrar (USD):</span>
+                    <strong style="color:var(--primary-accent, #2563eb); font-size:1.2rem;">$${totalUSD.toFixed(2)}</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; border-top:1px dashed #cbd5e1; padding-top:6px;">
-                    <span style="color:var(--text-muted); font-size:0.88rem;">Total en Bolívares (VES):</span>
+                    <span style="color:var(--text-muted, #64748b); font-size:0.88rem;">Total en Bolívares (VES):</span>
                     <strong style="color:#16a34a; font-size:1.1rem;">Bs. ${totalVES > 0 ? totalVES.toFixed(2) : '—'}</strong>
                 </div>
                 ${temporadaActiva ? `
@@ -690,24 +1024,29 @@ function abrirModalCheckoutPOS() {
                 </div>` : ''}
             </div>
 
-            <!-- Formulario de Checkout Unificado -->
+            <!-- Formulario de Cobro en Caja -->
             <form onsubmit="event.preventDefault(); ejecutarFinalizacionCheckoutPOS();">
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label for="pos-checkout-metodo">Método de Pago <span style="color:var(--danger);">*</span></label>
+                    <label for="pos-checkout-metodo">Método de Pago <span style="color:var(--danger, #ef4444);">*</span></label>
                     <select id="pos-checkout-metodo" required onchange="manejarCambioMetodoPOS(this.value)">
-                        <option value="Efectivo USD">Efectivo ($ Dólares)</option>
+                        <option value="Efectivo USD" selected>Efectivo ($ Dólares)</option>
                         <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
                         <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
                         <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
-                        <option value="Crédito">Crédito / Fiado (Cuenta Corriente)</option>
+                        <option value="Punto de Venta VES">Punto de Venta / Tarjeta (VES)</option>
                     </select>
+                    <div style="text-align:right; margin-top:4px;">
+                        <a href="javascript:void(0)" onclick="cambiarACreditoDesdeModal()" style="font-size:0.8rem; color:var(--primary-accent, #2563eb); text-decoration:underline;">
+                            <i class="fas fa-file-invoice-dollar"></i> ¿Deseas fiar esta compra? Cambiar a Crédito
+                        </a>
+                    </div>
                 </div>
 
                 <div class="form-group" id="pos-checkout-grupo-ref" style="margin-bottom:12px;">
                     <label for="pos-checkout-referencia" id="pos-checkout-label-ref">
-                        Referencia Bancaria <span id="pos-ref-required-mark" style="display:none; color:var(--danger);">*</span>
+                        Referencia Bancaria <span id="pos-ref-required-mark" style="display:none; color:var(--danger, #ef4444);">*</span>
                     </label>
-                    <input type="text" id="pos-checkout-referencia" placeholder="Ej: 894521 (Últimos 4-6 dígitos)">
+                    <input type="text" id="pos-checkout-referencia" placeholder="Opcional (Ej: Serial del billete o N/A)">
                 </div>
 
                 <div class="form-group" style="margin-bottom:16px;">
@@ -737,7 +1076,16 @@ function manejarCambioMetodoPOS(metodo) {
     const requiereRef = (metodo === 'Pago Móvil VES' || metodo === 'Transferencia Bancaria VES');
 
     if (mark) mark.style.display = requiereRef ? 'inline' : 'none';
-    if (inputRef) inputRef.required = requiereRef;
+    if (inputRef) {
+        inputRef.required = requiereRef;
+        if (metodo.includes('Efectivo')) {
+            inputRef.placeholder = 'Opcional (Ej: Serial o N/A para efectivo)';
+        } else if (metodo.includes('Punto de Venta')) {
+            inputRef.placeholder = 'Opcional (Ej: Últimos 4 dígitos del voucher)';
+        } else {
+            inputRef.placeholder = 'Ej: 894521 (Últimos 4-6 dígitos)';
+        }
+    }
 }
 
 function cerrarModalCheckoutPOS() {
@@ -746,7 +1094,7 @@ function cerrarModalCheckoutPOS() {
 }
 
 async function ejecutarFinalizacionCheckoutPOS() {
-    const clienteIdSelect = document.getElementById('pos-cliente-select');
+    const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
     const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
     const metodoPago = document.getElementById('pos-checkout-metodo')?.value || 'Efectivo USD';
     const referencia = (document.getElementById('pos-checkout-referencia')?.value || '').trim();
@@ -763,7 +1111,8 @@ async function ejecutarFinalizacionCheckoutPOS() {
     }
 
     const total = carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
-    const clienteObj = clientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
+    const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = listaClientes.find(c => c.id === clienteId) || { id: clienteId, nombre: 'Cliente de Mostrador' };
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const totalVES = tasa > 0 ? (total * tasa) : 0;
 
@@ -939,8 +1288,14 @@ window.procesarVentaDesdeDrawer = procesarVentaDesdeDrawer;
 window.sincronizarClienteSelects = sincronizarClienteSelects;
 window.toggleMainNavTabs = toggleMainNavTabs;
 window.procesarVenta = procesarVenta;
+window.sincronizarCondicionPago = sincronizarCondicionPago;
 window.abrirModalCheckoutPOS = abrirModalCheckoutPOS;
 window.cerrarModalCheckoutPOS = cerrarModalCheckoutPOS;
+window.abrirModalConfirmacionCreditoPOS = abrirModalConfirmacionCreditoPOS;
+window.cerrarModalConfirmacionCreditoPOS = cerrarModalConfirmacionCreditoPOS;
+window.ejecutarVentaCreditoDirecta = ejecutarVentaCreditoDirecta;
+window.cambiarACreditoDesdeModal = cambiarACreditoDesdeModal;
+window.cambiarAContadoDesdeModal = cambiarAContadoDesdeModal;
 window.ejecutarFinalizacionCheckoutPOS = ejecutarFinalizacionCheckoutPOS;
 
 // --- CLIENTES Y DEUDAS MULTIMONEDA ---

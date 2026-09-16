@@ -4721,3 +4721,99 @@ body:not(.dark-theme) .cliente-prod-code {
     }
 }
 
+/* ==========================================================================
+   DRAWER / CARRITO DE VENTA MÓVIL (POS) - AJUSTES ERGONÓMICOS Y SIN DESBORDES
+   ========================================================================== */
+.pos-stepper {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--bg-canvas-subtle, #f1f5f9) !important;
+    border: 1px solid var(--border-color, #e2e8f0) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    max-width: 104px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.pos-stepper-btn {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    max-width: 30px !important;
+    max-height: 30px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-primary, #0f172a) !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: background 0.12s ease !important;
+    flex-shrink: 0 !important;
+    line-height: 1 !important;
+    user-select: none !important;
+}
+
+.pos-stepper-btn:hover {
+    background: var(--border-color, #e2e8f0) !important;
+}
+
+.pos-stepper-btn:active {
+    background: #cbd5e1 !important;
+}
+
+.pos-stepper-val,
+input[type="number"].pos-stepper-val,
+.pos-stepper input[type="number"] {
+    width: 36px !important;
+    min-width: 30px !important;
+    max-width: 42px !important;
+    height: 30px !important;
+    min-height: 0 !important;
+    max-height: 32px !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-primary, #0f172a) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    line-height: 30px !important;
+    -moz-appearance: textfield !important;
+    flex: 0 0 36px !important;
+    box-sizing: border-box !important;
+}
+
+.pos-stepper-val::-webkit-inner-spin-button,
+.pos-stepper-val::-webkit-outer-spin-button,
+.pos-stepper input::-webkit-inner-spin-button,
+.pos-stepper input::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.pos-drawer-overlay {
+    z-index: 100000 !important;
+}
+
+.pos-cart-drawer {
+    z-index: 100001 !important;
+}
+

@@ -776,7 +776,7 @@
                     </div>
                     <div class="pos-cart-payment-type" style="margin-top:10px;">
                         <label class="pos-cart-label" for="pos-tipo-pago">Condición:</label>
-                        <select id="pos-tipo-pago" class="pos-cart-select-compact">
+                        <select id="pos-tipo-pago" class="pos-cart-select-compact" onchange="sincronizarCondicionPago('pos-tipo-pago')">
                             <option value="Contado" selected>Contado</option>
                             <option value="Crédito">Crédito (Fiado)</option>
                         </select>
@@ -847,6 +847,17 @@
 
                 <!-- Resumen y Botón de Pago en Drawer Móvil -->
                 <div class="pos-drawer-footer">
+                    <!-- Selector de Condición en Drawer Móvil -->
+                    <div class="pos-drawer-payment-type" style="margin-bottom:12px;">
+                        <label class="pos-cart-label" for="pos-tipo-pago-mobile" style="margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-file-invoice-dollar" style="color:var(--accent-primary, #2563eb);"></i> Condición de Pago:
+                        </label>
+                        <select id="pos-tipo-pago-mobile" class="pos-cart-select" onchange="sincronizarCondicionPago('pos-tipo-pago-mobile')">
+                            <option value="Contado" selected>Contado</option>
+                            <option value="Crédito">Crédito (Fiado)</option>
+                        </select>
+                    </div>
+
                     <div class="pos-drawer-totals">
                         <div class="pos-drawer-total-row">
                             <span class="label">Total a Cobrar:</span>
@@ -857,7 +868,7 @@
                             <span class="val-ves" id="pos-drawer-total-ves">Bs. 0.00</span>
                         </div>
                     </div>
-                    <button type="button" class="pos-btn-checkout-drawer" onclick="procesarVentaDesdeDrawer()">
+                    <button type="button" class="pos-btn-checkout-drawer" id="btn-pos-checkout-mobile" onclick="procesarVentaDesdeDrawer()">
                         <i class="fas fa-check-circle"></i> Confirmar & Cobrar
                     </button>
                 </div>

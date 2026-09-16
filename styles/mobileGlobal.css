@@ -165,7 +165,7 @@ button:active,
 }
 
 input[type="text"],
-input[type="number"],
+input[type="number"]:not(.pos-stepper-val):not([class*="stepper"]),
 input[type="search"],
 input[type="password"],
 input[type="email"],
@@ -195,7 +195,7 @@ textarea:focus {
 /* Inputs & Controls ergonomía móvil: 16px para evitar auto-zoom en iOS Safari */
 @media screen and (max-width: 768px) {
   input[type="text"],
-  input[type="number"],
+  input[type="number"]:not(.pos-stepper-val):not([class*="stepper"]),
   input[type="search"],
   input[type="password"],
   input[type="email"],
