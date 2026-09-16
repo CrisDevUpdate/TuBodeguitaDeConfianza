@@ -310,7 +310,7 @@ textarea:focus {
   margin-bottom: 16px;
 }
 
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 899px) {
   .cliente-catalogo-grid,
   .pos-grid-cards,
   #pos-grid-view {

@@ -195,34 +195,37 @@
   display: none;
 }
 
+.pos-categories-scroll .chip-filter,
 .pos-chip {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   min-height: 32px;
-  border-radius: var(--radius-pill, 9999px);
-  background: var(--bg-canvas-subtle, #f1f5f9);
-  border: 1px solid var(--border-color, #e2e8f0);
-  color: var(--text-secondary, #475569);
-  font-size: 0.76rem;
-  font-weight: 700;
+  border-radius: var(--radius-pill, 20px);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
+.pos-categories-scroll .chip-filter:hover,
 .pos-chip:hover {
-  background: var(--border-color, #e2e8f0);
+  background: var(--bg-canvas-subtle, #f1f5f9);
   color: var(--text-primary, #0f172a);
 }
 
+.pos-categories-scroll .chip-filter.active,
 .pos-chip.active {
-  background: var(--accent-primary, #2563eb);
-  border-color: var(--accent-primary, #2563eb);
-  color: #ffffff;
+  background: var(--accent-primary, #2563eb) !important;
+  border-color: var(--accent-primary, #2563eb) !important;
+  color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
 }
 
@@ -261,6 +264,163 @@
    3. VISUALIZACIÓN DE PRODUCTOS: MODO CUADRÍCULA & LISTA
    (Usa el mismo diseño exacto del Catálogo del Cliente .cliente-catalogo-grid)
    ========================================================================== */
+#pos-grid-view,
+.pos-catalog-container #pos-grid-view,
+.pos-catalog-container.pos-mode-grid #pos-grid-view {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (min-width: 641px) and (max-width: 899px) {
+  #pos-grid-view,
+  .pos-catalog-container #pos-grid-view {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (min-width: 900px) {
+  #pos-grid-view,
+  .pos-catalog-container #pos-grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+    gap: 12px !important;
+  }
+}
+
+/* En modo móvil (<= 899px), tarjetas compactas idénticas al catálogo del cliente */
+@media (max-width: 899px) {
+  #pos-grid-view {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .pos-catalog-container .cliente-prod-card,
+  #pos-grid-view .cliente-prod-card {
+    min-width: 0 !important;
+    width: 100% !important;
+    border-radius: 10px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .pos-catalog-container .cliente-prod-img-wrapper,
+  #pos-grid-view .cliente-prod-img-wrapper {
+    height: 115px !important;
+    min-height: 115px !important;
+    max-height: 115px !important;
+    width: 100% !important;
+    position: relative !important;
+  }
+
+  .pos-catalog-container .cliente-prod-img,
+  #pos-grid-view .cliente-prod-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .pos-catalog-container .cliente-prod-badge-cat,
+  #pos-grid-view .cliente-prod-badge-cat {
+    font-size: 0.6rem !important;
+    padding: 2px 5px !important;
+    top: 4px !important;
+    left: 4px !important;
+    position: absolute !important;
+    border-radius: 4px !important;
+    z-index: 2 !important;
+  }
+
+  .pos-catalog-container .badge-stock-pill,
+  .pos-catalog-container .badge-agotado-pill,
+  #pos-grid-view .badge-stock-pill,
+  #pos-grid-view .badge-agotado-pill {
+    font-size: 0.6rem !important;
+    padding: 2px 5px !important;
+    top: 4px !important;
+    right: 4px !important;
+    position: absolute !important;
+    border-radius: 4px !important;
+    z-index: 2 !important;
+  }
+
+  .pos-catalog-container .cliente-prod-body,
+  #pos-grid-view .cliente-prod-body {
+    padding: 8px 8px 10px 8px !important;
+    gap: 2px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+  }
+
+  .pos-catalog-container .cliente-prod-code,
+  #pos-grid-view .cliente-prod-code {
+    font-size: 0.62rem !important;
+    margin-bottom: 0px !important;
+    color: var(--text-muted, #94a3b8) !important;
+  }
+
+  .pos-catalog-container .cliente-prod-title,
+  #pos-grid-view .cliente-prod-title {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+    margin-bottom: 4px !important;
+    min-height: 2.3em !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
+  }
+
+  .pos-catalog-container .cliente-prod-prices,
+  #pos-grid-view .cliente-prod-prices {
+    padding-top: 4px !important;
+    margin-bottom: 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    margin-top: auto !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+  }
+
+  .pos-catalog-container .cliente-prod-prices .price-usd,
+  #pos-grid-view .cliente-prod-prices .price-usd {
+    font-size: 1.05rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    color: var(--primary-accent, #2563eb) !important;
+  }
+
+  .pos-catalog-container .cliente-prod-prices .price-ves,
+  #pos-grid-view .cliente-prod-prices .price-ves {
+    font-size: 0.72rem !important;
+    line-height: 1.1 !important;
+    font-weight: 700 !important;
+    color: var(--text-muted, #64748b) !important;
+  }
+
+  .pos-catalog-container .cliente-btn-add,
+  #pos-grid-view .cliente-btn-add {
+    min-height: 35px !important;
+    padding: 6px 8px !important;
+    font-size: 0.78rem !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+  }
+}
+
 .pos-catalog-container.pos-mode-list #pos-grid-view {
   display: none !important;
 }
@@ -1115,14 +1275,17 @@
 [data-theme="dark"] .pos-products-panel,
 [data-theme="dark"] .pos-cart-panel,
 [data-theme="dark"] .pos-card-item,
+[data-theme="dark"] .cliente-prod-card,
 [data-theme="dark"] .pos-cart-drawer,
 body.dark-mode .pos-products-panel,
 body.dark-mode .pos-cart-panel,
 body.dark-mode .pos-card-item,
+body.dark-mode .cliente-prod-card,
 body.dark-mode .pos-cart-drawer,
 .theme-dark .pos-products-panel,
 .theme-dark .pos-cart-panel,
 .theme-dark .pos-card-item,
+.theme-dark .cliente-prod-card,
 .theme-dark .pos-cart-drawer {
   background: var(--bg-card, #131b2e);
   border-color: var(--border-color, #1e293b);

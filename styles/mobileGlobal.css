@@ -310,18 +310,21 @@ textarea:focus {
   margin-bottom: 16px;
 }
 
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 899px) {
   .cliente-catalogo-grid,
   .pos-grid-cards,
   #pos-grid-view {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 8px !important;
     margin-top: 10px !important;
     width: 100% !important;
     box-sizing: border-box !important;
   }
   .cliente-prod-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
     min-width: 0 !important;
     width: 100% !important;
   }

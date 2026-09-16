@@ -2648,7 +2648,8 @@ th {
 /* ==========================================================================
    VISTA CLIENTE: CATÁLOGO, CARRITO Y ESTADO DE CUENTA
    ========================================================================== */
-.cliente-catalogo-grid {
+.cliente-catalogo-grid,
+#pos-grid-view {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -2656,8 +2657,18 @@ th {
     width: 100%;
 }
 
-@media (min-width: 641px) and (max-width: 1023px) {
-    .cliente-catalogo-grid {
+@media (min-width: 641px) and (max-width: 899px) {
+    .cliente-catalogo-grid,
+    #pos-grid-view {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+    }
+}
+
+@media (min-width: 900px) and (max-width: 1023px) {
+    .cliente-catalogo-grid,
+    #pos-grid-view {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
         margin-top: 12px;
@@ -2665,9 +2676,10 @@ th {
 }
 
 @media (min-width: 1024px) {
-    .cliente-catalogo-grid {
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-        gap: 18px;
+    .cliente-catalogo-grid,
+    #pos-grid-view {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 14px;
         margin-top: 14px;
     }
 }
@@ -3074,7 +3086,7 @@ body.dark-mode .cliente-combos-carousel-wrapper {
 }
 
 /* Vista Móvil: Frase de Saludo y Cuadrícula de 2 Columnas Compacta */
-@media (max-width: 768px) {
+@media (max-width: 899px) {
     #cliente-frase-sabiduria-card {
         display: flex !important;
         background: rgba(255, 255, 255, 0.08) !important;
@@ -3098,6 +3110,7 @@ body.dark-mode .cliente-combos-carousel-wrapper {
     .cliente-catalogo-grid,
     .pos-grid-cards,
     #pos-grid-view {
+        display: grid !important;
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
         margin-top: 10px !important;

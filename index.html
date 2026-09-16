@@ -14,15 +14,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/themeEngine.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/posMobile.css?v=20260915_v3">
+    <link rel="stylesheet" href="styles.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/themeEngine.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/posMobile.css?v=20260916_v2">
     <style id="mobile-frase-priority-style">
         /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
         #cliente-frase-sabiduria-card {
@@ -58,107 +58,214 @@
             visibility: visible !important;
         }
 
-        /* 📱 Prioridad Absoluta: Cuadrícula de 2 columnas en Móvil / Tablets (Evita tarjetas gigantes de 1 sola columna) */
-        @media (max-width: 768px) {
+        /* 📱 Prioridad Absoluta: Opción A - Vista en Lista Horizontal / Row Item en Móvil (< 900px) */
+        @media (max-width: 899px) {
             .cliente-catalogo-grid,
             .pos-grid-cards,
             #pos-grid-view {
-                display: grid !important;
-                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                display: flex !important;
+                flex-direction: column !important;
                 gap: 8px !important;
                 margin-top: 10px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
+                padding-bottom: 24px !important;
             }
             .cliente-prod-card {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
                 min-width: 0 !important;
                 width: 100% !important;
-                border-radius: 10px !important;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
-                overflow: hidden !important;
+                box-sizing: border-box !important;
+                padding: 8px 10px !important;
+                border-radius: 12px !important;
+                background: var(--bg-card, #ffffff) !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+                gap: 12px !important;
+                min-height: 74px !important;
+                cursor: pointer !important;
+                position: relative !important;
+                -webkit-tap-highlight-color: transparent !important;
             }
+            .cliente-prod-card:active {
+                transform: scale(0.985) !important;
+                background: var(--bg-hover, #f8fafc) !important;
+            }
+            /* Miniatura Izquierda Cuadrada 64x64px */
             .cliente-prod-img-wrapper {
-                height: 115px !important;
-                min-height: 115px !important;
-                max-height: 115px !important;
-                width: 100% !important;
+                width: 64px !important;
+                height: 64px !important;
+                min-width: 64px !important;
+                min-height: 64px !important;
+                max-width: 64px !important;
+                max-height: 64px !important;
+                border-radius: 8px !important;
+                overflow: hidden !important;
+                flex-shrink: 0 !important;
+                position: relative !important;
+                background: var(--bg-muted, #f1f5f9) !important;
+                margin: 0 !important;
             }
             .cliente-prod-img {
                 width: 100% !important;
                 height: 100% !important;
                 object-fit: cover !important;
+                object-position: center !important;
+                display: block !important;
             }
-            .cliente-prod-badge-cat {
-                font-size: 0.6rem !important;
-                padding: 2px 5px !important;
-                top: 4px !important;
-                left: 4px !important;
-            }
-            .badge-stock-pill,
-            .badge-agotado-pill {
-                font-size: 0.6rem !important;
-                padding: 2px 5px !important;
-                top: 4px !important;
-                right: 4px !important;
-            }
-            .cliente-prod-points-badge {
-                font-size: 0.64rem !important;
-                padding: 2px 5px !important;
-                bottom: 4px !important;
-                left: 4px !important;
-            }
+            /* Cuerpo Central: Información y Precios */
             .cliente-prod-body {
-                padding: 8px 8px 10px 8px !important;
-                gap: 2px !important;
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
-                flex: 1 !important;
+                justify-content: center !important;
+                gap: 2px !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+            .cliente-prod-meta {
+                display: flex !important;
+                align-items: center !important;
+                gap: 6px !important;
+                flex-wrap: nowrap !important;
+                overflow: hidden !important;
+                line-height: 1 !important;
             }
             .cliente-prod-code {
+                font-size: 0.65rem !important;
+                font-weight: 600 !important;
+                color: var(--text-muted, #94a3b8) !important;
+                white-space: nowrap !important;
+            }
+            .cliente-prod-badge-cat {
+                position: static !important;
                 font-size: 0.62rem !important;
-                margin-bottom: 0px !important;
+                font-weight: 700 !important;
+                padding: 2px 6px !important;
+                border-radius: 4px !important;
+                background: var(--bg-muted, #f1f5f9) !important;
+                color: var(--text-secondary, #475569) !important;
+                line-height: 1.1 !important;
+                white-space: nowrap !important;
+                max-width: 120px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                display: inline-block !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+            }
+            .badge-stock-low {
+                font-size: 0.6rem !important;
+                font-weight: 700 !important;
+                padding: 1px 5px !important;
+                border-radius: 4px !important;
+                background: #fef3c7 !important;
+                color: #b45309 !important;
+                white-space: nowrap !important;
             }
             .cliente-prod-title {
-                font-size: 0.82rem !important;
+                font-size: 0.9rem !important;
                 font-weight: 700 !important;
-                line-height: 1.2 !important;
-                margin-bottom: 4px !important;
-                min-height: 2.3em !important;
+                color: var(--text-main, #0f172a) !important;
+                line-height: 1.25 !important;
+                margin: 2px 0 3px 0 !important;
+                min-height: 0 !important;
                 display: -webkit-box !important;
                 -webkit-line-clamp: 2 !important;
                 -webkit-box-orient: vertical !important;
                 overflow: hidden !important;
-            }
-            .cliente-prod-points-row {
-                margin-bottom: 4px !important;
-            }
-            .cliente-prod-points-chip {
-                font-size: 0.64rem !important;
-                padding: 2px 5px !important;
+                text-overflow: ellipsis !important;
+                word-break: break-word !important;
             }
             .cliente-prod-prices {
-                padding-top: 4px !important;
-                margin-bottom: 6px !important;
                 display: flex !important;
-                flex-direction: column !important;
-                gap: 1px !important;
+                flex-direction: row !important;
+                align-items: baseline !important;
+                gap: 8px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
             }
             .cliente-prod-prices .price-usd {
-                font-size: 1.05rem !important;
-                line-height: 1.1 !important;
+                font-size: 1.08rem !important;
                 font-weight: 800 !important;
+                color: var(--primary-accent, #2563eb) !important;
+                line-height: 1 !important;
             }
             .cliente-prod-prices .price-ves {
-                font-size: 0.72rem !important;
-                line-height: 1.1 !important;
+                font-size: 0.76rem !important;
+                font-weight: 600 !important;
+                color: var(--text-muted, #64748b) !important;
+                line-height: 1 !important;
+            }
+            /* Columna de Acción Derecha: Botón Táctil de Agregar (+) */
+            .cliente-prod-action {
+                flex-shrink: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin-left: auto !important;
             }
             .cliente-btn-add {
-                min-height: 35px !important;
-                padding: 6px 8px !important;
-                font-size: 0.78rem !important;
-                border-radius: 6px !important;
-                font-weight: 700 !important;
-                width: 100% !important;
+                width: 42px !important;
+                height: 42px !important;
+                min-width: 42px !important;
+                min-height: 42px !important;
+                max-width: 42px !important;
+                max-height: 42px !important;
+                padding: 0 !important;
+                border-radius: 10px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+                font-size: 1.1rem !important;
+                background: var(--primary-accent, #2563eb) !important;
+                color: #ffffff !important;
+                border: none !important;
+                box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
+                margin: 0 !important;
+                cursor: pointer !important;
+            }
+            .cliente-btn-add .cliente-btn-text {
+                display: none !important;
+            }
+            .cliente-btn-add i {
+                font-size: 1.1rem !important;
+                margin: 0 !important;
+            }
+            /* Estado Agotado */
+            .cliente-prod-card.card-agotado {
+                opacity: 0.6 !important;
+                background: var(--bg-muted, #f8fafc) !important;
+                border-color: var(--border-light, #e2e8f0) !important;
+                cursor: not-allowed !important;
+            }
+            .card-agotado .cliente-prod-img {
+                filter: grayscale(0.85) !important;
+            }
+            .card-agotado .badge-agotado-pill {
+                position: absolute !important;
+                inset: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: rgba(15, 23, 42, 0.65) !important;
+                color: #ffffff !important;
+                font-size: 0.6rem !important;
+                font-weight: 800 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.04em !important;
+                border-radius: 8px !important;
+            }
+            .card-agotado .cliente-btn-add {
+                background: var(--border, #cbd5e1) !important;
+                color: var(--text-muted, #94a3b8) !important;
+                box-shadow: none !important;
+                cursor: not-allowed !important;
             }
 
             #modal-admin-combo-builder {
@@ -177,7 +284,7 @@
                 gap: 12px !important;
             }
         }
-        @media (min-width: 769px) and (max-width: 1023px) {
+        @media (min-width: 900px) and (max-width: 1199px) {
             .cliente-catalogo-grid,
             .pos-grid-cards,
             #pos-grid-view {
@@ -185,6 +292,14 @@
                 grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
                 gap: 12px !important;
                 margin-top: 12px !important;
+            }
+        }
+        @media (min-width: 1200px) {
+            #pos-grid-view {
+                display: grid !important;
+                grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+                gap: 14px !important;
+                margin-top: 14px !important;
             }
         }
     </style>
@@ -547,7 +662,7 @@
                         <div class="pos-search-box">
                             <i class="fas fa-search pos-search-icon"></i>
                             <input type="text" id="pos-search" class="pos-search-input" 
-                                   placeholder="Buscar por código, nombre o categoría..." 
+                                   placeholder="Buscar productos o combos..." 
                                    oninput="filtrarPosProductos()" autocomplete="off">
                             <button type="button" class="pos-search-clear" id="pos-search-clear" 
                                     onclick="limpiarBusquedaPOS()" title="Limpiar búsqueda" style="display:none;">
@@ -570,7 +685,7 @@
                     </div>
 
                     <!-- Chips Horizontales de Categorías -->
-                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist">
+                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-top:8px; margin-bottom:4px; scrollbar-width:none;">
                         <!-- Generado dinámicamente -->
                     </div>
                 </div>
@@ -3145,19 +3260,19 @@
 <script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
 <script src="components/Catalog.js?v=4.5.0_anti_dup"></script>
 <script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
-<script src="modules/productos.js?v=4.5.0_anti_dup"></script>
-<script src="modules/pos.js?v=4.5.0_anti_dup"></script>
-<script src="modules/clientes.js?v=4.5.0_anti_dup"></script>
-<script src="modules/pagos-transacciones.js?v=4.5.0_anti_dup"></script>
-<script src="modules/auditoria.js?v=4.5.0_anti_dup"></script>
-<script src="modules/perdidas.js?v=4.5.0_anti_dup"></script>
-<script src="modules/premio-mes.js?v=4.5.0_anti_dup"></script>
-<script src="modules/cliente-view.js?v=4.5.0_anti_dup"></script>
-<script src="modules/historial-ventas.js?v=4.5.0_anti_dup"></script>
-<script src="modules/usuarios.js?v=4.5.0_anti_dup"></script>
-<script src="modules/notificaciones.js?v=4.5.0_anti_dup"></script>
-<script src="modules/configuracion.js?v=4.5.0_anti_dup"></script>
-<script src="app.js?v=4.5.0_anti_dup"></script>
+<script src="modules/productos.js?v=20260915_v5"></script>
+<script src="modules/pos.js?v=20260915_v5"></script>
+<script src="modules/clientes.js?v=20260915_v5"></script>
+<script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
+<script src="modules/auditoria.js?v=20260915_v5"></script>
+<script src="modules/perdidas.js?v=20260915_v5"></script>
+<script src="modules/premio-mes.js?v=20260915_v5"></script>
+<script src="modules/cliente-view.js?v=20260915_v5"></script>
+<script src="modules/historial-ventas.js?v=20260915_v5"></script>
+<script src="modules/usuarios.js?v=20260915_v5"></script>
+<script src="modules/notificaciones.js?v=20260915_v5"></script>
+<script src="modules/configuracion.js?v=20260915_v5"></script>
+<script src="app.js?v=20260915_v5"></script>
 </body>
 </html>
 

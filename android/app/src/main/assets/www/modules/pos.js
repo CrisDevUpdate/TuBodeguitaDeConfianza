@@ -60,41 +60,66 @@ function actualizarChipsCategoriasPOS() {
 
     const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
     const categoriasSet = new Set();
-    prods.forEach(p => {
-        if (p.categoria && typeof p.categoria === 'string' && p.categoria.trim()) {
-            categoriasSet.add(p.categoria.trim());
-        }
-    });
+    
+    // Categorías base
+    const baseBodega = ['Bebidas', 'Dulces', 'Snacks', 'Chucherías', 'Víveres'];
+    baseBodega.forEach(c => categoriasSet.add(c));
 
     if (Array.isArray(AppState.categoriasPersonalizadas)) {
         AppState.categoriasPersonalizadas.forEach(c => {
-            if (c && typeof c === 'string' && c.trim()) categoriasSet.add(c.trim());
+            if (c && typeof c === 'string' && c.trim() && !c.toLowerCase().includes('combo')) {
+                categoriasSet.add(c.trim());
+            }
         });
     }
 
-    const categorias = Array.from(categoriasSet).sort();
+    prods.forEach(p => {
+        if (p.categoria && typeof p.categoria === 'string' && p.categoria.trim()) {
+            const cat = p.categoria.trim();
+            if (!cat.toLowerCase().includes('combo') && !cat.toLowerCase().includes('general')) {
+                categoriasSet.add(cat);
+            }
+        }
+    });
 
-    const contar = (cat) => {
-        if (cat === 'TODOS') return prods.length;
-        return prods.filter(p => (p.categoria || '').trim().toLowerCase() === cat.toLowerCase()).length;
+    const categorias = Array.from(categoriasSet).sort();
+    const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
+
+    const iconoPorCategoria = (nombreCat) => {
+        const c = String(nombreCat || '').toLowerCase();
+        if (c.includes('bebida') || c.includes('refresco') || c.includes('jugo')) return '🥤';
+        if (c.includes('dulce') || c.includes('caramelo')) return '🍬';
+        if (c.includes('snack') || c.includes('chuchería') || c.includes('chucheria') || c.includes('papas')) return '🍿';
+        if (c.includes('galleta')) return '🍪';
+        if (c.includes('chocolate')) return '🍫';
+        if (c.includes('vívere') || c.includes('viveres') || c.includes('grano') || c.includes('harina')) return '🥫';
+        if (c.includes('lácteo') || c.includes('lacteo') || c.includes('queso')) return '🧀';
+        return '🏷️';
     };
 
     let html = `
-        <button type="button" class="pos-chip ${posCategoriaActiva === 'TODOS' ? 'active' : ''}" 
+        <button type="button" class="chip-filter ${posCategoriaActiva === 'TODOS' ? 'active' : ''}" 
                 onclick="seleccionarCategoriaPOS('TODOS')">
-            <span>Todos</span>
-            <span class="chip-count">${contar('TODOS')}</span>
+            🌟 Todos
         </button>
     `;
 
+    if (totalCombos > 0) {
+        html += `
+            <button type="button" class="chip-filter ${posCategoriaActiva === 'COMBOS' ? 'active' : ''}" 
+                    onclick="seleccionarCategoriaPOS('COMBOS')" 
+                    style="background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(245,158,11,0.22)); border-color: rgba(249,115,22,0.45); color: #ea580c; font-weight: 800;">
+                🔥 Combos (${totalCombos})
+            </button>
+        `;
+    }
+
     categorias.forEach(cat => {
-        const count = contar(cat);
         const isActive = posCategoriaActiva.toLowerCase() === cat.toLowerCase();
         html += `
-            <button type="button" class="pos-chip ${isActive ? 'active' : ''}" 
+            <button type="button" class="chip-filter ${isActive ? 'active' : ''}" 
                     onclick="seleccionarCategoriaPOS('${cat.replace(/'/g, "\\'")}')">
-                <span>${cat}</span>
-                <span class="chip-count">${count}</span>
+                ${iconoPorCategoria(cat)} ${cat}
             </button>
         `;
     });
@@ -116,8 +141,13 @@ function renderizarPosProductos(filtro = null) {
 
     const filtrados = prods.filter(p => {
         if (posCategoriaActiva !== 'TODOS') {
-            const catProd = (p.categoria || '').trim().toLowerCase();
-            if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+            if (posCategoriaActiva === 'COMBOS') {
+                const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                if (!esCombo) return false;
+            } else {
+                const catProd = (p.categoria || '').trim().toLowerCase();
+                if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+            }
         }
         if (!f) return true;
         const nombre = (p.nombre || "").toLowerCase();
@@ -146,6 +176,9 @@ function renderizarPosProductos(filtro = null) {
     // 1. Renderizar Cuadrícula Compacta
     const gridEl = document.getElementById('pos-grid-view');
     if (gridEl) {
+        if (!gridEl.classList.contains('cliente-catalogo-grid')) {
+            gridEl.classList.add('cliente-catalogo-grid');
+        }
         if (filtrados.length === 0) {
             gridEl.innerHTML = `
                 <div style="grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--text-muted, #94a3b8);">

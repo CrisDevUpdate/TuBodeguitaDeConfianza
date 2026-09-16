@@ -60,41 +60,66 @@ function actualizarChipsCategoriasPOS() {
 
     const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
     const categoriasSet = new Set();
-    prods.forEach(p => {
-        if (p.categoria && typeof p.categoria === 'string' && p.categoria.trim()) {
-            categoriasSet.add(p.categoria.trim());
-        }
-    });
+    
+    // Categorías base
+    const baseBodega = ['Bebidas', 'Dulces', 'Snacks', 'Chucherías', 'Víveres'];
+    baseBodega.forEach(c => categoriasSet.add(c));
 
     if (Array.isArray(AppState.categoriasPersonalizadas)) {
         AppState.categoriasPersonalizadas.forEach(c => {
-            if (c && typeof c === 'string' && c.trim()) categoriasSet.add(c.trim());
+            if (c && typeof c === 'string' && c.trim() && !c.toLowerCase().includes('combo')) {
+                categoriasSet.add(c.trim());
+            }
         });
     }
 
-    const categorias = Array.from(categoriasSet).sort();
+    prods.forEach(p => {
+        if (p.categoria && typeof p.categoria === 'string' && p.categoria.trim()) {
+            const cat = p.categoria.trim();
+            if (!cat.toLowerCase().includes('combo') && !cat.toLowerCase().includes('general')) {
+                categoriasSet.add(cat);
+            }
+        }
+    });
 
-    const contar = (cat) => {
-        if (cat === 'TODOS') return prods.length;
-        return prods.filter(p => (p.categoria || '').trim().toLowerCase() === cat.toLowerCase()).length;
+    const categorias = Array.from(categoriasSet).sort();
+    const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
+
+    const iconoPorCategoria = (nombreCat) => {
+        const c = String(nombreCat || '').toLowerCase();
+        if (c.includes('bebida') || c.includes('refresco') || c.includes('jugo')) return '🥤';
+        if (c.includes('dulce') || c.includes('caramelo')) return '🍬';
+        if (c.includes('snack') || c.includes('chuchería') || c.includes('chucheria') || c.includes('papas')) return '🍿';
+        if (c.includes('galleta')) return '🍪';
+        if (c.includes('chocolate')) return '🍫';
+        if (c.includes('vívere') || c.includes('viveres') || c.includes('grano') || c.includes('harina')) return '🥫';
+        if (c.includes('lácteo') || c.includes('lacteo') || c.includes('queso')) return '🧀';
+        return '🏷️';
     };
 
     let html = `
-        <button type="button" class="pos-chip ${posCategoriaActiva === 'TODOS' ? 'active' : ''}" 
+        <button type="button" class="chip-filter ${posCategoriaActiva === 'TODOS' ? 'active' : ''}" 
                 onclick="seleccionarCategoriaPOS('TODOS')">
-            <span>Todos</span>
-            <span class="chip-count">${contar('TODOS')}</span>
+            🌟 Todos
         </button>
     `;
 
+    if (totalCombos > 0) {
+        html += `
+            <button type="button" class="chip-filter ${posCategoriaActiva === 'COMBOS' ? 'active' : ''}" 
+                    onclick="seleccionarCategoriaPOS('COMBOS')" 
+                    style="background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(245,158,11,0.22)); border-color: rgba(249,115,22,0.45); color: #ea580c; font-weight: 800;">
+                🔥 Combos (${totalCombos})
+            </button>
+        `;
+    }
+
     categorias.forEach(cat => {
-        const count = contar(cat);
         const isActive = posCategoriaActiva.toLowerCase() === cat.toLowerCase();
         html += `
-            <button type="button" class="pos-chip ${isActive ? 'active' : ''}" 
+            <button type="button" class="chip-filter ${isActive ? 'active' : ''}" 
                     onclick="seleccionarCategoriaPOS('${cat.replace(/'/g, "\\'")}')">
-                <span>${cat}</span>
-                <span class="chip-count">${count}</span>
+                ${iconoPorCategoria(cat)} ${cat}
             </button>
         `;
     });
@@ -116,8 +141,13 @@ function renderizarPosProductos(filtro = null) {
 
     const filtrados = prods.filter(p => {
         if (posCategoriaActiva !== 'TODOS') {
-            const catProd = (p.categoria || '').trim().toLowerCase();
-            if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+            if (posCategoriaActiva === 'COMBOS') {
+                const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                if (!esCombo) return false;
+            } else {
+                const catProd = (p.categoria || '').trim().toLowerCase();
+                if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+            }
         }
         if (!f) return true;
         const nombre = (p.nombre || "").toLowerCase();
@@ -146,6 +176,9 @@ function renderizarPosProductos(filtro = null) {
     // 1. Renderizar Cuadrícula Compacta
     const gridEl = document.getElementById('pos-grid-view');
     if (gridEl) {
+        if (!gridEl.classList.contains('cliente-catalogo-grid')) {
+            gridEl.classList.add('cliente-catalogo-grid');
+        }
         if (filtrados.length === 0) {
             gridEl.innerHTML = `
                 <div style="grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
@@ -166,32 +199,28 @@ function renderizarPosProductos(filtro = null) {
                 const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
                 return `
-            <div class="cliente-prod-card ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
+            <div class="cliente-prod-card pos-row-item ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
                 <div class="cliente-prod-img-wrapper">
                     <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&amp;auto=format&amp;fit=crop&amp;q=60'">
-                    <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
-                    ${esAgotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
-                    <span class="cliente-prod-points-badge " data-points-badge="" style="display: none !important;">
-                        <i class="fas fa-star" style="color:#fbbf24;"></i> +1 pts
-                    </span>
+                    ${esAgotado ? '<span class="badge-agotado-pill">Agotado</span>' : ''}
                 </div>
                 <div class="cliente-prod-body">
-                    <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
-                    <h4 class="cliente-prod-title">${p.nombre}</h4>
+                    <div class="cliente-prod-meta">
+                        <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
+                        <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
+                        ${!esAgotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                    </div>
+                    <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
                     
-                    <div class="cliente-prod-points-row" data-points-badge="" style="display: none !important;">
-                        <span class="cliente-prod-points-chip ">
-                            <i class="fas fa-star"></i> Otorga <strong>+1 Pts</strong>
-                        </span>
-                    </div>
-
                     <div class="cliente-prod-prices">
-                        <div class="price-usd">$${precioUSD.toFixed(2)}</div>
-                        <div class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</div>
+                        <span class="price-usd">$${precioUSD.toFixed(2)}</span>
+                        <span class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                     </div>
-
-                    <button type="button" class="btn btn-block ${esAgotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" id="btn-pos-add-${p.id}" onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled=""' : ''}>
-                        <i class="fas fa-cart-plus"></i> ${esAgotado ? 'Agotado' : 'Agregar'}
+                </div>
+                <div class="cliente-prod-action">
+                    <button type="button" class="btn ${esAgotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" id="btn-pos-add-${p.id}" onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled=""' : ''} title="${esAgotado ? 'Agotado' : 'Agregar al carrito'}">
+                        <i class="fas fa-plus"></i>
+                        <span class="cliente-btn-text">${esAgotado ? 'Agotado' : 'Agregar'}</span>
                     </button>
                 </div>
             </div>`;

@@ -14,15 +14,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/themeEngine.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/posMobile.css?v=20260915_v3">
+    <link rel="stylesheet" href="styles.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/themeEngine.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/auditDashboard.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/rewardConfig.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/nativeComponents.css?v=20260916_v2">
+    <link rel="stylesheet" href="styles/posMobile.css?v=20260916_v2">
     <style id="mobile-frase-priority-style">
         /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
         #cliente-frase-sabiduria-card {
@@ -58,8 +58,19 @@
             visibility: visible !important;
         }
 
-        /* 📱 Prioridad Absoluta: Cuadrícula de 2 columnas en Móvil / Tablets (Evita tarjetas gigantes de 1 sola columna) */
-        @media (max-width: 768px) {
+        /* Base Cuadrícula POS y Catálogo (2 Columnas por defecto en Móvil) */
+        #pos-grid-view,
+        .cliente-catalogo-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            margin-top: 10px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* 📱 Prioridad Absoluta: Cuadrícula y tarjetas en Móvil / Tablets hasta 899px */
+        @media (max-width: 899px) {
             .cliente-catalogo-grid,
             .pos-grid-cards,
             #pos-grid-view {
@@ -177,7 +188,7 @@
                 gap: 12px !important;
             }
         }
-        @media (min-width: 769px) and (max-width: 1023px) {
+        @media (min-width: 900px) and (max-width: 1199px) {
             .cliente-catalogo-grid,
             .pos-grid-cards,
             #pos-grid-view {
@@ -185,6 +196,14 @@
                 grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
                 gap: 12px !important;
                 margin-top: 12px !important;
+            }
+        }
+        @media (min-width: 1200px) {
+            #pos-grid-view {
+                display: grid !important;
+                grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
+                gap: 14px !important;
+                margin-top: 14px !important;
             }
         }
     </style>
@@ -547,7 +566,7 @@
                         <div class="pos-search-box">
                             <i class="fas fa-search pos-search-icon"></i>
                             <input type="text" id="pos-search" class="pos-search-input" 
-                                   placeholder="Buscar por código, nombre o categoría..." 
+                                   placeholder="Buscar productos o combos..." 
                                    oninput="filtrarPosProductos()" autocomplete="off">
                             <button type="button" class="pos-search-clear" id="pos-search-clear" 
                                     onclick="limpiarBusquedaPOS()" title="Limpiar búsqueda" style="display:none;">
@@ -570,7 +589,7 @@
                     </div>
 
                     <!-- Chips Horizontales de Categorías -->
-                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist">
+                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-top:8px; margin-bottom:4px; scrollbar-width:none;">
                         <!-- Generado dinámicamente -->
                     </div>
                 </div>
@@ -3145,19 +3164,19 @@
 <script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
 <script src="components/Catalog.js?v=4.5.0_anti_dup"></script>
 <script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
-<script src="modules/productos.js?v=4.5.0_anti_dup"></script>
-<script src="modules/pos.js?v=4.5.0_anti_dup"></script>
-<script src="modules/clientes.js?v=4.5.0_anti_dup"></script>
-<script src="modules/pagos-transacciones.js?v=4.5.0_anti_dup"></script>
-<script src="modules/auditoria.js?v=4.5.0_anti_dup"></script>
-<script src="modules/perdidas.js?v=4.5.0_anti_dup"></script>
-<script src="modules/premio-mes.js?v=4.5.0_anti_dup"></script>
-<script src="modules/cliente-view.js?v=4.5.0_anti_dup"></script>
-<script src="modules/historial-ventas.js?v=4.5.0_anti_dup"></script>
-<script src="modules/usuarios.js?v=4.5.0_anti_dup"></script>
-<script src="modules/notificaciones.js?v=4.5.0_anti_dup"></script>
-<script src="modules/configuracion.js?v=4.5.0_anti_dup"></script>
-<script src="app.js?v=4.5.0_anti_dup"></script>
+<script src="modules/productos.js?v=20260915_v5"></script>
+<script src="modules/pos.js?v=20260915_v5"></script>
+<script src="modules/clientes.js?v=20260915_v5"></script>
+<script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
+<script src="modules/auditoria.js?v=20260915_v5"></script>
+<script src="modules/perdidas.js?v=20260915_v5"></script>
+<script src="modules/premio-mes.js?v=20260915_v5"></script>
+<script src="modules/cliente-view.js?v=20260915_v5"></script>
+<script src="modules/historial-ventas.js?v=20260915_v5"></script>
+<script src="modules/usuarios.js?v=20260915_v5"></script>
+<script src="modules/notificaciones.js?v=20260915_v5"></script>
+<script src="modules/configuracion.js?v=20260915_v5"></script>
+<script src="app.js?v=20260915_v5"></script>
 </body>
 </html>
 
