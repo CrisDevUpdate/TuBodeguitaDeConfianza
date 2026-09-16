@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="styles/customerAccountMobile.css?v=20260911_v6">
     <link rel="stylesheet" href="styles/mobileGlobal.css?v=20260911_v6">
     <link rel="stylesheet" href="styles/nativeComponents.css?v=20260911_v6">
-    <link rel="stylesheet" href="styles/posMobile.css?v=20260915_v1">
+    <link rel="stylesheet" href="styles/posMobile.css?v=20260915_v3">
     <style id="mobile-frase-priority-style">
         /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
         #cliente-frase-sabiduria-card {
@@ -60,12 +60,15 @@
 
         /* 📱 Prioridad Absoluta: Cuadrícula de 2 columnas en Móvil / Tablets (Evita tarjetas gigantes de 1 sola columna) */
         @media (max-width: 768px) {
-            .cliente-catalogo-grid {
+            .cliente-catalogo-grid,
+            .pos-grid-cards,
+            #pos-grid-view {
                 display: grid !important;
                 grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 8px !important;
                 margin-top: 10px !important;
                 width: 100% !important;
+                box-sizing: border-box !important;
             }
             .cliente-prod-card {
                 min-width: 0 !important;
@@ -175,7 +178,9 @@
             }
         }
         @media (min-width: 769px) and (max-width: 1023px) {
-            .cliente-catalogo-grid {
+            .cliente-catalogo-grid,
+            .pos-grid-cards,
+            #pos-grid-view {
                 display: grid !important;
                 grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
                 gap: 12px !important;
@@ -578,8 +583,8 @@
 
                 <!-- Contenedor Principal de Productos -->
                 <div id="pos-catalog-container" class="pos-catalog-container pos-mode-grid">
-                    <!-- Cuadrícula Compacta -->
-                    <div id="pos-grid-view" class="pos-grid-cards"></div>
+                    <!-- Cuadrícula de Productos (2 Columnas en Móvil) -->
+                    <div id="pos-grid-view" class="cliente-catalogo-grid"></div>
 
                     <!-- Lista Compacta -->
                     <div id="pos-list-view" class="pos-list-table-wrap" style="display:none;">

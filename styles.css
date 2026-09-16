@@ -3095,11 +3095,14 @@ body.dark-mode .cliente-combos-carousel-wrapper {
         font-size: 0.72rem !important;
     }
 
-    .cliente-catalogo-grid {
+    .cliente-catalogo-grid,
+    .pos-grid-cards,
+    #pos-grid-view {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
         margin-top: 10px !important;
         width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .cliente-prod-card {

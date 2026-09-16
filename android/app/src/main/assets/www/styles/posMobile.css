@@ -258,248 +258,26 @@
 }
 
 /* ==========================================================================
-   3. VISUALIZACIÓN DE PRODUCTOS: CUADRÍCULA COMPACTA (GRID)
+   3. VISUALIZACIÓN DE PRODUCTOS: MODO CUADRÍCULA & LISTA
+   (Usa el mismo diseño exacto del Catálogo del Cliente .cliente-catalogo-grid)
    ========================================================================== */
-.pos-grid-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  width: 100%;
-  box-sizing: border-box;
+.pos-catalog-container.pos-mode-list #pos-grid-view {
+  display: none !important;
 }
 
-@media (min-width: 600px) {
-  .pos-grid-cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-  }
+.pos-catalog-container.pos-mode-grid #pos-list-view,
+.pos-catalog-container.pos-mode-grid .pos-list-table-wrap {
+  display: none !important;
 }
 
-@media (min-width: 900px) {
-  .pos-grid-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-@media (min-width: 1120px) {
-  .pos-grid-cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-@media (min-width: 1400px) {
-  .pos-grid-cards {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-/* Tarjeta de Producto Compacta */
-.pos-card-item {
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: var(--radius-md, 12px);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  box-sizing: border-box;
-}
-
-.pos-card-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.pos-card-item.agotado {
-  opacity: 0.65;
-  background: var(--bg-canvas-subtle, #f8fafc);
-}
-
-/* Miniatura Compacta: 55-65px en Móvil, 65-75px en PC */
-.pos-thumb-wrap {
-  width: 100%;
-  height: 64px;
-  border-radius: var(--radius-sm, 8px);
-  background: var(--bg-canvas-subtle, #f1f5f9);
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 6px;
-  flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-  .pos-thumb-wrap {
-    height: 72px;
-  }
-}
-
-.pos-thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s ease;
-}
-
-.pos-card-item:hover .pos-thumb-img {
-  transform: scale(1.04);
-}
-
-.pos-thumb-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-light, #94a3b8);
-  font-size: 1.4rem;
-  background: var(--bg-canvas-subtle, #f1f5f9);
-}
-
-/* Badges Flotantes sobre Miniatura */
-.pos-badge-stock {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 0.62rem;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: var(--radius-pill, 9999px);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.pos-badge-stock.in-stock {
-  background: rgba(22, 163, 74, 0.9);
-  color: #ffffff;
-}
-
-.pos-badge-stock.low-stock {
-  background: rgba(217, 119, 6, 0.92);
-  color: #ffffff;
-}
-
-.pos-badge-stock.out-stock {
-  background: rgba(239, 68, 68, 0.92);
-  color: #ffffff;
-}
-
-.pos-badge-cat {
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  font-size: 0.58rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.7);
-  color: #ffffff;
-  max-width: 80%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Información del Producto en Tarjeta */
-.pos-card-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 6px;
-  min-width: 0;
-}
-
-.pos-card-code {
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: var(--text-muted, #64748b);
-  letter-spacing: 0.2px;
-}
-
-.pos-card-name {
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: var(--text-primary, #0f172a);
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.1em;
-}
-
-/* Precios Bimoneda ($ y Bs) */
-.pos-card-pricing {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-bottom: 6px;
-}
-
-.pos-price-usd {
-  font-size: 0.98rem;
-  font-weight: 900;
-  color: var(--accent-primary, #2563eb);
-  line-height: 1.1;
-}
-
-.pos-price-ves {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-  white-space: nowrap;
-}
-
-/* Botón "+ Agregar" */
-.pos-btn-add {
-  width: 100%;
-  padding: 7px 10px;
-  min-height: 36px;
-  border-radius: var(--radius-sm, 8px);
-  background: var(--accent-success, #16a34a);
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 800;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  user-select: none;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pos-btn-add:active {
-  transform: scale(0.96);
-  background: #15803d;
-}
-
-.pos-btn-add:disabled {
-  background: #cbd5e1;
-  color: #64748b;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Animación rápida al agregar */
-.pos-btn-add.added-pop {
+/* Animación sutil de confirmación al presionar Agregar */
+.cliente-btn-add.added-pop {
   animation: btnAddPop 0.3s ease-out;
 }
 
 @keyframes btnAddPop {
   0% { transform: scale(1); }
-  50% { transform: scale(1.08); background: #059669; }
+  50% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
 

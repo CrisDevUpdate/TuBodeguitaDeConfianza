@@ -19,8 +19,20 @@ function cambiarModoVistaPOS(modo) {
     if (container) {
         container.className = `pos-catalog-container pos-mode-${modo}`;
     }
-    if (gridView) gridView.style.display = modo === 'grid' ? 'grid' : 'none';
-    if (listView) listView.style.display = modo === 'list' ? 'block' : 'none';
+    if (gridView) {
+        if (modo === 'grid') {
+            gridView.style.removeProperty('display');
+        } else {
+            gridView.style.setProperty('display', 'none', 'important');
+        }
+    }
+    if (listView) {
+        if (modo === 'list') {
+            listView.style.setProperty('display', 'block', 'important');
+        } else {
+            listView.style.setProperty('display', 'none', 'important');
+        }
+    }
 
     renderizarPosProductos();
 }
@@ -148,38 +160,41 @@ function renderizarPosProductos(filtro = null) {
                 const precioUSD = Number(p.precio || 0);
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const esAgotado = stock <= 0;
-                const stockClase = esAgotado ? 'out-stock' : (stock <= 5 ? 'low-stock' : 'in-stock');
-                const stockTexto = esAgotado ? 'Agotado' : (stock <= 5 ? `¡Solo ${stock}!` : `Stock: ${stock}`);
-
-                const imagenHTML = p.imagen ? `
-                    <img src="${p.imagen}" alt="${p.nombre}" class="pos-thumb-img" loading="lazy" 
-                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'pos-thumb-fallback\\'><i class=\\'fas fa-box\\'></i></div>';">
-                ` : `
-                    <div class="pos-thumb-fallback"><i class="fas fa-box"></i></div>
-                `;
+                const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                
+                const rawImg = p.imagen;
+                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
 
                 return `
-                    <div class="pos-card-item ${esAgotado ? 'agotado' : ''}" id="pos-card-${p.id}">
-                        <div class="pos-thumb-wrap">
-                            ${imagenHTML}
-                            <span class="pos-badge-stock ${stockClase}">${stockTexto}</span>
-                            ${p.categoria ? `<span class="pos-badge-cat">${p.categoria}</span>` : ''}
-                        </div>
-                        <div class="pos-card-details">
-                            <span class="pos-card-code">${p.codigo || 'S/C'}</span>
-                            <div class="pos-card-name" title="${p.nombre}">${p.nombre}</div>
-                        </div>
-                        <div class="pos-card-pricing">
-                            <span class="pos-price-usd">$${precioUSD.toFixed(2)}</span>
-                            <span class="pos-price-ves">Bs. ${tasa > 0 ? precioVES.toFixed(2) : '—'}</span>
-                        </div>
-                        <button type="button" class="pos-btn-add" id="btn-pos-add-${p.id}" 
-                                onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled' : ''}>
-                            <i class="fas fa-plus"></i>
-                            <span>${esAgotado ? 'Agotado' : '+ Agregar'}</span>
-                        </button>
+            <div class="cliente-prod-card ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
+                <div class="cliente-prod-img-wrapper">
+                    <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&amp;auto=format&amp;fit=crop&amp;q=60'">
+                    <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
+                    ${esAgotado ? '<span class="badge-agotado-pill">Agotado</span>' : '<span class="badge-stock-pill" style="background:#16a34a; color:#fff;">Disponible</span>'}
+                    <span class="cliente-prod-points-badge " data-points-badge="" style="display: none !important;">
+                        <i class="fas fa-star" style="color:#fbbf24;"></i> +1 pts
+                    </span>
+                </div>
+                <div class="cliente-prod-body">
+                    <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
+                    <h4 class="cliente-prod-title">${p.nombre}</h4>
+                    
+                    <div class="cliente-prod-points-row" data-points-badge="" style="display: none !important;">
+                        <span class="cliente-prod-points-chip ">
+                            <i class="fas fa-star"></i> Otorga <strong>+1 Pts</strong>
+                        </span>
                     </div>
-                `;
+
+                    <div class="cliente-prod-prices">
+                        <div class="price-usd">$${precioUSD.toFixed(2)}</div>
+                        <div class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</div>
+                    </div>
+
+                    <button type="button" class="btn btn-block ${esAgotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" id="btn-pos-add-${p.id}" onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled=""' : ''}>
+                        <i class="fas fa-cart-plus"></i> ${esAgotado ? 'Agotado' : 'Agregar'}
+                    </button>
+                </div>
+            </div>`;
             }).join('');
         }
     }
