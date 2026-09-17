@@ -67,6 +67,11 @@
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
 
+        // Inicialización del Módulo Kiosco de Auto-Servicio
+        if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+            window.KioscoModule.init();
+        }
+
         // Barrera de Acceso y Segregación de Roles (Gatewall)
         if (typeof verificarGatewall === 'function') {
             verificarGatewall();

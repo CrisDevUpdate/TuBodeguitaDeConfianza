@@ -306,10 +306,17 @@ function switchTab(tabId) {
         const rol = (usuarioActual.rol || 'cliente').toLowerCase();
         const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : (rol === 'admin' || rol === 'superadmin');
         const esVendedor = !esAdmin && rol === 'vendedor';
+        const esKiosco = !esAdmin && (rol === 'autoservicio' || rol === 'kiosco');
 
         if (!esAdmin) {
-            const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
-            if (esVendedor) {
+            if (esKiosco) {
+                // Perfil Kiosco / AutoServicio: navegación bloqueada exclusivamente en la interfaz de kiosco
+                if (tabId !== 'kiosco-view') {
+                    console.warn(`[switchTab] Acceso denegado a "${tabId}" en modo Auto-Servicio/Kiosco.`);
+                    tabId = 'kiosco-view';
+                }
+            } else if (esVendedor) {
+                const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
                 if (!vendedorAllowed.includes(tabId)) {
                     console.warn(`[switchTab] Acceso restringido a "${tabId}" para perfil vendedor.`);
                     tabId = 'pos';
@@ -417,6 +424,10 @@ function switchTab(tabId) {
             if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
         } else if (tabId === 'cliente-perfil') {
             if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
+        } else if (tabId === 'kiosco-view') {
+            if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+                window.KioscoModule.init();
+            }
         }
 
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();

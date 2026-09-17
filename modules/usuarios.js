@@ -102,12 +102,31 @@ function configurarVistasPorRol(usuario) {
         ? esUsuarioAdmin(usuario) 
         : (rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com');
     const esVendedor = !esAdmin && rol === 'vendedor';
-    const esCliente = !esAdmin && !esVendedor;
+    const esKiosco = !esAdmin && (rol === 'autoservicio' || rol === 'kiosco');
+    const esCliente = !esAdmin && !esVendedor && !esKiosco;
 
     // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio, Configuración)
     const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin', 'configuracion'];
     // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+
+    // Ocultar cabecera superior y barra de navegación si está en modo Kiosco
+    const mainHeader = document.getElementById('main-header');
+    const mainNavTabs = document.getElementById('main-nav-tabs');
+    const mainNavMobileBar = document.getElementById('main-nav-mobile-bar');
+    const mobileBottomNav = document.getElementById('mobile-bottom-nav');
+
+    if (esKiosco) {
+        if (mainHeader) mainHeader.style.display = 'none';
+        if (mainNavTabs) mainNavTabs.style.display = 'none';
+        if (mainNavMobileBar) mainNavMobileBar.style.display = 'none';
+        if (mobileBottomNav) mobileBottomNav.style.display = 'none';
+    } else {
+        if (mainHeader) mainHeader.style.display = '';
+        if (mainNavTabs) mainNavTabs.style.display = '';
+        if (mainNavMobileBar) mainNavMobileBar.style.display = '';
+        if (mobileBottomNav) mobileBottomNav.style.display = '';
+    }
 
     // Configurar visibilidad en barra de navegación superior de escritorio
     document.querySelectorAll('#main-nav-tabs .nav-btn').forEach(btn => {
@@ -119,7 +138,9 @@ function configurarVistasPorRol(usuario) {
             return;
         }
 
-        if (esAdmin) {
+        if (esKiosco) {
+            btn.style.display = 'none';
+        } else if (esAdmin) {
             btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
         } else if (esVendedor) {
             btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
@@ -134,7 +155,9 @@ function configurarVistasPorRol(usuario) {
         const tab = btn.getAttribute('data-tab');
         if (!tab) return;
 
-        if (esAdmin) {
+        if (esKiosco) {
+            btn.style.display = 'none';
+        } else if (esAdmin) {
             btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
         } else if (esVendedor) {
             btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
@@ -178,6 +201,12 @@ function configurarVistasPorRol(usuario) {
                     notifFn(`🔔 Tienes <strong>${totalPendientes} pago(s) o abono(s) por verificar</strong> en Firebase. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
                 }
             }, 600);
+        }
+    } else if (esKiosco) {
+        // Modo Kiosco / Auto-Servicio: navegación bloqueada a 'kiosco-view'
+        switchTab('kiosco-view');
+        if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+            window.KioscoModule.init();
         }
     } else if (esVendedor) {
         if (!activeView || !vendedorAllowedTabs.includes(activeView)) {
@@ -1578,6 +1607,14 @@ function cambiarSesionUsuario(cedula) {
             if (window.InventoryApp?.Modal?.toast) {
                 window.InventoryApp.Modal.toast(`Sesión de Vendedor activada: <strong>${usuario.nombre || usuario.cedula}</strong>`, 'info', 6000);
             }
+        } else if (usuario.rol === 'autoservicio' || usuario.rol === 'kiosco') {
+            switchTab('kiosco-view');
+            if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+                window.KioscoModule.init();
+            }
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Modo Kiosco de Auto-Servicio Activado`, 'info', 4000);
+            }
         }
     }
 }
@@ -1730,6 +1767,7 @@ function renderizarUsuarios(busqueda = '') {
                     <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
                         <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
                         <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                        <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
                         <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
                     </select>
                 </td>
@@ -1827,6 +1865,9 @@ function actualizarUIUsuarioActual() {
         } else if (r === 'vendedor') {
             headerStatus.className = 'badge-status-pill badge-primary';
             headerStatus.textContent = 'VENDEDOR';
+        } else if (r === 'autoservicio' || r === 'kiosco') {
+            headerStatus.className = 'badge-status-pill badge-info';
+            headerStatus.textContent = 'KIOSCO';
         } else {
             headerStatus.className = 'badge-status-pill badge-warning';
             headerStatus.textContent = 'CLIENTE VIP';

@@ -95,6 +95,29 @@ window.InventoryApp = window.InventoryApp || {};
             superAdmin.rol = 'admin';
             superAdmin.estado = 'ACTIVO';
         }
+
+        // Asegurar usuario Kiosco / AutoServicio disponible
+        let kioscoUser = AppState.usuarios.find(u => 
+            (u.id || '').toUpperCase() === 'AUTOSERVICIO' || 
+            (u.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTOSERVICIO'
+        );
+        if (!kioscoUser) {
+            kioscoUser = {
+                id: 'AutoServicio',
+                cedula: 'AutoServicio',
+                nombre: 'Terminal Kiosco Auto-Servicio',
+                telefono: '0412-0000000',
+                email: 'kiosco@tubodeguita.com',
+                password: HASH_SUPERADMIN,
+                rol: 'autoservicio',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            AppState.usuarios.push(kioscoUser);
+        }
     }
 
     /**
