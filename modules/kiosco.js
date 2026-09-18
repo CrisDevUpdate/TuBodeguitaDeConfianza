@@ -247,24 +247,30 @@
             const cantEnCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
 
             return `
-                <div class="kiosco-product-card ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-combo' : ''}" 
+                <div class="kiosco-product-card cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-combo es-super-combo' : ''}" 
                      id="kiosco-card-${p.id}"
-                     onclick="${agotado ? '' : `window.KioscoModule.agregarAlCarrito('${p.id}')`}">
+                     onclick="if (!event.target.closest('button') && !${agotado}) window.KioscoModule.agregarAlCarrito('${p.id}');"
+                     style="${agotado ? '' : 'cursor: pointer;'}"
+                     title="${agotado ? 'Producto agotado' : 'Toca para agregar a tu orden'}">
                     
-                    <div class="kiosco-product-img-wrap">
-                        <img src="${imagenSrc}" alt="${p.nombre}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
-                        ${agotado ? '<div class="kiosco-badge-agotado">Agotado</div>' : ''}
+                    <div class="kiosco-product-img-wrap cliente-prod-img-wrapper">
+                        <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                        ${agotado ? '<div class="kiosco-badge-agotado badge-agotado-pill">Agotado</div>' : ''}
                         ${esCombo ? '<div class="kiosco-badge-combo"><i class="fas fa-fire"></i> Combo</div>' : ''}
                         ${cantEnCarrito > 0 ? `<div class="kiosco-badge-en-carrito"><i class="fas fa-check"></i> ${cantEnCarrito} en orden</div>` : ''}
                     </div>
 
-                    <div class="kiosco-product-info">
-                        <div class="kiosco-product-category">${p.categoria || 'General'}</div>
-                        <h3 class="kiosco-product-name" title="${p.nombre}">${p.nombre}</h3>
+                    <div class="kiosco-product-info cliente-prod-body">
+                        <div class="cliente-prod-meta">
+                            <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
+                            <span class="kiosco-product-category cliente-prod-badge-cat">${p.categoria || 'General'}</span>
+                            ${!agotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                        </div>
+                        <h3 class="kiosco-product-name cliente-prod-title" title="${p.nombre}">${p.nombre}</h3>
                         
-                        <div class="kiosco-product-pricing">
-                            <span class="kiosco-price-usd">$${precioUSD.toFixed(2)}</span>
-                            <span class="kiosco-price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
+                        <div class="kiosco-product-pricing cliente-prod-prices">
+                            <span class="kiosco-price-usd price-usd">$${precioUSD.toFixed(2)}</span>
+                            <span class="kiosco-price-ves price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                         </div>
 
                         <div class="kiosco-product-stock-tag ${stock <= 3 && !agotado ? 'stock-bajo' : ''}">
@@ -272,11 +278,14 @@
                         </div>
                     </div>
 
-                    <button type="button" class="kiosco-btn-add-touch ${agotado ? 'disabled' : ''}" ${agotado ? 'disabled' : ''} 
-                            onclick="event.stopPropagation(); window.KioscoModule.agregarAlCarrito('${p.id}')">
-                        <i class="fas ${cantEnCarrito > 0 ? 'fa-plus' : 'fa-cart-plus'}"></i>
-                        <span>${agotado ? 'Agotado' : (cantEnCarrito > 0 ? 'Agregar más' : 'Agregar')}</span>
-                    </button>
+                    <div class="kiosco-product-action cliente-prod-action">
+                        <button type="button" class="kiosco-btn-add-touch cliente-btn-add ${agotado ? 'disabled' : ''}" ${agotado ? 'disabled' : ''} 
+                                onclick="event.stopPropagation(); window.KioscoModule.agregarAlCarrito('${p.id}')"
+                                title="${agotado ? 'Agotado' : (cantEnCarrito > 0 ? 'Agregar más' : 'Agregar')}">
+                            <i class="fas ${cantEnCarrito > 0 ? 'fa-plus' : 'fa-cart-plus'}"></i>
+                            <span class="kiosco-btn-text cliente-btn-text">${agotado ? 'Agotado' : (cantEnCarrito > 0 ? 'Agregar más' : 'Agregar')}</span>
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -411,10 +420,12 @@
             btnContinuar.disabled = (carritoKiosco.length === 0);
         }
 
-        // Barra inferior flotante para pantallas táctiles verticales
+        // Barra inferior flotante para pantallas táctiles verticales (solo visible si la vista de auto-servicio está activa)
         const barMobile = document.getElementById('kiosco-bottom-cart-bar');
+        const kioscoView = document.getElementById('kiosco-view');
+        const esKioscoVisible = document.body.classList.contains('modo-autoservicio') && kioscoView && kioscoView.classList.contains('active');
         if (barMobile) {
-            barMobile.style.display = totalItems > 0 ? 'flex' : 'none';
+            barMobile.style.display = (esKioscoVisible && totalItems > 0) ? 'flex' : 'none';
         }
         const barMobileUSD = document.getElementById('kiosco-mobile-total-usd');
         if (barMobileUSD) barMobileUSD.textContent = `$${totalUSD.toFixed(2)}`;
@@ -1273,7 +1284,15 @@
 
         if (passValido) {
             cerrarModalSalidaKiosco();
+            cerrarModalWizardKiosco();
             document.body.classList.remove('modo-autoservicio');
+
+            // Ocultar barra flotante de autoservicio y limpiar carrito
+            const barMobile = document.getElementById('kiosco-bottom-cart-bar');
+            if (barMobile) barMobile.style.display = 'none';
+            carritoKiosco = [];
+            actualizarResumenCarritoKiosco();
+
             const mainHeader = document.querySelector('.bodeguita-main-header') || document.getElementById('bodeguita-main-header');
             if (mainHeader) mainHeader.style.removeProperty('display');
             const mainNavTabs = document.getElementById('main-nav-tabs');

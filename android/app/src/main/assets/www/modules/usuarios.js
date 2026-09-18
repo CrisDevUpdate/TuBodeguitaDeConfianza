@@ -1683,6 +1683,12 @@ function volverASesionAdmin() {
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     try { sessionStorage.removeItem('sesion_admin_simulador'); } catch (e) {}
 
+    // Remover estado de autoservicio y barra flotante
+    document.body.classList.remove('modo-autoservicio');
+    const barMobileKiosco = document.getElementById('kiosco-bottom-cart-bar');
+    if (barMobileKiosco) barMobileKiosco.style.display = 'none';
+    if (window.KioscoModule?.vaciarCarrito) window.KioscoModule.vaciarCarrito();
+
     verificarGatewall();
     if (window.InventoryApp?.Theme && typeof window.InventoryApp.Theme.init === 'function') {
         window.InventoryApp.Theme.init();

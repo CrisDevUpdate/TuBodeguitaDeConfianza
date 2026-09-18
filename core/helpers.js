@@ -352,6 +352,13 @@ function switchTab(tabId) {
         targetView.style.display = 'block';
     }
 
+    // Si salimos de la vista de auto-servicio, ocultar barra flotante y remover clase
+    if (tabId !== 'kiosco-view') {
+        document.body.classList.remove('modo-autoservicio');
+        const barMobileKiosco = document.getElementById('kiosco-bottom-cart-bar');
+        if (barMobileKiosco) barMobileKiosco.style.display = 'none';
+    }
+
     // Actualizar botones de navegación desktop
     const allNavButtons = document.querySelectorAll('#main-nav-tabs .nav-btn');
     allNavButtons.forEach(btn => {

@@ -62,7 +62,9 @@
         @media (max-width: 899px) {
             .cliente-catalogo-grid,
             .pos-grid-cards,
-            #pos-grid-view {
+            #pos-grid-view,
+            .kiosco-products-grid,
+            #kiosco-productos-grid {
                 display: flex !important;
                 flex-direction: column !important;
                 gap: 8px !important;
@@ -71,7 +73,8 @@
                 box-sizing: border-box !important;
                 padding-bottom: 24px !important;
             }
-            .cliente-prod-card {
+            .cliente-prod-card,
+            .kiosco-product-card {
                 display: flex !important;
                 flex-direction: row !important;
                 align-items: center !important;
@@ -89,12 +92,14 @@
                 position: relative !important;
                 -webkit-tap-highlight-color: transparent !important;
             }
-            .cliente-prod-card:active {
+            .cliente-prod-card:active,
+            .kiosco-product-card:active {
                 transform: scale(0.985) !important;
                 background: var(--bg-hover, #f8fafc) !important;
             }
             /* Miniatura Izquierda Cuadrada 64x64px */
-            .cliente-prod-img-wrapper {
+            .cliente-prod-img-wrapper,
+            .kiosco-product-img-wrap {
                 width: 64px !important;
                 height: 64px !important;
                 min-width: 64px !important;
@@ -108,7 +113,8 @@
                 background: var(--bg-muted, #f1f5f9) !important;
                 margin: 0 !important;
             }
-            .cliente-prod-img {
+            .cliente-prod-img,
+            .kiosco-product-img-wrap img {
                 width: 100% !important;
                 height: 100% !important;
                 object-fit: cover !important;
@@ -116,7 +122,8 @@
                 display: block !important;
             }
             /* Cuerpo Central: Información y Precios */
-            .cliente-prod-body {
+            .cliente-prod-body,
+            .kiosco-product-info {
                 flex: 1 1 auto !important;
                 min-width: 0 !important;
                 display: flex !important;
@@ -141,7 +148,8 @@
                 color: var(--text-muted, #94a3b8) !important;
                 white-space: nowrap !important;
             }
-            .cliente-prod-badge-cat {
+            .cliente-prod-badge-cat,
+            .kiosco-product-category {
                 position: static !important;
                 font-size: 0.62rem !important;
                 font-weight: 700 !important;
@@ -156,6 +164,9 @@
                 text-overflow: ellipsis !important;
                 display: inline-block !important;
                 border: 1px solid var(--border-light, #e2e8f0) !important;
+                width: fit-content !important;
+                margin-bottom: 2px !important;
+                text-transform: uppercase !important;
             }
             .badge-stock-low {
                 font-size: 0.6rem !important;
@@ -166,7 +177,8 @@
                 color: #b45309 !important;
                 white-space: nowrap !important;
             }
-            .cliente-prod-title {
+            .cliente-prod-title,
+            .kiosco-product-name {
                 font-size: 0.9rem !important;
                 font-weight: 700 !important;
                 color: var(--text-main, #0f172a) !important;
@@ -180,7 +192,8 @@
                 text-overflow: ellipsis !important;
                 word-break: break-word !important;
             }
-            .cliente-prod-prices {
+            .cliente-prod-prices,
+            .kiosco-product-pricing {
                 display: flex !important;
                 flex-direction: row !important;
                 align-items: baseline !important;
@@ -189,27 +202,39 @@
                 padding: 0 !important;
                 border: none !important;
             }
-            .cliente-prod-prices .price-usd {
+            .cliente-prod-prices .price-usd,
+            .kiosco-price-usd {
                 font-size: 1.08rem !important;
                 font-weight: 800 !important;
-                color: var(--primary-accent, #2563eb) !important;
+                color: var(--primary-accent, #0284c7) !important;
                 line-height: 1 !important;
             }
-            .cliente-prod-prices .price-ves {
+            .cliente-prod-prices .price-ves,
+            .kiosco-price-ves {
                 font-size: 0.76rem !important;
                 font-weight: 600 !important;
                 color: var(--text-muted, #64748b) !important;
                 line-height: 1 !important;
             }
+            .kiosco-product-stock-tag {
+                font-size: 0.65rem !important;
+                font-weight: 600 !important;
+                margin-top: 1px !important;
+                line-height: 1.1 !important;
+            }
             /* Columna de Acción Derecha: Botón Táctil de Agregar (+) */
-            .cliente-prod-action {
+            .cliente-prod-action,
+            .kiosco-product-action {
                 flex-shrink: 0 !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 margin-left: auto !important;
+                width: auto !important;
+                margin-top: 0 !important;
             }
-            .cliente-btn-add {
+            .cliente-btn-add,
+            .kiosco-btn-add-touch {
                 width: 42px !important;
                 height: 42px !important;
                 min-width: 42px !important;
@@ -223,31 +248,37 @@
                 justify-content: center !important;
                 flex-shrink: 0 !important;
                 font-size: 1.1rem !important;
-                background: var(--primary-accent, #2563eb) !important;
+                background: var(--primary-accent, #0284c7) !important;
                 color: #ffffff !important;
                 border: none !important;
-                box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
+                box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
                 margin: 0 !important;
                 cursor: pointer !important;
             }
-            .cliente-btn-add .cliente-btn-text {
+            .cliente-btn-add .cliente-btn-text,
+            .kiosco-btn-add-touch span,
+            .kiosco-btn-add-touch .kiosco-btn-text {
                 display: none !important;
             }
-            .cliente-btn-add i {
+            .cliente-btn-add i,
+            .kiosco-btn-add-touch i {
                 font-size: 1.1rem !important;
                 margin: 0 !important;
             }
             /* Estado Agotado */
-            .cliente-prod-card.card-agotado {
+            .cliente-prod-card.card-agotado,
+            .kiosco-product-card.card-agotado {
                 opacity: 0.6 !important;
                 background: var(--bg-muted, #f8fafc) !important;
                 border-color: var(--border-light, #e2e8f0) !important;
                 cursor: not-allowed !important;
             }
-            .card-agotado .cliente-prod-img {
+            .card-agotado .cliente-prod-img,
+            .card-agotado .kiosco-product-img-wrap img {
                 filter: grayscale(0.85) !important;
             }
-            .card-agotado .badge-agotado-pill {
+            .card-agotado .badge-agotado-pill,
+            .card-agotado .kiosco-badge-agotado {
                 position: absolute !important;
                 inset: 0 !important;
                 display: flex !important;
@@ -261,11 +292,75 @@
                 letter-spacing: 0.04em !important;
                 border-radius: 8px !important;
             }
-            .card-agotado .cliente-btn-add {
+            .card-agotado .cliente-btn-add,
+            .card-agotado .kiosco-btn-add-touch,
+            .kiosco-btn-add-touch.disabled {
                 background: var(--border, #cbd5e1) !important;
                 color: var(--text-muted, #94a3b8) !important;
                 box-shadow: none !important;
                 cursor: not-allowed !important;
+            }
+            /* Badges de miniatura en Kiosco */
+            .kiosco-badge-combo {
+                position: absolute !important;
+                top: 2px !important;
+                left: 2px !important;
+                font-size: 0.55rem !important;
+                font-weight: 800 !important;
+                padding: 1px 4px !important;
+                border-radius: 4px !important;
+                background: #f59e0b !important;
+                color: #ffffff !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+                line-height: 1.1 !important;
+            }
+            .kiosco-badge-en-carrito {
+                position: absolute !important;
+                bottom: 2px !important;
+                right: 2px !important;
+                background: #16a34a !important;
+                color: #ffffff !important;
+                font-size: 0.58rem !important;
+                font-weight: 700 !important;
+                padding: 1px 4px !important;
+                border-radius: 4px !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.25) !important;
+                line-height: 1.1 !important;
+            }
+            /* Optimización de Espacio Viewport Móvil Kiosco */
+            .kiosco-container {
+                padding: 10px 10px 84px 10px !important;
+            }
+            .kiosco-header-banner {
+                padding: 12px 14px !important;
+                margin-bottom: 10px !important;
+                gap: 8px !important;
+                border-radius: 14px !important;
+            }
+            .kiosco-header-top-row {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .kiosco-frase-banner {
+                padding: 8px 12px !important;
+                margin-top: 4px !important;
+                border-radius: 12px !important;
+            }
+            .kiosco-frase-texto {
+                font-size: 0.82rem !important;
+                line-height: 1.35 !important;
+            }
+            .kiosco-search-bar {
+                padding: 8px 10px !important;
+                margin-bottom: 10px !important;
+                border-radius: 12px !important;
+            }
+            .kiosco-search-input-wrap {
+                padding: 6px 10px !important;
+            }
+            .kiosco-cat-chip {
+                padding: 6px 12px !important;
+                font-size: 0.8rem !important;
             }
 
             #modal-admin-combo-builder {
@@ -937,6 +1032,10 @@
             color: #94a3b8;
             cursor: not-allowed;
         }
+        .kiosco-product-action {
+            width: 100%;
+            margin-top: 6px;
+        }
 
         /* PANEL DERECHO: ORDEN EN CURSO */
         .kiosco-order-sidebar {
@@ -1128,6 +1227,13 @@
             z-index: 100;
             box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
         }
+        /* La barra flotante del autoservicio NUNCA debe verse si no se está en la pantalla de autoservicio */
+        body:not(.modo-autoservicio) .kiosco-bottom-bar,
+        body:not(.modo-autoservicio) #kiosco-bottom-cart-bar,
+        #kiosco-view:not(.active) .kiosco-bottom-bar,
+        .view-content:not(#kiosco-view).active ~ .kiosco-bottom-bar {
+            display: none !important;
+        }
         .kiosco-bottom-info {
             display: flex;
             flex-direction: column;
@@ -1224,6 +1330,128 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             margin: 14px 0;
+        }
+        /* Tarjeta de cliente identificado en BD */
+        .kiosco-client-card {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 10px;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        .kiosco-client-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #dcfce7;
+            color: #16a34a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            border: 2px solid #bbf7d0;
+        }
+        .kiosco-client-not-found {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: #991b1b;
+            font-size: 0.88rem;
+            line-height: 1.4;
+            margin-top: 10px;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        .kiosco-pwd-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .kiosco-pwd-wrap input {
+            width: 100%;
+            padding: 12px 46px 12px 14px;
+            border-radius: 10px;
+            border: 2px solid #cbd5e1;
+            font-size: 1.05rem;
+            font-weight: 600;
+            box-sizing: border-box;
+            background: #ffffff;
+            color: #0f172a;
+        }
+        .kiosco-pwd-wrap input:focus {
+            outline: none;
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+        .kiosco-pwd-toggle-btn {
+            position: absolute;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 8px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kiosco-pwd-toggle-btn:hover {
+            color: #0f172a;
+        }
+        /* Selector de modalidades: Crédito vs Contado */
+        .kiosco-mode-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 14px 0;
+        }
+        .kiosco-mode-card {
+            background: #f8fafc;
+            border: 2px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 14px;
+            cursor: pointer;
+            text-align: left;
+            position: relative;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .kiosco-mode-card:hover {
+            border-color: #94a3b8;
+            background: #ffffff;
+        }
+        .kiosco-mode-card.active {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            box-shadow: 0 4px 12px -2px rgba(2, 132, 199, 0.15);
+        }
+        .kiosco-mode-card.active.mode-credito {
+            border-color: #16a34a;
+            background: #f0fdf4;
+            box-shadow: 0 4px 12px -2px rgba(22, 163, 74, 0.15);
+        }
+        .kiosco-mode-badge-default {
+            align-self: flex-start;
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid #bbf7d0;
         }
         .kiosco-pay-method-btn {
             background: #f8fafc;
@@ -1763,18 +1991,18 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- BARRA INFERIOR FLOTANTE PARA MÓVILES / TERMINALES VERTICALES -->
-    <div class="kiosco-bottom-bar" id="kiosco-bottom-cart-bar">
-        <div class="kiosco-bottom-info">
-            <small><span id="kiosco-mobile-cart-count">0</span> productos agregados</small>
-            <strong id="kiosco-mobile-total-usd">$0.00</strong>
+        <!-- BARRA INFERIOR FLOTANTE PARA MÓVILES / TERMINALES VERTICALES (DENTRO DE KIOSCO-VIEW) -->
+        <div class="kiosco-bottom-bar" id="kiosco-bottom-cart-bar">
+            <div class="kiosco-bottom-info">
+                <small><span id="kiosco-mobile-cart-count">0</span> productos agregados</small>
+                <strong id="kiosco-mobile-total-usd">$0.00</strong>
+            </div>
+            <button type="button" class="kiosco-btn-mobile-checkout" onclick="window.KioscoModule.iniciarCheckout()">
+                <span>Ver Orden y Pagar</span>
+                <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
-        <button type="button" class="kiosco-btn-mobile-checkout" onclick="window.KioscoModule.iniciarCheckout()">
-            <span>Ver Orden y Pagar</span>
-            <i class="fas fa-chevron-right"></i>
-        </button>
     </div>
 
     <!-- MODAL WIZARD DE COMPRA KIOSCO (PASOS 2, 3 Y 4) -->
@@ -1802,38 +2030,67 @@
 
             <!-- PASO 2: IDENTIFICACIÓN DEL CLIENTE -->
             <div id="kiosco-wizard-paso-2">
-                <h3 style="margin:0 0 6px 0; color:#0f172a; font-size:1.3rem; font-weight:800;">
-                    <i class="fas fa-id-card" style="color:#0284c7;"></i> ¿A nombre de quién es el pedido?
+                <h3 style="margin:0 0 6px 0; color:#0f172a; font-size:1.3rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-id-card" style="color:#0284c7;"></i> Identificación de Cliente
                 </h3>
                 <p style="margin:0 0 16px 0; color:#64748b; font-size:0.9rem;">
-                    Ingresa tus datos para preparar y entregar tu compra en caja.
+                    Ingresa tu número de cédula para reconocer tu cuenta en el sistema y autorizar con tu clave de usuario.
                 </p>
 
                 <div style="display:flex; flex-direction:column; gap:14px;">
+                    <!-- Campo de Cédula -->
                     <div>
-                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                        <label for="kiosco-input-cedula" style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
                             Cédula de Identidad o RIF <span style="color:#ef4444;">*</span>
                         </label>
-                        <input type="text" id="kiosco-input-cedula" placeholder="Ej: V-18765432" 
-                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;"
-                               oninput="window.KioscoModule.alEscribirCedula(this.value)">
-                        <div id="kiosco-cliente-autofill-badge" style="display:none; margin-top:4px; font-size:0.8rem; color:#15803d; font-weight:700; align-items:center; gap:4px;"></div>
+                        <input type="text" id="kiosco-input-cedula" placeholder="Ingresa tu cédula (ej: 18765432 o V-18765432)" 
+                               autocomplete="off"
+                               style="width:100%; padding:14px; border-radius:12px; border:2px solid #cbd5e1; font-size:1.15rem; font-weight:700; box-sizing:border-box; color:#0f172a; background:#ffffff;"
+                               oninput="window.KioscoModule.alEscribirCedula(this.value)"
+                               onkeydown="if(event.key === 'Enter') window.KioscoModule.avanzarPasoPago();">
                     </div>
 
-                    <div>
-                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
-                            Nombre y Apellido <span style="color:#ef4444;">*</span>
-                        </label>
-                        <input type="text" id="kiosco-input-nombre" placeholder="Ej: María Rodríguez" 
-                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;">
+                    <!-- Tarjeta de Cliente Reconocido (Se muestra cuando existe en la BD) -->
+                    <div id="kiosco-cliente-reconocido-box" class="kiosco-client-card" style="display:none;">
+                        <div class="kiosco-client-avatar">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:0.75rem; text-transform:uppercase; font-weight:800; color:#15803d; letter-spacing:0.5px; display:flex; align-items:center; gap:4px;">
+                                <i class="fas fa-circle-check"></i> Cliente Reconocido de Confianza
+                            </div>
+                            <h4 id="kiosco-cliente-nombre-display" style="margin:2px 0 0 0; font-size:1.25rem; font-weight:800; color:#0f172a; line-height:1.2;"></h4>
+                            <div id="kiosco-cliente-cedula-display" style="font-size:0.85rem; color:#475569; font-weight:600; margin-top:2px;"></div>
+                        </div>
                     </div>
 
-                    <div>
-                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
-                            Teléfono de Contacto (Opcional)
+                    <!-- Mensaje de Cédula No Encontrada (Se muestra si la cédula no está en la BD) -->
+                    <div id="kiosco-cliente-no-encontrado-box" class="kiosco-client-not-found" style="display:none;">
+                        <i class="fas fa-circle-exclamation" style="font-size:1.4rem; color:#ef4444; margin-top:2px; flex-shrink:0;"></i>
+                        <div>
+                            <strong>Cliente no encontrado en nuestra base de datos.</strong>
+                            <div style="margin-top:2px;">Solo clientes registrados pueden comprar en el Auto-Servicio. Por favor acércate a la caja para registrar tu cuenta.</div>
+                        </div>
+                    </div>
+
+                    <!-- Campo de Clave de Usuario (Solo visible si el cliente está identificado) -->
+                    <div id="kiosco-grupo-clave-usuario" style="display:none;">
+                        <label for="kiosco-input-clave-usuario" style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                            Clave de tu Usuario <span style="color:#ef4444;">*</span>
                         </label>
-                        <input type="tel" id="kiosco-input-telefono" placeholder="Ej: 0414-1234567" 
-                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;">
+                        <div class="kiosco-pwd-wrap">
+                            <input type="password" id="kiosco-input-clave-usuario" placeholder="Ingresa tu contraseña de usuario"
+                                   autocomplete="current-password"
+                                   onkeydown="if(event.key === 'Enter') window.KioscoModule.avanzarPasoPago();"
+                                   oninput="window.KioscoModule.limpiarErrorClave();">
+                            <button type="button" class="kiosco-pwd-toggle-btn" id="btn-toggle-clave-usuario" onclick="window.KioscoModule.toggleVerClaveUsuario()" title="Mostrar/ocultar clave">
+                                <i class="fas fa-eye" id="kiosco-icono-ver-clave"></i>
+                            </button>
+                        </div>
+                        <div id="kiosco-clave-error-msg" style="display:none; color:#dc2626; font-size:0.82rem; font-weight:700; margin-top:6px; align-items:center; gap:6px;"></div>
+                        <small style="display:block; color:#64748b; font-size:0.8rem; margin-top:4px;">
+                            <i class="fas fa-lock" style="font-size:0.75rem;"></i> Confirma con tu clave para autorizar esta compra a tu nombre.
+                        </small>
                     </div>
                 </div>
 
@@ -1841,7 +2098,7 @@
                     <button type="button" class="btn btn-secondary" onclick="window.KioscoModule.cerrarWizard()" style="padding:12px 20px; font-weight:700;">
                         <i class="fas fa-arrow-left"></i> Volver al Catálogo
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="window.KioscoModule.avanzarPasoPago()" style="padding:12px 24px; font-weight:800; background:#0284c7; border-color:#0284c7;">
+                    <button type="button" class="btn btn-primary" id="kiosco-btn-avanzar-pago" onclick="window.KioscoModule.avanzarPasoPago()" style="padding:12px 24px; font-weight:800; background:#0284c7; border-color:#0284c7;">
                         Siguiente: Método de Pago <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -1849,72 +2106,121 @@
 
             <!-- PASO 3: SELECCIÓN DE PAGO Y CONFIRMACIÓN -->
             <div id="kiosco-wizard-paso-3" style="display:none;">
-                <h3 style="margin:0 0 4px 0; color:#0f172a; font-size:1.3rem; font-weight:800;">
-                    <i class="fas fa-credit-card" style="color:#0284c7;"></i> Selecciona cómo pagarás
+                <h3 style="margin:0 0 4px 0; color:#0f172a; font-size:1.3rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-wallet" style="color:#0284c7;"></i> Modalidad de Pago
                 </h3>
-                <div style="background:#f8fafc; border-radius:10px; padding:8px 12px; margin-bottom:14px; font-size:0.85rem; color:#475569;">
-                    Cliente: <strong id="kiosco-pago-cliente-resumen" style="color:#0f172a;">—</strong>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; margin-bottom:14px; font-size:0.85rem; color:#475569; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Cliente Verificado: <strong id="kiosco-pago-cliente-resumen" style="color:#0f172a;">—</strong></span>
+                    <span style="color:#16a34a; font-weight:700; font-size:0.75rem; background:#dcfce7; padding:2px 8px; border-radius:9999px;"><i class="fas fa-shield-check"></i> Autorizado</span>
                 </div>
 
                 <!-- Montos a Pagar -->
                 <div style="display:flex; justify-content:space-between; align-items:center; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:12px 16px; margin-bottom:14px;">
                     <div>
-                        <div style="font-size:0.75rem; text-transform:uppercase; color:#0369a1; font-weight:700;">Monto a Cancelar</div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#0369a1; font-weight:700;">Monto a Procesar</div>
                         <div id="kiosco-pago-total-usd" style="font-size:1.4rem; font-weight:900; color:#0284c7;">$0.00</div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:700;">En Bolívares</div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:700;">En Bolívares (BCV)</div>
                         <div id="kiosco-pago-total-ves" style="font-size:1.2rem; font-weight:800; color:#0f172a;">Bs. 0.00</div>
                     </div>
                 </div>
 
-                <!-- Selector de Métodos de Pago -->
-                <div class="kiosco-pay-methods-grid">
-                    <div class="kiosco-pay-method-btn active" data-metodo="PAGO_MOVIL" onclick="window.KioscoModule.seleccionarMetodoPago('PAGO_MOVIL')">
-                        <i class="fas fa-mobile-screen-button"></i>
-                        <span>Pago Móvil</span>
-                        <small style="font-size:0.72rem; color:#64748b;">Transferencia en Bs.</small>
+                <!-- Selector Principal: Todo a Crédito (Por Defecto) vs Al Contado -->
+                <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:6px;">
+                    Elige cómo deseas procesar tu compra:
+                </label>
+                <div class="kiosco-mode-grid">
+                    <!-- Opción 1: Todo a Crédito (Por Defecto) -->
+                    <div class="kiosco-mode-card active mode-credito" id="kiosco-mode-card-credito" onclick="window.KioscoModule.seleccionarModalidad('CREDITO')">
+                        <span class="kiosco-mode-badge-default"><i class="fas fa-star"></i> Por Defecto</span>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+                            <i class="fas fa-file-invoice-dollar" style="color:#16a34a; font-size:1.4rem;"></i>
+                            <strong style="color:#0f172a; font-size:1.05rem;">Todo a Crédito</strong>
+                        </div>
+                        <small style="color:#475569; font-size:0.78rem; line-height:1.3;">Cargar a mi cuenta corriente de confianza para pagar luego.</small>
                     </div>
-                    <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_USD" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_USD')">
-                        <i class="fas fa-money-bill-wave" style="color:#16a34a;"></i>
-                        <span>Efectivo ($ USD)</span>
-                        <small style="font-size:0.72rem; color:#64748b;">Pagar en Caja</small>
-                    </div>
-                    <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_VES" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_VES')">
-                        <i class="fas fa-money-bill-1-wave" style="color:#d97706;"></i>
-                        <span>Efectivo (Bs.)</span>
-                        <small style="font-size:0.72rem; color:#64748b;">Pagar en Caja</small>
-                    </div>
-                    <div class="kiosco-pay-method-btn" data-metodo="PUNTO_VENTA" onclick="window.KioscoModule.seleccionarMetodoPago('PUNTO_VENTA')">
-                        <i class="fas fa-credit-card" style="color:#9333ea;"></i>
-                        <span>Punto de Venta</span>
-                        <small style="font-size:0.72rem; color:#64748b;">Tarjeta en Caja</small>
+
+                    <!-- Opción 2: Al Contado -->
+                    <div class="kiosco-mode-card" id="kiosco-mode-card-contado" onclick="window.KioscoModule.seleccionarModalidad('CONTADO')">
+                        <span style="align-self:flex-start; background:#fef3c7; color:#92400e; font-size:0.72rem; font-weight:800; padding:3px 8px; border-radius:9999px; text-transform:uppercase; letter-spacing:0.5px; border:1px solid #fde68a;">
+                            <i class="fas fa-cash-register"></i> En Caja
+                        </span>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+                            <i class="fas fa-money-bill-wave" style="color:#0284c7; font-size:1.4rem;"></i>
+                            <strong style="color:#0f172a; font-size:1.05rem;">Al Contado</strong>
+                        </div>
+                        <small style="color:#475569; font-size:0.78rem; line-height:1.3;">Pagar ahora en efectivo, Pago Móvil o Punto de Venta.</small>
                     </div>
                 </div>
 
-                <!-- Datos Bancarios para Pago Móvil -->
-                <div id="kiosco-box-pago-movil">
-                    <label style="display:block; font-size:0.8rem; font-weight:700; color:#475569; margin-bottom:4px;">
-                        Datos para tu Pago Móvil:
-                    </label>
-                    <div id="kiosco-datos-pago-movil"></div>
-                    <div>
-                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
-                            Referencia de Pago (Opcional si pagas en caja)
-                        </label>
-                        <input type="text" id="kiosco-input-referencia" placeholder="Últimos 4 o 6 dígitos del comprobante"
-                               style="width:100%; padding:10px; border-radius:10px; border:2px solid #cbd5e1; font-size:1rem; box-sizing:border-box;">
+                <!-- PANEL A CRÉDITO (Por Defecto) -->
+                <div id="kiosco-panel-credito" style="display:block; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px; margin-bottom:14px;">
+                    <div style="display:flex; align-items:center; gap:8px; color:#15803d; font-weight:800; font-size:0.95rem;">
+                        <i class="fas fa-circle-check"></i> Compra a Crédito de Confianza
                     </div>
-                </div>
-
-                <!-- Caja Informativa para Pago en Caja / Efectivo -->
-                <div id="kiosco-box-efectivo" style="display:none; background:#fef3c7; border:1px solid #fde68a; border-radius:12px; padding:12px; margin-bottom:12px;">
-                    <div style="display:flex; align-items:center; gap:8px; color:#b45309; font-weight:700;">
-                        <i class="fas fa-info-circle"></i> Pago en Mostrador
-                    </div>
-                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:#92400e;">
-                        Al enviar tu pedido, acércate a la caja para entregar el efectivo y recibir tus productos.
+                    <p style="margin:6px 0 0 0; font-size:0.86rem; color:#166534; line-height:1.4;">
+                        El total se cargará automáticamente a tu cuenta corriente. Al confirmar, puedes retirar y llevarte tus productos de inmediato.
                     </p>
+                </div>
+
+                <!-- PANEL AL CONTADO (Auto-pago) -->
+                <div id="kiosco-panel-contado" style="display:none;">
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px; margin-bottom:12px;">
+                        <div style="font-weight:700; color:#1e40af; font-size:0.88rem;">
+                            <i class="fas fa-money-bill-wave"></i> Modalidad al Contado (Auto-pago)
+                        </div>
+                        <small style="color:#1d4ed8; font-size:0.8rem;">Selecciona tu método de pago directo para registrar tu comprobante.</small>
+                    </div>
+
+                    <!-- Métodos Rápidos de Contado -->
+                    <div class="kiosco-pay-methods-grid" style="margin-top:8px;">
+                        <div class="kiosco-pay-method-btn active" data-metodo="PAGO_MOVIL" onclick="window.KioscoModule.seleccionarMetodoPago('PAGO_MOVIL')">
+                            <i class="fas fa-mobile-screen-button"></i>
+                            <span>Pago Móvil</span>
+                            <small style="font-size:0.72rem; color:#64748b;">Transferencia Bs.</small>
+                        </div>
+                        <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_USD" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_USD')">
+                            <i class="fas fa-money-bill-wave" style="color:#16a34a;"></i>
+                            <span>Efectivo ($ USD)</span>
+                            <small style="font-size:0.72rem; color:#64748b;">Auto-pago</small>
+                        </div>
+                        <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_VES" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_VES')">
+                            <i class="fas fa-money-bill-1-wave" style="color:#d97706;"></i>
+                            <span>Efectivo (Bs.)</span>
+                            <small style="font-size:0.72rem; color:#64748b;">Auto-pago</small>
+                        </div>
+                        <div class="kiosco-pay-method-btn" data-metodo="PUNTO_VENTA" onclick="window.KioscoModule.seleccionarMetodoPago('PUNTO_VENTA')">
+                            <i class="fas fa-credit-card" style="color:#9333ea;"></i>
+                            <span>Tarjeta Débito</span>
+                            <small style="font-size:0.72rem; color:#64748b;">Terminal Digital</small>
+                        </div>
+                    </div>
+
+                    <!-- Datos Bancarios para Pago Móvil -->
+                    <div id="kiosco-box-pago-movil">
+                        <label style="display:block; font-size:0.8rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                            Datos para tu Pago Móvil:
+                        </label>
+                        <div id="kiosco-datos-pago-movil"></div>
+                        <div>
+                            <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                                Número o Referencia de Pago Móvil:
+                            </label>
+                            <input type="text" id="kiosco-input-referencia" placeholder="Últimos 4 o 6 dígitos del comprobante"
+                                   style="width:100%; padding:10px; border-radius:10px; border:2px solid #cbd5e1; font-size:1rem; box-sizing:border-box;">
+                        </div>
+                    </div>
+
+                    <!-- Cuadro para Efectivo / Punto -->
+                    <div id="kiosco-box-efectivo" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px; color:#334155; font-weight:700;">
+                            <i class="fas fa-info-circle" style="color:#0284c7;"></i> Pago Directo en Efectivo
+                        </div>
+                        <p style="margin:4px 0 0 0; font-size:0.85rem; color:#64748b;">
+                            Deposita el monto exacto en el receptor de auto-servicio al retirar tus artículos.
+                        </p>
+                    </div>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; margin-top:20px; gap:12px;">
@@ -1922,7 +2228,7 @@
                         <i class="fas fa-arrow-left"></i> Cambiar Datos
                     </button>
                     <button type="button" class="btn btn-success" id="kiosco-btn-confirmar-final" onclick="window.KioscoModule.confirmarPedido()" style="padding:12px 24px; font-weight:800; background:#16a34a; border-color:#16a34a; font-size:1.05rem;">
-                        <i class="fas fa-check-circle"></i> Enviar Pedido a Caja
+                        <i class="fas fa-bag-shopping"></i> Confirmar y Retirar Productos
                     </button>
                 </div>
             </div>
@@ -1933,14 +2239,17 @@
                     <div style="display:inline-flex; align-items:center; justify-content:center; width:60px; height:60px; border-radius:50%; background:#16a34a; color:#ffffff; font-size:1.8rem; margin-bottom:10px;">
                         <i class="fas fa-check"></i>
                     </div>
-                    <h2 style="margin:0; color:#1e293b; font-size:1.4rem; font-weight:900;">¡Pedido Generado con Éxito!</h2>
-                    <p style="margin:4px 0 12px 0; color:#64748b; font-size:0.9rem;">
-                        Por favor acércate a la caja con tu número de orden para retirar tu compra:
+                    <h2 style="margin:0; color:#1e293b; font-size:1.4rem; font-weight:900;">¡Compra Confirmada con Éxito!</h2>
+                    <p style="margin:6px 0 12px 0; color:#15803d; font-size:0.95rem; font-weight:700;">
+                        <i class="fas fa-basket-shopping"></i> Ya puedes tomar y retirar tus productos directamente. ¡Muchas gracias por tu compra!
                     </p>
 
                     <div class="kiosco-ticket-order-num" id="kiosco-ticket-num-orden">#AUT_000</div>
                     <div style="font-weight:700; color:#475569; font-size:0.95rem;" id="kiosco-ticket-cliente">Cliente</div>
-                    <div style="margin:10px 0; font-size:1.1rem;" id="kiosco-ticket-total"><strong>$0.00</strong></div>
+                    <div id="kiosco-ticket-modalidad-badge" style="display:inline-block; margin:6px auto 10px; padding:4px 12px; border-radius:20px; font-size:0.85rem; font-weight:800; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                        <i class="fas fa-file-invoice-dollar"></i> Modalidad: Crédito (Cargado a Cuenta Corriente)
+                    </div>
+                    <div style="margin:6px 0 10px 0; font-size:1.1rem;" id="kiosco-ticket-total"><strong>$0.00</strong></div>
 
                     <div style="margin-top:14px; text-align:left; background:rgba(255,255,255,0.7); border-radius:10px; padding:10px; max-height:160px; overflow-y:auto;" id="kiosco-ticket-items">
                         <!-- Ítems del ticket -->
@@ -1952,7 +2261,7 @@
                         Esta pantalla se reiniciará en <strong id="kiosco-ticket-timer" style="color:#0284c7;">25s</strong>
                     </small>
                     <button type="button" class="btn btn-primary" onclick="window.KioscoModule.reiniciarKiosco()" style="padding:12px 24px; font-weight:800; background:#0284c7; border-color:#0284c7;">
-                        <i class="fas fa-rotate-right"></i> Hacer Nuevo Pedido
+                        <i class="fas fa-rotate-right"></i> Hacer Otra Compra
                     </button>
                 </div>
             </div>
