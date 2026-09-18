@@ -78,14 +78,28 @@ function actualizarVistaTasaBCV() {
 
     actualizarTarjetaInventario();
 
-    // Actualizar todas las vistas que dependen del cálculo en Bolívares
-    if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
-    if (typeof renderizarInventario === 'function') renderizarInventario();
-    if (typeof renderizarClientes === 'function') renderizarClientes();
-    if (typeof renderizarCarrito === 'function') renderizarCarrito();
-    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
-    if (typeof clienteSeleccionadoId !== 'undefined' && clienteSeleccionadoId && typeof verDetalleCliente === 'function') {
-        verDetalleCliente(clienteSeleccionadoId);
+    // Actualizar solo las vistas pertinentes si la tasa realmente cambió de valor
+    const claveRender = `${monedaSeleccionada}_${tasaActiva}`;
+    if (window._ultimaClaveTasaRenderizada !== claveRender) {
+        window._ultimaClaveTasaRenderizada = claveRender;
+        const activeView = document.querySelector('.view-content.active')?.id;
+        if (!activeView || activeView === 'pos') {
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+            if (typeof renderizarCarrito === 'function') renderizarCarrito();
+        } else if (activeView === 'inventario') {
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+        } else if (activeView === 'clientes') {
+            if (typeof renderizarClientes === 'function') renderizarClientes();
+        } else if (activeView === 'transacciones') {
+            if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+        } else if (activeView === 'kiosco-view') {
+            if (window.KioscoModule && typeof window.KioscoModule.renderHeader === 'function') {
+                window.KioscoModule.renderHeader();
+            }
+        }
+        if (typeof clienteSeleccionadoId !== 'undefined' && clienteSeleccionadoId && typeof verDetalleCliente === 'function') {
+            verDetalleCliente(clienteSeleccionadoId);
+        }
     }
 }
 

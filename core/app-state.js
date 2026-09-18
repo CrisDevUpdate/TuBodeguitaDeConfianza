@@ -254,6 +254,13 @@ window.InventoryApp.StockService = {
         p.stock = Number(p.stock || 0) - qty;
         return true;
     },
+    devolver(productId, quantity) {
+        const p = this._get(productId);
+        const qty = Number(quantity);
+        if (!p || !Number.isFinite(qty) || qty <= 0) return false;
+        p.stock = Math.max(0, Number(p.stock || 0) + qty);
+        return true;
+    },
     retiro(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);

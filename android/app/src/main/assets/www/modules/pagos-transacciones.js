@@ -1519,6 +1519,22 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
     if (venta) {
         venta.estado = 'CONFIRMADO';
         venta.confirmada = true;
+
+        // Si el inventario no fue descontado previamente (como en los pedidos de AutoServicio/Kiosco), descontarlo ahora
+        if (venta.descontadoInventario === false && Array.isArray(venta.items)) {
+            for (const it of venta.items) {
+                if (window.InventoryApp?.StockService?.sale) {
+                    window.InventoryApp.StockService.sale(it.productoId, it.cantidad);
+                } else {
+                    const prod = (AppState.productos || []).find(p => p.id === it.productoId);
+                    if (prod) prod.stock = Math.max(0, Number(prod.stock || 0) - Number(it.cantidad || 0));
+                }
+            }
+            venta.descontadoInventario = true;
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+        }
+
         if (window.InventoryApp?.Firebase?.registrarVenta) {
             window.InventoryApp.Firebase.registrarVenta(venta, venta.items || []).catch(() => {});
         }

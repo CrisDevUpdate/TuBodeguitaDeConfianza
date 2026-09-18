@@ -83,15 +83,26 @@ function obtenerFraseSabiduriaAleatoria() {
  */
 async function actualizarEncabezadoClienteDinamico() {
     const usuario = AppState.usuarioActual;
+    const esAutoServicio = usuario && (
+        usuario.rol === 'autoservicio' || 
+        usuario.rol === 'kiosco' || 
+        (usuario.id || '').toUpperCase() === 'AUTOSERVICIO' ||
+        (usuario.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
+        (usuario.nombre || '').toUpperCase().includes('AUTOSERVICIO')
+    );
     const nombreUsuario = usuario ? (usuario.nombre || usuario.cedula || 'Cliente') : 'Cliente';
     
-    // 1. Saludo según hora
+    // 1. Saludo según hora general
     const saludoInfo = obtenerSaludoSegunHora();
     const elemNombre = document.getElementById('cliente-bienvenida-nombre');
     const elemIcono = document.getElementById('cliente-saludo-icono');
 
     if (elemNombre) {
-        elemNombre.textContent = `¡${saludoInfo.texto}, ${nombreUsuario}!`;
+        if (esAutoServicio) {
+            elemNombre.textContent = `¡${saludoInfo.texto}! Te damos la bienvenida a Tu Bodeguita de Confianza`;
+        } else {
+            elemNombre.textContent = `¡${saludoInfo.texto}, ${nombreUsuario}!`;
+        }
     }
     if (elemIcono) {
         elemIcono.innerHTML = saludoInfo.icono;
@@ -1186,13 +1197,18 @@ async function ejecutarCompraConfirmadaCliente() {
         };
     });
 
-    // 1. Descontar de forma automática el stock del inventario
+    // 1. Descontar de forma automática el stock del inventario (cola preventiva de pedidos)
     for (const item of carrito) {
         if (window.InventoryApp && window.InventoryApp.StockService && typeof window.InventoryApp.StockService.sale === 'function') {
             window.InventoryApp.StockService.sale(item.productoId, item.cantidad);
         } else {
             const prod = (AppState.productos || []).find(p => p.id === item.productoId);
             if (prod) prod.stock = Math.max(0, Number(prod.stock || 0) - Number(item.cantidad));
+        }
+        // Sincronizar en Firestore para reflejar el stock reservado a otros clientes en tiempo real
+        const prodActualizado = (AppState.productos || []).find(p => p.id === item.productoId);
+        if (prodActualizado && window.InventoryApp?.Firebase?.guardarProducto) {
+            window.InventoryApp.Firebase.guardarProducto(prodActualizado).catch(() => {});
         }
     }
 

@@ -102,12 +102,33 @@ function configurarVistasPorRol(usuario) {
         ? esUsuarioAdmin(usuario) 
         : (rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin' || (usuario.email || '').toLowerCase() === 'superadmin@tubodeguita.com');
     const esVendedor = !esAdmin && rol === 'vendedor';
-    const esCliente = !esAdmin && !esVendedor;
+    const esKiosco = !esAdmin && (rol === 'autoservicio' || rol === 'kiosco');
+    const esCliente = !esAdmin && !esVendedor && !esKiosco;
 
     // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio, Configuración)
     const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin', 'configuracion'];
     // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+
+    // Ocultar cabecera superior y barra de navegación si está en modo Auto-Servicio
+    const mainHeader = document.querySelector('.bodeguita-main-header') || document.getElementById('bodeguita-main-header') || document.getElementById('main-header');
+    const mainNavTabs = document.getElementById('main-nav-tabs');
+    const mainNavMobileBar = document.getElementById('main-nav-mobile-bar');
+    const mobileBottomNav = document.getElementById('mobile-bottom-nav');
+
+    document.body.classList.toggle('modo-autoservicio', esKiosco);
+
+    if (esKiosco) {
+        if (mainHeader) mainHeader.style.setProperty('display', 'none', 'important');
+        if (mainNavTabs) mainNavTabs.style.setProperty('display', 'none', 'important');
+        if (mainNavMobileBar) mainNavMobileBar.style.setProperty('display', 'none', 'important');
+        if (mobileBottomNav) mobileBottomNav.style.setProperty('display', 'none', 'important');
+    } else {
+        if (mainHeader) mainHeader.style.removeProperty('display');
+        if (mainNavTabs) mainNavTabs.style.removeProperty('display');
+        if (mainNavMobileBar) mainNavMobileBar.style.removeProperty('display');
+        if (mobileBottomNav) mobileBottomNav.style.removeProperty('display');
+    }
 
     // Configurar visibilidad en barra de navegación superior de escritorio
     document.querySelectorAll('#main-nav-tabs .nav-btn').forEach(btn => {
@@ -119,7 +140,9 @@ function configurarVistasPorRol(usuario) {
             return;
         }
 
-        if (esAdmin) {
+        if (esKiosco) {
+            btn.style.display = 'none';
+        } else if (esAdmin) {
             btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
         } else if (esVendedor) {
             btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
@@ -134,7 +157,9 @@ function configurarVistasPorRol(usuario) {
         const tab = btn.getAttribute('data-tab');
         if (!tab) return;
 
-        if (esAdmin) {
+        if (esKiosco) {
+            btn.style.display = 'none';
+        } else if (esAdmin) {
             btn.style.display = tab.startsWith('cliente-') ? 'none' : '';
         } else if (esVendedor) {
             btn.style.display = vendedorAllowedTabs.includes(tab) ? '' : 'none';
@@ -178,6 +203,14 @@ function configurarVistasPorRol(usuario) {
                     notifFn(`🔔 Tienes <strong>${totalPendientes} pago(s) o abono(s) por verificar</strong> en Firebase. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
                 }
             }, 600);
+        }
+    } else if (esKiosco) {
+        // Modo Kiosco / Auto-Servicio: navegación bloqueada a 'kiosco-view'
+        if (activeView !== 'kiosco-view') {
+            switchTab('kiosco-view');
+        }
+        if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+            window.KioscoModule.init();
         }
     } else if (esVendedor) {
         if (!activeView || !vendedorAllowedTabs.includes(activeView)) {
@@ -417,7 +450,9 @@ async function procesarLoginGatewall(e) {
     }
 
     const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+    const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
     const esSuperAdminLogin = cleanId === 'SUPERADMIN' || cleanEmail === 'superadmin@tubodeguita.com';
+    const esAutoServicioLogin = cleanId === 'AUTOSERVICIO' || cleanEmail === 'autoservicio@tubodeguita.com';
 
     let usuario = null;
 
@@ -440,6 +475,38 @@ async function procesarLoginGatewall(e) {
             if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
             AppState.usuarios.unshift(usuario);
             if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        }
+    } else if (esAutoServicioLogin) {
+        usuario = (AppState.usuarios || []).find(u => 
+            (u.id || '').toUpperCase() === 'AUTOSERVICIO' || 
+            (u.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTO-SERVICIO DE CONFIANZA'
+        );
+        if (!usuario) {
+            usuario = {
+                id: 'Autoservicio',
+                cedula: 'Autoservicio',
+                nombre: 'Auto-servicio de Confianza',
+                telefono: '0412-0000000',
+                email: 'autoservicio@tubodeguita.com',
+                password: HASH_AUTOSERVICIO_1409,
+                rol: 'autoservicio',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+            AppState.usuarios.unshift(usuario);
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        } else {
+            usuario.id = 'Autoservicio';
+            usuario.cedula = 'Autoservicio';
+            usuario.nombre = 'Auto-servicio de Confianza';
+            usuario.password = HASH_AUTOSERVICIO_1409;
+            usuario.rol = 'autoservicio';
+            usuario.estado = 'ACTIVO';
         }
     } else {
         // Consultar primero en Firestore para verificar el estado real y no permitir usuarios eliminados
@@ -512,7 +579,9 @@ async function procesarLoginGatewall(e) {
 
     // Validación criptográfica de contraseña mediante Hash SHA-256
     let esPasswordValido = false;
-    if (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.verificarPasswordHash === 'function') {
+    if (esAutoServicioLogin && (pass === '1409' || (usuario.password && window.InventoryApp.Helpers && window.InventoryApp.Helpers.verificarPasswordHash(pass, usuario.password)))) {
+        esPasswordValido = true;
+    } else if (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.verificarPasswordHash === 'function') {
         esPasswordValido = window.InventoryApp.Helpers.verificarPasswordHash(pass, usuario.password);
     } else {
         esPasswordValido = (usuario.password === pass || usuario.password === HASH_SUPERADMIN);
@@ -1578,6 +1647,14 @@ function cambiarSesionUsuario(cedula) {
             if (window.InventoryApp?.Modal?.toast) {
                 window.InventoryApp.Modal.toast(`Sesión de Vendedor activada: <strong>${usuario.nombre || usuario.cedula}</strong>`, 'info', 6000);
             }
+        } else if (usuario.rol === 'autoservicio' || usuario.rol === 'kiosco') {
+            switchTab('kiosco-view');
+            if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+                window.KioscoModule.init();
+            }
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Modo Kiosco de Auto-Servicio Activado`, 'info', 4000);
+            }
         }
     }
 }
@@ -1730,6 +1807,7 @@ function renderizarUsuarios(busqueda = '') {
                     <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
                         <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
                         <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                        <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
                         <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
                     </select>
                 </td>
@@ -1827,6 +1905,9 @@ function actualizarUIUsuarioActual() {
         } else if (r === 'vendedor') {
             headerStatus.className = 'badge-status-pill badge-primary';
             headerStatus.textContent = 'VENDEDOR';
+        } else if (r === 'autoservicio' || r === 'kiosco') {
+            headerStatus.className = 'badge-status-pill badge-info';
+            headerStatus.textContent = 'KIOSCO';
         } else {
             headerStatus.className = 'badge-status-pill badge-warning';
             headerStatus.textContent = 'CLIENTE VIP';

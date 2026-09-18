@@ -110,22 +110,24 @@ function configurarVistasPorRol(usuario) {
     // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
 
-    // Ocultar cabecera superior y barra de navegación si está en modo Kiosco
-    const mainHeader = document.getElementById('main-header');
+    // Ocultar cabecera superior y barra de navegación si está en modo Auto-Servicio
+    const mainHeader = document.querySelector('.bodeguita-main-header') || document.getElementById('bodeguita-main-header') || document.getElementById('main-header');
     const mainNavTabs = document.getElementById('main-nav-tabs');
     const mainNavMobileBar = document.getElementById('main-nav-mobile-bar');
     const mobileBottomNav = document.getElementById('mobile-bottom-nav');
 
+    document.body.classList.toggle('modo-autoservicio', esKiosco);
+
     if (esKiosco) {
-        if (mainHeader) mainHeader.style.display = 'none';
-        if (mainNavTabs) mainNavTabs.style.display = 'none';
-        if (mainNavMobileBar) mainNavMobileBar.style.display = 'none';
-        if (mobileBottomNav) mobileBottomNav.style.display = 'none';
+        if (mainHeader) mainHeader.style.setProperty('display', 'none', 'important');
+        if (mainNavTabs) mainNavTabs.style.setProperty('display', 'none', 'important');
+        if (mainNavMobileBar) mainNavMobileBar.style.setProperty('display', 'none', 'important');
+        if (mobileBottomNav) mobileBottomNav.style.setProperty('display', 'none', 'important');
     } else {
-        if (mainHeader) mainHeader.style.display = '';
-        if (mainNavTabs) mainNavTabs.style.display = '';
-        if (mainNavMobileBar) mainNavMobileBar.style.display = '';
-        if (mobileBottomNav) mobileBottomNav.style.display = '';
+        if (mainHeader) mainHeader.style.removeProperty('display');
+        if (mainNavTabs) mainNavTabs.style.removeProperty('display');
+        if (mainNavMobileBar) mainNavMobileBar.style.removeProperty('display');
+        if (mobileBottomNav) mobileBottomNav.style.removeProperty('display');
     }
 
     // Configurar visibilidad en barra de navegación superior de escritorio
@@ -204,7 +206,9 @@ function configurarVistasPorRol(usuario) {
         }
     } else if (esKiosco) {
         // Modo Kiosco / Auto-Servicio: navegación bloqueada a 'kiosco-view'
-        switchTab('kiosco-view');
+        if (activeView !== 'kiosco-view') {
+            switchTab('kiosco-view');
+        }
         if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
             window.KioscoModule.init();
         }
@@ -446,7 +450,9 @@ async function procesarLoginGatewall(e) {
     }
 
     const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+    const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
     const esSuperAdminLogin = cleanId === 'SUPERADMIN' || cleanEmail === 'superadmin@tubodeguita.com';
+    const esAutoServicioLogin = cleanId === 'AUTOSERVICIO' || cleanEmail === 'autoservicio@tubodeguita.com';
 
     let usuario = null;
 
@@ -469,6 +475,38 @@ async function procesarLoginGatewall(e) {
             if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
             AppState.usuarios.unshift(usuario);
             if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        }
+    } else if (esAutoServicioLogin) {
+        usuario = (AppState.usuarios || []).find(u => 
+            (u.id || '').toUpperCase() === 'AUTOSERVICIO' || 
+            (u.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTO-SERVICIO DE CONFIANZA'
+        );
+        if (!usuario) {
+            usuario = {
+                id: 'Autoservicio',
+                cedula: 'Autoservicio',
+                nombre: 'Auto-servicio de Confianza',
+                telefono: '0412-0000000',
+                email: 'autoservicio@tubodeguita.com',
+                password: HASH_AUTOSERVICIO_1409,
+                rol: 'autoservicio',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+            if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+            AppState.usuarios.unshift(usuario);
+            if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
+        } else {
+            usuario.id = 'Autoservicio';
+            usuario.cedula = 'Autoservicio';
+            usuario.nombre = 'Auto-servicio de Confianza';
+            usuario.password = HASH_AUTOSERVICIO_1409;
+            usuario.rol = 'autoservicio';
+            usuario.estado = 'ACTIVO';
         }
     } else {
         // Consultar primero en Firestore para verificar el estado real y no permitir usuarios eliminados
@@ -541,7 +579,9 @@ async function procesarLoginGatewall(e) {
 
     // Validación criptográfica de contraseña mediante Hash SHA-256
     let esPasswordValido = false;
-    if (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.verificarPasswordHash === 'function') {
+    if (esAutoServicioLogin && (pass === '1409' || (usuario.password && window.InventoryApp.Helpers && window.InventoryApp.Helpers.verificarPasswordHash(pass, usuario.password)))) {
+        esPasswordValido = true;
+    } else if (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.verificarPasswordHash === 'function') {
         esPasswordValido = window.InventoryApp.Helpers.verificarPasswordHash(pass, usuario.password);
     } else {
         esPasswordValido = (usuario.password === pass || usuario.password === HASH_SUPERADMIN);

@@ -302,6 +302,987 @@
                 margin-top: 14px !important;
             }
         }
+
+        /* MODO AUTO-SERVICIO DE CONFIANZA: Oculta cabecera administrativa y menús del sistema */
+        body.modo-autoservicio .bodeguita-main-header,
+        body.modo-autoservicio #bodeguita-main-header,
+        body.modo-autoservicio #main-header,
+        body.modo-autoservicio #main-nav-tabs,
+        body.modo-autoservicio #main-nav-mobile-bar,
+        body.modo-autoservicio #mobile-bottom-nav {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* ESTILOS PROFESIONALES: AUTO-SERVICIO DE CONFIANZA */
+        .kiosco-container {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 12px 16px 80px 16px;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .kiosco-header-banner {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 18px;
+            padding: 20px 24px;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+        /* Fila Superior: Marca Auto-Servicio (Izq) y Nombre TubodeguitaDeConfianza (Der) */
+        .kiosco-header-top-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .kiosco-top-right-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .kiosco-top-right-brand .brand-text-block {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            line-height: 1;
+        }
+        .kiosco-top-right-brand .brand-title {
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+            letter-spacing: -0.5px;
+            white-space: nowrap;
+        }
+        .kiosco-top-right-brand .crown-icon {
+            color: #00d2ff;
+            font-size: 0.92rem;
+            position: relative;
+            top: -5px;
+            margin-right: 2px;
+            filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.85));
+        }
+        .kiosco-top-right-brand .brand-subtitle {
+            font-family: 'Caveat', 'Pacifico', cursive;
+            font-size: 1.5rem;
+            color: #00d2ff;
+            font-weight: 700;
+            margin-top: -3px;
+            display: inline-block;
+            filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.55));
+            line-height: 1;
+        }
+        /* Fila Intermedia: Tasa del Día y Botón Salir */
+        .kiosco-header-controls-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 640px) {
+            .kiosco-header-top-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .kiosco-top-right-brand {
+                margin-left: 0;
+                align-self: flex-end;
+            }
+        }
+        .kiosco-frase-banner {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-left: 4px solid #fde047;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            box-sizing: border-box;
+        }
+        .kiosco-frase-icon {
+            color: #fde047;
+            font-size: 1.15rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        .kiosco-frase-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .kiosco-frase-texto {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #f8fafc;
+            font-style: italic;
+            line-height: 1.45;
+        }
+        .kiosco-frase-footer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+        .kiosco-frase-autor {
+            font-size: 0.78rem;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+        .kiosco-frase-categoria {
+            font-size: 0.68rem;
+            background: rgba(253, 224, 71, 0.2);
+            color: #fde047;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kiosco-brand-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .kiosco-brand-icon-box {
+            width: 54px;
+            height: 54px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+        }
+        .kiosco-title-text h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #f8fafc;
+        }
+        .kiosco-title-text p {
+            margin: 2px 0 0 0;
+            font-size: 0.92rem;
+            color: #94a3b8;
+        }
+        .kiosco-rate-monitor {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .kiosco-rate-badge {
+            display: flex;
+            flex-direction: column;
+        }
+        .kiosco-rate-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #38bdf8;
+            font-weight: 700;
+        }
+        .kiosco-rate-val {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #fde047;
+            line-height: 1.2;
+        }
+        .kiosco-rate-meta {
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            padding-left: 12px;
+        }
+        .kiosco-btn-exit-pin {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .kiosco-btn-exit-pin:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        /* MODAL CSS: SALIR DE AUTO-SERVICIO */
+        .kiosco-exit-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            animation: fadeInModal 0.2s ease-out;
+        }
+        .kiosco-exit-modal-box {
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 22px;
+            width: 100%;
+            max-width: 440px;
+            padding: 28px 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 25px rgba(2, 132, 199, 0.2);
+            text-align: center;
+            position: relative;
+            box-sizing: border-box;
+            color: #ffffff;
+            animation: popModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .kiosco-exit-modal-close {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.6rem;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+        .kiosco-exit-modal-close:hover {
+            color: #ffffff;
+        }
+        .kiosco-exit-modal-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(56, 189, 248, 0.1) 100%);
+            border: 1.5px solid rgba(56, 189, 248, 0.35);
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin: 0 auto 16px auto;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+        }
+        .kiosco-exit-modal-title {
+            margin: 0 0 8px 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #f8fafc;
+        }
+        .kiosco-exit-modal-desc {
+            margin: 0 0 20px 0;
+            font-size: 0.92rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .kiosco-exit-input-group {
+            position: relative;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        .kiosco-exit-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 46px 14px 18px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1.5px solid rgba(148, 163, 184, 0.3);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1.25rem;
+            text-align: center;
+            letter-spacing: 3px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .kiosco-exit-input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+            background: rgba(15, 23, 42, 0.95);
+        }
+        .kiosco-exit-toggle-pwd {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+        }
+        .kiosco-exit-toggle-pwd:hover {
+            color: #38bdf8;
+        }
+        .kiosco-exit-error-msg {
+            color: #f87171;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            padding: 8px 12px;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .kiosco-exit-modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .kiosco-btn-cancel-exit {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .kiosco-btn-cancel-exit:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
+        .kiosco-btn-confirm-exit {
+            flex: 1.3;
+            padding: 12px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border: none;
+            color: #ffffff;
+            font-size: 0.98rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .kiosco-btn-confirm-exit:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+        .kiosco-main-grid {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 991px) {
+            .kiosco-main-grid {
+                grid-template-columns: 1fr;
+            }
+            .kiosco-order-sidebar {
+                display: none !important;
+            }
+        }
+        .kiosco-search-bar {
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+            background: var(--bg-surface, #ffffff);
+            border-radius: 16px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border, #e2e8f0);
+            margin-bottom: 16px;
+        }
+        .kiosco-search-input-wrap {
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 8px 14px;
+            gap: 10px;
+        }
+        .kiosco-search-input-wrap input {
+            border: none;
+            background: transparent;
+            width: 100%;
+            font-size: 1.05rem;
+            outline: none;
+            color: #1e293b;
+            font-weight: 500;
+        }
+        .kiosco-cats-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-top: 10px;
+            scrollbar-width: none;
+        }
+        .kiosco-cats-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .kiosco-cat-chip {
+            padding: 8px 16px;
+            border-radius: 24px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .kiosco-cat-chip.active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+        }
+        .kiosco-products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        @media (min-width: 1200px) {
+            .kiosco-products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+            }
+        }
+        .kiosco-product-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        .kiosco-product-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            border-color: #0284c7;
+        }
+        .kiosco-card-pop {
+            transform: scale(0.96) !important;
+            transition: transform 0.1s ease;
+        }
+        .kiosco-product-img-wrap {
+            width: 100%;
+            height: 135px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8fafc;
+            position: relative;
+            margin-bottom: 10px;
+        }
+        .kiosco-product-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .kiosco-badge-agotado {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .kiosco-badge-combo {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: #f59e0b;
+            color: #ffffff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .kiosco-badge-en-carrito {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        }
+        .kiosco-product-info {
+            flex-grow: 1;
+            margin-bottom: 8px;
+        }
+        .kiosco-product-category {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .kiosco-product-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 6px 0;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 2.5em;
+        }
+        .kiosco-product-pricing {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .kiosco-price-usd {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #0284c7;
+        }
+        .kiosco-price-ves {
+            font-size: 0.82rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .kiosco-product-stock-tag {
+            font-size: 0.72rem;
+            color: #059669;
+            font-weight: 600;
+        }
+        .kiosco-product-stock-tag.stock-bajo {
+            color: #d97706;
+            font-weight: 700;
+        }
+        .kiosco-btn-add-touch {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            background: #0284c7;
+            color: #ffffff;
+            border: none;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.15s ease;
+            touch-action: manipulation;
+        }
+        .kiosco-btn-add-touch:hover {
+            background: #0369a1;
+        }
+        .kiosco-btn-add-touch.disabled {
+            background: #cbd5e1;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* PANEL DERECHO: ORDEN EN CURSO */
+        .kiosco-order-sidebar {
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+            padding: 18px;
+            position: sticky;
+            top: 10px;
+        }
+        .kiosco-order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+        }
+        .kiosco-order-header h2 {
+            margin: 0;
+            font-size: 1.15rem;
+            color: #0f172a;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .kiosco-btn-clear-cart {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .kiosco-btn-clear-cart:hover {
+            background: #fee2e2;
+        }
+        .kiosco-cart-items-scroll {
+            max-height: 380px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 4px;
+            margin-bottom: 14px;
+        }
+        .kiosco-cart-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 10px 12px;
+            border: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .kiosco-cart-item-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .kiosco-cart-item-info strong {
+            font-size: 0.88rem;
+            color: #1e293b;
+        }
+        .kiosco-cart-item-info small {
+            font-size: 0.78rem;
+            color: #64748b;
+        }
+        .kiosco-cart-item-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .kiosco-stepper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            padding: 2px 4px;
+        }
+        .kiosco-stepper button {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: #f1f5f9;
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kiosco-stepper span {
+            min-width: 24px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+        .kiosco-cart-item-subtotal {
+            font-weight: 800;
+            color: #0284c7;
+            font-size: 0.95rem;
+        }
+        .kiosco-btn-remove-item {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .kiosco-btn-remove-item:hover {
+            color: #ef4444;
+        }
+        .kiosco-cart-totals-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 14px;
+        }
+        .kiosco-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 4px;
+        }
+        .kiosco-total-row.big {
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 8px;
+            margin-top: 6px;
+        }
+        .kiosco-total-row.big span {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .kiosco-total-row.big strong {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: #0284c7;
+        }
+        .kiosco-btn-order-checkout {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: #16a34a;
+            color: #ffffff;
+            border: none;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+            transition: all 0.15s ease;
+        }
+        .kiosco-btn-order-checkout:disabled {
+            background: #cbd5e1;
+            color: #94a3b8;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* BARRA FLOTANTE MÓVIL/TÁCTIL INFERIOR */
+        .kiosco-bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px 16px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
+        }
+        .kiosco-bottom-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .kiosco-bottom-info strong {
+            font-size: 1.25rem;
+            color: #38bdf8;
+        }
+        .kiosco-bottom-info small {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .kiosco-btn-mobile-checkout {
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: #16a34a;
+            color: #ffffff;
+            border: none;
+            font-weight: 800;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        /* MODAL WIZARD KIOSCO */
+        .kiosco-wizard-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .kiosco-wizard-box {
+            background: #ffffff;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 620px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            animation: modalPop 0.25s ease-out;
+        }
+        .kiosco-stepper-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 14px;
+        }
+        .kiosco-step-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        .kiosco-step-item.active {
+            color: #0284c7;
+        }
+        .kiosco-step-item.completed {
+            color: #16a34a;
+        }
+        .kiosco-step-num {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        .kiosco-step-item.active .kiosco-step-num {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        .kiosco-step-item.completed .kiosco-step-num {
+            background: #16a34a;
+            color: #ffffff;
+        }
+        .kiosco-pay-methods-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 14px 0;
+        }
+        .kiosco-pay-method-btn {
+            background: #f8fafc;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 14px 10px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .kiosco-pay-method-btn i {
+            font-size: 1.5rem;
+            color: #0284c7;
+        }
+        .kiosco-pay-method-btn.active {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            color: #0369a1;
+        }
+        .kiosco-bank-card {
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 0.88rem;
+        }
+        .kiosco-bank-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .kiosco-ticket-card {
+            background: #fffbeb;
+            border: 2px dashed #f59e0b;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .kiosco-ticket-order-num {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #b45309;
+            letter-spacing: -0.02em;
+            margin: 6px 0;
+        }
+        .kiosco-ticket-item-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 4px 0;
+            border-bottom: 1px dashed #fde68a;
+        }
     </style>
 </head>
 <body>
@@ -463,7 +1444,7 @@
 <!-- CONTENEDOR PRINCIPAL DE LA APLICACIÓN (OCULTO HASTA AUTENTICACIÓN ACTIVA) -->
 <div id="app-main-container" style="display:none;">
 <div class="container">
-    <header class="bodeguita-main-header">
+    <header class="bodeguita-main-header" id="bodeguita-main-header">
         <!-- BANNER IZQUIERDO: BRAND SHOWCASE DE BODEGUITA -->
         <div class="bodeguita-brand-banner">
             <div class="brand-logo-container">
@@ -646,6 +1627,370 @@
         <button type="button" class="nav-btn nav-cliente-only" data-tab="cliente-perfil" onclick="switchTab('cliente-perfil')">
             <i class="fas fa-user-gear" style="color:var(--primary-accent);"></i> Mi Perfil & Ajustes
         </button>
+    </div>
+
+    <!-- VISTA: AUTO-SERVICIO DE CONFIANZA -->
+    <div id="kiosco-view" class="view-content">
+        <div class="kiosco-container">
+            <!-- CABECERA PROMINENTE Y MONITOR DE TASA BCV -->
+            <div class="kiosco-header-banner">
+                <!-- Fila Superior: Marca Auto-Servicio (Izq) y Nombre TubodeguitaDeConfianza (Der) -->
+                <div class="kiosco-header-top-row">
+                    <div class="kiosco-brand-title">
+                        <div class="kiosco-brand-icon-box">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <div class="kiosco-title-text">
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span id="kiosco-saludo-icono" style="font-size:1.3rem;"><i class="fas fa-sun" style="color:#fde047;"></i></span>
+                                <h1 style="margin:0; font-size:1.55rem; font-weight:800; color:#ffffff;">Auto-Servicio de Confianza</h1>
+                            </div>
+                            <p id="kiosco-saludo-texto" style="margin:4px 0 0 0; font-size:0.92rem; color:#94a3b8; font-weight:500;">
+                                ¡Te damos la bienvenida! Haz tu pedido aquí de forma rápida, autónoma y sin esperas
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Esquina Superior Derecha: Nombre y Estilo de la Marca -->
+                    <div class="kiosco-top-right-brand" id="kiosco-top-right-brand">
+                        <div class="brand-text-block">
+                            <div class="brand-title">
+                                Tu <span class="brand-title-highlight"><i class="fas fa-crown crown-icon"></i>Bodeguita</span>
+                            </div>
+                            <span class="brand-subtitle">de Confianza</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fila de Controles: Tasa Oficial y Salida con PIN Protegido -->
+                <div class="kiosco-header-controls-row">
+                    <!-- Monitor de Tasa Oficial -->
+                    <div class="kiosco-rate-monitor">
+                        <div class="kiosco-rate-badge">
+                            <span class="kiosco-rate-label"><i class="fas fa-bolt"></i> Tasa Oficial del Día</span>
+                            <span class="kiosco-rate-val" id="kiosco-tasa-valor">Consultando...</span>
+                        </div>
+                        <div class="kiosco-rate-meta">
+                            <span style="font-weight:700; color:#f8fafc;">1 USD = Tasa BCV</span>
+                            <span id="kiosco-tasa-fecha" style="font-size:0.72rem; color:#94a3b8;">Actualizando...</span>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Seguridad para Salir del Auto-servicio (Abre Modal de CSS) -->
+                    <button type="button" class="kiosco-btn-exit-pin" onclick="window.KioscoModule.solicitarSalida()" title="Acceso protegido por clave de seguridad de administrador">
+                        <i class="fas fa-lock"></i> Salir de Auto-servicio
+                    </button>
+                </div>
+
+                <!-- Apartado de Frases Motivacionales / Sabiduría Universal -->
+                <div class="kiosco-frase-banner" id="kiosco-frase-card">
+                    <div class="kiosco-frase-icon"><i class="fas fa-quote-left"></i></div>
+                    <div class="kiosco-frase-content">
+                        <p class="kiosco-frase-texto" id="kiosco-frase-texto">"La perseverancia convierte los pequeños esfuerzos diarios en grandes victorias."</p>
+                        <div class="kiosco-frase-footer">
+                            <span class="kiosco-frase-autor" id="kiosco-frase-autor">— Sabiduría Universal</span>
+                            <span class="kiosco-frase-categoria" id="kiosco-frase-categoria">Motivación</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LAYOUT PRINCIPAL: CATÁLOGO Y PANEL LATERAL DE ORDEN -->
+            <div class="kiosco-main-grid">
+                <!-- COLUMNA IZQUIERDA: BÚSQUEDA, CATEGORÍAS Y CATÁLOGO TÁCTIL -->
+                <div>
+                    <!-- Barra de Búsqueda y Chips de Categorías -->
+                    <div class="kiosco-search-bar">
+                        <div class="kiosco-search-input-wrap">
+                            <i class="fas fa-search" style="color:#64748b; font-size:1.1rem;"></i>
+                            <input type="text" id="kiosco-search-input" placeholder="Toca aquí para buscar golosinas, bebidas, snacks..." oninput="window.KioscoModule.alBuscarProducto(this.value)">
+                            <button type="button" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;" onclick="document.getElementById('kiosco-search-input').value=''; window.KioscoModule.alBuscarProducto('');">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </div>
+                        <div class="kiosco-cats-scroll" id="kiosco-categorias-chips">
+                            <!-- Chips generados dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Contenedor Grid de Productos Táctiles -->
+                    <div class="kiosco-products-grid" id="kiosco-productos-grid">
+                        <!-- Tarjetas generadas dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: ORDEN EN CURSO Y TOTALES -->
+                <div class="kiosco-order-sidebar">
+                    <div class="kiosco-order-header">
+                        <h2>
+                            <i class="fas fa-shopping-basket" style="color:#0284c7;"></i>
+                            Tu Pedido (<span id="kiosco-badge-total-items">0</span>)
+                        </h2>
+                        <button type="button" class="kiosco-btn-clear-cart" onclick="window.KioscoModule.vaciarCarrito()" title="Vaciar carrito de compras de inmediato">
+                            <i class="fas fa-trash-alt"></i> Vaciar
+                        </button>
+                    </div>
+
+                    <!-- Estado Vacío -->
+                    <div id="kiosco-orden-vacia" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 12px; text-align:center; color:#94a3b8;">
+                        <i class="fas fa-cart-plus" style="font-size:3rem; margin-bottom:12px; color:#cbd5e1;"></i>
+                        <strong style="color:#475569; font-size:1.05rem;">Tu carrito está vacío</strong>
+                        <small style="margin-top:4px;">Toca cualquier producto del catálogo para agregarlo a tu orden.</small>
+                    </div>
+
+                    <!-- Lista de Ítems del Pedido -->
+                    <div class="kiosco-cart-items-scroll" id="kiosco-items-orden-lista" style="display:none;">
+                        <!-- Ítems generados dinámicamente -->
+                    </div>
+
+                    <!-- Totales y Precios Duales -->
+                    <div class="kiosco-cart-totals-card">
+                        <div class="kiosco-total-row">
+                            <span style="color:#64748b; font-size:0.85rem;">Total en Divisas:</span>
+                            <span id="kiosco-total-usd" style="font-weight:700; color:#0f172a; font-size:1.1rem;">$0.00</span>
+                        </div>
+                        <div class="kiosco-total-row big">
+                            <span>Total a Pagar:</span>
+                            <strong id="kiosco-total-ves">Bs. 0.00</strong>
+                        </div>
+                    </div>
+
+                    <!-- Botón Continuar / Finalizar Pedido -->
+                    <button type="button" class="kiosco-btn-order-checkout" id="kiosco-btn-continuar-pedido" onclick="window.KioscoModule.iniciarCheckout()" disabled>
+                        <span>Continuar Pedido</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA INFERIOR FLOTANTE PARA MÓVILES / TERMINALES VERTICALES -->
+    <div class="kiosco-bottom-bar" id="kiosco-bottom-cart-bar">
+        <div class="kiosco-bottom-info">
+            <small><span id="kiosco-mobile-cart-count">0</span> productos agregados</small>
+            <strong id="kiosco-mobile-total-usd">$0.00</strong>
+        </div>
+        <button type="button" class="kiosco-btn-mobile-checkout" onclick="window.KioscoModule.iniciarCheckout()">
+            <span>Ver Orden y Pagar</span>
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- MODAL WIZARD DE COMPRA KIOSCO (PASOS 2, 3 Y 4) -->
+    <div class="kiosco-wizard-modal" id="modal-kiosco-wizard">
+        <div class="kiosco-wizard-box">
+            <!-- Stepper Visual -->
+            <div class="kiosco-stepper-header">
+                <div class="kiosco-step-item completed" id="kiosco-step-indicator-1">
+                    <div class="kiosco-step-num"><i class="fas fa-check"></i></div>
+                    <span>1. Productos</span>
+                </div>
+                <div class="kiosco-step-item active" id="kiosco-step-indicator-2">
+                    <div class="kiosco-step-num">2</div>
+                    <span>2. Tus Datos</span>
+                </div>
+                <div class="kiosco-step-item" id="kiosco-step-indicator-3">
+                    <div class="kiosco-step-num">3</div>
+                    <span>3. Pago</span>
+                </div>
+                <div class="kiosco-step-item" id="kiosco-step-indicator-4">
+                    <div class="kiosco-step-num">4</div>
+                    <span>4. Ticket</span>
+                </div>
+            </div>
+
+            <!-- PASO 2: IDENTIFICACIÓN DEL CLIENTE -->
+            <div id="kiosco-wizard-paso-2">
+                <h3 style="margin:0 0 6px 0; color:#0f172a; font-size:1.3rem; font-weight:800;">
+                    <i class="fas fa-id-card" style="color:#0284c7;"></i> ¿A nombre de quién es el pedido?
+                </h3>
+                <p style="margin:0 0 16px 0; color:#64748b; font-size:0.9rem;">
+                    Ingresa tus datos para preparar y entregar tu compra en caja.
+                </p>
+
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                            Cédula de Identidad o RIF <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" id="kiosco-input-cedula" placeholder="Ej: V-18765432" 
+                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;"
+                               oninput="window.KioscoModule.alEscribirCedula(this.value)">
+                        <div id="kiosco-cliente-autofill-badge" style="display:none; margin-top:4px; font-size:0.8rem; color:#15803d; font-weight:700; align-items:center; gap:4px;"></div>
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                            Nombre y Apellido <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" id="kiosco-input-nombre" placeholder="Ej: María Rodríguez" 
+                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;">
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                            Teléfono de Contacto (Opcional)
+                        </label>
+                        <input type="tel" id="kiosco-input-telefono" placeholder="Ej: 0414-1234567" 
+                               style="width:100%; padding:12px; border-radius:10px; border:2px solid #cbd5e1; font-size:1.1rem; font-weight:600; box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-top:24px; gap:12px;">
+                    <button type="button" class="btn btn-secondary" onclick="window.KioscoModule.cerrarWizard()" style="padding:12px 20px; font-weight:700;">
+                        <i class="fas fa-arrow-left"></i> Volver al Catálogo
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="window.KioscoModule.avanzarPasoPago()" style="padding:12px 24px; font-weight:800; background:#0284c7; border-color:#0284c7;">
+                        Siguiente: Método de Pago <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PASO 3: SELECCIÓN DE PAGO Y CONFIRMACIÓN -->
+            <div id="kiosco-wizard-paso-3" style="display:none;">
+                <h3 style="margin:0 0 4px 0; color:#0f172a; font-size:1.3rem; font-weight:800;">
+                    <i class="fas fa-credit-card" style="color:#0284c7;"></i> Selecciona cómo pagarás
+                </h3>
+                <div style="background:#f8fafc; border-radius:10px; padding:8px 12px; margin-bottom:14px; font-size:0.85rem; color:#475569;">
+                    Cliente: <strong id="kiosco-pago-cliente-resumen" style="color:#0f172a;">—</strong>
+                </div>
+
+                <!-- Montos a Pagar -->
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:12px 16px; margin-bottom:14px;">
+                    <div>
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#0369a1; font-weight:700;">Monto a Cancelar</div>
+                        <div id="kiosco-pago-total-usd" style="font-size:1.4rem; font-weight:900; color:#0284c7;">$0.00</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:700;">En Bolívares</div>
+                        <div id="kiosco-pago-total-ves" style="font-size:1.2rem; font-weight:800; color:#0f172a;">Bs. 0.00</div>
+                    </div>
+                </div>
+
+                <!-- Selector de Métodos de Pago -->
+                <div class="kiosco-pay-methods-grid">
+                    <div class="kiosco-pay-method-btn active" data-metodo="PAGO_MOVIL" onclick="window.KioscoModule.seleccionarMetodoPago('PAGO_MOVIL')">
+                        <i class="fas fa-mobile-screen-button"></i>
+                        <span>Pago Móvil</span>
+                        <small style="font-size:0.72rem; color:#64748b;">Transferencia en Bs.</small>
+                    </div>
+                    <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_USD" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_USD')">
+                        <i class="fas fa-money-bill-wave" style="color:#16a34a;"></i>
+                        <span>Efectivo ($ USD)</span>
+                        <small style="font-size:0.72rem; color:#64748b;">Pagar en Caja</small>
+                    </div>
+                    <div class="kiosco-pay-method-btn" data-metodo="EFECTIVO_VES" onclick="window.KioscoModule.seleccionarMetodoPago('EFECTIVO_VES')">
+                        <i class="fas fa-money-bill-1-wave" style="color:#d97706;"></i>
+                        <span>Efectivo (Bs.)</span>
+                        <small style="font-size:0.72rem; color:#64748b;">Pagar en Caja</small>
+                    </div>
+                    <div class="kiosco-pay-method-btn" data-metodo="PUNTO_VENTA" onclick="window.KioscoModule.seleccionarMetodoPago('PUNTO_VENTA')">
+                        <i class="fas fa-credit-card" style="color:#9333ea;"></i>
+                        <span>Punto de Venta</span>
+                        <small style="font-size:0.72rem; color:#64748b;">Tarjeta en Caja</small>
+                    </div>
+                </div>
+
+                <!-- Datos Bancarios para Pago Móvil -->
+                <div id="kiosco-box-pago-movil">
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:#475569; margin-bottom:4px;">
+                        Datos para tu Pago Móvil:
+                    </label>
+                    <div id="kiosco-datos-pago-movil"></div>
+                    <div>
+                        <label style="display:block; font-size:0.85rem; font-weight:700; color:#334155; margin-bottom:4px;">
+                            Referencia de Pago (Opcional si pagas en caja)
+                        </label>
+                        <input type="text" id="kiosco-input-referencia" placeholder="Últimos 4 o 6 dígitos del comprobante"
+                               style="width:100%; padding:10px; border-radius:10px; border:2px solid #cbd5e1; font-size:1rem; box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <!-- Caja Informativa para Pago en Caja / Efectivo -->
+                <div id="kiosco-box-efectivo" style="display:none; background:#fef3c7; border:1px solid #fde68a; border-radius:12px; padding:12px; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:8px; color:#b45309; font-weight:700;">
+                        <i class="fas fa-info-circle"></i> Pago en Mostrador
+                    </div>
+                    <p style="margin:4px 0 0 0; font-size:0.85rem; color:#92400e;">
+                        Al enviar tu pedido, acércate a la caja para entregar el efectivo y recibir tus productos.
+                    </p>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-top:20px; gap:12px;">
+                    <button type="button" class="btn btn-secondary" onclick="window.KioscoModule.mostrarPasoWizard(2)" style="padding:12px 18px; font-weight:700;">
+                        <i class="fas fa-arrow-left"></i> Cambiar Datos
+                    </button>
+                    <button type="button" class="btn btn-success" id="kiosco-btn-confirmar-final" onclick="window.KioscoModule.confirmarPedido()" style="padding:12px 24px; font-weight:800; background:#16a34a; border-color:#16a34a; font-size:1.05rem;">
+                        <i class="fas fa-check-circle"></i> Enviar Pedido a Caja
+                    </button>
+                </div>
+            </div>
+
+            <!-- PASO 4: CONFIRMACIÓN DE COMPRA Y TICKET VISUAL -->
+            <div id="kiosco-wizard-paso-4" style="display:none;">
+                <div class="kiosco-ticket-card">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:60px; height:60px; border-radius:50%; background:#16a34a; color:#ffffff; font-size:1.8rem; margin-bottom:10px;">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h2 style="margin:0; color:#1e293b; font-size:1.4rem; font-weight:900;">¡Pedido Generado con Éxito!</h2>
+                    <p style="margin:4px 0 12px 0; color:#64748b; font-size:0.9rem;">
+                        Por favor acércate a la caja con tu número de orden para retirar tu compra:
+                    </p>
+
+                    <div class="kiosco-ticket-order-num" id="kiosco-ticket-num-orden">#AUT_000</div>
+                    <div style="font-weight:700; color:#475569; font-size:0.95rem;" id="kiosco-ticket-cliente">Cliente</div>
+                    <div style="margin:10px 0; font-size:1.1rem;" id="kiosco-ticket-total"><strong>$0.00</strong></div>
+
+                    <div style="margin-top:14px; text-align:left; background:rgba(255,255,255,0.7); border-radius:10px; padding:10px; max-height:160px; overflow-y:auto;" id="kiosco-ticket-items">
+                        <!-- Ítems del ticket -->
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                    <small style="color:#64748b;">
+                        Esta pantalla se reiniciará en <strong id="kiosco-ticket-timer" style="color:#0284c7;">25s</strong>
+                    </small>
+                    <button type="button" class="btn btn-primary" onclick="window.KioscoModule.reiniciarKiosco()" style="padding:12px 24px; font-weight:800; background:#0284c7; border-color:#0284c7;">
+                        <i class="fas fa-rotate-right"></i> Hacer Nuevo Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CSS: SALIR DE AUTO-SERVICIO DE CONFIANZA -->
+    <div class="kiosco-exit-modal" id="modal-kiosco-exit-pin" style="display:none;" onclick="if(event.target === this) window.KioscoModule.cerrarModalSalida()">
+        <div class="kiosco-exit-modal-box">
+            <button type="button" class="kiosco-exit-modal-close" onclick="window.KioscoModule.cerrarModalSalida()" title="Cerrar modal">&times;</button>
+            <div class="kiosco-exit-modal-icon">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <h3 class="kiosco-exit-modal-title">Seguridad de Auto-Servicio</h3>
+            <p class="kiosco-exit-modal-desc">
+                Ingresa la clave de administrador para salir de esta pantalla y volver al panel del sistema.
+            </p>
+            
+            <div class="kiosco-exit-input-group">
+                <input type="password" id="kiosco-exit-pin-input" class="kiosco-exit-input" 
+                       placeholder="Clave de seguridad" autocomplete="off" maxlength="20"
+                       onkeydown="if(event.key==='Enter') window.KioscoModule.confirmarSalidaPin(); if(event.key==='Escape') window.KioscoModule.cerrarModalSalida();">
+                <button type="button" class="kiosco-exit-toggle-pwd" onclick="window.KioscoModule.toggleVerPin()" title="Mostrar/Ocultar clave">
+                    <i class="fas fa-eye" id="kiosco-exit-eye-icon"></i>
+                </button>
+            </div>
+            
+            <div id="kiosco-exit-pin-error" class="kiosco-exit-error-msg" style="display:none;"></div>
+            
+            <div class="kiosco-exit-modal-actions">
+                <button type="button" class="kiosco-btn-cancel-exit" onclick="window.KioscoModule.cerrarModalSalida()">
+                    Cancelar
+                </button>
+                <button type="button" class="kiosco-btn-confirm-exit" onclick="window.KioscoModule.confirmarSalidaPin()">
+                    <i class="fas fa-arrow-right-from-bracket"></i> Salir
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- VISTA 1: POS (PUNTO DE VENTA REDISEÑADO) -->
@@ -3282,6 +4627,7 @@
 <script src="modules/historial-ventas.js?v=20260915_v5"></script>
 <script src="modules/usuarios.js?v=20260915_v5"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
+<script src="modules/kiosco.js?v=20260915_v5"></script>
 <script src="modules/configuracion.js?v=20260915_v5"></script>
 <script src="app.js?v=20260915_v5"></script>
 </body>

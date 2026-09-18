@@ -1645,6 +1645,54 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
         venta.motivoRechazo = motivo;
     }
 
+    // --- DEVOLUCIÓN DE STOCK (COLA DE INVENTARIO) ---
+    // Si la venta o pedido había reservado/descontado el stock al registrarse, se devuelve al inventario
+    const itemsADevolver = (venta && Array.isArray(venta.items) && venta.items.length > 0)
+        ? venta.items
+        : (item && Array.isArray(item.items) ? item.items : []);
+
+    let huboDevolucionStock = false;
+    if (itemsADevolver.length > 0 && (!venta || venta.descontadoInventario !== false)) {
+        for (const it of itemsADevolver) {
+            const pId = it.productoId || it.id;
+            const cant = Number(it.cantidad || 0);
+            if (pId && cant > 0) {
+                if (window.InventoryApp?.StockService?.devolver) {
+                    window.InventoryApp.StockService.devolver(pId, cant);
+                } else {
+                    const prod = (AppState.productos || []).find(p => String(p.id) === String(pId));
+                    if (prod) {
+                        prod.stock = Math.max(0, Number(prod.stock || 0) + cant);
+                    }
+                }
+
+                // Sincronizar producto con stock devuelto en Firestore
+                const prodActualizado = (AppState.productos || []).find(p => String(p.id) === String(pId));
+                if (prodActualizado && window.InventoryApp?.Firebase?.guardarProducto) {
+                    window.InventoryApp.Firebase.guardarProducto(prodActualizado).catch(() => {});
+                }
+                huboDevolucionStock = true;
+            }
+        }
+        if (venta) venta.descontadoInventario = false;
+    }
+
+    // --- REVERSIÓN DE DEUDA SI FUE A CRÉDITO ---
+    const esCredito = (venta?.tipo === 'Crédito' || venta?.modalidad === 'CREDITO' || item?.tipoPago === 'Crédito' || item?.tipo === 'VENTA_CREDITO_AUTOSERVICIO');
+    if (esCredito) {
+        const clienteId = venta?.clienteId || item?.clienteId || item?.clienteCedula;
+        if (clienteId) {
+            const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+            if (cliente) {
+                const totalRevertir = Number(venta?.totalUSD || item?.totalUSD || item?.montoUSD || 0);
+                cliente.deudaUSD = Math.max(0, Number(cliente.deudaUSD || 0) - totalRevertir);
+                if (window.InventoryApp?.Firebase?.guardarCliente) {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
+                }
+            }
+        }
+    }
+
     const txAsociada = (AppState.transacciones || []).find(t => 
         (ventaId && (t.id === ventaId || t.pedidoId === ventaId)) ||
         (refVenta && t.referencia && String(t.referencia).trim().toLowerCase() === refVenta)
@@ -1675,8 +1723,15 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+    if (typeof renderizarInventario === 'function') renderizarInventario();
+    if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof window.KioscoModule?.renderProductos === 'function') window.KioscoModule.renderProductos();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+
     if (window.InventoryApp?.Modal?.toast) {
-        window.InventoryApp.Modal.toast(`⚠️ Pago #${id} marcado como Rechazado.`, 'warning');
+        const msgStock = huboDevolucionStock ? ' y los productos han sido devueltos al stock disponible' : '';
+        window.InventoryApp.Modal.toast(`⚠️ Transacción #${id} rechazada${msgStock}.`, 'warning');
     }
 };
 

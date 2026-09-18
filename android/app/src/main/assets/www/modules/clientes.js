@@ -1,8 +1,9 @@
 /**
  * Regla Fundamental del Negocio: Todo usuario registrado/creado es automáticamente un cliente.
- * Sincroniza la lista de usuarios con la lista de clientes y asegura su persistencia en Firestore.
+ * Sincroniza la lista de usuarios con la lista de clientes.
+ * sincronizarConNube es false por defecto para evitar bucles de escritura infinitos con listeners de Firestore.
  */
-function asegurarSincronizacionUsuariosAClientes() {
+function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
     const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
     if (!Array.isArray(AppState.clientes)) {
         AppState.clientes = [];
@@ -14,7 +15,7 @@ function asegurarSincronizacionUsuariosAClientes() {
         const idCed = String(u.cedula || u.id || '').trim();
         if (!idCed) return;
         const idUpper = idCed.toUpperCase();
-        // SuperAdmin no es cliente comercial
+        // SuperAdmin y Autoservicio no generan clientes comerciales repetitivos
         if (idUpper === 'SUPERADMIN' || (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com') return;
 
         // Si fue eliminado explícitamente y figura en clientesEliminados, respetamos la eliminación
@@ -32,8 +33,8 @@ function asegurarSincronizacionUsuariosAClientes() {
             AppState.clientes.push(cliente);
             huboCambios = true;
 
-            // Sincronizar en la nube en Firestore
-            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            // Sincronizar en la nube en Firestore ÚNICAMENTE si se solicitó explícitamente fuera de listeners
+            if (sincronizarConNube && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
                 window.InventoryApp.Firebase.guardarCliente(cliente).catch(err => {
                     console.warn('[Sync Clientes] Error al persistir cliente en Firestore:', err);
                 });
@@ -54,7 +55,7 @@ function asegurarSincronizacionUsuariosAClientes() {
             }
             if (actualizado) {
                 huboCambios = true;
-                if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                if (sincronizarConNube && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
                     window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
                 }
             }

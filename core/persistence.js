@@ -96,27 +96,37 @@ window.InventoryApp = window.InventoryApp || {};
             superAdmin.estado = 'ACTIVO';
         }
 
-        // Asegurar usuario Kiosco / AutoServicio disponible
-        let kioscoUser = AppState.usuarios.find(u => 
+        // Asegurar usuario Auto-servicio de Confianza disponible
+        // Usuario: "Autoservicio", Clave protegida: "1409"
+        const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
+        let autoservicioUser = AppState.usuarios.find(u => 
             (u.id || '').toUpperCase() === 'AUTOSERVICIO' || 
             (u.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
-            (u.nombre || '').toUpperCase() === 'AUTOSERVICIO'
+            (u.nombre || '').toUpperCase() === 'AUTOSERVICIO' ||
+            (u.nombre || '').toUpperCase() === 'AUTO-SERVICIO DE CONFIANZA'
         );
-        if (!kioscoUser) {
-            kioscoUser = {
-                id: 'AutoServicio',
-                cedula: 'AutoServicio',
-                nombre: 'Terminal Kiosco Auto-Servicio',
+        if (!autoservicioUser) {
+            autoservicioUser = {
+                id: 'Autoservicio',
+                cedula: 'Autoservicio',
+                nombre: 'Auto-servicio de Confianza',
                 telefono: '0412-0000000',
-                email: 'kiosco@tubodeguita.com',
-                password: HASH_SUPERADMIN,
+                email: 'autoservicio@tubodeguita.com',
+                password: HASH_AUTOSERVICIO_1409,
                 rol: 'autoservicio',
                 estado: 'ACTIVO',
                 puntosAcumulados: 0,
                 puntosCanjeados: 0,
                 fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
             };
-            AppState.usuarios.push(kioscoUser);
+            AppState.usuarios.push(autoservicioUser);
+        } else {
+            autoservicioUser.id = 'Autoservicio';
+            autoservicioUser.cedula = 'Autoservicio';
+            autoservicioUser.nombre = 'Auto-servicio de Confianza';
+            autoservicioUser.password = HASH_AUTOSERVICIO_1409;
+            autoservicioUser.rol = 'autoservicio';
+            autoservicioUser.estado = 'ACTIVO';
         }
     }
 

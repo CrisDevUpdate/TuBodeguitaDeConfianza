@@ -83,15 +83,26 @@ function obtenerFraseSabiduriaAleatoria() {
  */
 async function actualizarEncabezadoClienteDinamico() {
     const usuario = AppState.usuarioActual;
+    const esAutoServicio = usuario && (
+        usuario.rol === 'autoservicio' || 
+        usuario.rol === 'kiosco' || 
+        (usuario.id || '').toUpperCase() === 'AUTOSERVICIO' ||
+        (usuario.cedula || '').toUpperCase() === 'AUTOSERVICIO' ||
+        (usuario.nombre || '').toUpperCase().includes('AUTOSERVICIO')
+    );
     const nombreUsuario = usuario ? (usuario.nombre || usuario.cedula || 'Cliente') : 'Cliente';
     
-    // 1. Saludo según hora
+    // 1. Saludo según hora general
     const saludoInfo = obtenerSaludoSegunHora();
     const elemNombre = document.getElementById('cliente-bienvenida-nombre');
     const elemIcono = document.getElementById('cliente-saludo-icono');
 
     if (elemNombre) {
-        elemNombre.textContent = `¡${saludoInfo.texto}, ${nombreUsuario}!`;
+        if (esAutoServicio) {
+            elemNombre.textContent = `¡${saludoInfo.texto}! Te damos la bienvenida a Tu Bodeguita de Confianza`;
+        } else {
+            elemNombre.textContent = `¡${saludoInfo.texto}, ${nombreUsuario}!`;
+        }
     }
     if (elemIcono) {
         elemIcono.innerHTML = saludoInfo.icono;

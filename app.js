@@ -67,8 +67,10 @@
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
 
-        // Inicialización del Módulo Kiosco de Auto-Servicio
-        if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+        // Inicialización del Módulo Kiosco de Auto-Servicio solo si la sesión activa corresponde
+        const usuarioSesion = window.AppState?.usuarioActual;
+        const rolSesion = (usuarioSesion?.rol || '').toLowerCase();
+        if ((rolSesion === 'autoservicio' || rolSesion === 'kiosco') && window.KioscoModule && typeof window.KioscoModule.init === 'function') {
             window.KioscoModule.init();
         }
 

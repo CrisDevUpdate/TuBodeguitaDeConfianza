@@ -3110,101 +3110,226 @@ body.dark-mode .cliente-combos-carousel-wrapper {
     .cliente-catalogo-grid,
     .pos-grid-cards,
     #pos-grid-view {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        display: flex !important;
+        flex-direction: column !important;
         gap: 8px !important;
         margin-top: 10px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        padding-bottom: 24px !important;
     }
 
     .cliente-prod-card {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
         min-width: 0 !important;
         width: 100% !important;
-        border-radius: 10px !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+        box-sizing: border-box !important;
+        padding: 8px 10px !important;
+        border-radius: 12px !important;
+        background: var(--bg-card, #ffffff) !important;
+        border: 1px solid var(--border-light, #e2e8f0) !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        gap: 12px !important;
+        min-height: 74px !important;
+        cursor: pointer !important;
+        position: relative !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    .cliente-prod-card:active {
+        transform: scale(0.985) !important;
+        background: var(--bg-hover, #f8fafc) !important;
     }
 
     .cliente-prod-img-wrapper {
-        height: 115px !important;
-        min-height: 115px !important;
-        max-height: 115px !important;
+        width: 64px !important;
+        height: 64px !important;
+        min-width: 64px !important;
+        min-height: 64px !important;
+        max-width: 64px !important;
+        max-height: 64px !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        flex-shrink: 0 !important;
+        position: relative !important;
+        background: var(--bg-muted, #f1f5f9) !important;
+        margin: 0 !important;
+    }
+
+    .cliente-prod-img {
         width: 100% !important;
-    }
-
-    .cliente-prod-badge-cat {
-        font-size: 0.6rem !important;
-        padding: 2px 5px !important;
-        top: 4px !important;
-        left: 4px !important;
-    }
-
-    .badge-stock-pill,
-    .badge-agotado-pill {
-        font-size: 0.6rem !important;
-        padding: 2px 5px !important;
-        top: 4px !important;
-        right: 4px !important;
-    }
-
-    .cliente-prod-points-badge {
-        font-size: 0.64rem !important;
-        padding: 2px 5px !important;
-        bottom: 4px !important;
-        left: 4px !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        display: block !important;
     }
 
     .cliente-prod-body {
-        padding: 8px 8px 10px 8px !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
         gap: 2px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+    }
+
+    .cliente-prod-meta {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+        overflow: hidden !important;
+        line-height: 1 !important;
     }
 
     .cliente-prod-code {
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        color: var(--text-muted, #94a3b8) !important;
+        white-space: nowrap !important;
+    }
+
+    .cliente-prod-badge-cat {
+        position: static !important;
         font-size: 0.62rem !important;
-        margin-bottom: 0px !important;
+        font-weight: 700 !important;
+        padding: 2px 6px !important;
+        border-radius: 4px !important;
+        background: var(--bg-muted, #f1f5f9) !important;
+        color: var(--text-secondary, #475569) !important;
+        line-height: 1.1 !important;
+        white-space: nowrap !important;
+        max-width: 120px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: inline-block !important;
+        border: 1px solid var(--border-light, #e2e8f0) !important;
+    }
+
+    .badge-stock-low {
+        font-size: 0.6rem !important;
+        font-weight: 700 !important;
+        padding: 1px 5px !important;
+        border-radius: 4px !important;
+        background: #fef3c7 !important;
+        color: #b45309 !important;
+        white-space: nowrap !important;
     }
 
     .cliente-prod-title {
-        font-size: 0.82rem !important;
+        font-size: 0.9rem !important;
         font-weight: 700 !important;
-        line-height: 1.2 !important;
-        margin-bottom: 4px !important;
-        min-height: 2em !important;
+        color: var(--text-main, #0f172a) !important;
+        line-height: 1.25 !important;
+        margin: 2px 0 3px 0 !important;
+        min-height: 0 !important;
+        display: -webkit-box !important;
         -webkit-line-clamp: 2 !important;
-    }
-
-    .cliente-prod-points-row {
-        margin-bottom: 4px !important;
-    }
-
-    .cliente-prod-points-chip {
-        font-size: 0.65rem !important;
-        padding: 2px 5px !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        word-break: break-word !important;
     }
 
     .cliente-prod-prices {
-        padding-top: 4px !important;
-        margin-bottom: 6px !important;
-        flex-direction: column !important;
-        gap: 1px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: baseline !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
     }
 
     .cliente-prod-prices .price-usd {
-        font-size: 1.05rem !important;
-        line-height: 1.1 !important;
+        font-size: 1.08rem !important;
+        font-weight: 800 !important;
+        color: var(--primary-accent, #2563eb) !important;
+        line-height: 1 !important;
     }
 
     .cliente-prod-prices .price-ves {
-        font-size: 0.7rem !important;
-        line-height: 1.1 !important;
+        font-size: 0.76rem !important;
+        font-weight: 600 !important;
+        color: var(--text-muted, #64748b) !important;
+        line-height: 1 !important;
+    }
+
+    .cliente-prod-action {
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-left: auto !important;
     }
 
     .cliente-btn-add {
-        min-height: 34px !important;
-        padding: 6px 8px !important;
-        font-size: 0.78rem !important;
-        border-radius: 6px !important;
-        font-weight: 700 !important;
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        min-height: 42px !important;
+        max-width: 42px !important;
+        max-height: 42px !important;
+        padding: 0 !important;
+        border-radius: 10px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        font-size: 1.1rem !important;
+        background: var(--primary-accent, #2563eb) !important;
+        color: #ffffff !important;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+    }
+
+    .cliente-btn-add .cliente-btn-text {
+        display: none !important;
+    }
+
+    .cliente-btn-add i {
+        font-size: 1.1rem !important;
+        margin: 0 !important;
+    }
+
+    .cliente-prod-card.card-agotado {
+        opacity: 0.6 !important;
+        background: var(--bg-muted, #f8fafc) !important;
+        border-color: var(--border-light, #e2e8f0) !important;
+        cursor: not-allowed !important;
+    }
+
+    .card-agotado .cliente-prod-img {
+        filter: grayscale(0.85) !important;
+    }
+
+    .card-agotado .badge-agotado-pill {
+        position: absolute !important;
+        inset: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(15, 23, 42, 0.65) !important;
+        color: #ffffff !important;
+        font-size: 0.6rem !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+        border-radius: 8px !important;
+    }
+
+    .card-agotado .cliente-btn-add {
+        background: var(--border, #cbd5e1) !important;
+        color: var(--text-muted, #94a3b8) !important;
+        box-shadow: none !important;
+        cursor: not-allowed !important;
     }
 }
 
@@ -4594,5 +4719,101 @@ body:not(.dark-theme) .cliente-prod-code {
         font-size: 0.78rem !important;
         padding: 6px 12px !important;
     }
+}
+
+/* ==========================================================================
+   DRAWER / CARRITO DE VENTA MÓVIL (POS) - AJUSTES ERGONÓMICOS Y SIN DESBORDES
+   ========================================================================== */
+.pos-stepper {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--bg-canvas-subtle, #f1f5f9) !important;
+    border: 1px solid var(--border-color, #e2e8f0) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    max-width: 104px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.pos-stepper-btn {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    max-width: 30px !important;
+    max-height: 30px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-primary, #0f172a) !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: background 0.12s ease !important;
+    flex-shrink: 0 !important;
+    line-height: 1 !important;
+    user-select: none !important;
+}
+
+.pos-stepper-btn:hover {
+    background: var(--border-color, #e2e8f0) !important;
+}
+
+.pos-stepper-btn:active {
+    background: #cbd5e1 !important;
+}
+
+.pos-stepper-val,
+input[type="number"].pos-stepper-val,
+.pos-stepper input[type="number"] {
+    width: 36px !important;
+    min-width: 30px !important;
+    max-width: 42px !important;
+    height: 30px !important;
+    min-height: 0 !important;
+    max-height: 32px !important;
+    text-align: center !important;
+    font-weight: 800 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-primary, #0f172a) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    line-height: 30px !important;
+    -moz-appearance: textfield !important;
+    flex: 0 0 36px !important;
+    box-sizing: border-box !important;
+}
+
+.pos-stepper-val::-webkit-inner-spin-button,
+.pos-stepper-val::-webkit-outer-spin-button,
+.pos-stepper input::-webkit-inner-spin-button,
+.pos-stepper input::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.pos-drawer-overlay {
+    z-index: 100000 !important;
+}
+
+.pos-cart-drawer {
+    z-index: 100001 !important;
 }
 

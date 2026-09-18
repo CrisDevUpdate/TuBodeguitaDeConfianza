@@ -1045,7 +1045,13 @@ window.InventoryApp = window.InventoryApp || {};
 
     function calcularHashColeccion(data) {
         try {
-            return JSON.stringify(data || []);
+            if (!data) return '';
+            // Ignorar marcas de tiempo volátiles para evitar bucles de renderizado con serverTimestamp
+            const replacer = (key, val) => {
+                if (key === 'updatedAt' || key === 'createdAt' || key === '_serverTimestamp') return undefined;
+                return val;
+            };
+            return JSON.stringify(data, replacer);
         } catch {
             return '';
         }
@@ -1057,7 +1063,7 @@ window.InventoryApp = window.InventoryApp || {};
         }
         refreshDebounceTimer = setTimeout(() => {
             refrescarTodasLasVistas();
-        }, 120);
+        }, 250);
     }
 
     /**
@@ -1109,7 +1115,7 @@ window.InventoryApp = window.InventoryApp || {};
                         lastCollectionHashes[COLLECTIONS.CLIENTES] = hash;
                         AppState.clientes = newClientes;
                         if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-                            asegurarSincronizacionUsuariosAClientes();
+                            asegurarSincronizacionUsuariosAClientes(false);
                         }
                         guardarCacheLocal();
                         solicitarRefrescoVistasDebounced();
@@ -1193,7 +1199,7 @@ window.InventoryApp = window.InventoryApp || {};
                         window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
                     }
                     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-                        asegurarSincronizacionUsuariosAClientes();
+                        asegurarSincronizacionUsuariosAClientes(false);
                     }
                     if (AppState.usuarioActual) {
                         const curId = String(AppState.usuarioActual.cedula || AppState.usuarioActual.id || '').toUpperCase();
@@ -1502,12 +1508,16 @@ window.InventoryApp = window.InventoryApp || {};
                 }
 
                 primerCargaPagosPorVerificar = false;
-                AppState.pagosPorVerificar = newPagos;
-                guardarCacheLocal();
-                if (typeof renderizarAbonosPendientesReportados === 'function') {
-                    renderizarAbonosPendientesReportados();
+                const hash = calcularHashColeccion(newPagos);
+                if (lastCollectionHashes[COLLECTIONS.PAGOS_POR_VERIFICAR] !== hash) {
+                    lastCollectionHashes[COLLECTIONS.PAGOS_POR_VERIFICAR] = hash;
+                    AppState.pagosPorVerificar = newPagos;
+                    guardarCacheLocal();
+                    if (typeof renderizarAbonosPendientesReportados === 'function') {
+                        renderizarAbonosPendientesReportados();
+                    }
+                    solicitarRefrescoVistasDebounced();
                 }
-                solicitarRefrescoVistasDebounced();
             }, err => manejarErrorListener('PagosPorVerificar', err));
             syncListeners.push(unsubPagosPorVerificar);
 
@@ -1643,50 +1653,54 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener en tiempo real de /config/gamification para Modo Invierno
             try {
                 const unsubGamification = db.collection('config').doc('gamification').onSnapshot(doc => {
-                    if (doc.exists) {
+                    if (doc.exists && !doc.metadata.hasPendingWrites) {
                         const gData = doc.data();
-                        let isWinter = Boolean(gData?.isWinterMode);
+                        const hash = calcularHashColeccion(gData);
+                        if (lastCollectionHashes['config_gamification'] !== hash) {
+                            lastCollectionHashes['config_gamification'] = hash;
+                            let isWinter = Boolean(gData?.isWinterMode);
 
-                        // Si en memoria o en config el premio fue activado (ACTIVO y temporadaActiva===true),
-                        // evitamos que una bandera residual obsoleta de /config/gamification sobreescriba y oculte los puntos
-                        const premioActivoEnSistema = Boolean(
-                            AppState.premioMes && 
-                            AppState.premioMes.temporadaActiva === true && 
-                            AppState.premioMes.estado === 'ACTIVO' && 
-                            !AppState.temporadaInviernoActiva
-                        );
+                            // Si en memoria o en config el premio fue activado (ACTIVO y temporadaActiva===true),
+                            // evitamos que una bandera residual sobreescriba y oculte los puntos
+                            const premioActivoEnSistema = Boolean(
+                                AppState.premioMes && 
+                                AppState.premioMes.temporadaActiva === true && 
+                                AppState.premioMes.estado === 'ACTIVO' && 
+                                !AppState.temporadaInviernoActiva
+                            );
 
-                        if (premioActivoEnSistema && isWinter) {
-                            // Reconciliación automática: corregir /config/gamification en la nube para que no vuelva a colisionar
-                            isWinter = false;
-                            db.collection('config').doc('gamification').set({
-                                isWinterMode: false,
-                                temporadaInviernoActiva: false,
-                                updatedAt: new Date().toISOString(),
-                                updatedBy: 'Auto-Reconciliación (Temporada Premios Activa)'
-                            }, { merge: true }).catch(() => {});
-                        }
-
-                        AppState.isWinterMode = isWinter;
-                        AppState.temporadaInviernoActiva = isWinter;
-                        if (AppState.premioMes) {
-                            AppState.premioMes.temporadaActiva = !isWinter;
-                            if (!isWinter && (AppState.premioMes.estado === 'INVIERNO' || AppState.premioMes.estado === 'ELIMINADO')) {
-                                AppState.premioMes.estado = 'ACTIVO';
+                            if (premioActivoEnSistema && isWinter) {
+                                // Reconciliación automática: corregir /config/gamification en la nube para que no vuelva a colisionar
+                                isWinter = false;
+                                db.collection('config').doc('gamification').set({
+                                    isWinterMode: false,
+                                    temporadaInviernoActiva: false,
+                                    updatedAt: new Date().toISOString(),
+                                    updatedBy: 'Auto-Reconciliación (Temporada Premios Activa)'
+                                }, { merge: true }).catch(() => {});
                             }
+
+                            AppState.isWinterMode = isWinter;
+                            AppState.temporadaInviernoActiva = isWinter;
+                            if (AppState.premioMes) {
+                                AppState.premioMes.temporadaActiva = !isWinter;
+                                if (!isWinter && (AppState.premioMes.estado === 'INVIERNO' || AppState.premioMes.estado === 'ELIMINADO')) {
+                                    AppState.premioMes.estado = 'ACTIVO';
+                                }
+                            }
+                            let styleTag = document.getElementById('winter-mode-global-style');
+                            if (!styleTag) {
+                                styleTag = document.createElement('style');
+                                styleTag.id = 'winter-mode-global-style';
+                                document.head.appendChild(styleTag);
+                            }
+                            styleTag.textContent = isWinter 
+                                ? '.cliente-prod-points-badge, .combo-points-badge, #cliente-carrito-puntos-row, .puntos-premio-row, [data-points-badge] { display: none !important; }'
+                                : '';
+                            const row = document.getElementById('cliente-carrito-puntos-row');
+                            if (row) row.style.display = isWinter ? 'none' : 'flex';
+                            solicitarRefrescoVistasDebounced();
                         }
-                        let styleTag = document.getElementById('winter-mode-global-style');
-                        if (!styleTag) {
-                            styleTag = document.createElement('style');
-                            styleTag.id = 'winter-mode-global-style';
-                            document.head.appendChild(styleTag);
-                        }
-                        styleTag.textContent = isWinter 
-                            ? '.cliente-prod-points-badge, .combo-points-badge, #cliente-carrito-puntos-row, .puntos-premio-row, [data-points-badge] { display: none !important; }'
-                            : '';
-                        const row = document.getElementById('cliente-carrito-puntos-row');
-                        if (row) row.style.display = isWinter ? 'none' : 'flex';
-                        solicitarRefrescoVistasDebounced();
                     }
                 }, err => console.warn('[Firebase] gamification config listener fallback:', err?.message));
                 syncListeners.push(unsubGamification);
@@ -1700,33 +1714,58 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * Refresca todos los componentes de la interfaz de usuario
+     * Refresca los componentes de la interfaz de usuario de forma optimizada
+     * según la vista actualmente visible en pantalla, evitando parpadeos masivos del DOM.
      */
     function refrescarTodasLasVistas() {
-        if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
-        if (typeof renderizarInventario === 'function') renderizarInventario();
-        if (typeof renderizarClientes === 'function') renderizarClientes();
-        if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
+        const activeView = document.querySelector('.view-content.active')?.id || 
+                           document.querySelector('#main-nav-tabs .nav-btn.active')?.getAttribute('data-tab');
+
+        // Renderizar únicamente la vista activa para proteger el DOM de parpadeos
+        if (!activeView || activeView === 'pos') {
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+            if (typeof renderizarCarrito === 'function') renderizarCarrito();
+        } else if (activeView === 'inventario') {
+            if (typeof renderizarInventario === 'function') renderizarInventario();
+            if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
+        } else if (activeView === 'clientes') {
+            if (typeof renderizarClientes === 'function') renderizarClientes();
+            if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
+        } else if (activeView === 'transacciones') {
+            if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+            if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+        } else if (activeView === 'auditoria') {
+            if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
+            if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
+            if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
+        } else if (activeView === 'usuarios') {
+            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        } else if (activeView === 'historial-ventas') {
+            if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+        } else if (activeView === 'notificaciones') {
+            if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+        } else if (activeView === 'premio-mes-admin') {
+            if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+        } else if (activeView === 'cliente-catalogo') {
+            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+            if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+        } else if (activeView === 'cliente-cuenta') {
+            if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+        } else if (activeView === 'cliente-premio') {
+            if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        } else if (activeView === 'kiosco-view') {
+            if (window.KioscoModule && typeof window.KioscoModule.actualizarVista === 'function') {
+                window.KioscoModule.actualizarVista();
+            }
+        }
+
+        // Siempre actualizar badges, selects y estados livianos globales
         if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
-        if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
-        if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
-        if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
-        if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
-        if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
-        if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
-        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
         if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
-        if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
-        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
         if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
-        if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
         if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
-        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
-        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
-        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
     }
 
     // =========================================================================
@@ -1975,8 +2014,10 @@ window.InventoryApp = window.InventoryApp || {};
             if (db) {
                 const docRef = db.collection(COLLECTIONS.CLIENTES).doc(String(cliente.id));
                 await docRef.set({
+                    id: String(cliente.id),
                     nombre: cliente.nombre || '',
                     telefono: cliente.telefono || '',
+                    email: cliente.email || '',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             }

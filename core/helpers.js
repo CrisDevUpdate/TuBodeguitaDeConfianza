@@ -337,16 +337,20 @@ function switchTab(tabId) {
         return;
     }
     
-    // Ocultar todas las vistas
-    const allViews = document.querySelectorAll('.view-content');
-    allViews.forEach(v => {
-        v.classList.remove('active');
-        v.style.display = 'none';
-    });
+    const yaEstaActivo = targetView.classList.contains('active') && targetView.style.display === 'block';
 
-    // Mostrar la vista seleccionada
-    targetView.classList.add('active');
-    targetView.style.display = 'block';
+    if (!yaEstaActivo) {
+        // Ocultar todas las vistas
+        const allViews = document.querySelectorAll('.view-content');
+        allViews.forEach(v => {
+            v.classList.remove('active');
+            v.style.display = 'none';
+        });
+
+        // Mostrar la vista seleccionada
+        targetView.classList.add('active');
+        targetView.style.display = 'block';
+    }
 
     // Actualizar botones de navegación desktop
     const allNavButtons = document.querySelectorAll('#main-nav-tabs .nav-btn');
@@ -425,8 +429,17 @@ function switchTab(tabId) {
         } else if (tabId === 'cliente-perfil') {
             if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
         } else if (tabId === 'kiosco-view') {
+            document.body.classList.add('modo-autoservicio');
             if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
                 window.KioscoModule.init();
+            }
+        }
+
+        if (tabId !== 'kiosco-view') {
+            const u = window.AppState?.usuarioActual;
+            const esAutoServicioUser = u && (u.rol === 'autoservicio' || u.rol === 'kiosco');
+            if (!esAutoServicioUser) {
+                document.body.classList.remove('modo-autoservicio');
             }
         }
 

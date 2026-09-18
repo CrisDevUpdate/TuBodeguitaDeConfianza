@@ -13,8 +13,7 @@
     let carritoKiosco = [];
     let categoriaKioscoActiva = 'TODOS';
     let busquedaKiosco = '';
-    let clienteKiosco = null; // { cedula, nombre, telefono, clienteObj, usuarioObj }
-    let metodoModalidadKiosco = 'CREDITO'; // 'CREDITO' (por defecto) o 'CONTADO'
+    let clienteKiosco = null; // { cedula, nombre, telefono }
     let metodoPagoKiosco = 'PAGO_MOVIL'; // PAGO_MOVIL, EFECTIVO_USD, EFECTIVO_VES, PUNTO_VENTA
     let pasoKiosco = 1; // 1: Catálogo, 2: Identificación, 3: Pago, 4: Confirmación
     let timerRegresoInactividad = null;
@@ -533,200 +532,60 @@
     }
 
     /**
-     * Busca el cliente exclusivamente en la base de datos (AppState.clientes y AppState.usuarios)
-     * al ingresar su cédula en el Kiosco. Muestra su nombre y solicita la clave de usuario.
+     * Busca o autocompleta cliente al ingresar su cédula en el Kiosco
      */
     function alEscribirCedulaKiosco(cedulaIngresada) {
         const clean = String(cedulaIngresada || '').trim().toUpperCase();
-        const digitsOnly = clean.replace(/\D/g, '');
-        const boxReconocido = document.getElementById('kiosco-cliente-reconocido-box');
-        const boxNoEncontrado = document.getElementById('kiosco-cliente-no-encontrado-box');
-        const grupoClave = document.getElementById('kiosco-grupo-clave-usuario');
-        const displayNombre = document.getElementById('kiosco-cliente-nombre-display');
-        const displayCedula = document.getElementById('kiosco-cliente-cedula-display');
-        const btnAvanzar = document.getElementById('kiosco-btn-avanzar-pago');
-        const inputClave = document.getElementById('kiosco-input-clave-usuario');
-        const errorClave = document.getElementById('kiosco-clave-error-msg');
-
-        if (errorClave) errorClave.style.display = 'none';
-
-        if (clean.length < 3) {
-            clienteKiosco = null;
-            if (boxReconocido) boxReconocido.style.display = 'none';
-            if (boxNoEncontrado) boxNoEncontrado.style.display = 'none';
-            if (grupoClave) grupoClave.style.display = 'none';
-            if (inputClave) inputClave.value = '';
-            if (btnAvanzar) btnAvanzar.disabled = false;
-            return;
-        }
+        if (clean.length < 4) return;
 
         const clientes = Array.isArray(window.AppState?.clientes) ? window.AppState.clientes : [];
-        const usuarios = Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : [];
+        const cli = clientes.find(c => String(c.id || c.cedula || '').trim().toUpperCase() === clean);
 
-        // Buscar en la base de datos de clientes
-        let cli = clientes.find(c => {
-            const cId = String(c.id || c.cedula || '').trim().toUpperCase();
-            const cDig = cId.replace(/\D/g, '');
-            return cId === clean || (digitsOnly.length >= 3 && cDig === digitsOnly);
-        });
+        const inputNombre = document.getElementById('kiosco-input-nombre');
+        const inputTelefono = document.getElementById('kiosco-input-telefono');
+        const badgeAutofill = document.getElementById('kiosco-cliente-autofill-badge');
 
-        // Buscar también en la lista de usuarios del sistema
-        let usr = usuarios.find(u => {
-            const uCed = String(u.cedula || u.id || '').trim().toUpperCase();
-            const uDig = uCed.replace(/\D/g, '');
-            return uCed === clean || (digitsOnly.length >= 3 && uDig === digitsOnly);
-        });
-
-        if (cli || usr) {
-            const nombreCompleto = cli?.nombre || usr?.nombre || 'Cliente Registrado';
-            const cedulaFinal = cli?.id || usr?.cedula || clean;
-            const telefonoFinal = cli?.telefono || usr?.telefono || '';
-
-            clienteKiosco = {
-                cedula: cedulaFinal,
-                nombre: nombreCompleto,
-                telefono: telefonoFinal,
-                clienteObj: cli,
-                usuarioObj: usr
-            };
-
-            if (boxNoEncontrado) boxNoEncontrado.style.display = 'none';
-            if (boxReconocido) {
-                boxReconocido.style.display = 'flex';
-                if (displayNombre) displayNombre.textContent = `¡Hola, ${nombreCompleto}!`;
-                if (displayCedula) displayCedula.textContent = `Cédula: ${cedulaFinal}`;
+        if (cli) {
+            if (inputNombre && !inputNombre.value) inputNombre.value = cli.nombre || '';
+            if (inputTelefono && !inputTelefono.value) inputTelefono.value = cli.telefono || '';
+            if (badgeAutofill) {
+                badgeAutofill.style.display = 'inline-flex';
+                badgeAutofill.innerHTML = `<i class="fas fa-check-circle"></i> ¡Cliente frecuente reconocido!`;
             }
-            if (grupoClave) {
-                grupoClave.style.display = 'block';
-            }
-            if (btnAvanzar) btnAvanzar.disabled = false;
         } else {
-            clienteKiosco = null;
-            if (boxReconocido) boxReconocido.style.display = 'none';
-            if (grupoClave) {
-                grupoClave.style.display = 'none';
-                if (inputClave) inputClave.value = '';
-            }
-            if (boxNoEncontrado) boxNoEncontrado.style.display = 'flex';
-            if (btnAvanzar) btnAvanzar.disabled = true;
+            if (badgeAutofill) badgeAutofill.style.display = 'none';
         }
     }
 
     /**
-     * Alterna la visibilidad de la contraseña en el Kiosco
-     */
-    function toggleVerClaveUsuarioKiosco() {
-        const inputClave = document.getElementById('kiosco-input-clave-usuario');
-        const icono = document.getElementById('kiosco-icono-ver-clave');
-        if (!inputClave) return;
-        if (inputClave.type === 'password') {
-            inputClave.type = 'text';
-            if (icono) icono.className = 'fas fa-eye-slash';
-        } else {
-            inputClave.type = 'password';
-            if (icono) icono.className = 'fas fa-eye';
-        }
-    }
-
-    /**
-     * Limpia el mensaje y estilo de error de contraseña
-     */
-    function limpiarErrorClaveKiosco() {
-        const errorClave = document.getElementById('kiosco-clave-error-msg');
-        const inputClave = document.getElementById('kiosco-input-clave-usuario');
-        if (errorClave) errorClave.style.display = 'none';
-        if (inputClave) inputClave.style.borderColor = '#cbd5e1';
-    }
-
-    /**
-     * Valida la identificación del cliente y su contraseña de usuario antes de avanzar al Paso 3
+     * Valida la identificación y avanza al Paso 3: Selección de Pago
      */
     function avanzarPasoPago() {
         const inputCedula = document.getElementById('kiosco-input-cedula');
-        const inputClave = document.getElementById('kiosco-input-clave-usuario');
-        const errorClave = document.getElementById('kiosco-clave-error-msg');
+        const inputNombre = document.getElementById('kiosco-input-nombre');
+        const inputTelefono = document.getElementById('kiosco-input-telefono');
 
-        if (!clienteKiosco) {
-            const cedulaVal = String(inputCedula?.value || '').trim();
-            if (!cedulaVal) {
-                if (window.InventoryApp?.Modal?.toast) {
-                    window.InventoryApp.Modal.toast('Por favor ingresa tu número de cédula.', 'warning');
-                }
-                inputCedula?.focus();
-                return;
-            }
-            alEscribirCedulaKiosco(cedulaVal);
-            if (!clienteKiosco) {
-                if (window.InventoryApp?.Modal?.toast) {
-                    window.InventoryApp.Modal.toast('Solo clientes registrados en nuestra base de datos pueden continuar.', 'error');
-                }
-                return;
-            }
-        }
+        const cedula = String(inputCedula?.value || '').trim();
+        const nombre = String(inputNombre?.value || '').trim();
+        const telefono = String(inputTelefono?.value || '').trim();
 
-        const claveIngresada = String(inputClave?.value || '').trim();
-        if (!claveIngresada) {
-            if (errorClave) {
-                errorClave.innerHTML = '<i class="fas fa-circle-exclamation"></i> Ingresa tu clave de usuario para autorizar la compra.';
-                errorClave.style.display = 'flex';
+        if (!cedula) {
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Por favor ingresa tu número de Cédula o RIF.', 'warning');
             }
-            if (inputClave) {
-                inputClave.style.borderColor = '#dc2626';
-                inputClave.focus();
-            }
+            inputCedula?.focus();
             return;
         }
 
-        // Buscar usuario en BD para validar su contraseña
-        const usuarios = Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : [];
-        const cleanCed = String(clienteKiosco.cedula || '').replace(/\D/g, '');
-        let usr = clienteKiosco.usuarioObj || usuarios.find(u => {
-            const uCed = String(u.cedula || u.id || '').replace(/\D/g, '');
-            return cleanCed && uCed === cleanCed;
-        });
-
-        // Verificación de la clave
-        let claveValida = false;
-
-        // Clave maestra de respaldo por seguridad operativa
-        if (claveIngresada === '1409' || claveIngresada === 'admin1409') {
-            claveValida = true;
-        } else if (usr && usr.password) {
-            if (typeof window.verificarPasswordHash === 'function') {
-                claveValida = window.verificarPasswordHash(claveIngresada, usr.password);
-            } else {
-                claveValida = String(usr.password) === claveIngresada;
+        if (!nombre) {
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('Por favor escribe tu Nombre y Apellido para identificarte.', 'warning');
             }
-        } else if (clienteKiosco.clienteObj && clienteKiosco.clienteObj.password) {
-            if (typeof window.verificarPasswordHash === 'function') {
-                claveValida = window.verificarPasswordHash(claveIngresada, clienteKiosco.clienteObj.password);
-            } else {
-                claveValida = String(clienteKiosco.clienteObj.password) === claveIngresada;
-            }
-        } else {
-            // Si el cliente no tenía contraseña configurada en la BD, se autoriza con su cédula o sus últimos 4 dígitos
-            const cedSoloDigitos = String(clienteKiosco.cedula).replace(/\D/g, '');
-            const ultimos4 = cedSoloDigitos.slice(-4);
-            if (claveIngresada === cedSoloDigitos || claveIngresada === ultimos4 || claveIngresada === '1234') {
-                claveValida = true;
-            }
-        }
-
-        if (!claveValida) {
-            if (errorClave) {
-                errorClave.innerHTML = '<i class="fas fa-circle-exclamation"></i> Clave de usuario incorrecta. Por favor verifica tu contraseña.';
-                errorClave.style.display = 'flex';
-            }
-            if (inputClave) {
-                inputClave.style.borderColor = '#dc2626';
-                inputClave.select();
-                inputClave.focus();
-            }
+            inputNombre?.focus();
             return;
         }
 
-        // Clave validada correctamente
-        limpiarErrorClaveKiosco();
+        clienteKiosco = { cedula, nombre, telefono };
         mostrarPasoWizard(3);
     }
 
@@ -767,98 +626,13 @@
             } else {
                 datosPagoMovil.innerHTML = `
                     <div class="kiosco-bank-card">
-                        <div class="kiosco-bank-row"><span>Pago Directo:</span> <strong>Puedes utilizar la modalidad a Crédito o cancelar en efectivo directo.</strong></div>
+                        <div class="kiosco-bank-row"><span>Pago en Caja:</span> <strong>Indica tu cédula al operador para pagar en mostrador.</strong></div>
                     </div>
                 `;
             }
         }
 
-        // Por defecto: TODO A CRÉDITO
-        seleccionarModalidadKiosco('CREDITO');
-    }
-
-    /**
-     * Alterna la modalidad de pago entre TODO A CRÉDITO (por defecto) y AL CONTADO
-     */
-    function seleccionarModalidadKiosco(modalidad) {
-        metodoModalidadKiosco = modalidad; // 'CREDITO' o 'CONTADO'
-
-        const cardCredito = document.getElementById('kiosco-mode-card-credito');
-        const cardContado = document.getElementById('kiosco-mode-card-contado');
-        const panelCredito = document.getElementById('kiosco-panel-credito');
-        const panelContado = document.getElementById('kiosco-panel-contado');
-        const btnConfirmar = document.getElementById('kiosco-btn-confirmar-final');
-
-        if (modalidad === 'CREDITO') {
-            if (cardCredito) cardCredito.classList.add('active');
-            if (cardContado) cardContado.classList.remove('active');
-            if (panelCredito) panelCredito.style.display = 'block';
-            if (panelContado) panelContado.style.display = 'none';
-            if (btnConfirmar) {
-                btnConfirmar.innerHTML = '<i class="fas fa-bag-shopping"></i> Confirmar y Retirar Productos';
-                btnConfirmar.style.background = '#16a34a';
-                btnConfirmar.style.borderColor = '#16a34a';
-            }
-        } else {
-            // Modalidad CONTADO
-            if (cardCredito) cardCredito.classList.remove('active');
-            if (cardContado) cardContado.classList.add('active');
-            if (panelCredito) panelCredito.style.display = 'none';
-            if (panelContado) panelContado.style.display = 'block';
-            if (btnConfirmar) {
-                btnConfirmar.innerHTML = '<i class="fas fa-bag-shopping"></i> Confirmar y Retirar Productos';
-                btnConfirmar.style.background = '#0284c7';
-                btnConfirmar.style.borderColor = '#0284c7';
-            }
-            seleccionarMetodoPagoKiosco(metodoPagoKiosco);
-        }
-    }
-
-    /**
-     * Abre el modal tradicional de cobro al contado con el carrito y cliente del Kiosco
-     */
-    function abrirModalContadoSiempre() {
-        if (!carritoKiosco.length) return;
-
-        // 1. Sincronizar el carrito del POS con el carrito del Kiosco
-        if (window.AppState) {
-            window.AppState.carrito = carritoKiosco.map(it => ({ ...it }));
-        }
-        if (typeof window.carrito !== 'undefined') {
-            window.carrito = carritoKiosco.map(it => ({ ...it }));
-        }
-
-        // 2. Sincronizar condición de pago al contado en POS
-        const desktopCond = document.getElementById('pos-tipo-pago');
-        const mobileCond = document.getElementById('pos-tipo-pago-mobile');
-        if (desktopCond) desktopCond.value = 'Contado';
-        if (mobileCond) mobileCond.value = 'Contado';
-        if (typeof window.sincronizarCondicionPago === 'function') {
-            window.sincronizarCondicionPago('pos-tipo-pago');
-        }
-
-        // 3. Sincronizar cliente en selectores de POS
-        const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
-        if (clienteIdSelect && clienteKiosco) {
-            let optionExists = Array.from(clienteIdSelect.options).some(o => o.value === clienteKiosco.cedula);
-            if (!optionExists) {
-                const opt = document.createElement('option');
-                opt.value = clienteKiosco.cedula;
-                opt.textContent = `${clienteKiosco.nombre} (${clienteKiosco.cedula})`;
-                clienteIdSelect.appendChild(opt);
-            }
-            clienteIdSelect.value = clienteKiosco.cedula;
-        }
-
-        // 4. Actualizar vista de carrito POS si está disponible
-        if (typeof window.renderizarCarrito === 'function') {
-            window.renderizarCarrito();
-        }
-
-        // 5. Abrir el modal unificado de checkout de siempre
-        if (typeof window.abrirModalCheckoutPOS === 'function') {
-            window.abrirModalCheckoutPOS();
-        }
+        seleccionarMetodoPagoKiosco(metodoPagoKiosco);
     }
 
     /**
@@ -893,9 +667,8 @@
     }
 
     /**
-     * Envía y asienta la compra de auto-servicio de confianza
-     * El cliente retira los productos él mismo, por lo que el inventario se descuenta de inmediato
-     * y la compra queda confirmada y cargada a su cuenta (a crédito) o registrada (al contado).
+     * Envía y asienta el pedido de auto-servicio con estado PENDIENTE_CONFIRMACION
+     * Regla estricta: NO descuenta el inventario de inmediato. Queda en cola de aprobación para el Administrador.
      */
     async function confirmarPedidoKiosco() {
         if (carritoKiosco.length === 0 || !clienteKiosco) return;
@@ -903,7 +676,7 @@
         const btnConfirmar = document.getElementById('kiosco-btn-confirmar-final');
         if (btnConfirmar) {
             btnConfirmar.disabled = true;
-            btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirmando Compra...';
+            btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando Pedido...';
         }
 
         try {
@@ -913,7 +686,7 @@
             const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
 
             const inputRef = document.getElementById('kiosco-input-referencia');
-            const referencia = String(inputRef?.value || '').trim() || (metodoPagoKiosco === 'PAGO_MOVIL' ? 'PAGO-MOVIL-AUTOSERVICIO' : 'EFECTIVO-DIRECTO');
+            const referencia = String(inputRef?.value || '').trim() || (metodoPagoKiosco === 'PAGO_MOVIL' ? 'PAGO-MOVIL-KIOSCO' : 'EFECTIVO-EN-CAJA');
 
             // Generar identificador de pedido único de Auto-servicio de Confianza
             const consecutivo = (window.AppState?.ventas?.length || 0) + 1;
@@ -929,26 +702,6 @@
                 subtotal: (item.precio * item.cantidad)
             }));
 
-            // Validar stock disponible para todos los ítems antes de proceder
-            for (const it of itemsPedido) {
-                const prod = (window.AppState?.productos || []).find(p => String(p.id) === String(it.productoId));
-                const stockDisp = Number(prod?.stock || 0);
-                if (!prod || stockDisp < Number(it.cantidad || 0)) {
-                    if (window.InventoryApp?.Modal?.alert) {
-                        window.InventoryApp.Modal.alert(
-                            'Stock Insuficiente',
-                            `El producto "${it.nombre}" solo cuenta con ${stockDisp} unidades disponibles en inventario. Por favor ajusta la cantidad en tu compra.`,
-                            'warning'
-                        );
-                    }
-                    if (btnConfirmar) {
-                        btnConfirmar.disabled = false;
-                        btnConfirmar.innerHTML = '<i class="fas fa-bag-shopping"></i> Confirmar y Retirar Productos';
-                    }
-                    return;
-                }
-            }
-
             // 1. Guardar cliente en AppState si no existe aún
             if (Array.isArray(window.AppState?.clientes)) {
                 const existeCli = window.AppState.clientes.find(c => String(c.id).toUpperCase() === clienteKiosco.cedula.toUpperCase());
@@ -957,32 +710,12 @@
                         id: clienteKiosco.cedula,
                         nombre: clienteKiosco.nombre,
                         telefono: clienteKiosco.telefono,
-                        deudaUSD: 0,
                         email: ''
                     });
                 }
             }
 
-            // 2. Débito atómico de inventario (el cliente retira los productos él mismo)
-            for (const it of itemsPedido) {
-                if (window.InventoryApp?.StockService?.sale) {
-                    window.InventoryApp.StockService.sale(it.productoId, it.cantidad);
-                } else if (Array.isArray(window.AppState?.productos)) {
-                    const prod = window.AppState.productos.find(p => String(p.id) === String(it.productoId));
-                    if (prod) {
-                        prod.stock = Math.max(0, Number(prod.stock || 0) - Number(it.cantidad || 0));
-                    }
-                }
-
-                // Sincronizar stock actualizado del producto en Firestore en tiempo real
-                const prodActualizado = (window.AppState?.productos || []).find(p => String(p.id) === String(it.productoId));
-                if (prodActualizado && window.InventoryApp?.Firebase?.guardarProducto) {
-                    window.InventoryApp.Firebase.guardarProducto(prodActualizado).catch(() => {});
-                }
-            }
-
-            // 3. Crear registro de venta confirmada
-            const esCredito = (metodoModalidadKiosco === 'CREDITO');
+            // 2. Crear registro de venta pendiente (Sin descontar stock de inventario)
             const nuevaVentaKiosco = {
                 id: pedidoId,
                 clienteId: clienteKiosco.cedula,
@@ -995,46 +728,64 @@
                 total: totalUSD,
                 totalUSD: totalUSD,
                 totalVES: totalVES,
-                tipo: esCredito ? 'Crédito' : (metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil' : 'Efectivo'),
-                tipoPago: esCredito ? 'Crédito' : (metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil' : 'Efectivo'),
-                modalidad: metodoModalidadKiosco,
-                referencia: esCredito ? 'Crédito Auto-servicio' : referencia,
-                estado: 'CONFIRMADA',
-                confirmada: true,
-                descontadoInventario: true,
+                tipo: metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil' : 'Efectivo',
+                tipoPago: metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil' : 'Efectivo',
+                referencia: referencia,
+                estado: 'PENDIENTE_CONFIRMACION',
+                confirmada: false,
+                descontadoInventario: false, // Importante: no descontado hasta aprobación
                 esKiosco: true,
-                origen: 'Auto-servicio de Confianza',
-                nota: 'Compra confirmada en autoservicio. Productos retirados directamente por el cliente.'
+                origen: 'Auto-servicio de Confianza'
             };
 
             if (!Array.isArray(window.AppState.ventas)) window.AppState.ventas = [];
             window.AppState.ventas.unshift(nuevaVentaKiosco);
 
-            // 4. Si es Crédito, asentar el monto adeudado en la cuenta corriente del cliente
-            if (esCredito) {
-                const clienteExistente = window.AppState?.clientes?.find(c => String(c.id).toUpperCase() === clienteKiosco.cedula.toUpperCase());
-                if (clienteExistente) {
-                    clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + totalUSD;
-                    if (window.InventoryApp?.Firebase?.guardarCliente) {
-                        window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
-                    }
-                }
-            }
+            // 3. Crear registro en PagosPorVerificar para que aparezca en Transacciones Admin con badge de alerta
+            const nuevoPagoPorVerificar = {
+                id: pedidoId,
+                pedidoId: pedidoId,
+                ventaId: pedidoId,
+                clienteId: clienteKiosco.cedula,
+                clienteCedula: clienteKiosco.cedula,
+                clienteNombre: clienteKiosco.nombre,
+                clienteTelefono: clienteKiosco.telefono,
+                totalUSD: totalUSD,
+                montoUSD: totalUSD,
+                totalVES: totalVES,
+                montoVES: totalVES,
+                tasaMomento: tasa,
+                metodoPago: metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil (Auto-servicio)' : 'Efectivo (Auto-servicio)',
+                tipoPago: metodoPagoKiosco === 'PAGO_MOVIL' ? 'Pago Móvil' : 'Efectivo',
+                tipo: 'VENTA_AUTOSERVICIO',
+                tipoRegistro: 'VENTA',
+                referencia: referencia,
+                items: itemsPedido,
+                fecha: fechaHora,
+                fechaISO: new Date().toISOString(),
+                estado: 'PENDIENTE_VERIFICACION',
+                esKiosco: true,
+                origen: 'Auto-servicio de Confianza',
+                nota: `Pedido #${pedidoId} en Auto-servicio de Confianza por ${clienteKiosco.nombre} (${itemsPedido.length} productos)`
+            };
 
-            // 5. Sincronizar venta en Firebase Firestore
-            if (window.InventoryApp?.Firebase?.registrarVenta) {
-                window.InventoryApp.Firebase.registrarVenta(nuevaVentaKiosco, itemsPedido).catch(err => {
-                    console.warn('[Kiosco] Error al guardar venta en Firestore:', err);
+            if (!Array.isArray(window.AppState.pagosPorVerificar)) window.AppState.pagosPorVerificar = [];
+            window.AppState.pagosPorVerificar.unshift(nuevoPagoPorVerificar);
+
+            // 4. Sincronizar en Firebase Firestore
+            if (window.InventoryApp?.Firebase?.guardarPagoPorVerificar) {
+                window.InventoryApp.Firebase.guardarPagoPorVerificar(nuevoPagoPorVerificar).catch(err => {
+                    console.warn('[Kiosco] Error al guardar en PagosPorVerificar:', err);
                 });
             }
 
-            // 6. Notificar al sistema
+            // 5. Notificar a administradores y actualizar badges
             if (typeof window.registrarNotificacion === 'function') {
                 window.registrarNotificacion({
                     id: 'notif_kiosco_' + pedidoId,
-                    tipo: esCredito ? 'credito' : 'pedido_kiosco',
-                    titulo: esCredito ? 'Compra a Crédito (Auto-servicio)' : 'Compra en Auto-Servicio',
-                    mensaje: `Cliente ${clienteKiosco.nombre} (${clienteKiosco.cedula}) realizó una compra ${esCredito ? 'a CRÉDITO' : 'al CONTADO'} por $${totalUSD.toFixed(2)} (${itemsPedido.length} productos) y retiró sus productos directamente.`,
+                    tipo: 'pedido_kiosco',
+                    titulo: 'Nuevo Pedido en Auto-Servicio',
+                    mensaje: `Cliente ${clienteKiosco.nombre} (${clienteKiosco.cedula}) realizó el pedido #${pedidoId} en Auto-servicio de Confianza por $${totalUSD.toFixed(2)} (${itemsPedido.length} productos). Pendiente por facturar y entregar.`,
                     clienteId: clienteKiosco.cedula,
                     clienteNombre: clienteKiosco.nombre,
                     montoUSD: totalUSD,
@@ -1042,34 +793,34 @@
                     referenciaId: pedidoId,
                     paraAdmin: true,
                     paraCliente: false,
-                    destino: { tab: 'historial-ventas' }
+                    destino: { tab: 'transacciones' }
                 });
             }
 
-            // 7. Refrescar vistas del sistema si aplican
-            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
-            if (typeof renderizarInventario === 'function') renderizarInventario();
-            if (typeof renderizarClientes === 'function') renderizarClientes();
-            if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
-            if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+            if (typeof renderizarAbonosPendientesReportados === 'function') {
+                renderizarAbonosPendientesReportados();
+            }
+            if (typeof actualizarBadgesAbonos === 'function') {
+                actualizarBadgesAbonos();
+            }
 
-            // 8. Guardar en persistencia local
+            // 6. Guardar en almacenamiento de sesión
             if (window.InventoryApp?.Persistence?.guardar) {
                 window.InventoryApp.Persistence.guardar(true);
             }
 
-            // 9. Mostrar Pantalla de Confirmación y Ticket Visual (Paso 4)
+            // 7. Mostrar Pantalla de Confirmación y Ticket Visual (Paso 4)
             mostrarPantallaExitoKiosco(nuevaVentaKiosco);
 
         } catch (error) {
-            console.error('[Kiosco] Error al procesar compra:', error);
+            console.error('[Kiosco] Error al procesar pedido:', error);
             if (window.InventoryApp?.Modal?.alert) {
-                window.InventoryApp.Modal.alert('Inconveniente al Procesar', 'Ocurrió un inconveniente al registrar la compra. Por favor verifica tus datos e inténtalo de nuevo.', 'warning');
+                window.InventoryApp.Modal.alert('Error al Procesar', 'Ocurrió un inconveniente al generar tu orden. Por favor acércate a la caja para ser atendido.', 'error');
             }
         } finally {
             if (btnConfirmar) {
                 btnConfirmar.disabled = false;
-                btnConfirmar.innerHTML = '<i class="fas fa-bag-shopping"></i> Confirmar y Retirar Productos';
+                btnConfirmar.innerHTML = '<i class="fas fa-check-circle"></i> Enviar Pedido a Caja';
             }
         }
     }
@@ -1085,22 +836,6 @@
 
         const elNombre = document.getElementById('kiosco-ticket-cliente');
         if (elNombre) elNombre.textContent = `${venta.clienteNombre} (C.I: ${venta.clienteId})`;
-
-        // Mostrar badge de modalidad en ticket
-        const badgeModo = document.getElementById('kiosco-ticket-modalidad-badge');
-        if (badgeModo) {
-            if (venta.tipo === 'Crédito' || venta.modalidad === 'CREDITO') {
-                badgeModo.style.background = '#dcfce7';
-                badgeModo.style.color = '#15803d';
-                badgeModo.style.borderColor = '#86efac';
-                badgeModo.innerHTML = '<i class="fas fa-file-invoice-dollar"></i> Modalidad: Crédito (Cargado a tu Cuenta Corriente)';
-            } else {
-                badgeModo.style.background = '#f0f9ff';
-                badgeModo.style.color = '#0369a1';
-                badgeModo.style.borderColor = '#bae6fd';
-                badgeModo.innerHTML = '<i class="fas fa-money-bill-wave"></i> Modalidad: Al Contado (Auto-pago Registrado)';
-            }
-        }
 
         const elTotal = document.getElementById('kiosco-ticket-total');
         if (elTotal) {
@@ -1128,22 +863,10 @@
         const inNom = document.getElementById('kiosco-input-nombre');
         const inTel = document.getElementById('kiosco-input-telefono');
         const inRef = document.getElementById('kiosco-input-referencia');
-        const inClave = document.getElementById('kiosco-input-clave-usuario');
-        const boxRec = document.getElementById('kiosco-cliente-reconocido-box');
-        const boxNoRec = document.getElementById('kiosco-cliente-no-encontrado-box');
-        const grpClave = document.getElementById('kiosco-grupo-clave-usuario');
-        const errClave = document.getElementById('kiosco-error-clave-msg');
-
         if (inCed) inCed.value = '';
         if (inNom) inNom.value = '';
         if (inTel) inTel.value = '';
         if (inRef) inRef.value = '';
-        if (inClave) inClave.value = '';
-        if (boxRec) boxRec.style.display = 'none';
-        if (boxNoRec) boxNoRec.style.display = 'none';
-        if (grpClave) grpClave.style.display = 'none';
-        if (errClave) errClave.style.display = 'none';
-
         clienteKiosco = null;
 
         // Iniciar cuenta regresiva para reiniciar la pantalla de auto-servicio
@@ -1201,69 +924,13 @@
     }
 
     /**
-     * Salir del modo Auto-servicio de Confianza mediante modal CSS y clave protegida (1409)
+     * Salir del modo Auto-servicio de Confianza mediante clave protegida (1409)
      */
     function solicitarSalidaKiosco() {
-        const modal = document.getElementById('modal-kiosco-exit-pin');
-        const input = document.getElementById('kiosco-exit-pin-input');
-        const errorEl = document.getElementById('kiosco-exit-pin-error');
-        const eyeIcon = document.getElementById('kiosco-exit-eye-icon');
+        const pinIngresado = prompt('Auto-servicio de Confianza:\nIngresa la clave de seguridad para salir (1409):');
+        if (pinIngresado === null) return;
 
-        if (errorEl) {
-            errorEl.style.display = 'none';
-            errorEl.textContent = '';
-        }
-        if (input) {
-            input.value = '';
-            input.type = 'password';
-        }
-        if (eyeIcon) {
-            eyeIcon.className = 'fas fa-eye';
-        }
-
-        if (modal) {
-            modal.style.display = 'flex';
-            setTimeout(() => {
-                if (input) input.focus();
-            }, 80);
-        }
-    }
-
-    /**
-     * Cierra el modal CSS de salida de auto-servicio
-     */
-    function cerrarModalSalidaKiosco() {
-        const modal = document.getElementById('modal-kiosco-exit-pin');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
-    /**
-     * Alterna la visibilidad del PIN en el modal CSS
-     */
-    function toggleVerPinKiosco() {
-        const input = document.getElementById('kiosco-exit-pin-input');
-        const eyeIcon = document.getElementById('kiosco-exit-eye-icon');
-        if (!input) return;
-
-        if (input.type === 'password') {
-            input.type = 'text';
-            if (eyeIcon) eyeIcon.className = 'fas fa-eye-slash';
-        } else {
-            input.type = 'password';
-            if (eyeIcon) eyeIcon.className = 'fas fa-eye';
-        }
-    }
-
-    /**
-     * Confirma la salida del modo auto-servicio validando el PIN contra 1409
-     */
-    function confirmarSalidaPinKiosco() {
-        const input = document.getElementById('kiosco-exit-pin-input');
-        const errorEl = document.getElementById('kiosco-exit-pin-error');
-        const cleanPin = String(input ? input.value : '').trim();
-
+        const cleanPin = String(pinIngresado).trim();
         const HASH_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
         let passValido = (cleanPin === '1409');
 
@@ -1272,45 +939,26 @@
         }
 
         if (passValido) {
-            cerrarModalSalidaKiosco();
             document.body.classList.remove('modo-autoservicio');
-            const mainHeader = document.querySelector('.bodeguita-main-header') || document.getElementById('bodeguita-main-header');
-            if (mainHeader) mainHeader.style.removeProperty('display');
-            const mainNavTabs = document.getElementById('main-nav-tabs');
-            if (mainNavTabs) mainNavTabs.style.removeProperty('display');
-
             if (window.InventoryApp?.Modal?.toast) {
-                window.InventoryApp.Modal.toast('Sesión de Auto-servicio finalizada', 'info', 3000);
+                window.InventoryApp.Modal.toast('Sesión de Auto-servicio de Confianza finalizada', 'info', 3000);
             }
-
-            // Regresar a sesión admin o pos
+            // Regresar a sesión admin o cerrar sesión
             if (typeof window.volverASesionAdmin === 'function') {
                 window.volverASesionAdmin();
             } else if (typeof window.cerrarSesionUsuario === 'function') {
                 window.cerrarSesionUsuario();
-            } else if (typeof switchTab === 'function') {
-                switchTab('pos');
             }
         } else {
-            if (errorEl) {
-                errorEl.innerHTML = '<i class="fas fa-circle-exclamation"></i> Clave de seguridad incorrecta. Inténtalo de nuevo.';
-                errorEl.style.display = 'flex';
-            }
-            if (input) {
-                input.select();
-                input.focus();
+            if (window.InventoryApp?.Modal?.alert) {
+                window.InventoryApp.Modal.alert('Clave Incorrecta', 'La clave ingresada no es válida. El terminal permanece en Auto-servicio de Confianza.', 'error');
+            } else {
+                alert('Clave incorrecta. El terminal permanece en Auto-servicio de Confianza.');
             }
         }
     }
 
     // Exponer API global
-    window.solicitarSalidaKiosco = solicitarSalidaKiosco;
-    window.cerrarModalSalidaKiosco = cerrarModalSalidaKiosco;
-    window.toggleVerClaveUsuarioKiosco = toggleVerClaveUsuarioKiosco;
-    window.limpiarErrorClaveKiosco = limpiarErrorClaveKiosco;
-    window.seleccionarModalidadKiosco = seleccionarModalidadKiosco;
-    window.abrirModalContadoSiempre = abrirModalContadoSiempre;
-
     window.KioscoModule = {
         init: initKiosco,
         actualizarVista: initKiosco,
@@ -1324,20 +972,13 @@
         alBuscarProducto,
         iniciarCheckout: iniciarCheckoutKiosco,
         alEscribirCedula: alEscribirCedulaKiosco,
-        toggleVerClaveUsuario: toggleVerClaveUsuarioKiosco,
-        limpiarErrorClave: limpiarErrorClaveKiosco,
         avanzarPasoPago,
-        seleccionarModalidad: seleccionarModalidadKiosco,
-        abrirModalContadoSiempre: abrirModalContadoSiempre,
         mostrarPasoWizard,
         seleccionarMetodoPago: seleccionarMetodoPagoKiosco,
         confirmarPedido: confirmarPedidoKiosco,
         reiniciarKiosco: reiniciarKioscoManual,
         cerrarWizard: cerrarModalWizardKiosco,
-        solicitarSalida: solicitarSalidaKiosco,
-        cerrarModalSalida: cerrarModalSalidaKiosco,
-        toggleVerPin: toggleVerPinKiosco,
-        confirmarSalidaPin: confirmarSalidaPinKiosco
+        solicitarSalida: solicitarSalidaKiosco
     };
 
 })();
