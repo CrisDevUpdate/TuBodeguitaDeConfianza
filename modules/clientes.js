@@ -179,39 +179,103 @@ function renderizarClientes() {
         asegurarSincronizacionUsuariosAClientes();
     }
     const tbody = document.getElementById('clientes-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('clientes-mobile-list');
+    if (!tbody && !mobileList) return;
 
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
 
     if (!lista.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">No hay clientes registrados en el directorio.</td></tr>';
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">No hay clientes registrados en el directorio.</td></tr>';
+        }
+        if (mobileList) {
+            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-users-slash" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No hay clientes registrados en el directorio.</div>';
+        }
         return;
     }
 
-    tbody.innerHTML = lista.map(c => {
-        const { totalCompradoUSD, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(c.id);
-        const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
-        const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
-        const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
-        return `
-            <tr>
-                <td><strong>${idSafe}</strong></td>
-                <td>${nomSafe}</td>
-                <td>${telSafe}</td>
-                <td class="num">$${totalCompradoUSD.toFixed(2)}</td>
-                <td class="num" style="color: ${saldoDeudaUSD > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
-                    $${saldoDeudaUSD.toFixed(2)}
-                </td>
-                <td class="num" style="color: ${saldoDeudaVES > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
-                    Bs. ${tasaActiva > 0 ? saldoDeudaVES.toFixed(2) : '—'}
-                </td>
-                <td style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <button class="btn" onclick="verDetalleCliente('${c.id}')">Panel 360°</button>
-                    <button class="btn btn-danger" onclick="abrirModalEliminarCliente('${c.id}')">Eliminar</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    if (tbody) {
+        tbody.innerHTML = lista.map(c => {
+            const { totalCompradoUSD, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(c.id);
+            const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
+            const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
+            const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
+            return `
+                <tr>
+                    <td><strong>${idSafe}</strong></td>
+                    <td>${nomSafe}</td>
+                    <td>${telSafe}</td>
+                    <td class="num">$${totalCompradoUSD.toFixed(2)}</td>
+                    <td class="num" style="color: ${saldoDeudaUSD > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
+                        $${saldoDeudaUSD.toFixed(2)}
+                    </td>
+                    <td class="num" style="color: ${saldoDeudaVES > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
+                        Bs. ${tasaActiva > 0 ? saldoDeudaVES.toFixed(2) : '—'}
+                    </td>
+                    <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn" onclick="verDetalleCliente('${c.id}')">Panel 360°</button>
+                        <button class="btn btn-danger" onclick="abrirModalEliminarCliente('${c.id}')">Eliminar</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = lista.map(c => {
+            const { totalCompradoUSD, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(c.id);
+            const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
+            const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
+            const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
+            const tieneDeuda = saldoDeudaUSD > 0;
+            const iniciales = (c.nombre || c.id || 'CL').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+            return `
+                <div class="clientes-item-card">
+                    <div class="clientes-item-top">
+                        <div class="clientes-item-avatar">
+                            <span>${iniciales}</span>
+                        </div>
+                        <div class="clientes-item-info">
+                            <div class="clientes-item-name">${nomSafe}</div>
+                            <div class="clientes-item-meta">
+                                <span><i class="fas fa-id-card"></i> ${idSafe}</span>
+                                ${c.telefono ? `<span><i class="fas fa-phone"></i> ${telSafe}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="clientes-item-financial">
+                            ${tieneDeuda ? `
+                                <div class="clientes-item-deuda-pill badge-danger">
+                                    <span class="lbl">Deuda</span>
+                                    <span class="val">$${saldoDeudaUSD.toFixed(2)}</span>
+                                    <small class="sub">Bs. ${tasaActiva > 0 ? saldoDeudaVES.toFixed(2) : '—'}</small>
+                                </div>
+                            ` : `
+                                <div class="clientes-item-deuda-pill badge-success">
+                                    <span class="val"><i class="fas fa-check-circle"></i> Al día</span>
+                                    <small class="sub">$0.00</small>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                    <div class="clientes-item-bottom">
+                        <div class="clientes-item-comprado">
+                            <span class="lbl">Comprado total:</span>
+                            <span class="val">$${totalCompradoUSD.toFixed(2)}</span>
+                        </div>
+                        <div class="clientes-item-actions">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="verDetalleCliente('${c.id}')">
+                                <i class="fas fa-gauge"></i> Panel 360°
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="abrirModalEliminarCliente('${c.id}')" title="Eliminar cliente">
+                                <i class="fas fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 function abrirModalEliminarCliente(clienteId) {

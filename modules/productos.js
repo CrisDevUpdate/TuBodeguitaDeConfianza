@@ -419,6 +419,14 @@ function editarProducto(id) {
     const p = productos.find(prod => prod.id === id);
     if (!p) return;
 
+    if (typeof window.toggleFormularioProducto === 'function') {
+        window.toggleFormularioProducto(true);
+    }
+    const formCard = document.getElementById('card-product-form') || document.getElementById('form-producto');
+    if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     document.getElementById('prod-id').value = p.id;
     document.getElementById('prod-codigo').value = p.codigo;
     document.getElementById('prod-codigo').readOnly = true;
@@ -488,9 +496,75 @@ function normalizarProductos() {
     productos = productos.map(normalizarDatosProducto);
 }
 
+let busquedaInventario = '';
+let filtroStockInventario = 'todos';
+
+function filtrarInventarioTexto(valor) {
+    busquedaInventario = (valor || '').toLowerCase().trim();
+    const btnClear = document.getElementById('btn-clear-inv-search');
+    if (btnClear) {
+        btnClear.style.display = busquedaInventario ? 'inline-flex' : 'none';
+    }
+    renderizarInventario();
+}
+window.filtrarInventarioTexto = filtrarInventarioTexto;
+
+function limpiarBusquedaInventario() {
+    busquedaInventario = '';
+    const input = document.getElementById('inventario-buscar-input');
+    if (input) input.value = '';
+    const btnClear = document.getElementById('btn-clear-inv-search');
+    if (btnClear) btnClear.style.display = 'none';
+    renderizarInventario();
+}
+window.limpiarBusquedaInventario = limpiarBusquedaInventario;
+
+function filtrarInventarioStock(estado) {
+    filtroStockInventario = estado || 'todos';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === filtroStockInventario) chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.filtrarInventarioStock = filtrarInventarioStock;
+
+function nuevoProductoDesdeInventario() {
+    resetearFormularioProducto();
+    if (typeof window.toggleFormularioProducto === 'function') {
+        window.toggleFormularioProducto(true);
+    }
+    const formCard = document.getElementById('card-product-form') || document.getElementById('form-producto');
+    if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setTimeout(() => {
+        const inputNombre = document.getElementById('prod-nombre');
+        if (inputNombre) inputNombre.focus();
+    }, 250);
+}
+window.nuevoProductoDesdeInventario = nuevoProductoDesdeInventario;
+
+function toggleFormularioProducto(forzar) {
+    const form = document.getElementById('form-producto');
+    const icon = document.getElementById('icon-toggle-form');
+    const lbl = document.getElementById('lbl-toggle-form');
+    if (!form) return;
+    const estaOculto = form.style.display === 'none';
+    const mostrar = forzar !== undefined ? Boolean(forzar) : estaOculto;
+    form.style.display = mostrar ? 'block' : 'none';
+    if (icon) icon.className = mostrar ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    if (lbl) lbl.textContent = mostrar ? 'Ocultar' : 'Mostrar Formulario';
+}
+window.toggleFormularioProducto = toggleFormularioProducto;
+
 function renderizarInventario() {
     normalizarProductos();
     const tbody = document.getElementById('inventario-body');
+    const mobileList = document.getElementById('inventario-mobile-list');
 
     // Valor del inventario a costo: cuánto dinero está invertido actualmente en stock.
     const totalCosto = productos.reduce((total, p) => {
@@ -512,37 +586,155 @@ function renderizarInventario() {
     if (gananciaUsd) gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
     if (gananciaBs) gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
 
-    tbody.innerHTML = productos.map(p => `
-        <tr>
-            <td>${p.codigo}</td>
-            <td>
-                <div class="inventory-product-cell">
-                    <div class="inventory-product-thumb">
-                        ${p.imagen ? `<img src="${typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
-                    </div>
-                    <div>
-                        <div class="inventory-product-name">${p.nombre}</div>
-                    </div>
+    // Filtrado de productos para la vista
+    let prodsFiltrados = [...productos];
+    if (busquedaInventario) {
+        const q = busquedaInventario.toLowerCase();
+        prodsFiltrados = prodsFiltrados.filter(p => 
+            (p.nombre && p.nombre.toLowerCase().includes(q)) ||
+            (p.codigo && String(p.codigo).toLowerCase().includes(q)) ||
+            (p.categoria && p.categoria.toLowerCase().includes(q)) ||
+            (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
+            (p.contenido && p.contenido.toLowerCase().includes(q))
+        );
+    }
+    if (filtroStockInventario === 'bajo') {
+        prodsFiltrados = prodsFiltrados.filter(p => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 5);
+    } else if (filtroStockInventario === 'agotado') {
+        prodsFiltrados = prodsFiltrados.filter(p => Number(p.stock || 0) <= 0);
+    }
+
+    const badgeTotal = document.getElementById('inventario-total-items-badge');
+    if (badgeTotal) {
+        badgeTotal.textContent = `${prodsFiltrados.length} ${prodsFiltrados.length === 1 ? 'producto' : 'productos'}${prodsFiltrados.length !== productos.length ? ` (de ${productos.length})` : ''}`;
+    }
+
+    // 1. Renderizar Vista Móvil: Opción A - Vista en Lista Horizontal / Row Item
+    if (mobileList) {
+        if (prodsFiltrados.length === 0) {
+            mobileList.innerHTML = `
+                <div class="inventario-empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <p>No se encontraron productos</p>
+                    <small>${busquedaInventario || filtroStockInventario !== 'todos' ? 'Prueba ajustando los filtros de búsqueda' : 'Registra tu primer producto con el botón superior'}</small>
                 </div>
-            </td>
-            <td>
-                <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
-                    ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
-                </span>
-            </td>
-            <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
-            <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
-            <td class="num">$${p.costo.toFixed(2)}</td>
-            <td class="num">${p.ganancia}%</td>
-            <td class="num"><strong>$${p.precio.toFixed(2)}</strong></td>
-            <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
-            <td class="num">${p.stock}</td>
-            <td class="inventory-actions">
-                <button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>
-                <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
-            </td>
-        </tr>
-    `).join('');
+            `;
+        } else {
+            mobileList.innerHTML = prodsFiltrados.map(p => {
+                const stock = Number(p.stock || 0);
+                const precioUSD = Number(p.precio || 0);
+                const precioVES = tasaActiva > 0 ? (precioUSD * tasaActiva) : 0;
+                const costoUSD = Number(p.costo || 0);
+                const ganancia = Number(p.ganancia || 0);
+                const esAgotado = stock <= 0;
+                const esCombo = Boolean(p.esCombo === true || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+
+                const rawImg = p.imagen;
+                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || '';
+
+                return `
+                    <div class="inventario-item-card ${esAgotado ? 'card-agotado' : ''}" id="inv-card-${p.id}">
+                        <div class="inventario-item-img-wrap">
+                            ${imagenSrc 
+                                ? `<img src="${imagenSrc}" alt="${escaparHtmlInventario(p.nombre)}" class="inventario-item-img" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'inventario-item-noimg\\'><i class=\\'fas fa-box-open\\'></i></div>'">`
+                                : `<div class="inventario-item-noimg"><i class="fas fa-box-open"></i></div>`
+                            }
+                            ${esAgotado ? '<span class="inv-badge-agotado">Agotado</span>' : ''}
+                            ${esCombo ? '<span class="inv-badge-combo"><i class="fas fa-fire"></i></span>' : ''}
+                        </div>
+
+                        <div class="inventario-item-body">
+                            <div class="inventario-item-meta">
+                                <span class="inv-code">#${p.codigo || p.id}</span>
+                                <span class="inv-cat-badge ${esCombo ? 'is-combo' : ''}">
+                                    ${esCombo ? '🔥 Combo' : escaparHtmlInventario(p.categoria || 'General')}
+                                </span>
+                                ${esAgotado 
+                                    ? '<span class="inv-stock-pill stock-agotado"><i class="fas fa-circle-xmark"></i> 0 disp.</span>'
+                                    : (stock <= 5 
+                                        ? `<span class="inv-stock-pill stock-bajo"><i class="fas fa-triangle-exclamation"></i> ${stock} disp.</span>`
+                                        : `<span class="inv-stock-pill stock-ok"><i class="fas fa-check"></i> ${stock} disp.</span>`
+                                    )
+                                }
+                            </div>
+
+                            <h4 class="inventario-item-title" title="${escaparHtmlInventario(p.nombre)}">${escaparHtmlInventario(p.nombre)}</h4>
+
+                            ${p.contenido ? `<div class="inv-item-contenido"><i class="fas fa-cube"></i> ${escaparHtmlInventario(p.contenido)}</div>` : ''}
+
+                            <div class="inventario-item-pricing-row">
+                                <div class="inv-prices-block">
+                                    <span class="inv-price-usd">$${precioUSD.toFixed(2)}</span>
+                                    <span class="inv-price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
+                                </div>
+                                <div class="inv-cost-margin">
+                                    <span>Costo: <strong>$${costoUSD.toFixed(2)}</strong></span>
+                                    <span class="inv-margin-tag">+${ganancia}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="inventario-item-actions">
+                            <button type="button" class="btn-inv-action btn-inv-edit" onclick="editarProducto('${p.id}')" title="Editar producto" aria-label="Editar producto">
+                                <i class="fas fa-pen-to-square"></i>
+                                <span>Editar</span>
+                            </button>
+                            <button type="button" class="btn-inv-action btn-inv-retire" onclick="abrirModalEliminarProducto('${p.id}')" title="Retirar o dar de baja" aria-label="Retirar producto">
+                                <i class="fas fa-trash-can"></i>
+                                <span>Baja</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 2. Renderizar Vista Escritorio: Tabla tradicional
+    if (tbody) {
+        if (prodsFiltrados.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; padding: 32px 16px; color: var(--text-muted, #94a3b8);">
+                        <i class="fas fa-box-open" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
+                        <div>No se encontraron productos en el inventario</div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            tbody.innerHTML = prodsFiltrados.map(p => `
+                <tr>
+                    <td>${p.codigo}</td>
+                    <td>
+                        <div class="inventory-product-cell">
+                            <div class="inventory-product-thumb">
+                                ${p.imagen ? `<img src="${typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
+                            </div>
+                            <div>
+                                <div class="inventory-product-name">${p.nombre}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
+                            ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
+                        </span>
+                    </td>
+                    <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
+                    <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
+                    <td class="num">$${p.costo.toFixed(2)}</td>
+                    <td class="num">${p.ganancia}%</td>
+                    <td class="num"><strong>$${p.precio.toFixed(2)}</strong></td>
+                    <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
+                    <td class="num">${p.stock}</td>
+                    <td class="inventory-actions">
+                        <button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>
+                        <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
 
     renderizarHistorialEliminaciones();
     renderizarResumenPerdidasEconomicas();

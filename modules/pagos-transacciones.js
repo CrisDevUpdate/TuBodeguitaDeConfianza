@@ -941,7 +941,8 @@ function transaccionesPendientesCliente(clienteId) {
 
 function renderizarTransacciones(filtro = null) {
     const tbody = document.getElementById('transacciones-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('transacciones-mobile-list');
+    if (!tbody && !mobileList) return;
     const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;
     const normalizado = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(texto) : (texto || '').trim().toUpperCase();
     const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
@@ -978,36 +979,98 @@ function renderizarTransacciones(filtro = null) {
     }
 
     if (!lista.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+        }
+        if (mobileList) {
+            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-receipt" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No hay transacciones que coincidan con la búsqueda.</div>';
+        }
         return;
     }
 
-    tbody.innerHTML = lista.map(t => {
-        const cliente = typeof escaparHtmlInventario === 'function'
-            ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
-            : obtenerNombreClienteTransaccion(t.clienteId);
-        const estadoClass = t.estado === 'Pago agregado'
-            ? 'transaction-approved'
-            : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
-        const accion = t.estado === 'Pago agregado'
-            ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
-            : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
-                <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
-            </div>`;
-        const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
-        const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
-        return `<tr>
-            <td>${t.fecha || ''}</td>
-            <td>${cliente}</td>
-            <td>${tipoStr}</td>
-            <td><strong>${refStr}</strong></td>
-            <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
-            <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
-            <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
-            <td>${accion}</td>
-        </tr>`;
-    }).join('');
+    if (tbody) {
+        tbody.innerHTML = lista.map(t => {
+            const cliente = typeof escaparHtmlInventario === 'function'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
+                : obtenerNombreClienteTransaccion(t.clienteId);
+            const estadoClass = t.estado === 'Pago agregado'
+                ? 'transaction-approved'
+                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+            const accion = t.estado === 'Pago agregado'
+                ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
+                : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
+                    <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
+                </div>`;
+            const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
+            const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+            return `<tr>
+                <td>${t.fecha || ''}</td>
+                <td>${cliente}</td>
+                <td>${tipoStr}</td>
+                <td><strong>${refStr}</strong></td>
+                <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
+                <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
+                <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
+                <td>${accion}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = lista.map(t => {
+            const cliente = typeof escaparHtmlInventario === 'function'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
+                : obtenerNombreClienteTransaccion(t.clienteId);
+            const estadoClass = t.estado === 'Pago agregado'
+                ? 'transaction-approved'
+                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+            const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
+            const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+            const esConciliado = t.estado === 'Pago agregado';
+            const montoUSD = Number(t.montoUSD || 0).toFixed(2);
+            const montoVES = Number(t.montoVES || 0).toFixed(2);
+
+            let statusIcon = '<i class="fas fa-clock" style="color:#d97706;"></i>';
+            if (esConciliado) statusIcon = '<i class="fas fa-circle-check" style="color:#16a34a;"></i>';
+            else if (t.estado === 'Fallido') statusIcon = '<i class="fas fa-circle-xmark" style="color:#dc2626;"></i>';
+
+            return `
+                <div class="transacciones-item-card ${estadoClass}">
+                    <div class="transacciones-item-header">
+                        <div class="transacciones-item-client">
+                            <span class="status-indicator">${statusIcon}</span>
+                            <strong>${cliente}</strong>
+                        </div>
+                        <span class="transacciones-item-date">${t.fecha || ''}</span>
+                    </div>
+
+                    <div class="transacciones-item-body">
+                        <div class="transacciones-item-tags">
+                            <span class="badge-tipo"><i class="fas fa-wallet"></i> ${tipoStr}</span>
+                            <span class="badge-ref">Ref: <strong>${refStr}</strong></span>
+                            <span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span>
+                        </div>
+                        <div class="transacciones-item-amounts">
+                            <div class="amount-usd">$${montoUSD}</div>
+                            <div class="amount-ves">Bs. ${montoVES}</div>
+                        </div>
+                    </div>
+
+                    ${!esConciliado ? `
+                        <div class="transacciones-item-actions">
+                            <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
+                                <i class="fas fa-pen"></i> Editar
+                            </button>
+                            <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
+                                ${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 function filtrarTransacciones() {

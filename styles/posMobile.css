@@ -1615,3 +1615,602 @@ body.dark-mode .pos-mobile-cart-bar {
   background: #090d16;
   border-color: #1e293b;
 }
+
+/* ============================================================
+   DISEÑO MÓVIL OPTIMIZADO PARA INVENTARIO (< 900px)
+   ============================================================ */
+@media (max-width: 899px) {
+  .inventario-table-desktop {
+    display: none !important;
+  }
+  .inventario-mobile-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 24px !important;
+  }
+  .inventario-item-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 9px 10px !important;
+    border-radius: 12px !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    gap: 10px !important;
+    min-height: 74px !important;
+    position: relative !important;
+    transition: background-color 0.15s ease, transform 0.12s ease !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .inventario-item-card:active {
+    transform: scale(0.988) !important;
+    background: var(--bg-hover, #f8fafc) !important;
+  }
+  .inventario-item-img-wrap {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    margin: 0 !important;
+  }
+  .inventario-item-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+  .inventario-item-noimg {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--text-muted, #94a3b8) !important;
+    font-size: 1.4rem !important;
+  }
+}
+@media (min-width: 900px) {
+  .inventario-mobile-list,
+  .clientes-mobile-list,
+  .transacciones-mobile-list,
+  .auditoria-mobile-list,
+  .usuarios-mobile-list,
+  .ventas-hoy-mobile-list,
+  .ventas-general-mobile-list,
+  .premio-canjes-mobile-list {
+    display: none !important;
+  }
+  .inventario-table-desktop,
+  .clientes-table-desktop,
+  .transacciones-table-desktop,
+  .auditoria-table-desktop,
+  .usuarios-table-desktop,
+  .ventas-hoy-table-desktop,
+  .ventas-general-table-desktop,
+  .premio-canjes-table-desktop {
+    display: block !important;
+  }
+}
+
+/* ============================================================
+   DISEÑO MÓVIL ROW-ITEM PARA TODOS LOS MÓDULOS DE GESTIÓN (< 900px)
+   ============================================================ */
+@media (max-width: 899px) {
+  /* Ocultar tablas de escritorio */
+  .clientes-table-desktop,
+  .transacciones-table-desktop,
+  .auditoria-table-desktop,
+  .usuarios-table-desktop,
+  .ventas-hoy-table-desktop,
+  .ventas-general-table-desktop,
+  .premio-canjes-table-desktop {
+    display: none !important;
+  }
+
+  /* Contenedores de Listas Móviles */
+  .clientes-mobile-list,
+  .transacciones-mobile-list,
+  .auditoria-mobile-list,
+  .usuarios-mobile-list,
+  .ventas-hoy-mobile-list,
+  .ventas-general-mobile-list,
+  .premio-canjes-mobile-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 24px !important;
+  }
+
+  /* ------------------------------------------------------------
+     1. CLIENTES ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .clientes-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .clientes-item-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .clientes-item-name {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .clientes-item-id {
+    font-size: 0.78rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 2px !important;
+  }
+  .clientes-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border-top: 1px dashed var(--border-light, #f1f5f9) !important;
+    border-bottom: 1px dashed var(--border-light, #f1f5f9) !important;
+    font-size: 0.82rem !important;
+  }
+  .clientes-item-balance {
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+  }
+  .clientes-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* ------------------------------------------------------------
+     2. TRANSACCIONES ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .transacciones-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .transacciones-item-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .transacciones-item-id {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-accent, #2563eb) !important;
+  }
+  .transacciones-item-date {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+  }
+  .transacciones-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.84rem !important;
+  }
+  .transacciones-item-amount {
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+  }
+  .transacciones-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* ------------------------------------------------------------
+     3. AUDITORÍA ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .auditoria-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .auditoria-item-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .auditoria-item-img-wrap {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    min-height: 52px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .auditoria-item-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  .auditoria-item-noimg {
+    color: var(--text-muted, #94a3b8) !important;
+    font-size: 1.2rem !important;
+  }
+  .auditoria-item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .auditoria-item-title-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .auditoria-item-name {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-main, #0f172a) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .auditoria-item-sub {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 2px !important;
+  }
+  .auditoria-item-middle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--bg-muted, #f8fafc) !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .auditoria-stock-badge {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .auditoria-stock-badge .lbl {
+    font-size: 0.68rem !important;
+    color: var(--text-muted, #64748b) !important;
+    font-weight: 600 !important;
+    margin-bottom: 2px !important;
+    text-transform: uppercase !important;
+  }
+  .auditoria-stock-badge .val {
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .auditoria-stock-badge input {
+    width: 65px !important;
+    height: 32px !important;
+    text-align: center !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+  }
+  .auditoria-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  /* ------------------------------------------------------------
+     4. USUARIOS ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .usuarios-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .usuarios-item-card.current-session {
+    border-color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.04) !important;
+  }
+  .usuarios-item-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .usuarios-item-avatar-wrap {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #e2e8f0 !important;
+  }
+  .usuarios-item-avatar-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  .usuarios-item-avatar-initials {
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    color: #475569 !important;
+  }
+  .usuarios-item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .usuarios-item-name-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .usuarios-item-name {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-main, #0f172a) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .usuarios-item-meta {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 2px !important;
+  }
+  .usuarios-item-status {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 4px !important;
+  }
+  .usuarios-pts-pill {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-accent, #2563eb) !important;
+    background: rgba(37, 99, 235, 0.08) !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+  }
+  .usuarios-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    flex-wrap: wrap !important;
+  }
+  .usuarios-role-select-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 0.8rem !important;
+  }
+  .btn-wa-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 4px 10px !important;
+    background: #22c55e !important;
+    color: #ffffff !important;
+    border-radius: 20px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+  }
+  .usuarios-item-actions {
+    display: flex !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     5. VENTAS ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .ventas-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .ventas-item-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .ventas-item-id {
+    font-weight: 800 !important;
+    font-size: 0.88rem !important;
+    color: var(--primary-accent, #2563eb) !important;
+  }
+  .ventas-item-time {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-left: 6px !important;
+  }
+  .ventas-item-amounts {
+    text-align: right !important;
+  }
+  .ventas-item-usd {
+    display: block !important;
+    font-weight: 800 !important;
+    font-size: 1rem !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .ventas-item-ves {
+    display: block !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    color: #16a34a !important;
+  }
+  .ventas-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.82rem !important;
+    padding: 4px 0 !important;
+  }
+  .ventas-item-client-name {
+    font-weight: 600 !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .ventas-item-items-count {
+    color: var(--text-muted, #64748b) !important;
+    font-size: 0.78rem !important;
+    margin-left: 6px !important;
+  }
+  .ventas-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     6. NOTIFICACIONES CARD (Mobile Row Item Polish)
+     ------------------------------------------------------------ */
+  .notificacion-card-item {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+  .notif-item-left-block {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+  }
+  .notif-item-icon-box {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.1rem !important;
+    flex-shrink: 0 !important;
+  }
+  .notif-item-body {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .notif-item-msg {
+    font-size: 0.88rem !important;
+    line-height: 1.4 !important;
+    margin: 4px 0 6px !important;
+    word-break: break-word !important;
+  }
+  .notif-item-actions-block {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding-top: 6px !important;
+    border-top: 1px dashed var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     7. PREMIO DEL MES & CONFIGURACIÓN (Mobile Fluid Optimization)
+     ------------------------------------------------------------ */
+  #premio-mes-admin .reward-form-row,
+  #premio-mes-admin [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .reward-preview-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .reward-preview-img-wrapper {
+    height: 160px !important;
+  }
+  #premio-admin-historial-canjes .table-responsive {
+    border: none !important;
+  }
+
+  /* Tarjetas de Cuentas Bancarias y Formularios en Configuración */
+  #config-cuentas-bancarias-box [style*="grid-template-columns"],
+  #configuracion [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

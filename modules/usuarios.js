@@ -1721,7 +1721,8 @@ function filtrarUsuariosPorEstado(estado) {
  */
 function renderizarUsuarios(busqueda = '') {
     const tbody = document.getElementById('usuarios-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('usuarios-mobile-list');
+    if (!tbody && !mobileList) return;
 
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
 
@@ -1757,100 +1758,206 @@ function renderizarUsuarios(busqueda = '') {
     }
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">No se encontraron usuarios con los criterios especificados.</td></tr>`;
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">No se encontraron usuarios con los criterios especificados.</td></tr>`;
+        }
+        if (mobileList) {
+            mobileList.innerHTML = `<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-users-slash" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No se encontraron usuarios con los criterios especificados.</div>`;
+        }
         return;
     }
 
-    tbody.innerHTML = filtrados.map(u => {
-        const idCed = u.cedula || u.id;
-        const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
-        const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
-        const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+    if (tbody) {
+        tbody.innerHTML = filtrados.map(u => {
+            const idCed = u.cedula || u.id;
+            const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
+            const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
 
-        let badgeEstado = '';
-        if (u.estado === 'PENDIENTE_APROBACION') {
-            badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
-        } else if (u.estado === 'ACTIVO') {
-            badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
-        } else if (u.estado === 'RECHAZADO') {
-            badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
-        }
+            let badgeEstado = '';
+            if (u.estado === 'PENDIENTE_APROBACION') {
+                badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
+            } else if (u.estado === 'ACTIVO') {
+                badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
+            } else if (u.estado === 'RECHAZADO') {
+                badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
+            }
 
-        const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
-        const uAvatar = u.avatar || '';
-        let uAvatarHtml = '';
-        if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
-            const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
-            uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
-        } else if (uAvatar) {
-            uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
-        } else {
-            uAvatarHtml = `<span style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem;"><i class="fas fa-user"></i></span>`;
-        }
+            const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
+            const uAvatar = u.avatar || '';
+            let uAvatarHtml = '';
+            if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
+                const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+            } else if (uAvatar) {
+                uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
+            } else {
+                uAvatarHtml = `<span style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem;"><i class="fas fa-user"></i></span>`;
+            }
 
-        return `
-            <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
-                <td>
-                    <strong style="color:var(--primary-accent);">${idCed}</strong>
-                    ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
-                </td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        ${uAvatarHtml}
-                        <div>
-                            <div style="font-weight:600; color:var(--text-main);">${u.nombre}</div>
-                            <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+            return `
+                <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
+                    <td>
+                        <strong style="color:var(--primary-accent);">${idCed}</strong>
+                        ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${uAvatarHtml}
+                            <div>
+                                <div style="font-weight:600; color:var(--text-main);">${u.nombre}</div>
+                                <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span>${u.telefono || '—'}</span>
+                            ${waLink ? `<a href="${waLink}" target="_blank" class="btn-wa-icon" title="Enviar WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
+                            <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
+                            <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                            <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
+                            <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+                        </select>
+                    </td>
+                    <td>${badgeEstado}</td>
+                    <td class="num" style="color:var(--primary-accent); font-weight:700;">${puntos} pts</td>
+                    <td style="font-size:0.78rem; color:var(--text-muted);">${u.fechaRegistro || '—'}</td>
+                    <td>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            ${u.estado === 'PENDIENTE_APROBACION' ? `
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Aprobar usuario">
+                                    <i class="fas fa-check"></i> Aprobar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')" title="Rechazar solicitud">
+                                    <i class="fas fa-times"></i> Rechazar
+                                </button>
+                            ` : ''}
+                            ${u.estado === 'RECHAZADO' ? `
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Reactivar y Aprobar">
+                                    <i class="fas fa-rotate-left"></i> Reactivar
+                                </button>
+                            ` : ''}
+                            ${u.estado === 'ACTIVO' ? `
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')" title="Suspender o Rechazar acceso">
+                                    <i class="fas fa-user-slash"></i> Suspender
+                                </button>
+                            ` : ''}
+                            <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Usar esta sesión">
+                                <i class="fas fa-arrow-right-to-bracket"></i> Usar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = filtrados.map(u => {
+            const idCed = u.cedula || u.id;
+            const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
+            const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+
+            let badgeEstado = '';
+            if (u.estado === 'PENDIENTE_APROBACION') {
+                badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
+            } else if (u.estado === 'ACTIVO') {
+                badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
+            } else if (u.estado === 'RECHAZADO') {
+                badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
+            }
+
+            const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
+            const uAvatar = u.avatar || '';
+            let uAvatarHtml = '';
+            if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
+                const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" class="usuarios-item-avatar-img" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+            } else if (uAvatar) {
+                uAvatarHtml = `<span class="usuarios-item-avatar-txt">${uAvatar}</span>`;
+            } else {
+                const iniciales = (u.nombre || idCed || 'US').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+                uAvatarHtml = `<span class="usuarios-item-avatar-initials">${iniciales}</span>`;
+            }
+
+            return `
+                <div class="usuarios-item-card ${esSesionActual ? 'current-session' : ''}">
+                    <div class="usuarios-item-top">
+                        <div class="usuarios-item-avatar-wrap">
+                            ${uAvatarHtml}
+                        </div>
+                        <div class="usuarios-item-info">
+                            <div class="usuarios-item-name-row">
+                                <span class="usuarios-item-name">${u.nombre}</span>
+                                ${esSesionActual ? '<span class="badge-pill you-badge">Tú</span>' : ''}
+                            </div>
+                            <div class="usuarios-item-meta">
+                                <span><i class="fas fa-id-card"></i> ${idCed}</span>
+                                <span><i class="far fa-envelope"></i> ${u.email || '—'}</span>
+                            </div>
+                        </div>
+                        <div class="usuarios-item-status">
+                            ${badgeEstado}
+                            <span class="usuarios-pts-pill"><i class="fas fa-coins"></i> ${puntos} pts</span>
                         </div>
                     </div>
-                </td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>${u.telefono || '—'}</span>
-                        ${waLink ? `<a href="${waLink}" target="_blank" class="btn-wa-icon" title="Enviar WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+
+                    <div class="usuarios-item-middle">
+                        <div class="usuarios-role-select-wrap">
+                            <label class="lbl">Rol:</label>
+                            <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)">
+                                <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
+                                <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                                <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio</option>
+                                <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
+                            </select>
+                        </div>
+                        ${waLink ? `
+                            <a href="${waLink}" target="_blank" class="btn-wa-pill" title="Contactar por WhatsApp">
+                                <i class="fab fa-whatsapp"></i> ${u.telefono || 'WhatsApp'}
+                            </a>
+                        ` : ''}
                     </div>
-                </td>
-                <td>
-                    <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
-                        <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
-                        <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
-                        <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
-                        <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
-                    </select>
-                </td>
-                <td>${badgeEstado}</td>
-                <td class="num" style="color:var(--primary-accent); font-weight:700;">${puntos} pts</td>
-                <td style="font-size:0.78rem; color:var(--text-muted);">${u.fechaRegistro || '—'}</td>
-                <td>
-                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+
+                    <div class="usuarios-item-actions">
                         ${u.estado === 'PENDIENTE_APROBACION' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Aprobar usuario">
+                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')">
                                 <i class="fas fa-check"></i> Aprobar
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')" title="Rechazar solicitud">
+                            <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')">
                                 <i class="fas fa-times"></i> Rechazar
                             </button>
                         ` : ''}
                         ${u.estado === 'RECHAZADO' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Reactivar y Aprobar">
+                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')">
                                 <i class="fas fa-rotate-left"></i> Reactivar
                             </button>
                         ` : ''}
                         ${u.estado === 'ACTIVO' ? `
-                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')" title="Suspender o Rechazar acceso">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')">
                                 <i class="fas fa-user-slash"></i> Suspender
                             </button>
                         ` : ''}
-                        <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Usar esta sesión">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Iniciar como este usuario">
                             <i class="fas fa-arrow-right-to-bracket"></i> Usar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
-                            <i class="fas fa-trash"></i>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
+                            <i class="fas fa-trash-can"></i>
                         </button>
                     </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+                </div>
+            `;
+        }).join('');
+    }
 
     actualizarBadgesUsuarios();
 }
