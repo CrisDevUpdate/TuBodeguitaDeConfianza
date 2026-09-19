@@ -43,9 +43,11 @@ app.use(express.raw({ type: ['image/*', 'application/octet-stream'], limit: '30m
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
-// Strict Zero-Cache Stale Policy for all API Routes, JS scripts, CSS stylesheets, and HTML pages
+// Strict Zero-Cache Stale Policy for all business API Routes, JS scripts, CSS stylesheets, and HTML pages
+// Excepción autorizada: Endpoints de visualización de imágenes/blobs de Vercel Blob (para permitir caché local)
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.endsWith('.js') || req.path.endsWith('.html') || req.path.endsWith('.css') || req.path === '/') {
+  const isImageBlobEndpoint = req.path.startsWith('/api/avatar/view') || req.path.startsWith('/api/blob/view') || req.path.startsWith('/api/blob/serve');
+  if (!isImageBlobEndpoint && (req.path.startsWith('/api') || req.path.endsWith('.js') || req.path.endsWith('.html') || req.path.endsWith('.css') || req.path === '/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -911,7 +913,7 @@ async function manejarVistaVercelBlob(req, res) {
         }
 
         if (result && (result.statusCode === 200 || result.stream || result.blob)) {
-          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           if (result.blob && result.blob.contentType) {
             res.setHeader('Content-Type', result.blob.contentType);
           } else if (result.headers && result.headers.get && result.headers.get('content-type')) {
@@ -950,7 +952,7 @@ async function manejarVistaVercelBlob(req, res) {
       const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.svg' ? 'image/svg+xml' : 'image/webp';
       res.setHeader('Content-Type', mime);
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       return fs.createReadStream(localFilePath).pipe(res);
     }
 

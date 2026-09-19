@@ -142,7 +142,10 @@ function guardarCiclosRecuperacion() {
             ciclosRecuperacion: window.AppState?.ciclosRecuperacion || [],
             cicloRecuperacionActual: window.AppState?.cicloRecuperacionActual || { id: 'ciclo_actual', numero: 1, fechaInicio: null, estado: 'ACTIVO' }
         };
-        localStorage.setItem('bodeguita_ciclos_recuperacion', JSON.stringify(payload));
+        // Purga de almacenamiento local para garantizar 100% persistencia en la nube
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bodeguita_ciclos_recuperacion');
+        }
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
             window.InventoryApp.Firebase.guardarConfiguracionGlobal(payload);
         }
@@ -153,18 +156,12 @@ function guardarCiclosRecuperacion() {
 
 function cargarCiclosRecuperacion() {
     try {
-        const raw = localStorage.getItem('bodeguita_ciclos_recuperacion');
-        if (raw) {
-            const data = JSON.parse(raw);
-            if (data && Array.isArray(data.ciclosRecuperacion) && (!window.AppState?.ciclosRecuperacion || window.AppState.ciclosRecuperacion.length === 0)) {
-                if (window.AppState) window.AppState.ciclosRecuperacion = data.ciclosRecuperacion;
-            }
-            if (data && data.cicloRecuperacionActual && (!window.AppState?.cicloRecuperacionActual || !window.AppState.cicloRecuperacionActual.fechaInicio)) {
-                if (window.AppState) window.AppState.cicloRecuperacionActual = data.cicloRecuperacionActual;
-            }
+        // Purga proactiva de datos de negocio en localStorage
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bodeguita_ciclos_recuperacion');
         }
     } catch (e) {
-        console.warn('[Auditoría] Error cargando ciclos de recuperación:', e);
+        console.warn('[Auditoría] Error al purgar ciclos locales:', e);
     }
 }
 cargarCiclosRecuperacion();

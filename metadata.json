@@ -1,6 +1,6 @@
 {
   "name": "Tu Bodeguita de Confianza — Android APK",
-  "description": "Sistema POS Multimoneda con tasas oficiales BCV, inventario, clientes, pagos y auditoría.",
+  "description": "Sistema POS Multimoneda con tasas oficiales BCV, ingreso de mercancía por facturas con costos de reposición, inventario, clientes, pagos y auditoría física con conciliación estricta.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

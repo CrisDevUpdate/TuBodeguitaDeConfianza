@@ -18,7 +18,13 @@ window.InventoryApp = window.InventoryApp || {};
         'bodeguita_conteos',
         'bodeguita_eliminaciones',
         'bodeguita_clientes_eliminados',
-        'bodeguita_usuarios'
+        'bodeguita_usuarios',
+        'bodeguita_cache_productos',
+        'bodeguita_cache_premio',
+        'bodeguita_cache_cuentas_bancarias',
+        'bodeguita_conteos_respaldo_v1',
+        'bodeguita_ciclos_recuperacion',
+        'bodeguita_tasas_bcv'
     ];
 
     /**
@@ -158,24 +164,7 @@ window.InventoryApp = window.InventoryApp || {};
                 localStorage.removeItem(SESSION_KEY);
             }
 
-            // 2. Persistir caché local de contingencia para catálogo y premios (Carga Inmediata Offline)
-            if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
-                try {
-                    localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
-                } catch (e) {}
-            }
-            if (AppState.premioMes) {
-                try {
-                    localStorage.setItem('bodeguita_cache_premio', JSON.stringify(AppState.premioMes));
-                } catch (e) {}
-            }
-            if (Array.isArray(AppState.cuentasBancarias) && AppState.cuentasBancarias.length > 0) {
-                try {
-                    localStorage.setItem('bodeguita_cache_cuentas_bancarias', JSON.stringify(AppState.cuentasBancarias));
-                } catch (e) {}
-            }
-
-            // 3. Purgar cualquier llave obsoleta residual
+            // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
         } catch (e) {
             console.warn('[Persistence] Error guardando sesión en localStorage:', e);
@@ -238,34 +227,7 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // 4. Restaurar de inmediato el caché local de productos y premio si existen para renderizado instantáneo
-        try {
-            const cacheProds = localStorage.getItem('bodeguita_cache_productos');
-            if (cacheProds) {
-                const parsedProds = JSON.parse(cacheProds);
-                if (Array.isArray(parsedProds) && parsedProds.length > 0) {
-                    AppState.productos = parsedProds;
-                }
-            }
-            const cachePremio = localStorage.getItem('bodeguita_cache_premio');
-            if (cachePremio) {
-                const parsedPremio = JSON.parse(cachePremio);
-                if (parsedPremio && typeof parsedPremio === 'object') {
-                    AppState.premioMes = { ...AppState.premioMes, ...parsedPremio };
-                }
-            }
-            const cacheCuentas = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
-            if (cacheCuentas) {
-                const parsedCuentas = JSON.parse(cacheCuentas);
-                if (Array.isArray(parsedCuentas) && parsedCuentas.length > 0) {
-                    AppState.cuentasBancarias = parsedCuentas;
-                }
-            }
-        } catch (e) {
-            console.warn('[Persistence] Aviso al restaurar caché rápido local:', e);
-        }
-
-        // 5. El resto de las entidades se preparan en memoria para ser alimentadas por Firestore
+        // 4. El 100% de las entidades de negocio se inicializan en memoria vacías para ser alimentadas exclusivamente por Firestore
         AppState.productos = AppState.productos || [];
         AppState.clientes = AppState.clientes || [];
         AppState.ventas = AppState.ventas || [];

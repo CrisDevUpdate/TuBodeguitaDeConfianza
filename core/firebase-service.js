@@ -380,7 +380,9 @@ window.InventoryApp = window.InventoryApp || {};
         USUARIOS: 'usuarios',
         CANJES: 'canjesPremios',
         CONFIG: 'config',
-        PAGOS_POR_VERIFICAR: 'PagosPorVerificar'
+        PAGOS_POR_VERIFICAR: 'PagosPorVerificar',
+        FACTURAS: 'facturas_compras',
+        KARDEX: 'kardex_inventario'
     };
 
     /**
@@ -701,7 +703,9 @@ window.InventoryApp = window.InventoryApp || {};
                 snapUsuarios,
                 snapCanjes,
                 snapConfig,
-                snapPagosPorVerificar
+                snapPagosPorVerificar,
+                snapFacturas,
+                snapKardex
             ] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
@@ -714,7 +718,9 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.USUARIOS),
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
+                obtenerColeccionSegura(COLLECTIONS.FACTURAS),
+                obtenerColeccionSegura(COLLECTIONS.KARDEX)
             ]);
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
@@ -774,6 +780,16 @@ window.InventoryApp = window.InventoryApp || {};
             if (snapCliElim) {
                 if (!snapCliElim.empty) {
                     AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapFacturas) {
+                if (!snapFacturas.empty) {
+                    AppState.facturasCompras = snapFacturas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapKardex) {
+                if (!snapKardex.empty) {
+                    AppState.kardex = snapKardex.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 }
             }
             if (snapUsuarios) {
@@ -2426,6 +2442,61 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Registrar Factura de Compra y Actualización de Costos en Firestore
+     */
+    async function guardarFacturaCompraCloud(registroFactura, itemsKardex = []) {
+        if (!registroFactura) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Factura guardada localmente');
+            return true;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Guardando factura de compra...');
+
+        try {
+            if (db) {
+                const batch = db.batch();
+                const facId = registroFactura.id || `FAC-${Date.now()}`;
+                const facRef = db.collection(COLLECTIONS.FACTURAS).doc(String(facId));
+                batch.set(facRef, {
+                    ...registroFactura,
+                    id: facId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                if (Array.isArray(itemsKardex)) {
+                    itemsKardex.forEach(k => {
+                        const kdxId = k.id || `KDX-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                        const kdxRef = db.collection(COLLECTIONS.KARDEX).doc(String(kdxId));
+                        batch.set(kdxRef, {
+                            ...k,
+                            id: kdxId,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                }
+
+                await batch.commit();
+            }
+
+            actualizarUIEstadoNube('conectado', 'Factura de compra registrada');
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar factura de compra:', error);
+            }
+            return true;
+        }
+    }
+
+    /**
      * CRUD: Registrar Retiro / Pérdida de Producto en Firestore
      */
     async function registrarEliminacionCloud(registroEliminacion, productoId, nuevoStock) {
@@ -3005,6 +3076,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarPagoPorVerificar: guardarPagoPorVerificarCloud,
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,
+        guardarFacturaCompra: guardarFacturaCompraCloud,
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,

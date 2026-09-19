@@ -1057,16 +1057,19 @@ function actualizarPreviewPremioAdmin() {
     }
 
     if (btnPausar) {
+        btnPausar.disabled = false;
         if (esInvierno) {
-            btnPausar.innerHTML = '<i class="fas fa-snowflake"></i> Modo Invierno';
-            btnPausar.disabled = true;
-            btnPausar.title = 'El desafío ha sido eliminado y el sistema está en invierno.';
+            btnPausar.innerHTML = '<i class="fas fa-snowflake" style="color:#0284c7;"></i> Modo Invierno (Activo)';
+            btnPausar.title = 'El sistema está en Modo Invierno. Haz clic para desactivar o reactivar.';
+            btnPausar.style.background = '#e0f2fe';
+            btnPausar.style.borderColor = '#38bdf8';
+            btnPausar.style.color = '#0369a1';
         } else {
-            btnPausar.disabled = false;
-            btnPausar.innerHTML = estado === 'PAUSADO' 
-                ? '<i class="fas fa-play"></i> Reactivar Desafío' 
-                : '<i class="fas fa-pause"></i> Pausar Desafío';
-            btnPausar.title = 'Pausar o reactivar el desafío actual';
+            btnPausar.innerHTML = '<i class="fas fa-snowflake" style="color:#0284c7;"></i> Modo Invierno';
+            btnPausar.title = 'Entrar en Modo Invierno y pausar el desafío';
+            btnPausar.style.background = '#ffffff';
+            btnPausar.style.borderColor = '#bae6fd';
+            btnPausar.style.color = '#0284c7';
         }
     }
 
@@ -1243,8 +1246,14 @@ function renderizarConfiguradorPremioAdmin() {
     // Renderizar presets en chips horizontales modernos
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');
     if (presetsContainer) {
-        presetsContainer.innerHTML = PRESETS_PREMIOS.map((p, idx) => `
-            <div class="reward-preset-chip ${idx === 0 ? 'active' : ''}" onclick="aplicarPresetPremio(${idx})" title="Seleccionar: ${p.nombre}">
+        const nombreActual = (pm.nombre || '').toLowerCase().trim();
+        const ptsActuales = Number(pm.puntosRequeridos || 0);
+        presetsContainer.innerHTML = PRESETS_PREMIOS.map((p, idx) => {
+            const esActivo = nombreActual 
+                ? (p.nombre.toLowerCase().trim() === nombreActual || p.puntos === ptsActuales)
+                : idx === 0;
+            return `
+            <div class="reward-preset-chip ${esActivo ? 'active' : ''}" onclick="aplicarPresetPremio(${idx})" title="Seleccionar: ${p.nombre}">
                 <img src="${p.imagen}" alt="${p.nombre}" class="reward-preset-thumb" loading="lazy">
                 <div class="reward-preset-info">
                     <div class="reward-preset-name">${p.nombre}</div>
@@ -1253,10 +1262,10 @@ function renderizarConfiguradorPremioAdmin() {
                     </div>
                 </div>
                 <button type="button" class="reward-preset-apply-btn" onclick="event.stopPropagation(); aplicarPresetPremio(${idx});">
-                    ${idx === 0 ? 'Activo' : 'Usar'}
+                    ${esActivo ? 'Activo' : 'Usar'}
                 </button>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     // Configurar listeners de Drag & Drop para el Dropzone

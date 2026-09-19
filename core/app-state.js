@@ -140,7 +140,10 @@ const AppState = window.AppState = window.InventoryApp.state = {
         }
     ],
     telefonoWhatsApp: '0412-5363849',
-    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General']
+    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General'],
+    facturasCompras: [],
+    kardex: [],
+    proveedoresFrecuentes: ['Distribuidora Polar', 'Empresas Polar C.A.', 'Mayorista Central', 'Nestlé de Venezuela', 'Mavesa / Alimentos Polar', 'Distribuidora La Fama', 'Mondelez']
 };
 
 const legacyGlobals = [
@@ -149,7 +152,7 @@ const legacyGlobals = [
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
     'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
-    'telefonoWhatsApp','categoriasPersonalizadas'
+    'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedoresFrecuentes'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
@@ -280,6 +283,38 @@ window.InventoryApp.StockService = {
         const qty = Number(stockInicial);
         if (!p || !Number.isInteger(qty) || qty < 0) return false;
         p.stock = qty;
+        return true;
+    },
+    ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion') {
+        const p = this._get(productId);
+        const qty = Number(cantidadComprada);
+        if (!p || !Number.isFinite(qty) || qty <= 0) return false;
+        
+        const stockActual = Math.max(0, Number(p.stock || 0));
+        const costoActual = Math.max(0, Number(p.costo || 0));
+        const nuevoCosto = Number(nuevoCostoUnitario);
+        
+        // Sumar automáticamente la cantidad comprada al stock actual
+        p.stock = stockActual + qty;
+        
+        // Actualizar el costo unitario según el método
+        if (Number.isFinite(nuevoCosto) && nuevoCosto >= 0) {
+            if (metodoCosto === 'promedio' && stockActual > 0) {
+                // Costo promedio ponderado
+                const totalValor = (stockActual * costoActual) + (qty * nuevoCosto);
+                const nuevoStock = stockActual + qty;
+                p.costo = Number((totalValor / nuevoStock).toFixed(2));
+            } else {
+                // Costo de reposición (reemplazo directo del valor facturado)
+                p.costo = Number(nuevoCosto.toFixed(2));
+            }
+            
+            // Recalcular el porcentaje de ganancia respecto al precio actual
+            if (p.precio && p.costo > 0) {
+                p.ganancia = Number((((p.precio - p.costo) / p.costo) * 100).toFixed(2));
+            }
+        }
+        
         return true;
     }
 };

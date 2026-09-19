@@ -2189,12 +2189,23 @@ body.dark-mode .pos-mobile-cart-bar {
   /* ------------------------------------------------------------
      7. PREMIO DEL MES & CONFIGURACIÓN (Mobile Fluid Optimization)
      ------------------------------------------------------------ */
-  #premio-mes-admin .reward-form-row,
-  #premio-mes-admin [style*="grid-template-columns"] {
+  #premio-mes-admin .reward-form-row {
     grid-template-columns: 1fr !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 12px !important;
+  }
+  #premio-mes-admin .reward-config-container {
+    padding: 4px 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #premio-mes-admin .reward-config-card {
+    padding: 16px 12px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   .reward-preview-box {
     width: 100% !important;

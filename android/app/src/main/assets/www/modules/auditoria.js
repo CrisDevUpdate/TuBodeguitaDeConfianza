@@ -3,42 +3,30 @@
 const CONTEOS_SESSION_STORAGE_KEY = 'bodeguita_conteos_sesion_v1';
 const CONTEOS_LOCAL_BACKUP_KEY = 'bodeguita_conteos_respaldo_v1';
 
-// Carga los conteos físicos guardados en la sesión o almacenamiento local del navegador
+// Carga los conteos físicos temporales en memoria
 function cargarConteosSesion() {
+    // Purga proactiva para evitar residuos de inventario en almacenamiento del navegador
     try {
-        let raw = null;
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(CONTEOS_LOCAL_BACKUP_KEY);
+        }
         if (typeof sessionStorage !== 'undefined') {
-            raw = sessionStorage.getItem(CONTEOS_SESSION_STORAGE_KEY);
+            sessionStorage.removeItem(CONTEOS_SESSION_STORAGE_KEY);
         }
-        if (!raw && typeof localStorage !== 'undefined') {
-            raw = localStorage.getItem(CONTEOS_LOCAL_BACKUP_KEY);
-        }
-        if (raw) {
-            const data = JSON.parse(raw);
-            if (data && typeof data === 'object') {
-                Object.keys(data).forEach(id => {
-                    conteosFisicos[id] = Number(data[id]);
-                });
-            }
-        }
-    } catch (e) {
-        console.warn('[Auditoría] Error recuperando conteos de sesión/local:', e);
-    }
+    } catch (e) {}
 }
 
-// Persiste los conteos físicos para que nunca se pierdan al navegar, cambiar tabs o recargar
+// Mantiene los conteos en memoria operativa (AppState / conteosFisicos)
 function guardarConteosSesion() {
+    // Los datos operativos y de auditoría se sincronizan exclusivamente con Firestore al aplicar el ajuste
     try {
-        const payload = JSON.stringify(conteosFisicos || {});
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(CONTEOS_LOCAL_BACKUP_KEY);
+        }
         if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.setItem(CONTEOS_SESSION_STORAGE_KEY, payload);
+            sessionStorage.removeItem(CONTEOS_SESSION_STORAGE_KEY);
         }
-        if (typeof localStorage !== 'undefined' && Object.keys(conteosFisicos || {}).length > 0) {
-            localStorage.setItem(CONTEOS_LOCAL_BACKUP_KEY, payload);
-        }
-    } catch (e) {
-        console.warn('[Auditoría] Error guardando conteos:', e);
-    }
+    } catch (e) {}
 }
 
 // Si la toma actual está vacía pero ya existen auditorías registradas en el historial,
@@ -82,7 +70,8 @@ function calcularDiferenciaAuditoria(productoId) {
 // Renderiza (o re-renderiza) la tabla de conteo de auditoría, opcionalmente filtrada.
 function renderizarAuditoria(filtro = "") {
     const tbody = document.getElementById('auditoria-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('auditoria-mobile-list');
+    if (!tbody && !mobileList) return;
 
     // Asegurar conteos de sesión
     if (Object.keys(conteosFisicos).length === 0) {
@@ -96,73 +85,162 @@ function renderizarAuditoria(filtro = "") {
         (p.codigo || '').toLowerCase().includes(filtro.toLowerCase())
     );
 
-    tbody.innerHTML = filtrados.map(p => {
-        const tieneConteo = conteosFisicos.hasOwnProperty(p.id) && conteosFisicos[p.id] !== '' && conteosFisicos[p.id] !== null;
-        const valorFisico = tieneConteo ? conteosFisicos[p.id] : '';
-        const diferencia = tieneConteo ? (Number(conteosFisicos[p.id]) - Number(p.stock || 0)) : null;
+    if (tbody) {
+        tbody.innerHTML = filtrados.map(p => {
+            const tieneConteo = conteosFisicos.hasOwnProperty(p.id) && conteosFisicos[p.id] !== '' && conteosFisicos[p.id] !== null;
+            const valorFisico = tieneConteo ? conteosFisicos[p.id] : '';
+            const diferencia = tieneConteo ? (Number(conteosFisicos[p.id]) - Number(p.stock || 0)) : null;
 
-        let difHtml = '<span class="audit-diff-badge empty">—</span>';
-        let estadoHtml = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
-        let inputClass = 'audit-physical-input reactive-neutral';
-        let btnDisabled = true;
-        let btnText = '<i class="fas fa-check"></i> <span>Aplicar</span>';
-        let btnStyle = '';
+            let difHtml = '<span class="audit-diff-badge empty">—</span>';
+            let estadoHtml = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
+            let inputClass = 'audit-physical-input reactive-neutral';
+            let btnDisabled = true;
+            let btnText = '<i class="fas fa-check"></i> <span>Aplicar</span>';
+            let btnStyle = '';
 
-        if (diferencia !== null) {
-            if (diferencia > 0) {
-                difHtml = `<span class="audit-diff-badge surplus">+${diferencia}</span>`;
-                estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-arrow-trend-up" style="margin-right:3px;"></i> Sobrante</span>';
-                inputClass = 'audit-physical-input reactive-surplus';
-                btnDisabled = false;
-                btnText = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
-            } else if (diferencia < 0) {
-                difHtml = `<span class="audit-diff-badge deficit">${diferencia}</span>`;
-                estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-triangle-exclamation" style="margin-right:3px;"></i> Faltante</span>';
-                inputClass = 'audit-physical-input reactive-deficit';
-                btnDisabled = false;
-                btnText = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
-            } else {
-                difHtml = '<span class="audit-diff-badge match">0</span>';
-                estadoHtml = '<span class="audit-status-pill conforme"><i class="fas fa-check-circle" style="margin-right:3px;"></i> Conforme</span>';
-                inputClass = 'audit-physical-input reactive-match';
-                btnDisabled = true;
-                btnText = '<i class="fas fa-check-double"></i> <span>Al día</span>';
-                btnStyle = 'opacity:0.6; cursor:default;';
+            if (diferencia !== null) {
+                if (diferencia > 0) {
+                    difHtml = `<span class="audit-diff-badge surplus">+${diferencia}</span>`;
+                    estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-arrow-trend-up" style="margin-right:3px;"></i> Sobrante</span>';
+                    inputClass = 'audit-physical-input reactive-surplus';
+                    btnDisabled = false;
+                    btnText = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
+                } else if (diferencia < 0) {
+                    difHtml = `<span class="audit-diff-badge deficit">${diferencia}</span>`;
+                    estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-triangle-exclamation" style="margin-right:3px;"></i> Faltante</span>';
+                    inputClass = 'audit-physical-input reactive-deficit';
+                    btnDisabled = false;
+                    btnText = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
+                } else {
+                    difHtml = '<span class="audit-diff-badge match">0</span>';
+                    estadoHtml = '<span class="audit-status-pill conforme"><i class="fas fa-check-circle" style="margin-right:3px;"></i> Conforme</span>';
+                    inputClass = 'audit-physical-input reactive-match';
+                    btnDisabled = true;
+                    btnText = '<i class="fas fa-check-double"></i> <span>Al día</span>';
+                    btnStyle = 'opacity:0.6; cursor:default;';
+                }
             }
-        }
 
-        return `
-            <tr>
-                <td><span class="audit-badge-code">${p.codigo}</span></td>
-                <td>
-                    <div class="audit-product-cell">
-                        <div class="audit-thumb-wrap">
-                            ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" class="audit-thumb-img">` : `<i class="fas fa-image"></i>`}
+            return `
+                <tr>
+                    <td><span class="audit-badge-code">${p.codigo}</span></td>
+                    <td>
+                        <div class="audit-product-cell">
+                            <div class="audit-thumb-wrap">
+                                ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" class="audit-thumb-img">` : `<i class="fas fa-image"></i>`}
+                            </div>
+                            <div class="audit-product-details">
+                                <span class="audit-product-name">${p.nombre}</span>
+                                <span class="audit-product-sub">Costo: $${Number(p.costo || 0).toFixed(2)} · Precio: $${Number(p.precio || 0).toFixed(2)}</span>
+                            </div>
                         </div>
-                        <div class="audit-product-details">
-                            <span class="audit-product-name">${p.nombre}</span>
-                            <span class="audit-product-sub">Costo: $${Number(p.costo || 0).toFixed(2)} · Precio: $${Number(p.precio || 0).toFixed(2)}</span>
+                    </td>
+                    <td class="text-center"><span class="audit-digital-stock-badge">${p.stock}</span></td>
+                    <td class="text-center">
+                        <input type="number" min="0" step="1" class="${inputClass}"
+                            id="auditoria-input-${p.id}"
+                            value="${valorFisico}"
+                            placeholder="—"
+                            oninput="actualizarConteoFisico('${p.id}', this.value)">
+                    </td>
+                    <td class="text-center" id="auditoria-dif-${p.id}">${difHtml}</td>
+                    <td class="text-center" id="auditoria-estado-${p.id}">${estadoHtml}</td>
+                    <td class="text-right">
+                        <button class="audit-btn-apply-row" id="auditoria-btn-${p.id}" onclick="aplicarAjusteInventario('${p.id}')" ${btnDisabled ? 'disabled' : ''} style="${btnStyle}">
+                            ${btnText}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (mobileList) {
+        if (filtrados.length === 0) {
+            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-box-open" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No se encontraron productos en auditoría.</div>';
+        } else {
+            mobileList.innerHTML = filtrados.map(p => {
+                const tieneConteo = conteosFisicos.hasOwnProperty(p.id) && conteosFisicos[p.id] !== '' && conteosFisicos[p.id] !== null;
+                const valorFisico = tieneConteo ? conteosFisicos[p.id] : '';
+                const diferencia = tieneConteo ? (Number(conteosFisicos[p.id]) - Number(p.stock || 0)) : null;
+
+                let difHtml = '<span class="audit-diff-badge empty">—</span>';
+                let estadoHtml = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
+                let inputClass = 'audit-physical-input reactive-neutral';
+                let btnDisabled = true;
+                let btnText = '<i class="fas fa-check"></i> <span>Aplicar</span>';
+                let btnStyle = '';
+
+                if (diferencia !== null) {
+                    if (diferencia > 0) {
+                        difHtml = `<span class="audit-diff-badge surplus">+${diferencia}</span>`;
+                        estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-arrow-trend-up" style="margin-right:3px;"></i> Sobrante</span>';
+                        inputClass = 'audit-physical-input reactive-surplus';
+                        btnDisabled = false;
+                        btnText = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
+                    } else if (diferencia < 0) {
+                        difHtml = `<span class="audit-diff-badge deficit">${diferencia}</span>`;
+                        estadoHtml = '<span class="audit-status-pill pending"><i class="fas fa-triangle-exclamation" style="margin-right:3px;"></i> Faltante</span>';
+                        inputClass = 'audit-physical-input reactive-deficit';
+                        btnDisabled = false;
+                        btnText = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
+                    } else {
+                        difHtml = '<span class="audit-diff-badge match">0</span>';
+                        estadoHtml = '<span class="audit-status-pill conforme"><i class="fas fa-check-circle" style="margin-right:3px;"></i> Conforme</span>';
+                        inputClass = 'audit-physical-input reactive-match';
+                        btnDisabled = true;
+                        btnText = '<i class="fas fa-check-double"></i> <span>Al día</span>';
+                        btnStyle = 'opacity:0.6; cursor:default;';
+                    }
+                }
+
+                return `
+                    <div class="auditoria-item-card">
+                        <div class="auditoria-item-top">
+                            <div class="auditoria-item-img-wrap">
+                                ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" class="auditoria-item-img">` : `<div class="auditoria-item-noimg"><i class="fas fa-image"></i></div>`}
+                            </div>
+                            <div class="auditoria-item-info">
+                                <div class="auditoria-item-title-row">
+                                    <span class="auditoria-item-name">${p.nombre}</span>
+                                    <span class="audit-badge-code">${p.codigo}</span>
+                                </div>
+                                <div class="auditoria-item-sub">
+                                    <span>Costo: $${Number(p.costo || 0).toFixed(2)}</span>
+                                    <span>· Precio: $${Number(p.precio || 0).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="auditoria-item-middle">
+                            <div class="auditoria-stock-badge digital">
+                                <span class="lbl">Stock Digital</span>
+                                <span class="val">${p.stock}</span>
+                            </div>
+                            <div class="auditoria-stock-badge physical">
+                                <label class="lbl" for="auditoria-mob-input-${p.id}">Conteo Físico</label>
+                                <input type="number" min="0" step="1" class="${inputClass}"
+                                    id="auditoria-mob-input-${p.id}"
+                                    value="${valorFisico}"
+                                    placeholder="—"
+                                    oninput="actualizarConteoFisico('${p.id}', this.value); if(document.getElementById('auditoria-input-${p.id}')) document.getElementById('auditoria-input-${p.id}').value = this.value;">
+                            </div>
+                            <div class="auditoria-stock-badge diff" id="auditoria-mob-dif-${p.id}">
+                                ${difHtml}
+                            </div>
+                        </div>
+
+                        <div class="auditoria-item-bottom">
+                            <div id="auditoria-mob-estado-${p.id}">${estadoHtml}</div>
+                            <button class="audit-btn-apply-row" id="auditoria-mob-btn-${p.id}" onclick="aplicarAjusteInventario('${p.id}')" ${btnDisabled ? 'disabled' : ''} style="${btnStyle}">
+                                ${btnText}
+                            </button>
                         </div>
                     </div>
-                </td>
-                <td class="text-center"><span class="audit-digital-stock-badge">${p.stock}</span></td>
-                <td class="text-center">
-                    <input type="number" min="0" step="1" class="${inputClass}"
-                        id="auditoria-input-${p.id}"
-                        value="${valorFisico}"
-                        placeholder="—"
-                        oninput="actualizarConteoFisico('${p.id}', this.value)">
-                </td>
-                <td class="text-center" id="auditoria-dif-${p.id}">${difHtml}</td>
-                <td class="text-center" id="auditoria-estado-${p.id}">${estadoHtml}</td>
-                <td class="text-right">
-                    <button class="audit-btn-apply-row" id="auditoria-btn-${p.id}" onclick="aplicarAjusteInventario('${p.id}')" ${btnDisabled ? 'disabled' : ''} style="${btnStyle}">
-                        ${btnText}
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+                `;
+            }).join('');
+        }
+    }
 
     actualizarResumenAuditoria();
 }
@@ -201,48 +279,103 @@ function actualizarFilaAuditoria(productoId) {
     const estadoCell = document.getElementById(`auditoria-estado-${productoId}`);
     const btnAjuste = document.getElementById(`auditoria-btn-${productoId}`);
     const inputFisico = document.getElementById(`auditoria-input-${productoId}`);
-    if (!difCell || !estadoCell || !btnAjuste) return;
+
+    const mobDifCell = document.getElementById(`auditoria-mob-dif-${productoId}`);
+    const mobEstadoCell = document.getElementById(`auditoria-mob-estado-${productoId}`);
+    const mobBtnAjuste = document.getElementById(`auditoria-mob-btn-${productoId}`);
+    const mobInputFisico = document.getElementById(`auditoria-mob-input-${productoId}`);
 
     const diferencia = calcularDiferenciaAuditoria(productoId);
 
     if (diferencia === null) {
-        difCell.innerHTML = '<span class="audit-diff-badge empty">—</span>';
-        estadoCell.innerHTML = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
-        btnAjuste.disabled = true;
-        btnAjuste.style.opacity = '';
-        btnAjuste.style.cursor = '';
-        btnAjuste.innerHTML = '<i class="fas fa-check"></i> <span>Aplicar</span>';
+        if (difCell) difCell.innerHTML = '<span class="audit-diff-badge empty">—</span>';
+        if (estadoCell) estadoCell.innerHTML = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
+        if (btnAjuste) {
+            btnAjuste.disabled = true;
+            btnAjuste.style.opacity = '';
+            btnAjuste.style.cursor = '';
+            btnAjuste.innerHTML = '<i class="fas fa-check"></i> <span>Aplicar</span>';
+        }
         if (inputFisico) inputFisico.className = 'audit-physical-input reactive-neutral';
+
+        if (mobDifCell) mobDifCell.innerHTML = '<span class="audit-diff-badge empty">—</span>';
+        if (mobEstadoCell) mobEstadoCell.innerHTML = '<span class="audit-status-pill conforme" style="opacity:0.75;">Sin Conteo</span>';
+        if (mobBtnAjuste) {
+            mobBtnAjuste.disabled = true;
+            mobBtnAjuste.style.opacity = '';
+            mobBtnAjuste.style.cursor = '';
+            mobBtnAjuste.innerHTML = '<i class="fas fa-check"></i> <span>Aplicar</span>';
+        }
+        if (mobInputFisico) mobInputFisico.className = 'audit-physical-input reactive-neutral';
         return;
     }
 
     if (diferencia > 0) {
-        // Sobrante: el conteo físico superó al stock digital.
-        difCell.innerHTML = `<span class="audit-diff-badge surplus">+${diferencia}</span>`;
-        estadoCell.innerHTML = '<span class="audit-status-pill pending"><i class="fas fa-arrow-trend-up" style="margin-right:3px;"></i> Sobrante</span>';
+        const difHtml = `<span class="audit-diff-badge surplus">+${diferencia}</span>`;
+        const estHtml = '<span class="audit-status-pill pending"><i class="fas fa-arrow-trend-up" style="margin-right:3px;"></i> Sobrante</span>';
+        if (difCell) difCell.innerHTML = difHtml;
+        if (estadoCell) estadoCell.innerHTML = estHtml;
         if (inputFisico) inputFisico.className = 'audit-physical-input reactive-surplus';
-        btnAjuste.disabled = false;
-        btnAjuste.style.opacity = '1';
-        btnAjuste.style.cursor = 'pointer';
-        btnAjuste.innerHTML = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
+        if (btnAjuste) {
+            btnAjuste.disabled = false;
+            btnAjuste.style.opacity = '1';
+            btnAjuste.style.cursor = 'pointer';
+            btnAjuste.innerHTML = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
+        }
+
+        if (mobDifCell) mobDifCell.innerHTML = difHtml;
+        if (mobEstadoCell) mobEstadoCell.innerHTML = estHtml;
+        if (mobInputFisico) mobInputFisico.className = 'audit-physical-input reactive-surplus';
+        if (mobBtnAjuste) {
+            mobBtnAjuste.disabled = false;
+            mobBtnAjuste.style.opacity = '1';
+            mobBtnAjuste.style.cursor = 'pointer';
+            mobBtnAjuste.innerHTML = '<i class="fas fa-rotate"></i> <span>Ajustar</span>';
+        }
     } else if (diferencia < 0) {
-        // Faltante: el conteo físico es menor al stock digital.
-        difCell.innerHTML = `<span class="audit-diff-badge deficit">${diferencia}</span>`;
-        estadoCell.innerHTML = '<span class="audit-status-pill pending"><i class="fas fa-triangle-exclamation" style="margin-right:3px;"></i> Faltante</span>';
+        const difHtml = `<span class="audit-diff-badge deficit">${diferencia}</span>`;
+        const estHtml = '<span class="audit-status-pill pending"><i class="fas fa-triangle-exclamation" style="margin-right:3px;"></i> Faltante</span>';
+        if (difCell) difCell.innerHTML = difHtml;
+        if (estadoCell) estadoCell.innerHTML = estHtml;
         if (inputFisico) inputFisico.className = 'audit-physical-input reactive-deficit';
-        btnAjuste.disabled = false;
-        btnAjuste.style.opacity = '1';
-        btnAjuste.style.cursor = 'pointer';
-        btnAjuste.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
+        if (btnAjuste) {
+            btnAjuste.disabled = false;
+            btnAjuste.style.opacity = '1';
+            btnAjuste.style.cursor = 'pointer';
+            btnAjuste.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
+        }
+
+        if (mobDifCell) mobDifCell.innerHTML = difHtml;
+        if (mobEstadoCell) mobEstadoCell.innerHTML = estHtml;
+        if (mobInputFisico) mobInputFisico.className = 'audit-physical-input reactive-deficit';
+        if (mobBtnAjuste) {
+            mobBtnAjuste.disabled = false;
+            mobBtnAjuste.style.opacity = '1';
+            mobBtnAjuste.style.cursor = 'pointer';
+            mobBtnAjuste.innerHTML = '<i class="fas fa-triangle-exclamation"></i> <span>Ajustar</span>';
+        }
     } else {
-        // Conforme: el conteo físico coincide exactamente con el stock digital.
-        difCell.innerHTML = '<span class="audit-diff-badge match">0</span>';
-        estadoCell.innerHTML = '<span class="audit-status-pill conforme"><i class="fas fa-check-circle" style="margin-right:3px;"></i> Conforme</span>';
+        const difHtml = '<span class="audit-diff-badge match">0</span>';
+        const estHtml = '<span class="audit-status-pill conforme"><i class="fas fa-check-circle" style="margin-right:3px;"></i> Conforme</span>';
+        if (difCell) difCell.innerHTML = difHtml;
+        if (estadoCell) estadoCell.innerHTML = estHtml;
         if (inputFisico) inputFisico.className = 'audit-physical-input reactive-match';
-        btnAjuste.disabled = true;
-        btnAjuste.style.opacity = '0.6';
-        btnAjuste.style.cursor = 'default';
-        btnAjuste.innerHTML = '<i class="fas fa-check-double"></i> <span>Al día</span>';
+        if (btnAjuste) {
+            btnAjuste.disabled = true;
+            btnAjuste.style.opacity = '0.6';
+            btnAjuste.style.cursor = 'default';
+            btnAjuste.innerHTML = '<i class="fas fa-check-double"></i> <span>Al día</span>';
+        }
+
+        if (mobDifCell) mobDifCell.innerHTML = difHtml;
+        if (mobEstadoCell) mobEstadoCell.innerHTML = estHtml;
+        if (mobInputFisico) mobInputFisico.className = 'audit-physical-input reactive-match';
+        if (mobBtnAjuste) {
+            mobBtnAjuste.disabled = true;
+            mobBtnAjuste.style.opacity = '0.6';
+            mobBtnAjuste.style.cursor = 'default';
+            mobBtnAjuste.innerHTML = '<i class="fas fa-check-double"></i> <span>Al día</span>';
+        }
     }
 }
 

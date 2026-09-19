@@ -408,6 +408,8 @@ function switchTab(tabId) {
             if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
             if (typeof alCambiarMetodoTransaccionDirecta === 'function') alCambiarMetodoTransaccionDirecta();
             if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+        } else if (tabId === 'facturas') {
+            if (typeof inicializarModuloFacturas === 'function') inicializarModuloFacturas();
         } else if (tabId === 'auditoria') {
             if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
             if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();

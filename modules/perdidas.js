@@ -142,7 +142,10 @@ function guardarCiclosRecuperacion() {
             ciclosRecuperacion: window.AppState?.ciclosRecuperacion || [],
             cicloRecuperacionActual: window.AppState?.cicloRecuperacionActual || { id: 'ciclo_actual', numero: 1, fechaInicio: null, estado: 'ACTIVO' }
         };
-        localStorage.setItem('bodeguita_ciclos_recuperacion', JSON.stringify(payload));
+        // Purga de almacenamiento local para garantizar 100% persistencia en la nube
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bodeguita_ciclos_recuperacion');
+        }
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarConfiguracionGlobal === 'function') {
             window.InventoryApp.Firebase.guardarConfiguracionGlobal(payload);
         }
@@ -153,18 +156,12 @@ function guardarCiclosRecuperacion() {
 
 function cargarCiclosRecuperacion() {
     try {
-        const raw = localStorage.getItem('bodeguita_ciclos_recuperacion');
-        if (raw) {
-            const data = JSON.parse(raw);
-            if (data && Array.isArray(data.ciclosRecuperacion) && (!window.AppState?.ciclosRecuperacion || window.AppState.ciclosRecuperacion.length === 0)) {
-                if (window.AppState) window.AppState.ciclosRecuperacion = data.ciclosRecuperacion;
-            }
-            if (data && data.cicloRecuperacionActual && (!window.AppState?.cicloRecuperacionActual || !window.AppState.cicloRecuperacionActual.fechaInicio)) {
-                if (window.AppState) window.AppState.cicloRecuperacionActual = data.cicloRecuperacionActual;
-            }
+        // Purga proactiva de datos de negocio en localStorage
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bodeguita_ciclos_recuperacion');
         }
     } catch (e) {
-        console.warn('[Auditoría] Error cargando ciclos de recuperación:', e);
+        console.warn('[Auditoría] Error al purgar ciclos locales:', e);
     }
 }
 cargarCiclosRecuperacion();
@@ -1138,10 +1135,10 @@ function imprimirReporteAuditoria(cicloData = null) {
 }
 window.imprimirReporteAuditoria = imprimirReporteAuditoria;
 
-// Renderiza el historial de ajustes ya aplicados (los más recientes primero).
+// Renderiza el historial de ajustes ya aplicados con motivo y detalle contable.
 function renderizarHistorialAuditoria() {
     const tbody = document.getElementById('auditoria-historial-body');
-    if (!tbody) return;
+    const mobileContainer = document.getElementById('auditoria-historial-mobile');
 
     const estadoPerdidas = calcularEstadoPerdidasPendientes();
     const perdidaTotalEl = document.getElementById('auditoria-perdida-total');
@@ -1151,40 +1148,107 @@ function renderizarHistorialAuditoria() {
         perdidaTotalEl.style.color = estadoPerdidas.totalPendiente > 0 ? 'var(--danger)' : 'var(--text-muted)';
     }
 
-    if (auditorias.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-muted);">Aún no se han aplicado ajustes de inventario.</td></tr>';
+    if (!auditorias || auditorias.length === 0) {
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--text-muted); padding:24px;">Aún no se han aplicado ajustes de inventario físico.</td></tr>';
+        }
+        if (mobileContainer) {
+            mobileContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:24px;">Aún no se han aplicado ajustes de inventario físico.</div>';
+        }
         renderizarResumenPerdidasEconomicas();
         return;
     }
 
     const ordenado = [...auditorias].reverse();
-    tbody.innerHTML = ordenado.map(a => {
-        const impacto = Number(estadoPerdidas.impactos.get(a.id) || 0);
-        let textoPerdida = '$0.00';
-        let colorPerdida = 'var(--text-muted)';
 
-        if (impacto > 0) {
-            textoPerdida = '-$' + impacto.toFixed(2);
-            colorPerdida = 'var(--danger)';
-        } else if (impacto < 0) {
-            textoPerdida = '+$' + Math.abs(impacto).toFixed(2);
-            colorPerdida = 'var(--success)';
-        }
+    if (tbody) {
+        tbody.innerHTML = ordenado.map(a => {
+            const impacto = Number(estadoPerdidas.impactos.get(a.id) || 0);
+            let textoPerdida = '$0.00';
+            let colorPerdida = 'var(--text-muted)';
 
-        return `
-        <tr>
-            <td>${a.fecha}</td>
-            <td>${a.codigo}</td>
-            <td>${a.nombre}</td>
-            <td class="num">${a.stockAnterior}</td>
-            <td class="num"><strong>${a.stockFisico}</strong></td>
-            <td class="num" style="color: ${a.diferencia > 0 ? 'var(--success)' : a.diferencia < 0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: bold;">
-                ${a.diferencia > 0 ? '+' : ''}${a.diferencia}
-            </td>
-            <td class="num" style="color: ${colorPerdida}; font-weight:700;">
-                ${textoPerdida}
-            </td>
-        </tr>
-    `;
-    }).join('');
+            if (impacto > 0) {
+                textoPerdida = '-$' + impacto.toFixed(2);
+                colorPerdida = 'var(--danger)';
+            } else if (impacto < 0) {
+                textoPerdida = '+$' + Math.abs(impacto).toFixed(2);
+                colorPerdida = 'var(--success)';
+            }
+
+            const motivo = a.motivo || (a.diferencia > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
+            let motivoBg = '#f1f5f9';
+            let motivoColor = '#475569';
+            let motivoIcon = 'fa-tag';
+
+            if (motivo.includes('Error de conteo')) {
+                motivoBg = '#eff6ff';
+                motivoColor = '#1d4ed8';
+                motivoIcon = 'fa-rotate-left';
+            } else if (motivo.includes('Mercancía no registrada')) {
+                motivoBg = '#fef3c7';
+                motivoColor = '#92400e';
+                motivoIcon = 'fa-boxes-stacked';
+            } else if (motivo.includes('Merma') || motivo.includes('Daño') || motivo.includes('Vencimiento')) {
+                motivoBg = '#fee2e2';
+                motivoColor = '#b91c1c';
+                motivoIcon = 'fa-triangle-exclamation';
+            } else if (motivo.includes('despacho') || motivo.includes('Venta')) {
+                motivoBg = '#fef3c7';
+                motivoColor = '#b45309';
+                motivoIcon = 'fa-truck';
+            }
+
+            return `
+            <tr>
+                <td style="font-size:0.8rem; color:var(--text-muted);">${a.fecha}</td>
+                <td><strong>${a.codigo || '-'}</strong></td>
+                <td>
+                    <div style="font-weight:600; color:var(--text-color);">${a.nombre}</div>
+                    ${a.notas ? `<small style="color:var(--text-muted); font-style:italic;">"${a.notas}"</small>` : ''}
+                </td>
+                <td class="num" style="color:var(--text-muted);">${a.stockTeorico ?? a.stockAnterior}</td>
+                <td class="num"><strong>${a.stockFisico}</strong></td>
+                <td class="num" style="color: ${a.diferencia > 0 ? 'var(--success)' : a.diferencia < 0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 800;">
+                    ${a.diferencia > 0 ? '+' : ''}${a.diferencia}
+                </td>
+                <td>
+                    <span style="display:inline-flex; align-items:center; gap:5px; background:${motivoBg}; color:${motivoColor}; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; white-space:nowrap;">
+                        <i class="fas ${motivoIcon}"></i> ${motivo}
+                    </span>
+                </td>
+                <td class="num" style="color: ${colorPerdida}; font-weight:700;">
+                    ${textoPerdida}
+                </td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    if (mobileContainer) {
+        mobileContainer.innerHTML = ordenado.map(a => {
+            const impacto = Number(estadoPerdidas.impactos.get(a.id) || 0);
+            const motivo = a.motivo || (a.diferencia > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
+            return `
+                <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:12px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                        <div>
+                            <strong style="font-size:0.95rem; color:var(--text-color);">${a.nombre}</strong>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${a.codigo || '-'} · ${a.fecha}</div>
+                        </div>
+                        <span style="font-size:1rem; font-weight:800; color:${a.diferencia > 0 ? 'var(--success)' : 'var(--danger)'};">
+                            ${a.diferencia > 0 ? '+' : ''}${a.diferencia} unds
+                        </span>
+                    </div>
+                    <div style="display:flex; gap:12px; font-size:0.82rem; margin-bottom:8px;">
+                        <span>Teórico: <strong>${a.stockTeorico ?? a.stockAnterior}</strong></span>
+                        <span>Físico: <strong>${a.stockFisico}</strong></span>
+                        <span>Impacto: <strong style="color:${impacto > 0 ? 'var(--danger)' : 'var(--success)'};">${impacto > 0 ? '-$' + impacto.toFixed(2) : impacto < 0 ? '+$' + Math.abs(impacto).toFixed(2) : '$0.00'}</strong></span>
+                    </div>
+                    <div style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; color:#334155; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:600;">
+                        <i class="fas fa-tag"></i> Motivo: ${motivo}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 }

@@ -591,6 +591,30 @@
   border-top: 1px solid var(--rc-slate-200);
 }
 
+.reward-action-bar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.reward-action-btn {
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: var(--rc-radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.reward-action-bar-submit {
+  display: flex;
+  align-items: center;
+}
+
 .reward-btn-whatsapp {
   display: inline-flex;
   align-items: center;
@@ -646,6 +670,132 @@
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;
+}
+
+/* ============================================================
+   OPTIMIZACIONES MÓVILES PARA EL MÓDULO DE PREMIO (< 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  .reward-config-container {
+    padding: 4px 0 !important;
+  }
+
+  .reward-config-card {
+    padding: 16px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .reward-form-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Banner de Estado Móvil */
+  .reward-status-banner {
+    padding: 14px 12px !important;
+  }
+
+  .reward-status-banner > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .reward-status-banner div[style*="display:flex"][style*="gap:8px"],
+  .reward-status-banner-actions {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .reward-status-banner .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Plantillas Rápidas en Móvil */
+  .reward-presets-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .reward-preset-chip {
+    padding: 8px 10px !important;
+    gap: 10px !important;
+  }
+
+  .reward-preset-thumb {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .reward-preset-name {
+    font-size: 0.82rem !important;
+  }
+
+  .reward-preset-apply-btn {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Dropzone y Live Preview en Móvil */
+  .reward-dropzone {
+    padding: 18px 12px !important;
+  }
+
+  .reward-preview-img-wrapper {
+    height: 160px !important;
+  }
+
+  /* Barra de Acciones Inferior en Móvil */
+  .reward-action-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding-top: 16px !important;
+    margin-top: 16px !important;
+  }
+
+  .reward-action-bar-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .reward-action-btn,
+  .reward-btn-whatsapp {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 8px !important;
+    font-size: 0.78rem !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .reward-action-bar-submit {
+    width: 100% !important;
+  }
+
+  .reward-btn-save {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 14px 18px !important;
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .reward-action-bar-buttons {
+    grid-template-columns: 1fr !important;
+  }
+
+  .reward-preset-name {
+    max-width: 150px !important;
+  }
 }
 
 /* Spinner & Micro-animaciones */
