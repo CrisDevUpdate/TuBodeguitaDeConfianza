@@ -727,11 +727,80 @@
                 font-weight: 700 !important;
                 white-space: nowrap !important;
                 cursor: pointer !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                user-select: none !important;
             }
             .inv-chip.active {
                 background: var(--primary-accent, #0284c7) !important;
                 color: #ffffff !important;
                 border-color: var(--primary-accent, #0284c7) !important;
+            }
+            .inv-chip-qty-group {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                padding: 3px 8px !important;
+                border-radius: 20px !important;
+                cursor: pointer !important;
+            }
+            .inv-chip-qty-group .inv-stock-op-select {
+                border: none !important;
+                background: transparent !important;
+                font-size: 0.8rem !important;
+                font-weight: 800 !important;
+                cursor: pointer !important;
+                padding: 0 1px !important;
+                color: inherit !important;
+                outline: none !important;
+                line-height: 1 !important;
+            }
+            .inv-chip-qty-group .inv-stock-input-num {
+                width: 42px !important;
+                min-width: 38px !important;
+                height: 22px !important;
+                border: 1px solid rgba(0, 0, 0, 0.12) !important;
+                background: #f1f5f9 !important;
+                border-radius: 11px !important;
+                text-align: center !important;
+                font-weight: 800 !important;
+                font-size: 0.78rem !important;
+                color: #0f172a !important;
+                outline: none !important;
+                padding: 0 4px !important;
+                line-height: 22px !important;
+                transition: all 0.15s ease !important;
+                -moz-appearance: textfield !important;
+            }
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-inner-spin-button,
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-outer-spin-button {
+                -webkit-appearance: none !important;
+                margin: 0 !important;
+            }
+            .inv-chip-qty-group.active {
+                background: var(--primary-accent, #0284c7) !important;
+                color: #ffffff !important;
+                border-color: var(--primary-accent, #0284c7) !important;
+                box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-op-select {
+                color: #ffffff !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num {
+                background: rgba(255, 255, 255, 0.22) !important;
+                color: #ffffff !important;
+                border-color: rgba(255, 255, 255, 0.5) !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num:focus {
+                background: #ffffff !important;
+                color: #0284c7 !important;
+                border-color: #ffffff !important;
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5) !important;
+            }
+            .inv-chip-qty-group:not(.active):hover {
+                border-color: #cbd5e1 !important;
+                background: #f8fafc !important;
             }
 
             /* Optimización de formulario Registrar/Editar en Móvil */
@@ -916,11 +985,76 @@
                 font-size: 0.78rem;
                 font-weight: 600;
                 cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                user-select: none;
+                transition: all 0.15s ease;
             }
             .inv-chip.active {
                 background: var(--primary-accent, #0284c7);
                 color: #ffffff;
                 border-color: var(--primary-accent, #0284c7);
+            }
+            .inv-chip-qty-group {
+                padding: 3px 10px;
+            }
+            .inv-chip-qty-group .inv-stock-op-select {
+                border: none;
+                background: transparent;
+                font-size: 0.82rem;
+                font-weight: 800;
+                cursor: pointer;
+                padding: 0 2px;
+                color: inherit;
+                outline: none;
+                line-height: 1;
+            }
+            .inv-chip-qty-group .inv-stock-input-num {
+                width: 44px;
+                min-width: 40px;
+                height: 22px;
+                border: 1px solid rgba(0, 0, 0, 0.12);
+                background: #f1f5f9;
+                border-radius: 11px;
+                text-align: center;
+                font-weight: 800;
+                font-size: 0.8rem;
+                color: #0f172a;
+                outline: none;
+                padding: 0 4px;
+                line-height: 22px;
+                transition: all 0.15s ease;
+                -moz-appearance: textfield;
+            }
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-inner-spin-button,
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .inv-chip-qty-group.active {
+                background: var(--primary-accent, #0284c7);
+                color: #ffffff;
+                border-color: var(--primary-accent, #0284c7);
+                box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+            }
+            .inv-chip-qty-group.active .inv-stock-op-select {
+                color: #ffffff;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num {
+                background: rgba(255, 255, 255, 0.22);
+                color: #ffffff;
+                border-color: rgba(255, 255, 255, 0.5);
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num:focus {
+                background: #ffffff;
+                color: #0284c7;
+                border-color: #ffffff;
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+            }
+            .inv-chip-qty-group:not(.active):hover {
+                border-color: #cbd5e1;
+                background: #f8fafc;
             }
         }
         @media (min-width: 900px) and (max-width: 1199px) {
@@ -3304,7 +3438,16 @@
                 </div>
                 <div class="inventario-filter-chips">
                     <button type="button" class="inv-chip active" id="chip-stock-todos" onclick="filtrarInventarioStock('todos')">Todos</button>
-                    <button type="button" class="inv-chip" id="chip-stock-bajo" onclick="filtrarInventarioStock('bajo')"><i class="fas fa-triangle-exclamation"></i> Bajo (&le;5)</button>
+                    <div class="inv-chip inv-chip-qty-group" id="chip-stock-bajo" onclick="alClickChipStockCustom(event)" title="Filtrar por cantidad en stock. Haz clic para activar o escribe la cantidad directamente.">
+                        <i class="fas fa-triangle-exclamation" style="font-size:0.75rem;"></i>
+                        <span>Stock</span>
+                        <select id="inv-stock-operador" class="inv-stock-op-select" onchange="alCambiarOperadorStock(event)" onclick="event.stopPropagation();" title="Condición de comparación (menor o igual, exacto, mayor o igual)">
+                            <option value="<=" selected>&le;</option>
+                            <option value="=">=</option>
+                            <option value=">=">&ge;</option>
+                        </select>
+                        <input type="number" id="inv-stock-cantidad-input" class="inv-stock-input-num" value="5" min="0" max="9999" step="1" inputmode="numeric" oninput="alCambiarCantidadStock(event)" onclick="event.stopPropagation();" onkeydown="if(event.key==='Enter')this.blur();" onfocus="this.select();" title="Escribe la cantidad que buscas">
+                    </div>
                     <button type="button" class="inv-chip" id="chip-stock-agotado" onclick="filtrarInventarioStock('agotado')"><i class="fas fa-circle-xmark"></i> Agotados</button>
                 </div>
             </div>
@@ -3370,39 +3513,95 @@
         <!-- Contenedor dinámico de Abonos Pendientes Reportados por Clientes -->
         <div id="abonos-pendientes-clientes-container" style="margin-bottom:18px;"></div>
 
-        <div class="card">
-            <h3>Registrar Nuevo Cliente</h3>
-            <form id="form-cliente" class="form-grid" style="margin-top: 15px;" onsubmit="guardarCliente(event)">
+        <!-- KPIs Resumen de Cartera y Cuentas por Cobrar -->
+        <div class="clientes-kpis-grid">
+            <div class="kpi-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-users" style="color: var(--primary-accent, #2563eb);"></i> Directorio Activo
+                </div>
+                <div id="cli-kpi-total-clientes" style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-top: 4px;">0</div>
+                <div style="font-size: 0.78rem; color: #64748b;">Clientes registrados</div>
+            </div>
+            <div class="kpi-card" style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-user-clock" style="color: #ea580c;"></i> Con Deuda Activa
+                </div>
+                <div id="cli-kpi-con-deuda" style="font-size: 1.4rem; font-weight: 800; color: #c2410c; margin-top: 4px;">0</div>
+                <div style="font-size: 0.78rem; color: #c2410c;">Clientes con saldo pendiente</div>
+            </div>
+            <div class="kpi-card danger" style="background: #ffffff; border: 1px solid #fecaca; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-hand-holding-dollar" style="color: #dc2626;"></i> Cuentas por Cobrar
+                </div>
+                <div id="cli-kpi-total-deuda-usd" style="font-size: 1.4rem; font-weight: 800; color: #dc2626; margin-top: 4px;">$0.00</div>
+                <div id="cli-kpi-total-deuda-ves" style="font-size: 0.78rem; color: #b91c1c;">Bs. 0.00</div>
+            </div>
+        </div>
+
+        <!-- Formulario Desplegable para Registrar Nuevo Cliente -->
+        <div class="card" style="margin-bottom: 16px; border-radius: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleFormularioNuevoCliente()">
+                <h3 style="margin:0; font-size:1.02rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-user-plus" style="color:var(--primary-accent, #2563eb);"></i> Registrar Nuevo Cliente
+                </h3>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-toggle-nuevo-cliente" style="pointer-events:none; border-radius:8px; padding:4px 10px;">
+                    <span id="txt-toggle-nuevo-cliente">+ Agregar</span> <i class="fas fa-chevron-down" id="icono-toggle-nuevo-cliente" style="margin-left:4px;"></i>
+                </button>
+            </div>
+            <form id="form-cliente" class="form-grid" style="margin-top: 14px; display: none;" onsubmit="guardarCliente(event)">
                 <div class="form-group">
                     <label>ID / Cédula / RIF</label>
-                    <input type="text" id="cli-id" required>
+                    <input type="text" id="cli-id" placeholder="Ej: V-12345678" required>
                 </div>
                 <div class="form-group">
                     <label>Nombre Completo</label>
-                    <input type="text" id="cli-nombre" required>
+                    <input type="text" id="cli-nombre" placeholder="Nombre y Apellido" required>
                 </div>
                 <div class="form-group">
                     <label>Teléfono</label>
-                    <input type="text" id="cli-telefono" required>
+                    <input type="text" id="cli-telefono" placeholder="Ej: 04121234567" required>
                 </div>
-                <button type="submit" class="btn btn-success">Crear Cliente</button>
+                <div style="display:flex; gap:10px; align-items:flex-end;">
+                    <button type="submit" class="btn btn-success" style="width:100%;"><i class="fas fa-check"></i> Guardar Cliente</button>
+                </div>
             </form>
         </div>
 
-        <div class="card">
-            <h3>Directorio de Clientes</h3>
+        <!-- Directorio de Clientes con Buscador y Filtros -->
+        <div class="card" style="border-radius: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.1rem;"><i class="fas fa-address-book" style="color:var(--primary-accent, #2563eb);"></i> Directorio de Clientes</h3>
+                    <small style="color:var(--text-muted);" id="cli-counter-badge">Cargando...</small>
+                </div>
+            </div>
+
+            <!-- Buscador y Chips de Filtro -->
+            <div class="clientes-toolbar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <div style="position:relative; width:100%;">
+                    <i class="fas fa-search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.95rem;"></i>
+                    <input type="text" id="input-buscar-cliente" oninput="alBuscarCliente(this.value)" placeholder="Buscar cliente por nombre, cédula o teléfono..." style="width:100%; padding:10px 38px 10px 38px; border:1px solid #cbd5e1; border-radius:12px; font-size:0.9rem; box-sizing:border-box; outline:none; background:#f8fafc; transition:all 0.2s;">
+                    <button type="button" id="btn-limpiar-buscar-cliente" onclick="limpiarBuscadorCliente()" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.95rem;"><i class="fas fa-times-circle"></i></button>
+                </div>
+                <div class="clientes-filter-chips" style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="inv-chip active" id="chip-cli-todos" onclick="filtrarClientesEstado('todos')">Todos (<span id="count-cli-todos">0</span>)</button>
+                    <button type="button" class="inv-chip" id="chip-cli-deuda" onclick="filtrarClientesEstado('deuda')" style="color:#dc2626;"><i class="fas fa-triangle-exclamation"></i> Con Deuda (<span id="count-cli-deuda">0</span>)</button>
+                    <button type="button" class="inv-chip" id="chip-cli-al-dia" onclick="filtrarClientesEstado('al-dia')"><i class="fas fa-check-circle" style="color:#16a34a;"></i> Al día (<span id="count-cli-al-dia">0</span>)</button>
+                </div>
+            </div>
+
             <div id="clientes-mobile-list" class="clientes-mobile-list"></div>
             <div class="table-responsive clientes-table-desktop">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Cliente</th>
-                            <th>Teléfono</th>
-                            <th class="num">Total Comprado ($)</th>
-                            <th class="num">Deuda ($)</th>
-                            <th class="num">Deuda Equivalente (Bs)</th>
-                            <th>Acción</th>
+                            <th>ID / CÉDULA</th>
+                            <th>CLIENTE</th>
+                            <th>TELÉFONO</th>
+                            <th class="num">TOTAL COMPRADO ($)</th>
+                            <th class="num">DEUDA ($)</th>
+                            <th class="num">DEUDA EQUIV. (Bs)</th>
+                            <th style="text-align:center;">ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody id="clientes-body"></tbody>
@@ -3410,73 +3609,44 @@
             </div>
         </div>
 
-        <div class="card" style="margin-top: 20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
-                <h3 style="margin:0;">Historial de Clientes Eliminados</h3>
-                <button class="btn btn-danger" type="button" onclick="limpiarHistorialClientesEliminados()">
-                    <i class="fas fa-broom"></i> Limpiar Historial
-                </button>
-            </div>
-            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:12px;">
-                Aquí se conserva quién fue eliminado, cuándo, el motivo y el comentario. Las ventas y pagos históricos no se borran.
-            </p>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>FECHA</th>
-                            <th>ID</th>
-                            <th>CLIENTE</th>
-                            <th class="num">DEUDA AL ELIMINAR ($)</th>
-                            <th class="num">PÉRDIDA ($)</th>
-                            <th>MOTIVO</th>
-                            <th>COMENTARIO</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientes-eliminados-body"></tbody>
-                </table>
-            </div>
+        <!-- Historial de Clientes Eliminados (Acordeón discreto) -->
+        <div class="card" style="margin-top: 20px; border-radius: 14px;">
+            <details style="cursor:pointer;">
+                <summary style="font-weight:700; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; outline:none; user-select:none;">
+                    <span><i class="fas fa-clock-rotate-left" style="color:#64748b;"></i> Historial de Clientes Eliminados (<span id="count-cli-eliminados">0</span>)</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Ver registros archivados <i class="fas fa-chevron-down" style="font-size:0.75rem; margin-left:4px;"></i></span>
+                </summary>
+                <div style="margin-top:16px; cursor:default; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">
+                            Auditoría de clientes eliminados. Las ventas y pagos históricos permanecen intactos.
+                        </p>
+                        <button class="btn btn-danger btn-sm" type="button" onclick="limpiarHistorialClientesEliminados()">
+                            <i class="fas fa-broom"></i> Limpiar Historial
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>FECHA</th>
+                                    <th>ID</th>
+                                    <th>CLIENTE</th>
+                                    <th class="num">DEUDA AL ELIMINAR ($)</th>
+                                    <th class="num">PÉRDIDA ($)</th>
+                                    <th>MOTIVO</th>
+                                    <th>COMENTARIO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-eliminados-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
         </div>
 
-        <!-- Panel 360° Cliente -->
-        <div id="cliente-detalle-card" class="card" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="det-cliente-nombre">Detalle del Cliente</h3>
-                <button class="btn btn-warning" onclick="abrirModalAbono()">+ Registrar Abono / Pago</button>
-            </div>
-
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-title">TOTAL COMPRADO</div>
-                    <div class="kpi-value-usd" id="det-kpi-comprado-usd">$0.00</div>
-                    <div class="kpi-value-ves" id="det-kpi-comprado-ves">Bs. 0.00</div>
-                </div>
-                <div class="kpi-card danger">
-                    <div class="kpi-title">DEUDA ACTUAL</div>
-                    <div class="kpi-value-usd" id="det-kpi-deuda-usd" style="color: var(--danger);">$0.00</div>
-                    <div class="kpi-value-ves" id="det-kpi-deuda-ves">Bs. 0.00</div>
-                </div>
-            </div>
-
-            <h4 style="margin: 15px 0;">Historial de Transacciones y Abonos Multimoneda</h4>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Concepto</th>
-                            <th>Método / Detalle</th>
-                            <th class="num">Cargo ($)</th>
-                            <th class="num">Abono ($)</th>
-                            <th class="num">Monto Pagado (Bs)</th>
-                            <th class="num">Saldo ($)</th>
-                            <th class="num">Saldo (Bs)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="det-historial-body"></tbody>
-                </table>
-            </div>
-        </div>
+        <!-- Contenedor legacy oculto para compatibilidad -->
+        <div id="cliente-detalle-card" style="display: none;"></div>
     </div>
 
     <!-- VISTA 4: TIPOS DE TRANSACCIONES -->
@@ -5256,6 +5426,112 @@
 
         <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px; margin-top:14px;">
             <button type="button" class="btn" onclick="cerrarModalDetalleFactura()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Panel 360° Cliente -->
+<div id="modal-cliente-detalle" class="modal" onclick="if(event.target === this) cerrarModalDetalleCliente();">
+    <div class="modal-content modal-cliente-detalle-content">
+        <!-- Top Bar with clean close button -->
+        <div class="det-modal-topbar">
+            <div class="det-modal-title">
+                <i class="fas fa-address-card"></i>
+                <span>Ficha 360° del Cliente</span>
+            </div>
+            <button type="button" class="btn-modal-close" onclick="cerrarModalDetalleCliente()" title="Cerrar modal">&times;</button>
+        </div>
+
+        <!-- Scrollable Modal Body -->
+        <div class="det-modal-body">
+            <!-- Client Profile Card -->
+            <div class="det-profile-card">
+                <div class="det-profile-main">
+                    <div id="det-cliente-avatar" class="det-profile-avatar">CL</div>
+                    <div class="det-profile-info">
+                        <div class="det-profile-name-row">
+                            <h3 id="det-cliente-nombre" class="det-profile-name">Cliente</h3>
+                            <span id="det-cliente-estado-badge" class="det-status-badge badge-success">
+                                <i class="fas fa-check-circle"></i> Al día
+                            </span>
+                        </div>
+                        <div class="det-profile-meta">
+                            <span id="det-cliente-id-text" class="det-meta-chip"><i class="fas fa-id-card"></i> Cédula: —</span>
+                            <span id="det-cliente-tel-text" class="det-meta-chip"><i class="fas fa-phone"></i> Tel: —</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Quick Actions Bar -->
+                <div class="det-profile-actions">
+                    <button type="button" class="btn btn-warning det-btn-action" onclick="abrirModalAbono()">
+                        <i class="fas fa-hand-holding-dollar"></i> Registrar Abono / Pago
+                    </button>
+                    <button type="button" class="btn btn-success det-btn-action det-btn-whatsapp" id="det-btn-whatsapp" onclick="enviarWhatsappCliente()" style="display:none;" title="Enviar recordatorio o estado por WhatsApp">
+                        <i class="fab fa-whatsapp"></i> Notificar por WhatsApp
+                    </button>
+                </div>
+            </div>
+
+            <!-- Financial KPIs Grid -->
+            <div class="det-kpis-grid">
+                <div class="det-kpi-card">
+                    <div class="det-kpi-header">
+                        <i class="fas fa-bag-shopping det-kpi-icon-comprado"></i>
+                        <span>TOTAL COMPRADO</span>
+                    </div>
+                    <div id="det-kpi-comprado-usd" class="det-kpi-amount">$0.00</div>
+                    <div id="det-kpi-comprado-ves" class="det-kpi-sub">Bs. 0,00</div>
+                </div>
+                <div id="det-kpi-deuda-card" class="det-kpi-card danger">
+                    <div class="det-kpi-header">
+                        <i class="fas fa-clock det-kpi-icon-deuda"></i>
+                        <span>DEUDA ACTUAL</span>
+                    </div>
+                    <div id="det-kpi-deuda-usd" class="det-kpi-amount">$0.00</div>
+                    <div id="det-kpi-deuda-ves" class="det-kpi-sub">Bs. 0,00</div>
+                </div>
+            </div>
+
+            <!-- Section Title -->
+            <div class="det-section-header">
+                <div class="det-section-title">
+                    <i class="fas fa-clock-rotate-left"></i>
+                    <span>Historial de Movimientos</span>
+                </div>
+                <span id="det-movimientos-contador" class="det-movimientos-badge">0 movimientos</span>
+            </div>
+
+            <!-- Mobile Transaction List (< 640px) -->
+            <div id="det-historial-mobile" class="det-transactions-mobile"></div>
+
+            <!-- Desktop Transaction Table (>= 640px) -->
+            <div class="det-transactions-desktop">
+                <div class="table-responsive det-table-container">
+                    <table style="width:100%; font-size:0.85rem;">
+                        <thead style="position:sticky; top:0; background:#f8fafc; z-index:2;">
+                            <tr>
+                                <th style="padding:10px;">Fecha</th>
+                                <th style="padding:10px;">Concepto</th>
+                                <th style="padding:10px;">Detalle</th>
+                                <th class="num" style="padding:10px;">Cargo ($)</th>
+                                <th class="num" style="padding:10px;">Abono ($)</th>
+                                <th class="num" style="padding:10px;">Monto (Bs)</th>
+                                <th class="num" style="padding:10px;">Saldo ($)</th>
+                                <th class="num" style="padding:10px;">Saldo (Bs)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="det-historial-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="det-modal-footer">
+            <button type="button" class="btn" onclick="cerrarModalDetalleCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600; padding:8px 22px; border-radius:10px;">
                 Cerrar
             </button>
         </div>

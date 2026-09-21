@@ -378,6 +378,684 @@
                 grid-template-columns: 1fr !important;
                 gap: 12px !important;
             }
+
+            /* ----------------------------------------------------
+               DISEÑO MÓVIL OPTIMIZADO PARA VISTA INVENTARIO (< 900px)
+               Opción A: Vista en Lista Horizontal / Row Item
+               ---------------------------------------------------- */
+            .inventario-table-desktop {
+                display: none !important;
+            }
+            .inventario-mobile-list {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
+                margin-top: 10px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                padding-bottom: 24px !important;
+            }
+
+            /* Tarjeta Row Item de Producto en Inventario */
+            .inventario-item-card {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                padding: 9px 10px !important;
+                border-radius: 12px !important;
+                background: var(--bg-card, #ffffff) !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+                gap: 10px !important;
+                min-height: 74px !important;
+                position: relative !important;
+                transition: background-color 0.15s ease, transform 0.12s ease !important;
+                -webkit-tap-highlight-color: transparent !important;
+            }
+            .inventario-item-card:active {
+                transform: scale(0.988) !important;
+                background: var(--bg-hover, #f8fafc) !important;
+            }
+
+            /* Miniatura 64x64px Cuadrada Proporcional */
+            .inventario-item-img-wrap {
+                width: 64px !important;
+                height: 64px !important;
+                min-width: 64px !important;
+                min-height: 64px !important;
+                max-width: 64px !important;
+                max-height: 64px !important;
+                border-radius: 8px !important;
+                overflow: hidden !important;
+                flex-shrink: 0 !important;
+                position: relative !important;
+                background: var(--bg-muted, #f1f5f9) !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+                margin: 0 !important;
+            }
+            .inventario-item-img {
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+                display: block !important;
+            }
+            .inventario-item-noimg {
+                width: 100% !important;
+                height: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: var(--text-muted, #94a3b8) !important;
+                font-size: 1.4rem !important;
+            }
+
+            /* Badges sobre Miniatura */
+            .inv-badge-agotado {
+                position: absolute !important;
+                inset: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: rgba(15, 23, 42, 0.72) !important;
+                color: #ffffff !important;
+                font-size: 0.65rem !important;
+                font-weight: 800 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.04em !important;
+                border-radius: 8px !important;
+            }
+            .inv-badge-combo {
+                position: absolute !important;
+                top: 2px !important;
+                left: 2px !important;
+                background: #ea580c !important;
+                color: #ffffff !important;
+                font-size: 0.55rem !important;
+                padding: 1px 4px !important;
+                border-radius: 4px !important;
+                font-weight: 800 !important;
+            }
+
+            /* Cuerpo Central */
+            .inventario-item-body {
+                flex: 1 1 auto !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 2px !important;
+            }
+            .inventario-item-meta {
+                display: flex !important;
+                align-items: center !important;
+                gap: 5px !important;
+                flex-wrap: wrap !important;
+            }
+            .inv-code {
+                font-size: 0.64rem !important;
+                font-weight: 700 !important;
+                color: var(--text-muted, #64748b) !important;
+                background: var(--bg-muted, #f1f5f9) !important;
+                padding: 1px 5px !important;
+                border-radius: 4px !important;
+                white-space: nowrap !important;
+            }
+            .inv-cat-badge {
+                font-size: 0.62rem !important;
+                font-weight: 700 !important;
+                padding: 1px 6px !important;
+                border-radius: 999px !important;
+                background: #f1f5f9 !important;
+                color: #334155 !important;
+                border: 1px solid #e2e8f0 !important;
+                white-space: nowrap !important;
+                text-transform: uppercase !important;
+            }
+            .inv-cat-badge.is-combo {
+                background: #ffedd5 !important;
+                color: #c2410c !important;
+                border-color: #fdba74 !important;
+            }
+            .inv-stock-pill {
+                font-size: 0.62rem !important;
+                font-weight: 700 !important;
+                padding: 1px 6px !important;
+                border-radius: 999px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 3px !important;
+                white-space: nowrap !important;
+            }
+            .inv-stock-pill.stock-ok {
+                background: #dcfce7 !important;
+                color: #15803d !important;
+                border: 1px solid #bbf7d0 !important;
+            }
+            .inv-stock-pill.stock-bajo {
+                background: #fef3c7 !important;
+                color: #b45309 !important;
+                border: 1px solid #fde68a !important;
+            }
+            .inv-stock-pill.stock-agotado {
+                background: #fee2e2 !important;
+                color: #b91c1c !important;
+                border: 1px solid #fecaca !important;
+            }
+
+            .inventario-item-title {
+                font-size: 0.88rem !important;
+                font-weight: 700 !important;
+                color: var(--text-main, #0f172a) !important;
+                line-height: 1.25 !important;
+                margin: 1px 0 !important;
+                display: -webkit-box !important;
+                -webkit-line-clamp: 2 !important;
+                -webkit-box-orient: vertical !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                word-break: break-word !important;
+            }
+            .inv-item-contenido {
+                font-size: 0.68rem !important;
+                color: var(--text-muted, #64748b) !important;
+                font-weight: 600 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .inventario-item-pricing-row {
+                display: flex !important;
+                align-items: baseline !important;
+                justify-content: space-between !important;
+                gap: 6px !important;
+                margin-top: 2px !important;
+                flex-wrap: wrap !important;
+            }
+            .inv-prices-block {
+                display: flex !important;
+                align-items: baseline !important;
+                gap: 4px !important;
+            }
+            .inv-price-usd {
+                font-size: 1.05rem !important;
+                font-weight: 800 !important;
+                color: var(--primary-accent, #0284c7) !important;
+                line-height: 1 !important;
+            }
+            .inv-price-ves {
+                font-size: 0.74rem !important;
+                font-weight: 600 !important;
+                color: var(--text-muted, #64748b) !important;
+            }
+            .inv-cost-margin {
+                font-size: 0.68rem !important;
+                color: var(--text-muted, #64748b) !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                white-space: nowrap !important;
+            }
+            .inv-margin-tag {
+                background: #e0f2fe !important;
+                color: #0369a1 !important;
+                font-weight: 700 !important;
+                padding: 1px 5px !important;
+                border-radius: 4px !important;
+                font-size: 0.64rem !important;
+            }
+
+            /* Acciones a la Derecha */
+            .inventario-item-actions {
+                flex-shrink: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 6px !important;
+                margin-left: auto !important;
+            }
+            .btn-inv-action {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 4px !important;
+                height: 32px !important;
+                min-width: 58px !important;
+                padding: 0 8px !important;
+                border-radius: 8px !important;
+                font-size: 0.72rem !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                border: 1px solid transparent !important;
+                transition: transform 0.1s ease, filter 0.15s ease !important;
+            }
+            .btn-inv-action:active {
+                transform: scale(0.95) !important;
+            }
+            .btn-inv-edit {
+                background: #fef3c7 !important;
+                color: #92400e !important;
+                border-color: #fde68a !important;
+            }
+            .btn-inv-retire {
+                background: #fee2e2 !important;
+                color: #991b1b !important;
+                border-color: #fecaca !important;
+            }
+
+            /* Barra de Búsqueda y Filtros en Inventario */
+            .inventario-header-bar {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+                margin-bottom: 12px !important;
+            }
+            .inventario-header-titles {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                width: 100% !important;
+            }
+            .inventario-header-actions {
+                display: flex !important;
+                gap: 6px !important;
+                flex-wrap: wrap !important;
+                width: 100% !important;
+            }
+            .inventario-header-actions .btn {
+                flex: 1 1 auto !important;
+                font-size: 0.78rem !important;
+                padding: 6px 10px !important;
+                justify-content: center !important;
+            }
+            .inventario-search-bar-wrap {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
+                margin-bottom: 10px !important;
+                background: var(--bg-muted, #f8fafc) !important;
+                padding: 8px 10px !important;
+                border-radius: 12px !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+            }
+            .inventario-search-input-box {
+                display: flex !important;
+                align-items: center !important;
+                background: #ffffff !important;
+                border: 1px solid var(--border, #cbd5e1) !important;
+                border-radius: 8px !important;
+                padding: 0 10px !important;
+                height: 38px !important;
+                gap: 8px !important;
+            }
+            .inventario-search-icon {
+                color: var(--text-muted, #94a3b8) !important;
+                font-size: 0.85rem !important;
+            }
+            .inventario-search-input {
+                flex: 1 !important;
+                border: none !important;
+                outline: none !important;
+                background: transparent !important;
+                font-size: 0.86rem !important;
+                color: var(--text-main, #0f172a) !important;
+                padding: 0 !important;
+            }
+            .inventario-search-clear {
+                background: none !important;
+                border: none !important;
+                color: var(--text-muted, #94a3b8) !important;
+                cursor: pointer !important;
+                padding: 0 !important;
+                font-size: 0.95rem !important;
+            }
+            .inventario-filter-chips {
+                display: flex !important;
+                gap: 6px !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding-bottom: 2px !important;
+            }
+            .inv-chip {
+                padding: 4px 10px !important;
+                border-radius: 20px !important;
+                border: 1px solid var(--border-light, #e2e8f0) !important;
+                background: #ffffff !important;
+                color: var(--text-muted, #64748b) !important;
+                font-size: 0.74rem !important;
+                font-weight: 700 !important;
+                white-space: nowrap !important;
+                cursor: pointer !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                user-select: none !important;
+            }
+            .inv-chip.active {
+                background: var(--primary-accent, #0284c7) !important;
+                color: #ffffff !important;
+                border-color: var(--primary-accent, #0284c7) !important;
+            }
+            .inv-chip-qty-group {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                padding: 3px 8px !important;
+                border-radius: 20px !important;
+                cursor: pointer !important;
+            }
+            .inv-chip-qty-group .inv-stock-op-select {
+                border: none !important;
+                background: transparent !important;
+                font-size: 0.8rem !important;
+                font-weight: 800 !important;
+                cursor: pointer !important;
+                padding: 0 1px !important;
+                color: inherit !important;
+                outline: none !important;
+                line-height: 1 !important;
+            }
+            .inv-chip-qty-group .inv-stock-input-num {
+                width: 42px !important;
+                min-width: 38px !important;
+                height: 22px !important;
+                border: 1px solid rgba(0, 0, 0, 0.12) !important;
+                background: #f1f5f9 !important;
+                border-radius: 11px !important;
+                text-align: center !important;
+                font-weight: 800 !important;
+                font-size: 0.78rem !important;
+                color: #0f172a !important;
+                outline: none !important;
+                padding: 0 4px !important;
+                line-height: 22px !important;
+                transition: all 0.15s ease !important;
+                -moz-appearance: textfield !important;
+            }
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-inner-spin-button,
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-outer-spin-button {
+                -webkit-appearance: none !important;
+                margin: 0 !important;
+            }
+            .inv-chip-qty-group.active {
+                background: var(--primary-accent, #0284c7) !important;
+                color: #ffffff !important;
+                border-color: var(--primary-accent, #0284c7) !important;
+                box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-op-select {
+                color: #ffffff !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num {
+                background: rgba(255, 255, 255, 0.22) !important;
+                color: #ffffff !important;
+                border-color: rgba(255, 255, 255, 0.5) !important;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num:focus {
+                background: #ffffff !important;
+                color: #0284c7 !important;
+                border-color: #ffffff !important;
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5) !important;
+            }
+            .inv-chip-qty-group:not(.active):hover {
+                border-color: #cbd5e1 !important;
+                background: #f8fafc !important;
+            }
+
+            /* Optimización de formulario Registrar/Editar en Móvil */
+            .product-form-card {
+                padding: 12px 14px !important;
+                border-radius: 14px !important;
+                margin-bottom: 12px !important;
+            }
+            .product-form-header-bar {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                width: 100% !important;
+                cursor: pointer !important;
+            }
+            .product-image-dropzone {
+                height: 105px !important;
+                min-height: 105px !important;
+                padding: 8px !important;
+            }
+            .product-image-empty i {
+                font-size: 1.5rem !important;
+                margin-bottom: 2px !important;
+            }
+            .product-image-empty strong {
+                font-size: 0.76rem !important;
+            }
+            .product-image-empty span {
+                font-size: 0.68rem !important;
+            }
+            .image-select-hint {
+                display: none !important;
+            }
+            .product-form-top {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 8px !important;
+            }
+            .product-form-top .form-group:nth-child(2) {
+                grid-column: 1 / -1 !important;
+            }
+            .product-form-top .form-group:nth-child(3) {
+                grid-column: 1 / -1 !important;
+            }
+            .product-form-top .form-group label,
+            .product-form-bottom .form-group label,
+            .product-description-group label {
+                font-size: 0.75rem !important;
+                margin-bottom: 2px !important;
+            }
+            .product-form-top .form-group input,
+            .product-form-top .form-group select {
+                height: 38px !important;
+                font-size: 0.88rem !important;
+            }
+            .product-form-actions {
+                margin-top: 10px !important;
+                padding-top: 10px !important;
+            }
+            .product-form-actions .btn {
+                width: 100% !important;
+                min-height: 44px !important;
+                font-size: 0.92rem !important;
+                font-weight: 700 !important;
+                border-radius: 10px !important;
+            }
+
+            /* Resumen KPIs en móvil */
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
+                margin-top: 8px !important;
+                margin-bottom: 12px !important;
+            }
+            .kpi-card {
+                padding: 10px 12px !important;
+                border-radius: 10px !important;
+            }
+            .kpi-title {
+                font-size: 0.66rem !important;
+            }
+            .kpi-value-usd {
+                font-size: 1.08rem !important;
+            }
+            .kpi-value-ves {
+                font-size: 0.76rem !important;
+            }
+
+            /* Empty state */
+            .inventario-empty-state {
+                padding: 36px 16px !important;
+                text-align: center !important;
+                color: var(--text-muted, #94a3b8) !important;
+            }
+            .inventario-empty-state i {
+                font-size: 2.2rem !important;
+                margin-bottom: 8px !important;
+                opacity: 0.4 !important;
+            }
+            .inventario-empty-state p {
+                font-weight: 700 !important;
+                font-size: 0.95rem !important;
+                margin: 4px 0 !important;
+                color: var(--text-secondary, #475569) !important;
+            }
+            .inventario-empty-state small {
+                font-size: 0.8rem !important;
+            }
+        }
+
+        /* Reglas de Inventario para pantallas de escritorio (>= 900px) */
+        @media (min-width: 900px) {
+            .inventario-mobile-list {
+                display: none !important;
+            }
+            .inventario-table-desktop {
+                display: block !important;
+            }
+            .inventario-header-bar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+            .inventario-header-titles {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .inventario-header-actions {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .inventario-search-bar-wrap {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 14px;
+                background: var(--bg-muted, #f8fafc);
+                padding: 8px 12px;
+                border-radius: 10px;
+                border: 1px solid var(--border-light, #e2e8f0);
+            }
+            .inventario-search-input-box {
+                display: flex;
+                align-items: center;
+                background: #ffffff;
+                border: 1px solid var(--border, #cbd5e1);
+                border-radius: 8px;
+                padding: 0 10px;
+                height: 36px;
+                gap: 8px;
+                min-width: 320px;
+            }
+            .inventario-search-input {
+                flex: 1;
+                border: none;
+                outline: none;
+                background: transparent;
+                font-size: 0.88rem;
+            }
+            .inventario-search-clear {
+                background: none;
+                border: none;
+                color: var(--text-muted, #94a3b8);
+                cursor: pointer;
+            }
+            .inventario-filter-chips {
+                display: flex;
+                gap: 8px;
+            }
+            .inv-chip {
+                padding: 4px 12px;
+                border-radius: 20px;
+                border: 1px solid var(--border-light, #e2e8f0);
+                background: #ffffff;
+                color: var(--text-muted, #64748b);
+                font-size: 0.78rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                user-select: none;
+                transition: all 0.15s ease;
+            }
+            .inv-chip.active {
+                background: var(--primary-accent, #0284c7);
+                color: #ffffff;
+                border-color: var(--primary-accent, #0284c7);
+            }
+            .inv-chip-qty-group {
+                padding: 3px 10px;
+            }
+            .inv-chip-qty-group .inv-stock-op-select {
+                border: none;
+                background: transparent;
+                font-size: 0.82rem;
+                font-weight: 800;
+                cursor: pointer;
+                padding: 0 2px;
+                color: inherit;
+                outline: none;
+                line-height: 1;
+            }
+            .inv-chip-qty-group .inv-stock-input-num {
+                width: 44px;
+                min-width: 40px;
+                height: 22px;
+                border: 1px solid rgba(0, 0, 0, 0.12);
+                background: #f1f5f9;
+                border-radius: 11px;
+                text-align: center;
+                font-weight: 800;
+                font-size: 0.8rem;
+                color: #0f172a;
+                outline: none;
+                padding: 0 4px;
+                line-height: 22px;
+                transition: all 0.15s ease;
+                -moz-appearance: textfield;
+            }
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-inner-spin-button,
+            .inv-chip-qty-group .inv-stock-input-num::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .inv-chip-qty-group.active {
+                background: var(--primary-accent, #0284c7);
+                color: #ffffff;
+                border-color: var(--primary-accent, #0284c7);
+                box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+            }
+            .inv-chip-qty-group.active .inv-stock-op-select {
+                color: #ffffff;
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num {
+                background: rgba(255, 255, 255, 0.22);
+                color: #ffffff;
+                border-color: rgba(255, 255, 255, 0.5);
+            }
+            .inv-chip-qty-group.active .inv-stock-input-num:focus {
+                background: #ffffff;
+                color: #0284c7;
+                border-color: #ffffff;
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+            }
+            .inv-chip-qty-group:not(.active):hover {
+                border-color: #cbd5e1;
+                background: #f8fafc;
+            }
         }
         @media (min-width: 900px) and (max-width: 1199px) {
             .cliente-catalogo-grid,
@@ -1819,6 +2497,7 @@
             <i class="fas fa-hand-holding-dollar"></i> Transacciones / Pagos
             <span id="badge-abonos-desktop" class="badge-pill-counter" style="background:#d97706; color:#ffffff; display:none;">0</span>
         </button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="facturas" onclick="switchTab('facturas')"><i class="fas fa-file-invoice-dollar"></i> Carga de Facturas</button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')"><i class="fas fa-clipboard-check"></i> Auditoría de Inventario</button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="usuarios" onclick="switchTab('usuarios')">
             <i class="fas fa-user-shield"></i> Usuarios & Aprobación
@@ -2592,8 +3271,13 @@
             </div>
         </div>
 
-        <div class="card product-form-card">
-            <h3>Registrar / Editar Producto</h3>
+        <div class="card product-form-card" id="card-product-form">
+            <div class="product-form-header-bar" onclick="toggleFormularioProducto()" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                <h3 style="margin:0;"><i class="fas fa-box-archive" style="color:var(--primary-accent);"></i> Registrar / Editar Producto</h3>
+                <button type="button" class="btn btn-sm btn-outline btn-toggle-form" style="font-size:0.78rem; padding:3px 10px; border-radius:20px;">
+                    <i class="fas fa-chevron-up" id="icon-toggle-form"></i> <span id="lbl-toggle-form">Ocultar</span>
+                </button>
+            </div>
             <form id="form-producto" class="product-form" style="margin-top: 15px;" onsubmit="guardarProducto(event)">
                 <input type="hidden" id="prod-id">
 
@@ -2724,19 +3408,55 @@
             </div>
         </div>
 
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-                <h3 style="margin:0;">Listado de Inventario</h3>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div class="card inventario-list-card">
+            <div class="inventario-header-bar">
+                <div class="inventario-header-titles">
+                    <h3 style="margin:0;"><i class="fas fa-boxes-stacked" style="color:var(--primary-accent);"></i> Listado de Inventario</h3>
+                    <span id="inventario-total-items-badge" class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.75rem;">0 productos</span>
+                </div>
+                <div class="inventario-header-actions">
+                    <button type="button" class="btn btn-sm btn-success btn-inv-new" onclick="nuevoProductoDesdeInventario()" style="font-weight:700;">
+                        <i class="fas fa-plus-circle"></i> Nuevo Producto
+                    </button>
                     <button type="button" class="btn btn-primary" onclick="if(window.abrirConstructorCombosAdmin) window.abrirConstructorCombosAdmin();" style="font-size:0.85rem; padding:6px 14px; display:flex; align-items:center; gap:6px; font-weight:700; background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; box-shadow:0 2px 6px rgba(234,88,12,0.3);">
-                        <i class="fas fa-burger"></i> Constructor de Combos & Ofertas
+                        <i class="fas fa-burger"></i> Combos & Ofertas
                     </button>
                     <button type="button" class="btn btn-outline" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="font-size:0.85rem; padding:6px 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
-                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Ver Fotos en Vercel Blob
+                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Fotos Blob
                     </button>
                 </div>
             </div>
-            <div class="table-responsive">
+
+            <!-- Barra de Búsqueda y Filtros Rápidos de Inventario -->
+            <div class="inventario-search-bar-wrap">
+                <div class="inventario-search-input-box">
+                    <i class="fas fa-search inventario-search-icon"></i>
+                    <input type="text" id="inventario-buscar-input" class="inventario-search-input" placeholder="Buscar por nombre, código o categoría..." oninput="filtrarInventarioTexto(this.value)">
+                    <button type="button" class="inventario-search-clear" id="btn-clear-inv-search" onclick="limpiarBusquedaInventario()" style="display:none;" title="Limpiar búsqueda">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+                <div class="inventario-filter-chips">
+                    <button type="button" class="inv-chip active" id="chip-stock-todos" onclick="filtrarInventarioStock('todos')">Todos</button>
+                    <div class="inv-chip inv-chip-qty-group" id="chip-stock-bajo" onclick="alClickChipStockCustom(event)" title="Filtrar por cantidad en stock. Haz clic para activar o escribe la cantidad directamente.">
+                        <i class="fas fa-triangle-exclamation" style="font-size:0.75rem;"></i>
+                        <span>Stock</span>
+                        <select id="inv-stock-operador" class="inv-stock-op-select" onchange="alCambiarOperadorStock(event)" onclick="event.stopPropagation();" title="Condición de comparación (menor o igual, exacto, mayor o igual)">
+                            <option value="<=" selected>&le;</option>
+                            <option value="=">=</option>
+                            <option value=">=">&ge;</option>
+                        </select>
+                        <input type="number" id="inv-stock-cantidad-input" class="inv-stock-input-num" value="5" min="0" max="9999" step="1" inputmode="numeric" oninput="alCambiarCantidadStock(event)" onclick="event.stopPropagation();" onkeydown="if(event.key==='Enter')this.blur();" onfocus="this.select();" title="Escribe la cantidad que buscas">
+                    </div>
+                    <button type="button" class="inv-chip" id="chip-stock-agotado" onclick="filtrarInventarioStock('agotado')"><i class="fas fa-circle-xmark"></i> Agotados</button>
+                </div>
+            </div>
+
+            <!-- VISTA MÓVIL (< 900px): LISTA HORIZONTAL ROW ITEM -->
+            <div id="inventario-mobile-list" class="inventario-mobile-list"></div>
+
+            <!-- VISTA ESCRITORIO (>= 900px): TABLA COMPLETA -->
+            <div class="table-responsive inventario-table-desktop">
                 <table>
                     <thead>
                         <tr>
@@ -2793,38 +3513,95 @@
         <!-- Contenedor dinámico de Abonos Pendientes Reportados por Clientes -->
         <div id="abonos-pendientes-clientes-container" style="margin-bottom:18px;"></div>
 
-        <div class="card">
-            <h3>Registrar Nuevo Cliente</h3>
-            <form id="form-cliente" class="form-grid" style="margin-top: 15px;" onsubmit="guardarCliente(event)">
+        <!-- KPIs Resumen de Cartera y Cuentas por Cobrar -->
+        <div class="clientes-kpis-grid">
+            <div class="kpi-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-users" style="color: var(--primary-accent, #2563eb);"></i> Directorio Activo
+                </div>
+                <div id="cli-kpi-total-clientes" style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-top: 4px;">0</div>
+                <div style="font-size: 0.78rem; color: #64748b;">Clientes registrados</div>
+            </div>
+            <div class="kpi-card" style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-user-clock" style="color: #ea580c;"></i> Con Deuda Activa
+                </div>
+                <div id="cli-kpi-con-deuda" style="font-size: 1.4rem; font-weight: 800; color: #c2410c; margin-top: 4px;">0</div>
+                <div style="font-size: 0.78rem; color: #c2410c;">Clientes con saldo pendiente</div>
+            </div>
+            <div class="kpi-card danger" style="background: #ffffff; border: 1px solid #fecaca; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="font-size: 0.72rem; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-hand-holding-dollar" style="color: #dc2626;"></i> Cuentas por Cobrar
+                </div>
+                <div id="cli-kpi-total-deuda-usd" style="font-size: 1.4rem; font-weight: 800; color: #dc2626; margin-top: 4px;">$0.00</div>
+                <div id="cli-kpi-total-deuda-ves" style="font-size: 0.78rem; color: #b91c1c;">Bs. 0.00</div>
+            </div>
+        </div>
+
+        <!-- Formulario Desplegable para Registrar Nuevo Cliente -->
+        <div class="card" style="margin-bottom: 16px; border-radius: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleFormularioNuevoCliente()">
+                <h3 style="margin:0; font-size:1.02rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-user-plus" style="color:var(--primary-accent, #2563eb);"></i> Registrar Nuevo Cliente
+                </h3>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-toggle-nuevo-cliente" style="pointer-events:none; border-radius:8px; padding:4px 10px;">
+                    <span id="txt-toggle-nuevo-cliente">+ Agregar</span> <i class="fas fa-chevron-down" id="icono-toggle-nuevo-cliente" style="margin-left:4px;"></i>
+                </button>
+            </div>
+            <form id="form-cliente" class="form-grid" style="margin-top: 14px; display: none;" onsubmit="guardarCliente(event)">
                 <div class="form-group">
                     <label>ID / Cédula / RIF</label>
-                    <input type="text" id="cli-id" required>
+                    <input type="text" id="cli-id" placeholder="Ej: V-12345678" required>
                 </div>
                 <div class="form-group">
                     <label>Nombre Completo</label>
-                    <input type="text" id="cli-nombre" required>
+                    <input type="text" id="cli-nombre" placeholder="Nombre y Apellido" required>
                 </div>
                 <div class="form-group">
                     <label>Teléfono</label>
-                    <input type="text" id="cli-telefono" required>
+                    <input type="text" id="cli-telefono" placeholder="Ej: 04121234567" required>
                 </div>
-                <button type="submit" class="btn btn-success">Crear Cliente</button>
+                <div style="display:flex; gap:10px; align-items:flex-end;">
+                    <button type="submit" class="btn btn-success" style="width:100%;"><i class="fas fa-check"></i> Guardar Cliente</button>
+                </div>
             </form>
         </div>
 
-        <div class="card">
-            <h3>Directorio de Clientes</h3>
-            <div class="table-responsive">
+        <!-- Directorio de Clientes con Buscador y Filtros -->
+        <div class="card" style="border-radius: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.1rem;"><i class="fas fa-address-book" style="color:var(--primary-accent, #2563eb);"></i> Directorio de Clientes</h3>
+                    <small style="color:var(--text-muted);" id="cli-counter-badge">Cargando...</small>
+                </div>
+            </div>
+
+            <!-- Buscador y Chips de Filtro -->
+            <div class="clientes-toolbar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <div style="position:relative; width:100%;">
+                    <i class="fas fa-search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.95rem;"></i>
+                    <input type="text" id="input-buscar-cliente" oninput="alBuscarCliente(this.value)" placeholder="Buscar cliente por nombre, cédula o teléfono..." style="width:100%; padding:10px 38px 10px 38px; border:1px solid #cbd5e1; border-radius:12px; font-size:0.9rem; box-sizing:border-box; outline:none; background:#f8fafc; transition:all 0.2s;">
+                    <button type="button" id="btn-limpiar-buscar-cliente" onclick="limpiarBuscadorCliente()" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.95rem;"><i class="fas fa-times-circle"></i></button>
+                </div>
+                <div class="clientes-filter-chips" style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="inv-chip active" id="chip-cli-todos" onclick="filtrarClientesEstado('todos')">Todos (<span id="count-cli-todos">0</span>)</button>
+                    <button type="button" class="inv-chip" id="chip-cli-deuda" onclick="filtrarClientesEstado('deuda')" style="color:#dc2626;"><i class="fas fa-triangle-exclamation"></i> Con Deuda (<span id="count-cli-deuda">0</span>)</button>
+                    <button type="button" class="inv-chip" id="chip-cli-al-dia" onclick="filtrarClientesEstado('al-dia')"><i class="fas fa-check-circle" style="color:#16a34a;"></i> Al día (<span id="count-cli-al-dia">0</span>)</button>
+                </div>
+            </div>
+
+            <div id="clientes-mobile-list" class="clientes-mobile-list"></div>
+            <div class="table-responsive clientes-table-desktop">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Cliente</th>
-                            <th>Teléfono</th>
-                            <th class="num">Total Comprado ($)</th>
-                            <th class="num">Deuda ($)</th>
-                            <th class="num">Deuda Equivalente (Bs)</th>
-                            <th>Acción</th>
+                            <th>ID / CÉDULA</th>
+                            <th>CLIENTE</th>
+                            <th>TELÉFONO</th>
+                            <th class="num">TOTAL COMPRADO ($)</th>
+                            <th class="num">DEUDA ($)</th>
+                            <th class="num">DEUDA EQUIV. (Bs)</th>
+                            <th style="text-align:center;">ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody id="clientes-body"></tbody>
@@ -2832,73 +3609,44 @@
             </div>
         </div>
 
-        <div class="card" style="margin-top: 20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
-                <h3 style="margin:0;">Historial de Clientes Eliminados</h3>
-                <button class="btn btn-danger" type="button" onclick="limpiarHistorialClientesEliminados()">
-                    <i class="fas fa-broom"></i> Limpiar Historial
-                </button>
-            </div>
-            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:12px;">
-                Aquí se conserva quién fue eliminado, cuándo, el motivo y el comentario. Las ventas y pagos históricos no se borran.
-            </p>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>FECHA</th>
-                            <th>ID</th>
-                            <th>CLIENTE</th>
-                            <th class="num">DEUDA AL ELIMINAR ($)</th>
-                            <th class="num">PÉRDIDA ($)</th>
-                            <th>MOTIVO</th>
-                            <th>COMENTARIO</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientes-eliminados-body"></tbody>
-                </table>
-            </div>
+        <!-- Historial de Clientes Eliminados (Acordeón discreto) -->
+        <div class="card" style="margin-top: 20px; border-radius: 14px;">
+            <details style="cursor:pointer;">
+                <summary style="font-weight:700; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; outline:none; user-select:none;">
+                    <span><i class="fas fa-clock-rotate-left" style="color:#64748b;"></i> Historial de Clientes Eliminados (<span id="count-cli-eliminados">0</span>)</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">Ver registros archivados <i class="fas fa-chevron-down" style="font-size:0.75rem; margin-left:4px;"></i></span>
+                </summary>
+                <div style="margin-top:16px; cursor:default; border-top:1px solid #e2e8f0; padding-top:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">
+                            Auditoría de clientes eliminados. Las ventas y pagos históricos permanecen intactos.
+                        </p>
+                        <button class="btn btn-danger btn-sm" type="button" onclick="limpiarHistorialClientesEliminados()">
+                            <i class="fas fa-broom"></i> Limpiar Historial
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>FECHA</th>
+                                    <th>ID</th>
+                                    <th>CLIENTE</th>
+                                    <th class="num">DEUDA AL ELIMINAR ($)</th>
+                                    <th class="num">PÉRDIDA ($)</th>
+                                    <th>MOTIVO</th>
+                                    <th>COMENTARIO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-eliminados-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
         </div>
 
-        <!-- Panel 360° Cliente -->
-        <div id="cliente-detalle-card" class="card" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="det-cliente-nombre">Detalle del Cliente</h3>
-                <button class="btn btn-warning" onclick="abrirModalAbono()">+ Registrar Abono / Pago</button>
-            </div>
-
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-title">TOTAL COMPRADO</div>
-                    <div class="kpi-value-usd" id="det-kpi-comprado-usd">$0.00</div>
-                    <div class="kpi-value-ves" id="det-kpi-comprado-ves">Bs. 0.00</div>
-                </div>
-                <div class="kpi-card danger">
-                    <div class="kpi-title">DEUDA ACTUAL</div>
-                    <div class="kpi-value-usd" id="det-kpi-deuda-usd" style="color: var(--danger);">$0.00</div>
-                    <div class="kpi-value-ves" id="det-kpi-deuda-ves">Bs. 0.00</div>
-                </div>
-            </div>
-
-            <h4 style="margin: 15px 0;">Historial de Transacciones y Abonos Multimoneda</h4>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Concepto</th>
-                            <th>Método / Detalle</th>
-                            <th class="num">Cargo ($)</th>
-                            <th class="num">Abono ($)</th>
-                            <th class="num">Monto Pagado (Bs)</th>
-                            <th class="num">Saldo ($)</th>
-                            <th class="num">Saldo (Bs)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="det-historial-body"></tbody>
-                </table>
-            </div>
-        </div>
+        <!-- Contenedor legacy oculto para compatibilidad -->
+        <div id="cliente-detalle-card" style="display: none;"></div>
     </div>
 
     <!-- VISTA 4: TIPOS DE TRANSACCIONES -->
@@ -2973,7 +3721,8 @@
                 <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
             </div>
 
-            <div class="table-responsive">
+            <div id="transacciones-mobile-list" class="transacciones-mobile-list"></div>
+            <div class="table-responsive transacciones-table-desktop">
                 <table class="transactions-table">
                     <thead>
                         <tr>
@@ -2997,6 +3746,342 @@
             <div>
                 <strong>Conciliación segura</strong>
                 <p>Mientras una transferencia o pago móvil esté en <b>Confirmando</b>, su monto no modifica la deuda del cliente. Solo una transacción validada pasa a <b>Pago agregado</b> y se incorpora al historial financiero.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVA VISTA: INGRESO DE MERCANCÍA POR FACTURA Y ACTUALIZACIÓN DE COSTOS -->
+    <div id="facturas" class="view-content">
+        <div class="audit-dashboard" style="max-width:1400px; margin:0 auto;">
+            <!-- Encabezado del Módulo -->
+            <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:16px; padding:20px 24px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+                <div>
+                    <h2 style="margin:0 0 6px 0; font-size:1.4rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:10px;">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; background:#eff6ff; color:#2563eb;">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </span>
+                        Ingreso de Mercancía por Factura & Control de Costos
+                    </h2>
+                    <p style="margin:0; font-size:0.88rem; color:var(--text-muted); line-height:1.4;">
+                        Registra compras a proveedores, suma stock físico automáticamente al inventario y actualiza de inmediato los costos unitarios de reposición.
+                    </p>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn" onclick="limpiarFormularioFactura()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-eraser"></i> Nueva Carga
+                    </button>
+                    <button type="button" class="btn" onclick="document.getElementById('seccion-historial-facturas').scrollIntoView({behavior:'smooth'})" style="background:#f8fafc; color:#0f172a; border:1px solid #cbd5e1; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-list-check"></i> Ver Historial de Facturas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Grid Principal: Datos de Factura + Carga de Productos + Resumen de Ítems -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap:20px; margin-bottom:24px;">
+                <!-- COLUMNA 1: Formulario de Factura y Selección de Producto -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <!-- 1. Encabezado de Factura -->
+                    <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:14px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <h3 style="margin:0 0 16px 0; font-size:1.05rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-receipt" style="color:#2563eb;"></i> 1. Datos del Documento
+                        </h3>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                            <div>
+                                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                    N° de Factura <span style="color:var(--danger)">*</span>
+                                </label>
+                                <input type="text" id="factura-numero" placeholder="Ej: FAC-2026-089" style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                    Fecha de Emisión <span style="color:var(--danger)">*</span>
+                                </label>
+                                <input type="date" id="factura-fecha" style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                Proveedor <span style="color:var(--danger)">*</span>
+                            </label>
+                            <input type="text" id="factura-proveedor" list="lista-proveedores-datalist" placeholder="Nombre o Razón Social del Proveedor..." style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                            <datalist id="lista-proveedores-datalist">
+                                <option value="Distribuidora Polar C.A.">
+                                <option value="Monaca / Alimentos Mary">
+                                <option value="Nestlé Venezuela">
+                                <option value="Empresas Sindoni">
+                                <option value="Comercializadora El Rey">
+                            </datalist>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                    Método de Actualización de Costo
+                                </label>
+                                <select id="factura-tipo-costo" style="width:100%; padding:9px 10px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                                    <option value="reposicion" selected>Costo de Reposición (Reemplazo Inmediato)</option>
+                                    <option value="promedio">Costo Promedio Ponderado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
+                                    Observaciones
+                                </label>
+                                <input type="text" id="factura-notas" placeholder="Ej: Pago contado, lote nuevo..." style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Buscador en Tiempo Real y Carga de Ítems -->
+                    <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:14px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.03); position:relative;">
+                        <h3 style="margin:0 0 14px 0; font-size:1.05rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-barcode" style="color:#2563eb;"></i> 2. Buscar Producto y Cargar Datos
+                        </h3>
+
+                        <!-- Input buscador reactivo -->
+                        <div style="position:relative; margin-bottom:14px;">
+                            <div style="position:relative; display:flex; align-items:center;">
+                                <i class="fas fa-magnifying-glass" style="position:absolute; left:12px; color:var(--text-muted); pointer-events:none;"></i>
+                                <input type="text" id="factura-search-producto" oninput="alBuscarProductoFactura(this.value)" placeholder="Escribe nombre o escanea código de barras..." style="width:100%; padding:11px 40px 11px 36px; border:2px solid #3b82f6; border-radius:10px; font-size:0.95rem; font-weight:600; outline:none; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                                <button type="button" onclick="limpiarBuscadorProductoFactura()" style="position:absolute; right:10px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; padding:4px;">
+                                    <i class="fas fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            <!-- Dropdown con resultados en tiempo real -->
+                            <div id="factura-search-dropdown" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:99; background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #cbd5e1); border-radius:10px; max-height:280px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.12);"></div>
+                        </div>
+
+                        <!-- Tarjeta del Producto Seleccionado -->
+                        <div id="factura-producto-card-selected" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                            <div style="display:flex; gap:14px; align-items:center; margin-bottom:14px;">
+                                <img id="factura-preview-img" src="" alt="" style="width:54px; height:54px; border-radius:8px; object-fit:cover; border:1px solid #cbd5e1; background:#ffffff;">
+                                <div style="flex:1;">
+                                    <h4 id="factura-preview-nombre" style="margin:0 0 4px 0; font-size:1rem; font-weight:800; color:var(--text-color);"></h4>
+                                    <div style="font-size:0.8rem; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap;">
+                                        <span>Código: <strong id="factura-preview-codigo" style="color:var(--text-color);"></strong></span>
+                                        <span>PVP Venta: <strong id="factura-preview-precio" style="color:#0284c7;"></strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Comparativa de Stock y Costo Actual -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
+                                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; text-align:center;">
+                                    <span style="display:block; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Stock Actual</span>
+                                    <strong id="factura-preview-stock" style="font-size:1.1rem; color:var(--text-color);">0</strong>
+                                </div>
+                                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; text-align:center;">
+                                    <span style="display:block; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Costo Actual</span>
+                                    <strong id="factura-preview-costo" style="font-size:1.1rem; color:var(--text-color);">$0.00</strong>
+                                </div>
+                            </div>
+
+                            <!-- Entradas: Cantidad Comprada y Nuevo Costo Facturado -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">
+                                <div>
+                                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color); margin-bottom:4px;">
+                                        Cantidad Comprada <span style="color:var(--danger)">*</span>
+                                    </label>
+                                    <input type="number" id="factura-item-cantidad" min="1" step="1" placeholder="Ej: 12" oninput="alCambiarInputsFacturaItem()" style="width:100%; padding:10px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.05rem; font-weight:800; text-align:center; background:#ffffff;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color); margin-bottom:4px;">
+                                        Nuevo Costo Facturado ($) <span style="color:var(--danger)">*</span>
+                                    </label>
+                                    <input type="number" id="factura-item-costo" min="0" step="0.01" placeholder="Ej: 1.50" oninput="alCambiarInputsFacturaItem()" style="width:100%; padding:10px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.05rem; font-weight:800; text-align:center; background:#ffffff;">
+                                </div>
+                            </div>
+
+                            <!-- Live Preview de Proyección (Stock, Costo y Subtotal) -->
+                            <div id="factura-item-proyeccion-box" style="background:#f0fdf4; border:1px dashed #86efac; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.82rem; color:#166534;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span>Nuevo Stock Proyectado:</span>
+                                    <strong id="factura-preview-nuevo-stock" style="font-size:0.95rem;">-</strong>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span>Nuevo Costo Unitario:</span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <strong id="factura-preview-nuevo-costo" style="font-size:0.95rem;">-</strong>
+                                        <span id="factura-preview-variacion" style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; display:none;"></span>
+                                    </div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #bbf7d0; padding-top:4px; margin-top:4px;">
+                                    <span>Subtotal de esta línea:</span>
+                                    <div>
+                                        <strong id="factura-preview-subtotal" style="font-size:0.95rem; color:#15803d;">$0.00</strong>
+                                        <span id="factura-preview-subtotal-bs" style="font-size:0.78rem; color:#166534; margin-left:4px;">(Bs 0.00)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botón Agregar Ítem -->
+                            <button type="button" class="btn btn-primary" onclick="agregarItemAFactura()" style="width:100%; padding:11px; font-size:0.95rem; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                <i class="fas fa-plus-circle"></i> Agregar Producto a la Factura
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA 2: Lista de Ítems en la Factura y Resumen de Totales -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:14px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.03); flex:1; display:flex; flex-direction:column;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-list-check" style="color:#2563eb;"></i> 3. Ítems en esta Factura
+                            </h3>
+                            <button type="button" onclick="limpiarItemsFactura()" style="background:none; border:none; color:var(--danger); font-size:0.8rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                                <i class="fas fa-trash-can"></i> Vaciar Ítems
+                            </button>
+                        </div>
+
+                        <!-- Vista móvil / responsive row items -->
+                        <div id="factura-items-mobile" class="auditoria-mobile-list" style="display:none;"></div>
+
+                        <!-- Vista desktop tabla -->
+                        <div class="audit-table-responsive auditoria-table-desktop" style="flex:1; max-height:420px; overflow-y:auto;">
+                            <table class="audit-table" style="width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-center" style="width:90px;">Cant.</th>
+                                        <th class="text-right" style="width:90px;">Costo Ant.</th>
+                                        <th class="text-right" style="width:100px;">Nuevo Costo</th>
+                                        <th class="text-right" style="width:95px;">Subtotal</th>
+                                        <th class="text-center" style="width:50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="factura-items-body">
+                                    <tr>
+                                        <td colspan="6" style="text-align:center; color:var(--text-muted); padding:36px;">
+                                            <i class="fas fa-box-open" style="font-size:2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
+                                            Aún no has agregado productos a esta factura.<br>
+                                            <span style="font-size:0.8rem;">Utiliza el buscador de la izquierda para seleccionar productos.</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Totales y Resumen Financiero de la Factura -->
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-top:16px;">
+                            <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
+                                <div>
+                                    <span style="display:block; font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Ítems Distintos:</span>
+                                    <strong id="factura-resumen-items" style="font-size:1.1rem; color:var(--text-color);">0</strong>
+                                </div>
+                                <div>
+                                    <span style="display:block; font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Unidades a Sumar:</span>
+                                    <strong id="factura-resumen-unidades" style="font-size:1.1rem; color:#2563eb;">0 unds</strong>
+                                </div>
+                                <div style="grid-column: span 2; border-top:1px solid #e2e8f0; padding-top:10px;">
+                                    <span style="display:block; font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Total Inversión de Compra:</span>
+                                    <div style="display:flex; align-items:baseline; gap:8px;">
+                                        <strong id="factura-resumen-total-usd" style="font-size:1.4rem; color:#16a34a; font-weight:800;">$0.00</strong>
+                                        <span id="factura-resumen-total-bs" style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">(Bs 0.00)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botón de Acción Principal: Procesar Factura -->
+                            <button type="button" id="btn-procesar-factura" class="btn btn-success" onclick="procesarFacturaCompra()" style="width:100%; padding:13px; font-size:1rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:10px; border-radius:10px; box-shadow:0 4px 12px rgba(22,163,74,0.25);">
+                                <i class="fas fa-check-double"></i> Procesar e Ingresar Mercancía
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN INFERIOR: Historial de Facturas y Kardex de Movimientos -->
+            <div id="seccion-historial-facturas" style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-history" style="color:#2563eb;"></i> Historial de Facturas Procesadas
+                        </h3>
+                        <span style="font-size:0.85rem; color:var(--text-muted);">
+                            Registro inmutable de compras ingresadas, proveedores y actualización de costos de reposición.
+                        </span>
+                    </div>
+                    <div style="position:relative; min-width:260px;">
+                        <input type="text" id="facturas-historial-search" oninput="filtrarHistorialFacturas(this.value)" placeholder="Buscar por N° factura o proveedor..." style="width:100%; padding:8px 12px 8px 32px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                        <i class="fas fa-magnifying-glass" style="position:absolute; left:10px; top:10px; color:var(--text-muted); font-size:0.8rem;"></i>
+                    </div>
+                </div>
+
+                <div id="facturas-historial-mobile" class="auditoria-mobile-list" style="display:none;"></div>
+                <div class="audit-table-responsive auditoria-table-desktop">
+                    <table class="audit-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th style="width:130px;">Fecha</th>
+                                <th style="width:140px;">N° Factura</th>
+                                <th>Proveedor</th>
+                                <th class="text-center" style="width:90px;">Ítems</th>
+                                <th class="text-center" style="width:110px;">Unidades</th>
+                                <th class="text-right" style="width:120px;">Total ($)</th>
+                                <th class="text-right" style="width:120px;">Total (Bs)</th>
+                                <th class="text-center" style="width:100px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facturas-historial-body">
+                            <tr>
+                                <td colspan="8" style="text-align:center; color:var(--text-muted); padding:24px;">
+                                    No hay facturas de compra procesadas en el sistema.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Kardex de Movimientos de Inventario -->
+            <div id="seccion-kardex-inventario" style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-boxes-packing" style="color:#0284c7;"></i> Kardex de Movimientos (Entradas & Ajustes)
+                        </h3>
+                        <span style="font-size:0.85rem; color:var(--text-muted);">
+                            Trazabilidad del stock: entradas por compra, ventas y conciliaciones físicas.
+                        </span>
+                    </div>
+                    <div>
+                        <select id="kardex-filtro-tipo" onchange="renderizarKardex(this.value)" style="padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                            <option value="TODOS">Todos los Movimientos</option>
+                            <option value="COMPRA_FACTURA">Solo Compras x Factura</option>
+                            <option value="AJUSTE_AUDITORIA">Solo Ajustes de Auditoría</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="kardex-historial-mobile" class="auditoria-mobile-list" style="display:none;"></div>
+                <div class="audit-table-responsive auditoria-table-desktop">
+                    <table class="audit-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th style="width:130px;">Fecha / Hora</th>
+                                <th style="width:100px;">Código</th>
+                                <th>Producto</th>
+                                <th class="text-center" style="width:140px;">Tipo de Movimiento</th>
+                                <th class="text-center" style="width:90px;">Entrada</th>
+                                <th class="text-center" style="width:90px;">Salida</th>
+                                <th class="text-center" style="width:100px;">Stock Final</th>
+                                <th class="text-right" style="width:100px;">Costo Unit.</th>
+                                <th style="width:140px;">Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kardex-historial-body">
+                            <tr>
+                                <td colspan="9" style="text-align:center; color:var(--text-muted); padding:24px;">
+                                    No hay registros en el Kardex.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -3082,7 +4167,8 @@
                     </h3>
                 </div>
 
-                <div class="audit-table-responsive">
+                <div id="auditoria-mobile-list" class="auditoria-mobile-list"></div>
+                <div class="audit-table-responsive auditoria-table-desktop">
                     <table class="audit-table">
                         <thead>
                             <tr>
@@ -3096,6 +4182,44 @@
                             </tr>
                         </thead>
                         <tbody id="auditoria-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 📋 3.5 HISTORIAL DE CONCILIACIONES Y AJUSTES DE AUDITORÍA (CON MOTIVO OBLIGATORIO) -->
+            <div class="audit-table-card" style="margin-top:24px;">
+                <div class="audit-table-header-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <h3 class="audit-table-title">
+                        <i class="fas fa-history"></i>
+                        <span>Historial de Conciliaciones & Ajustes Físicos Aplicados</span>
+                    </h3>
+                    <span id="auditoria-perdida-total" style="font-size:0.85rem; font-weight:700; padding:6px 14px; border-radius:999px; background:#eef2f7; color:var(--text-muted);">
+                        Pérdida pendiente por faltantes: $0.00
+                    </span>
+                </div>
+
+                <div id="auditoria-historial-mobile" class="auditoria-mobile-list"></div>
+                <div class="audit-table-responsive auditoria-table-desktop">
+                    <table class="audit-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th style="width:130px;">Fecha / Hora</th>
+                                <th style="width:100px;">Código</th>
+                                <th>Producto / Detalle</th>
+                                <th class="text-center" style="width:110px;">Stock Teórico</th>
+                                <th class="text-center" style="width:110px;">Stock Físico</th>
+                                <th class="text-center" style="width:100px;">Diferencia</th>
+                                <th style="width:230px;">Motivo de Discrepancia</th>
+                                <th class="text-right" style="width:110px;">Impacto ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoria-historial-body">
+                            <tr>
+                                <td colspan="8" style="text-align:center; color:var(--text-muted); padding:24px;">
+                                    Aún no se han aplicado ajustes de inventario físico.
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -3405,7 +4529,8 @@
             </div>
 
             <!-- Tabla de Usuarios -->
-            <div class="table-responsive">
+            <div id="usuarios-mobile-list" class="usuarios-mobile-list"></div>
+            <div class="table-responsive usuarios-table-desktop">
                 <table>
                     <thead>
                         <tr>
@@ -3523,18 +4648,18 @@
                             <h3><i class="fas fa-sliders" style="color:var(--rc-emerald-600);"></i> Parámetros de la Temporada</h3>
                         </div>
 
-                        <!-- Interruptor de Estado de Temporada de Premios -->
+                        <!-- Indicador de Estado de Temporada de Premios (Sin botón sobrante) -->
                         <div class="reward-form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div>
-                                    <label for="premio-temporada-activa" style="font-size:0.88rem; font-weight:700; color:#166534; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                    <div style="font-size:0.88rem; font-weight:700; color:#166534; margin:0; display:flex; align-items:center; gap:6px;">
                                         <i class="fas fa-trophy" style="color:#d97706;"></i> Temporada de Premios Activa
-                                    </label>
+                                    </div>
                                     <div style="font-size:0.75rem; color:#15803d; margin-top:2px;">
                                         Los clientes acumulan puntos con sus compras y compiten por el premio.
                                     </div>
                                 </div>
-                                <input type="checkbox" id="premio-temporada-activa" checked onchange="actualizarPreviewPremioAdmin()" style="width:20px; height:20px; cursor:pointer; accent-color:#16a34a;">
+                                <input type="checkbox" id="premio-temporada-activa" checked onchange="actualizarPreviewPremioAdmin()" style="display:none;">
                             </div>
                         </div>
 
@@ -3604,8 +4729,8 @@
                             </div>
 
                             <!-- Meta de Puntos del Ganador Calculada -->
-                            <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
-                                <div>
+                            <div style="margin-top:10px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <div style="min-width:180px;">
                                     <div style="font-size:0.78rem; font-weight:700; color:#1e293b;">Meta de Puntos del Ganador (Calculada):</div>
                                     <div id="premio-admin-meta-formula" style="font-size:0.72rem; color:#64748b; font-family:monospace;">$60.00 × 10 pts/$ = 600 Pts</div>
                                 </div>
@@ -3679,23 +4804,23 @@
                             </div>
 
                             <div style="display:grid; grid-template-columns:1fr; gap:6px; font-size:0.75rem;">
-                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px; color:#475569;">
                                     <span>Ganancia neta aportada por el ganador:</span>
                                     <strong id="premio-balance-winner" style="color:#059669;">+$60.00</strong>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; color:#475569;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px; color:#475569;">
                                     <span>Ganancia neta resto del pool (<span id="premio-balance-competing-count">9</span> clientes al ~50%):</span>
                                     <strong id="premio-balance-pool" style="color:#0284c7;">+$270.00</strong>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; color:#1e293b; font-weight:700; border-top:1px dashed #cbd5e1; padding-top:4px;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px; color:#1e293b; font-weight:700; border-top:1px dashed #cbd5e1; padding-top:4px;">
                                     <span>Ganancia Neta Total Generada:</span>
                                     <strong id="premio-balance-total" style="color:#0f172a;">+$330.00</strong>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; color:#dc2626;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px; color:#dc2626;">
                                     <span>Costo del Premio a Entregar:</span>
                                     <strong id="premio-balance-costo">-$40.00</strong>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px; margin-top:2px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px; margin-top:2px;">
                                     <span style="font-weight:800; color:#065f46;">Utilidad Neta Final para la Bodega:</span>
                                     <strong id="premio-balance-utilidad" style="font-size:0.95rem; font-weight:900; color:#047857;">+$290.00 USD libres</strong>
                                 </div>
@@ -3736,23 +4861,23 @@
                 </div>
 
                 <!-- Barra de Acción Inferior -->
-                <div class="reward-action-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
-                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                        <button type="button" id="btn-admin-pausar-desafio" class="btn btn-outline" onclick="togglePausarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px;">
-                            <i class="fas fa-pause"></i> Pausar Desafío
+                <div class="reward-action-bar">
+                    <div class="reward-action-bar-buttons">
+                        <button type="button" id="btn-admin-pausar-desafio" class="btn btn-outline reward-action-btn" onclick="toggleTemporadaInviernoConfig()" style="font-weight:700; padding:10px 16px; color:#0284c7; border-color:#bae6fd;" title="Pausar desafío y entrar en modo invierno">
+                            <i class="fas fa-snowflake" style="color:#0284c7;"></i> Modo Invierno
                         </button>
-                        <button type="button" id="btn-admin-eliminar-desafio" class="btn btn-outline" onclick="eliminarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px; color:#dc2626; border-color:#fca5a5;" title="Elimina el desafío, activa el modo invierno y reinicia a 0 los puntos de todos los clientes">
-                            <i class="fas fa-trash-can"></i> Eliminar Desafío
+                        <button type="button" id="btn-admin-eliminar-desafio" class="btn btn-outline reward-action-btn" onclick="eliminarDesafioPremioAdmin()" style="font-weight:700; padding:10px 16px; color:#dc2626; border-color:#fca5a5;" title="Elimina el desafío, activa el modo invierno y reinicia a 0 los puntos de todos los clientes">
+                            <i class="fas fa-trash-can" style="color:#dc2626;"></i> Eliminar Desafío
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700; padding:10px 16px;">
+                        <button type="button" id="btn-admin-iniciar-desafio" class="btn reward-action-btn" onclick="iniciarNuevoDesafioModalAdmin()" style="font-weight:700; padding:10px 16px; background:#2563eb; color:#ffffff; border:none;" title="Iniciar un nuevo desafío o activar un nuevo premio">
                             <i class="fas fa-wand-magic-sparkles"></i> Iniciar Nuevo Desafío
                         </button>
-                        <button type="button" class="reward-btn-whatsapp" onclick="anunciarTemporadaWhatsApp()" style="padding:10px 16px;">
+                        <button type="button" id="btn-admin-whatsapp-anuncio" class="reward-btn-whatsapp reward-action-btn" onclick="anunciarTemporadaWhatsApp()" style="padding:10px 16px;" title="Difundir desafío actual por WhatsApp">
                             <i class="fab fa-whatsapp" style="font-size:1.15rem;"></i>
                             <span>Anunciar por WhatsApp</span>
                         </button>
                     </div>
-                    <div>
+                    <div class="reward-action-bar-submit">
                         <button type="submit" id="btn-guardar-activar-premio-mes" class="reward-btn-save" style="padding:12px 22px;">
                             <i class="fas fa-floppy-disk"></i>
                             <span>Guardar y Activar Premio</span>
@@ -3845,7 +4970,8 @@
                     <i class="fas fa-info-circle" style="color:var(--primary-accent);"></i>
                     <span>Mostrando únicamente las compras y pedidos procesados durante la jornada de hoy con descuento automático de inventario.</span>
                 </div>
-                <div class="table-responsive">
+                <div id="ventas-hoy-mobile-list" class="ventas-hoy-mobile-list"></div>
+                <div class="table-responsive ventas-hoy-table-desktop">
                     <table>
                         <thead>
                             <tr>
@@ -3926,7 +5052,8 @@
                     </div>
                 </div>
 
-                <div class="table-responsive">
+                <div id="ventas-general-mobile-list" class="ventas-general-mobile-list"></div>
+                <div class="table-responsive ventas-general-table-desktop">
                     <table>
                         <thead>
                             <tr>
@@ -4211,6 +5338,203 @@
                 </div>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal Conciliación de Discrepancia de Auditoría Física (Motivo Obligatorio) -->
+<div id="modal-ajuste-auditoria" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalAjusteAuditoria();">
+    <div class="modal-content" style="max-width:540px; border-radius:16px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-scale-balanced" style="color:#2563eb;"></i> Conciliación de Inventario Físico
+                </h3>
+                <span style="font-size:0.8rem; color:var(--text-muted);">
+                    Selección obligatoria del origen de la discrepancia de stock.
+                </span>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalAjusteAuditoria()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar">&times;</button>
+        </div>
+
+        <!-- Ficha del Producto -->
+        <div style="display:flex; gap:12px; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:14px;">
+            <img id="audit-modal-prod-img" src="" alt="" style="width:48px; height:48px; border-radius:8px; object-fit:cover; border:1px solid #cbd5e1; background:#ffffff;">
+            <div style="flex:1;">
+                <h4 id="audit-modal-prod-nombre" style="margin:0 0 3px 0; font-size:0.95rem; font-weight:800; color:var(--text-color);"></h4>
+                <div style="font-size:0.78rem; color:var(--text-muted);">
+                    Código: <strong id="audit-modal-prod-codigo" style="color:var(--text-color);"></strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparación de Existencias -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:14px;">
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; text-align:center;">
+                <span style="display:block; font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Stock Teórico</span>
+                <strong id="audit-modal-stock-digital" style="font-size:0.95rem; color:var(--text-color);">-</strong>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; text-align:center;">
+                <span style="display:block; font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Conteo Físico</span>
+                <strong id="audit-modal-stock-fisico" style="font-size:0.95rem; color:#2563eb;">-</strong>
+            </div>
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; text-align:center;">
+                <span style="display:block; font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Diferencia</span>
+                <div id="audit-modal-diferencia" style="font-size:0.95rem;">-</div>
+            </div>
+        </div>
+
+        <!-- Banner de Inmutabilidad de Precios Base -->
+        <div id="audit-modal-precios-inmutables" style="margin-bottom:14px;"></div>
+
+        <!-- Opciones de Motivo Obligatorio (Inyectadas dinámicamente según Sobrante / Faltante) -->
+        <div id="audit-modal-motivos-list" style="margin-bottom:14px;"></div>
+
+        <!-- Observaciones opcionales -->
+        <div style="margin-bottom:16px;">
+            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color); margin-bottom:4px;">
+                Observaciones adicionales (Opcional):
+            </label>
+            <input type="text" id="audit-modal-notas" placeholder="Ej: Conteo realizado por supervisor, anaquel 3..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color);">
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
+            <button type="button" class="btn" onclick="cerrarModalAjusteAuditoria()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600;">
+                Cancelar
+            </button>
+            <button type="button" id="btn-confirmar-ajuste-auditoria" class="btn btn-primary" onclick="confirmarAjusteAuditoria()" style="font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <i class="fas fa-check"></i> Confirmar y Aplicar Ajuste
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle de Factura de Compra -->
+<div id="modal-detalle-factura-backdrop" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalDetalleFactura();">
+    <div class="modal-content" style="max-width:760px; border-radius:16px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.18); max-height:90vh; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0 0 4px 0; font-size:1.2rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-file-invoice" style="color:#2563eb;"></i> Detalle de Factura de Compra
+                </h3>
+                <span id="detalle-factura-subtitulo" style="font-size:0.85rem; color:var(--text-muted);"></span>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalDetalleFactura()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar">&times;</button>
+        </div>
+
+        <div id="detalle-factura-contenido" style="flex:1; overflow-y:auto;"></div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px; margin-top:14px;">
+            <button type="button" class="btn" onclick="cerrarModalDetalleFactura()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Panel 360° Cliente -->
+<div id="modal-cliente-detalle" class="modal" onclick="if(event.target === this) cerrarModalDetalleCliente();">
+    <div class="modal-content modal-cliente-detalle-content">
+        <!-- Top Bar with clean close button -->
+        <div class="det-modal-topbar">
+            <div class="det-modal-title">
+                <i class="fas fa-address-card"></i>
+                <span>Ficha 360° del Cliente</span>
+            </div>
+            <button type="button" class="btn-modal-close" onclick="cerrarModalDetalleCliente()" title="Cerrar modal">&times;</button>
+        </div>
+
+        <!-- Scrollable Modal Body -->
+        <div class="det-modal-body">
+            <!-- Client Profile Card -->
+            <div class="det-profile-card">
+                <div class="det-profile-main">
+                    <div id="det-cliente-avatar" class="det-profile-avatar">CL</div>
+                    <div class="det-profile-info">
+                        <div class="det-profile-name-row">
+                            <h3 id="det-cliente-nombre" class="det-profile-name">Cliente</h3>
+                            <span id="det-cliente-estado-badge" class="det-status-badge badge-success">
+                                <i class="fas fa-check-circle"></i> Al día
+                            </span>
+                        </div>
+                        <div class="det-profile-meta">
+                            <span id="det-cliente-id-text" class="det-meta-chip"><i class="fas fa-id-card"></i> Cédula: —</span>
+                            <span id="det-cliente-tel-text" class="det-meta-chip"><i class="fas fa-phone"></i> Tel: —</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Quick Actions Bar -->
+                <div class="det-profile-actions">
+                    <button type="button" class="btn btn-warning det-btn-action" onclick="abrirModalAbono()">
+                        <i class="fas fa-hand-holding-dollar"></i> Registrar Abono / Pago
+                    </button>
+                    <button type="button" class="btn btn-success det-btn-action det-btn-whatsapp" id="det-btn-whatsapp" onclick="enviarWhatsappCliente()" style="display:none;" title="Enviar recordatorio o estado por WhatsApp">
+                        <i class="fab fa-whatsapp"></i> Notificar por WhatsApp
+                    </button>
+                </div>
+            </div>
+
+            <!-- Financial KPIs Grid -->
+            <div class="det-kpis-grid">
+                <div class="det-kpi-card">
+                    <div class="det-kpi-header">
+                        <i class="fas fa-bag-shopping det-kpi-icon-comprado"></i>
+                        <span>TOTAL COMPRADO</span>
+                    </div>
+                    <div id="det-kpi-comprado-usd" class="det-kpi-amount">$0.00</div>
+                    <div id="det-kpi-comprado-ves" class="det-kpi-sub">Bs. 0,00</div>
+                </div>
+                <div id="det-kpi-deuda-card" class="det-kpi-card danger">
+                    <div class="det-kpi-header">
+                        <i class="fas fa-clock det-kpi-icon-deuda"></i>
+                        <span>DEUDA ACTUAL</span>
+                    </div>
+                    <div id="det-kpi-deuda-usd" class="det-kpi-amount">$0.00</div>
+                    <div id="det-kpi-deuda-ves" class="det-kpi-sub">Bs. 0,00</div>
+                </div>
+            </div>
+
+            <!-- Section Title -->
+            <div class="det-section-header">
+                <div class="det-section-title">
+                    <i class="fas fa-clock-rotate-left"></i>
+                    <span>Historial de Movimientos</span>
+                </div>
+                <span id="det-movimientos-contador" class="det-movimientos-badge">0 movimientos</span>
+            </div>
+
+            <!-- Mobile Transaction List (< 640px) -->
+            <div id="det-historial-mobile" class="det-transactions-mobile"></div>
+
+            <!-- Desktop Transaction Table (>= 640px) -->
+            <div class="det-transactions-desktop">
+                <div class="table-responsive det-table-container">
+                    <table style="width:100%; font-size:0.85rem;">
+                        <thead style="position:sticky; top:0; background:#f8fafc; z-index:2;">
+                            <tr>
+                                <th style="padding:10px;">Fecha</th>
+                                <th style="padding:10px;">Concepto</th>
+                                <th style="padding:10px;">Detalle</th>
+                                <th class="num" style="padding:10px;">Cargo ($)</th>
+                                <th class="num" style="padding:10px;">Abono ($)</th>
+                                <th class="num" style="padding:10px;">Monto (Bs)</th>
+                                <th class="num" style="padding:10px;">Saldo ($)</th>
+                                <th class="num" style="padding:10px;">Saldo (Bs)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="det-historial-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="det-modal-footer">
+            <button type="button" class="btn" onclick="cerrarModalDetalleCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600; padding:8px 22px; border-radius:10px;">
+                Cerrar
+            </button>
+        </div>
     </div>
 </div>
 
@@ -4598,6 +5922,10 @@
         <span>Pagos</span>
         <span id="badge-abonos-mobile" class="badge-dot" style="background:#d97706; display:none;"></span>
     </button>
+    <button type="button" class="bottom-nav-item nav-admin-only" data-tab="facturas" onclick="switchTab('facturas')" aria-label="Carga de Facturas">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <span>Facturas</span>
+    </button>
     <button type="button" class="bottom-nav-item nav-admin-only" data-tab="auditoria" onclick="switchTab('auditoria')" aria-label="Auditoría de Inventario">
         <i class="fas fa-clipboard-check"></i>
         <span>Auditoría</span>
@@ -4929,6 +6257,7 @@
 <script src="modules/pos.js?v=20260915_v5"></script>
 <script src="modules/clientes.js?v=20260915_v5"></script>
 <script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
+<script src="modules/facturas.js?v=20260918_v1"></script>
 <script src="modules/auditoria.js?v=20260915_v5"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>

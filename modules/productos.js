@@ -498,6 +498,71 @@ function normalizarProductos() {
 
 let busquedaInventario = '';
 let filtroStockInventario = 'todos';
+let filtroStockCantidad = 5;
+let filtroStockOperador = '<=';
+
+try {
+    const savedCant = localStorage.getItem('inv_filtro_stock_cant');
+    if (savedCant !== null && !isNaN(parseInt(savedCant, 10))) {
+        filtroStockCantidad = Math.max(0, parseInt(savedCant, 10));
+    }
+    const savedOp = localStorage.getItem('inv_filtro_stock_op');
+    if (savedOp && ['<=', '=', '>='].includes(savedOp)) {
+        filtroStockOperador = savedOp;
+    }
+} catch (_) {}
+
+function alClickChipStockCustom(e) {
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alClickChipStockCustom = alClickChipStockCustom;
+
+function alCambiarOperadorStock(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const select = document.getElementById('inv-stock-operador') || (e ? e.target : null);
+    if (select) {
+        filtroStockOperador = select.value || '<=';
+        try { localStorage.setItem('inv_filtro_stock_op', filtroStockOperador); } catch (_) {}
+    }
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alCambiarOperadorStock = alCambiarOperadorStock;
+
+function alCambiarCantidadStock(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const input = document.getElementById('inv-stock-cantidad-input') || (e ? e.target : null);
+    if (input) {
+        const val = parseInt(input.value, 10);
+        filtroStockCantidad = isNaN(val) ? 0 : Math.max(0, val);
+        try { localStorage.setItem('inv_filtro_stock_cant', String(filtroStockCantidad)); } catch (_) {}
+    }
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alCambiarCantidadStock = alCambiarCantidadStock;
 
 function filtrarInventarioTexto(valor) {
     busquedaInventario = (valor || '').toLowerCase().trim();
@@ -598,8 +663,31 @@ function renderizarInventario() {
             (p.contenido && p.contenido.toLowerCase().includes(q))
         );
     }
+    // Sincronizar inputs del chip de stock en el DOM si no están en foco activo
+    const inputCantEl = document.getElementById('inv-stock-cantidad-input');
+    if (inputCantEl && document.activeElement !== inputCantEl && String(inputCantEl.value) !== String(filtroStockCantidad)) {
+        inputCantEl.value = filtroStockCantidad;
+    }
+    const selectOpEl = document.getElementById('inv-stock-operador');
+    if (selectOpEl && selectOpEl.value !== filtroStockOperador) {
+        selectOpEl.value = filtroStockOperador;
+    }
+
     if (filtroStockInventario === 'bajo') {
-        prodsFiltrados = prodsFiltrados.filter(p => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 5);
+        const cantObjetivo = Number(filtroStockCantidad !== undefined ? filtroStockCantidad : 5);
+        const op = filtroStockOperador || '<=';
+        prodsFiltrados = prodsFiltrados.filter(p => {
+            const stock = Number(p.stock || 0);
+            if (op === '<=') {
+                if (cantObjetivo === 0) return stock <= 0;
+                return stock > 0 && stock <= cantObjetivo;
+            } else if (op === '=') {
+                return stock === cantObjetivo;
+            } else if (op === '>=') {
+                return stock >= cantObjetivo;
+            }
+            return stock <= cantObjetivo;
+        });
     } else if (filtroStockInventario === 'agotado') {
         prodsFiltrados = prodsFiltrados.filter(p => Number(p.stock || 0) <= 0);
     }
@@ -609,6 +697,17 @@ function renderizarInventario() {
         badgeTotal.textContent = `${prodsFiltrados.length} ${prodsFiltrados.length === 1 ? 'producto' : 'productos'}${prodsFiltrados.length !== productos.length ? ` (de ${productos.length})` : ''}`;
     }
 
+    // Mensaje contextual para estados vacíos
+    let mensajeVacio = 'Prueba ajustando los filtros de búsqueda';
+    if (filtroStockInventario === 'bajo') {
+        const opSign = filtroStockOperador === '<=' ? '≤' : (filtroStockOperador === '>=' ? '≥' : '=');
+        mensajeVacio = `No hay productos con Stock ${opSign} ${filtroStockCantidad}`;
+    } else if (filtroStockInventario === 'agotado') {
+        mensajeVacio = 'No hay productos con stock agotado';
+    } else if (busquedaInventario) {
+        mensajeVacio = `No se encontraron coincidencias para "${busquedaInventario}"`;
+    }
+
     // 1. Renderizar Vista Móvil: Opción A - Vista en Lista Horizontal / Row Item
     if (mobileList) {
         if (prodsFiltrados.length === 0) {
@@ -616,7 +715,7 @@ function renderizarInventario() {
                 <div class="inventario-empty-state">
                     <i class="fas fa-box-open"></i>
                     <p>No se encontraron productos</p>
-                    <small>${busquedaInventario || filtroStockInventario !== 'todos' ? 'Prueba ajustando los filtros de búsqueda' : 'Registra tu primer producto con el botón superior'}</small>
+                    <small>${busquedaInventario || filtroStockInventario !== 'todos' ? mensajeVacio : 'Registra tu primer producto con el botón superior'}</small>
                 </div>
             `;
         } else {
@@ -697,7 +796,8 @@ function renderizarInventario() {
                 <tr>
                     <td colspan="11" style="text-align: center; padding: 32px 16px; color: var(--text-muted, #94a3b8);">
                         <i class="fas fa-box-open" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
-                        <div>No se encontraron productos en el inventario</div>
+                        <div style="font-weight:600; font-size:0.95rem; margin-bottom:4px;">No se encontraron productos</div>
+                        <small style="color:var(--text-muted, #64748b);">${busquedaInventario || filtroStockInventario !== 'todos' ? mensajeVacio : 'Registra tu primer producto con el botón superior'}</small>
                     </td>
                 </tr>
             `;

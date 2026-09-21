@@ -1197,13 +1197,18 @@ async function ejecutarCompraConfirmadaCliente() {
         };
     });
 
-    // 1. Descontar de forma automática el stock del inventario
+    // 1. Descontar de forma automática el stock del inventario (cola preventiva de pedidos)
     for (const item of carrito) {
         if (window.InventoryApp && window.InventoryApp.StockService && typeof window.InventoryApp.StockService.sale === 'function') {
             window.InventoryApp.StockService.sale(item.productoId, item.cantidad);
         } else {
             const prod = (AppState.productos || []).find(p => p.id === item.productoId);
             if (prod) prod.stock = Math.max(0, Number(prod.stock || 0) - Number(item.cantidad));
+        }
+        // Sincronizar en Firestore para reflejar el stock reservado a otros clientes en tiempo real
+        const prodActualizado = (AppState.productos || []).find(p => p.id === item.productoId);
+        if (prodActualizado && window.InventoryApp?.Firebase?.guardarProducto) {
+            window.InventoryApp.Firebase.guardarProducto(prodActualizado).catch(() => {});
         }
     }
 
@@ -1220,7 +1225,8 @@ async function ejecutarCompraConfirmadaCliente() {
     const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
-    // 3. Otorgar puntos de fidelización al cliente (Solo si la temporada de premios está activa)
+    // 3. Otorgar puntos de fidelización al cliente (Solo si la temporada está activa y NO es crédito)
+    // Regla de Integridad: Las compras a crédito mantienen los puntos congelados hasta su correspondiente abono/conciliación
     let puntosGanados = 0;
     const inviernoActivo = Boolean(
         AppState.isWinterMode || 
@@ -1229,8 +1235,8 @@ async function ejecutarCompraConfirmadaCliente() {
         AppState.premioMes?.estado === 'PAUSADO' ||
         AppState.premioMes?.estado === 'GANADOR_ALCANZADO'
     );
-    if (!inviernoActivo && typeof otorgarPuntosPorCompra === 'function') {
-        puntosGanados = otorgarPuntosPorCompra(clienteCedula, totalUSD, esCredito ? 'Compra a Crédito Cliente' : 'Compra en Tienda Cliente');
+    if (!inviernoActivo && !esCredito && typeof otorgarPuntosPorCompra === 'function') {
+        puntosGanados = otorgarPuntosPorCompra(clienteCedula, totalUSD, 'Compra en Tienda Cliente');
     }
 
     // 4. Registrar inmediatamente la compra en la base de datos (AppState.ventas)
@@ -2355,7 +2361,7 @@ async function procesarReportePagoCliente() {
 
         const mensajeNotif = esDivisasUSD
             ? `${nomCliente} agregó un pago en divisas de $${usdFmt} USD (${nuevoAbono.metodo}${refStr})`
-            : `${nomCliente} agregó un pago de Bs. ${bsFmt} (${nuevoAbono.metodo}${refStr})`;
+            : `${nomCliente} agregó un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${nuevoAbono.metodo}${refStr})`;
 
         window.registrarNotificacion({
             tipo: 'pago',

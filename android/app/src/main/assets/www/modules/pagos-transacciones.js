@@ -941,7 +941,8 @@ function transaccionesPendientesCliente(clienteId) {
 
 function renderizarTransacciones(filtro = null) {
     const tbody = document.getElementById('transacciones-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('transacciones-mobile-list');
+    if (!tbody && !mobileList) return;
     const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;
     const normalizado = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(texto) : (texto || '').trim().toUpperCase();
     const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
@@ -978,36 +979,98 @@ function renderizarTransacciones(filtro = null) {
     }
 
     if (!lista.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+        }
+        if (mobileList) {
+            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-receipt" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No hay transacciones que coincidan con la búsqueda.</div>';
+        }
         return;
     }
 
-    tbody.innerHTML = lista.map(t => {
-        const cliente = typeof escaparHtmlInventario === 'function'
-            ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
-            : obtenerNombreClienteTransaccion(t.clienteId);
-        const estadoClass = t.estado === 'Pago agregado'
-            ? 'transaction-approved'
-            : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
-        const accion = t.estado === 'Pago agregado'
-            ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
-            : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
-                <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
-            </div>`;
-        const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
-        const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
-        return `<tr>
-            <td>${t.fecha || ''}</td>
-            <td>${cliente}</td>
-            <td>${tipoStr}</td>
-            <td><strong>${refStr}</strong></td>
-            <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
-            <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
-            <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
-            <td>${accion}</td>
-        </tr>`;
-    }).join('');
+    if (tbody) {
+        tbody.innerHTML = lista.map(t => {
+            const cliente = typeof escaparHtmlInventario === 'function'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
+                : obtenerNombreClienteTransaccion(t.clienteId);
+            const estadoClass = t.estado === 'Pago agregado'
+                ? 'transaction-approved'
+                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+            const accion = t.estado === 'Pago agregado'
+                ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
+                : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
+                    <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
+                </div>`;
+            const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
+            const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+            return `<tr>
+                <td>${t.fecha || ''}</td>
+                <td>${cliente}</td>
+                <td>${tipoStr}</td>
+                <td><strong>${refStr}</strong></td>
+                <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
+                <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
+                <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
+                <td>${accion}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = lista.map(t => {
+            const cliente = typeof escaparHtmlInventario === 'function'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
+                : obtenerNombreClienteTransaccion(t.clienteId);
+            const estadoClass = t.estado === 'Pago agregado'
+                ? 'transaction-approved'
+                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+            const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
+            const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+            const esConciliado = t.estado === 'Pago agregado';
+            const montoUSD = Number(t.montoUSD || 0).toFixed(2);
+            const montoVES = Number(t.montoVES || 0).toFixed(2);
+
+            let statusIcon = '<i class="fas fa-clock" style="color:#d97706;"></i>';
+            if (esConciliado) statusIcon = '<i class="fas fa-circle-check" style="color:#16a34a;"></i>';
+            else if (t.estado === 'Fallido') statusIcon = '<i class="fas fa-circle-xmark" style="color:#dc2626;"></i>';
+
+            return `
+                <div class="transacciones-item-card ${estadoClass}">
+                    <div class="transacciones-item-header">
+                        <div class="transacciones-item-client">
+                            <span class="status-indicator">${statusIcon}</span>
+                            <strong>${cliente}</strong>
+                        </div>
+                        <span class="transacciones-item-date">${t.fecha || ''}</span>
+                    </div>
+
+                    <div class="transacciones-item-body">
+                        <div class="transacciones-item-tags">
+                            <span class="badge-tipo"><i class="fas fa-wallet"></i> ${tipoStr}</span>
+                            <span class="badge-ref">Ref: <strong>${refStr}</strong></span>
+                            <span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span>
+                        </div>
+                        <div class="transacciones-item-amounts">
+                            <div class="amount-usd">$${montoUSD}</div>
+                            <div class="amount-ves">Bs. ${montoVES}</div>
+                        </div>
+                    </div>
+
+                    ${!esConciliado ? `
+                        <div class="transacciones-item-actions">
+                            <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
+                                <i class="fas fa-pen"></i> Editar
+                            </button>
+                            <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
+                                ${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 function filtrarTransacciones() {
@@ -1556,8 +1619,23 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
         const abono = (AppState.abonos || []).find(a => a.id === abonoId);
         if (abono) {
             abono.estado = 'Pago agregado';
+            abono.fechaAprobacion = new Date().toISOString().replace('T', ' ').substring(0, 16);
             if (window.InventoryApp?.Firebase?.guardarAbono) {
                 window.InventoryApp.Firebase.guardarAbono(abono).catch(() => {});
+            }
+
+            // Actualizar solvencia y último abono del cliente
+            const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
+            if (cliente) {
+                cliente.ultimoAbonoFecha = new Date().toISOString();
+                if (window.InventoryApp?.Firebase?.guardarCliente) {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
+                }
+            }
+
+            // Liberación y acreditación proporcional de los puntos de lealtad congelados
+            if (typeof otorgarPuntosPorCompra === 'function' && Number(abono.montoUSD || 0) > 0) {
+                otorgarPuntosPorCompra(abono.clienteId, Number(abono.montoUSD), 'Abono Conciliado por Admin');
             }
         }
     }
@@ -1645,6 +1723,54 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
         venta.motivoRechazo = motivo;
     }
 
+    // --- DEVOLUCIÓN DE STOCK (COLA DE INVENTARIO) ---
+    // Si la venta o pedido había reservado/descontado el stock al registrarse, se devuelve al inventario
+    const itemsADevolver = (venta && Array.isArray(venta.items) && venta.items.length > 0)
+        ? venta.items
+        : (item && Array.isArray(item.items) ? item.items : []);
+
+    let huboDevolucionStock = false;
+    if (itemsADevolver.length > 0 && (!venta || venta.descontadoInventario !== false)) {
+        for (const it of itemsADevolver) {
+            const pId = it.productoId || it.id;
+            const cant = Number(it.cantidad || 0);
+            if (pId && cant > 0) {
+                if (window.InventoryApp?.StockService?.devolver) {
+                    window.InventoryApp.StockService.devolver(pId, cant);
+                } else {
+                    const prod = (AppState.productos || []).find(p => String(p.id) === String(pId));
+                    if (prod) {
+                        prod.stock = Math.max(0, Number(prod.stock || 0) + cant);
+                    }
+                }
+
+                // Sincronizar producto con stock devuelto en Firestore
+                const prodActualizado = (AppState.productos || []).find(p => String(p.id) === String(pId));
+                if (prodActualizado && window.InventoryApp?.Firebase?.guardarProducto) {
+                    window.InventoryApp.Firebase.guardarProducto(prodActualizado).catch(() => {});
+                }
+                huboDevolucionStock = true;
+            }
+        }
+        if (venta) venta.descontadoInventario = false;
+    }
+
+    // --- REVERSIÓN DE DEUDA SI FUE A CRÉDITO ---
+    const esCredito = (venta?.tipo === 'Crédito' || venta?.modalidad === 'CREDITO' || item?.tipoPago === 'Crédito' || item?.tipo === 'VENTA_CREDITO_AUTOSERVICIO');
+    if (esCredito) {
+        const clienteId = venta?.clienteId || item?.clienteId || item?.clienteCedula;
+        if (clienteId) {
+            const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+            if (cliente) {
+                const totalRevertir = Number(venta?.totalUSD || item?.totalUSD || item?.montoUSD || 0);
+                cliente.deudaUSD = Math.max(0, Number(cliente.deudaUSD || 0) - totalRevertir);
+                if (window.InventoryApp?.Firebase?.guardarCliente) {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
+                }
+            }
+        }
+    }
+
     const txAsociada = (AppState.transacciones || []).find(t => 
         (ventaId && (t.id === ventaId || t.pedidoId === ventaId)) ||
         (refVenta && t.referencia && String(t.referencia).trim().toLowerCase() === refVenta)
@@ -1675,8 +1801,15 @@ window.rechazarPagoPorVerificarAdmin = async function(id) {
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+    if (typeof renderizarInventario === 'function') renderizarInventario();
+    if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof window.KioscoModule?.renderProductos === 'function') window.KioscoModule.renderProductos();
+    if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+
     if (window.InventoryApp?.Modal?.toast) {
-        window.InventoryApp.Modal.toast(`⚠️ Pago #${id} marcado como Rechazado.`, 'warning');
+        const msgStock = huboDevolucionStock ? ' y los productos han sido devueltos al stock disponible' : '';
+        window.InventoryApp.Modal.toast(`⚠️ Transacción #${id} rechazada${msgStock}.`, 'warning');
     }
 };
 

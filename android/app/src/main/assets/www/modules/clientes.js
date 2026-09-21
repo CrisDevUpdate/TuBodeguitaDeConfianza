@@ -174,44 +174,259 @@ function calcularEstadoFinancieroCliente(clienteId) {
     };
 }
 
+let busquedaCliente = '';
+let filtroEstadoCliente = 'todos'; // 'todos' | 'deuda' | 'al-dia'
+
+function toggleFormularioNuevoCliente() {
+    const form = document.getElementById('form-cliente');
+    const txt = document.getElementById('txt-toggle-nuevo-cliente');
+    const icono = document.getElementById('icono-toggle-nuevo-cliente');
+    if (!form) return;
+    const estaOculto = form.style.display === 'none' || !form.style.display;
+    if (estaOculto) {
+        form.style.display = 'grid';
+        if (txt) txt.textContent = 'Ocultar';
+        if (icono) {
+            icono.classList.remove('fa-chevron-down');
+            icono.classList.add('fa-chevron-up');
+        }
+        const primerInput = document.getElementById('cli-id');
+        if (primerInput) setTimeout(() => primerInput.focus(), 50);
+    } else {
+        form.style.display = 'none';
+        if (txt) txt.textContent = '+ Agregar';
+        if (icono) {
+            icono.classList.remove('fa-chevron-up');
+            icono.classList.add('fa-chevron-down');
+        }
+    }
+}
+window.toggleFormularioNuevoCliente = toggleFormularioNuevoCliente;
+
+function alBuscarCliente(val) {
+    busquedaCliente = (val || '').toLowerCase().trim();
+    const btnLimpiar = document.getElementById('btn-limpiar-buscar-cliente');
+    if (btnLimpiar) btnLimpiar.style.display = busquedaCliente ? 'block' : 'none';
+    renderizarClientes();
+}
+window.alBuscarCliente = alBuscarCliente;
+
+function limpiarBuscadorCliente() {
+    busquedaCliente = '';
+    const input = document.getElementById('input-buscar-cliente');
+    if (input) input.value = '';
+    const btnLimpiar = document.getElementById('btn-limpiar-buscar-cliente');
+    if (btnLimpiar) btnLimpiar.style.display = 'none';
+    renderizarClientes();
+}
+window.limpiarBuscadorCliente = limpiarBuscadorCliente;
+
+function filtrarClientesEstado(estado) {
+    filtroEstadoCliente = estado || 'todos';
+    ['todos', 'deuda', 'al-dia'].forEach(st => {
+        const chip = document.getElementById(`chip-cli-${st}`);
+        if (chip) {
+            if (st === filtroEstadoCliente) chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarClientes();
+}
+window.filtrarClientesEstado = filtrarClientesEstado;
+
 function renderizarClientes() {
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
     }
     const tbody = document.getElementById('clientes-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('clientes-mobile-list');
+    if (!tbody && !mobileList) return;
 
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
 
-    if (!lista.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">No hay clientes registrados en el directorio.</td></tr>';
+    // Calcular métricas financieras globales para los KPIs
+    let clientesConDeuda = 0;
+    let totalDeudaGlobalUSD = 0;
+
+    const clientesConEstado = lista.map(c => {
+        const estadoFin = calcularEstadoFinancieroCliente(c.id);
+        if (estadoFin.saldoDeudaUSD > 0) {
+            clientesConDeuda++;
+            totalDeudaGlobalUSD += estadoFin.saldoDeudaUSD;
+        }
+        return {
+            ...c,
+            ...estadoFin
+        };
+    });
+
+    // Actualizar KPIs de Cartera en cabecera
+    const kpiTotalCli = document.getElementById('cli-kpi-total-clientes');
+    if (kpiTotalCli) kpiTotalCli.textContent = lista.length;
+
+    const kpiConDeuda = document.getElementById('cli-kpi-con-deuda');
+    if (kpiConDeuda) kpiConDeuda.textContent = clientesConDeuda;
+
+    const kpiDeudaUsd = document.getElementById('cli-kpi-total-deuda-usd');
+    if (kpiDeudaUsd) kpiDeudaUsd.textContent = `$${totalDeudaGlobalUSD.toFixed(2)}`;
+
+    const kpiDeudaVes = document.getElementById('cli-kpi-total-deuda-ves');
+    if (kpiDeudaVes) {
+        kpiDeudaVes.textContent = `Bs. ${tasa > 0 ? (totalDeudaGlobalUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}`;
+    }
+
+    // Actualizar contadores en chips de filtro
+    const countTodos = document.getElementById('count-cli-todos');
+    if (countTodos) countTodos.textContent = lista.length;
+
+    const countDeuda = document.getElementById('count-cli-deuda');
+    if (countDeuda) countDeuda.textContent = clientesConDeuda;
+
+    const countAlDia = document.getElementById('count-cli-al-dia');
+    if (countAlDia) countAlDia.textContent = Math.max(0, lista.length - clientesConDeuda);
+
+    const countEliminados = document.getElementById('count-cli-eliminados');
+    if (countEliminados) {
+        const eliminadosList = Array.isArray(clientesEliminados) ? clientesEliminados : (AppState.clientesEliminados || []);
+        countEliminados.textContent = eliminadosList.length;
+    }
+
+    // Filtrar lista según búsqueda y estado
+    let clientesFiltrados = clientesConEstado.filter(c => {
+        // Filtro por estado
+        if (filtroEstadoCliente === 'deuda' && c.saldoDeudaUSD <= 0) return false;
+        if (filtroEstadoCliente === 'al-dia' && c.saldoDeudaUSD > 0) return false;
+
+        // Filtro por texto de búsqueda
+        if (busquedaCliente) {
+            const idLower = String(c.id || '').toLowerCase();
+            const nomLower = String(c.nombre || '').toLowerCase();
+            const telLower = String(c.telefono || '').toLowerCase();
+            if (!idLower.includes(busquedaCliente) && !nomLower.includes(busquedaCliente) && !telLower.includes(busquedaCliente)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    const counterBadge = document.getElementById('cli-counter-badge');
+    if (counterBadge) {
+        if (busquedaCliente || filtroEstadoCliente !== 'todos') {
+            counterBadge.textContent = `Mostrando ${clientesFiltrados.length} de ${lista.length} clientes`;
+        } else {
+            counterBadge.textContent = `${lista.length} clientes registrados`;
+        }
+    }
+
+    if (!clientesFiltrados.length) {
+        const mensajeVacio = lista.length === 0
+            ? 'No hay clientes registrados en el directorio.'
+            : 'No se encontraron clientes que coincidan con la búsqueda o filtro seleccionado.';
+
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:35px 20px; color:var(--text-muted);"><i class="fas fa-search" style="font-size:1.8rem; opacity:0.35; margin-bottom:10px; display:block;"></i>${mensajeVacio}</td></tr>`;
+        }
+        if (mobileList) {
+            mobileList.innerHTML = `<div class="card" style="text-align:center; padding:35px 20px; color:var(--text-muted); border-radius:14px;"><i class="fas fa-search" style="font-size:2rem; opacity:0.35; margin-bottom:10px; display:block;"></i>${mensajeVacio}</div>`;
+        }
         return;
     }
 
-    tbody.innerHTML = lista.map(c => {
-        const { totalCompradoUSD, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(c.id);
-        const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
-        const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
-        const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
-        return `
-            <tr>
-                <td><strong>${idSafe}</strong></td>
-                <td>${nomSafe}</td>
-                <td>${telSafe}</td>
-                <td class="num">$${totalCompradoUSD.toFixed(2)}</td>
-                <td class="num" style="color: ${saldoDeudaUSD > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
-                    $${saldoDeudaUSD.toFixed(2)}
-                </td>
-                <td class="num" style="color: ${saldoDeudaVES > 0 ? 'var(--danger)' : 'inherit'}; font-weight: bold;">
-                    Bs. ${tasaActiva > 0 ? saldoDeudaVES.toFixed(2) : '—'}
-                </td>
-                <td style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <button class="btn" onclick="verDetalleCliente('${c.id}')">Panel 360°</button>
-                    <button class="btn btn-danger" onclick="abrirModalEliminarCliente('${c.id}')">Eliminar</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    if (tbody) {
+        tbody.innerHTML = clientesFiltrados.map(c => {
+            const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
+            const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
+            const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
+            const tieneDeuda = c.saldoDeudaUSD > 0;
+
+            return `
+                <tr>
+                    <td><strong>${idSafe}</strong></td>
+                    <td style="font-weight:600; color:var(--text-main);">${nomSafe}</td>
+                    <td>${telSafe}</td>
+                    <td class="num">$${c.totalCompradoUSD.toFixed(2)}</td>
+                    <td class="num" style="color: ${tieneDeuda ? 'var(--danger)' : '#16a34a'}; font-weight: bold;">
+                        $${c.saldoDeudaUSD.toFixed(2)}
+                    </td>
+                    <td class="num" style="color: ${tieneDeuda ? 'var(--danger)' : '#16a34a'}; font-weight: bold;">
+                        Bs. ${tasa > 0 ? c.saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                    </td>
+                    <td style="text-align:center; white-space:nowrap;">
+                        <div style="display:inline-flex; gap:6px; align-items:center;">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="verDetalleCliente('${c.id}')" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; padding:5px 10px; border-radius:8px;">
+                                <i class="fas fa-gauge"></i> Panel 360°
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="abrirModalEliminarCliente('${c.id}')" title="Eliminar cliente" style="padding:5px 9px; border-radius:8px;">
+                                <i class="fas fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = clientesFiltrados.map(c => {
+            const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
+            const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
+            const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
+            const tieneDeuda = c.saldoDeudaUSD > 0;
+            const iniciales = (c.nombre || c.id || 'CL')
+                .split(' ')
+                .map(w => w[0])
+                .filter(Boolean)
+                .slice(0, 2)
+                .join('')
+                .toUpperCase();
+
+            return `
+                <div class="clientes-item-card">
+                    <div class="clientes-item-top">
+                        <div class="clientes-item-avatar">
+                            <span>${iniciales}</span>
+                        </div>
+                        <div class="clientes-item-info">
+                            <div class="clientes-item-name">${nomSafe}</div>
+                            <div class="clientes-item-meta">
+                                <span><i class="fas fa-id-card"></i> ${idSafe}</span>
+                                ${c.telefono ? `<span><i class="fas fa-phone"></i> ${telSafe}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="clientes-item-financial">
+                            ${tieneDeuda ? `
+                                <div class="clientes-item-deuda-pill badge-danger">
+                                    <span class="lbl">Deuda</span>
+                                    <span class="val">$${c.saldoDeudaUSD.toFixed(2)}</span>
+                                    <small class="sub">Bs. ${tasa > 0 ? c.saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</small>
+                                </div>
+                            ` : `
+                                <div class="clientes-item-deuda-pill badge-success">
+                                    <span class="val"><i class="fas fa-check-circle"></i> Al día</span>
+                                    <small class="sub">$0.00</small>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                    <div class="clientes-item-bottom">
+                        <div class="clientes-item-comprado">
+                            <span class="lbl">Comprado total:</span>
+                            <span class="val">$${c.totalCompradoUSD.toFixed(2)}</span>
+                        </div>
+                        <div class="clientes-item-actions">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="verDetalleCliente('${c.id}')" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; padding:6px 12px; border-radius:8px;">
+                                <i class="fas fa-gauge"></i> Panel 360°
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="abrirModalEliminarCliente('${c.id}')" title="Eliminar cliente" style="padding:6px 10px; border-radius:8px;">
+                                <i class="fas fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 function abrirModalEliminarCliente(clienteId) {
@@ -321,45 +536,108 @@ function limpiarHistorialClientesEliminados() {
     renderizarResumenPerdidasEconomicas();
 }
 
-function verDetalleCliente(id) {
+function verDetalleCliente(id, abrirModal = true) {
     clienteSeleccionadoId = id;
-    const cliente = clientes.find(c => c.id === id);
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cliente = lista.find(c => c.id === id);
+    if (!cliente) return;
+
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
     const { totalCompradoUSD, totalCompradoVES, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(id);
+    const tieneDeuda = saldoDeudaUSD > 0;
+    const iniciales = (cliente.nombre || cliente.id || 'CL')
+        .split(' ')
+        .map(w => w[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
 
-    document.getElementById('det-cliente-nombre').textContent = `Panel Cliente: ${cliente.nombre}`;
-    document.getElementById('det-kpi-comprado-usd').textContent = `$${totalCompradoUSD.toFixed(2)}`;
-    document.getElementById('det-kpi-comprado-ves').textContent = `Bs. ${tasaActiva > 0 ? totalCompradoVES.toFixed(2) : '—'}`;
+    // Actualizar cabecera del modal
+    const avatarEl = document.getElementById('det-cliente-avatar');
+    if (avatarEl) avatarEl.textContent = iniciales;
 
-    document.getElementById('det-kpi-deuda-usd').textContent = `$${saldoDeudaUSD.toFixed(2)}`;
-    document.getElementById('det-kpi-deuda-ves').textContent = `Bs. ${tasaActiva > 0 ? saldoDeudaVES.toFixed(2) : '—'}`;
+    const nombreEl = document.getElementById('det-cliente-nombre');
+    if (nombreEl) nombreEl.textContent = cliente.nombre || cliente.id;
+
+    const badgeEstadoEl = document.getElementById('det-cliente-estado-badge');
+    if (badgeEstadoEl) {
+        if (tieneDeuda) {
+            badgeEstadoEl.className = 'det-status-badge badge-danger';
+            badgeEstadoEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Deuda: $${saldoDeudaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        } else {
+            badgeEstadoEl.className = 'det-status-badge badge-success';
+            badgeEstadoEl.innerHTML = `<i class="fas fa-check-circle"></i> Al día ($0.00)`;
+        }
+    }
+
+    const idTextEl = document.getElementById('det-cliente-id-text');
+    if (idTextEl) idTextEl.innerHTML = `<i class="fas fa-id-card"></i> Cédula: <strong>${cliente.id}</strong>`;
+
+    const telTextEl = document.getElementById('det-cliente-tel-text');
+    if (telTextEl) telTextEl.innerHTML = `<i class="fas fa-phone"></i> Tel: <strong>${cliente.telefono || '—'}</strong>`;
+
+    // Botón WhatsApp
+    const btnWa = document.getElementById('det-btn-whatsapp');
+    if (btnWa) {
+        if (cliente.telefono && cliente.telefono.trim()) {
+            btnWa.style.display = 'inline-flex';
+        } else {
+            btnWa.style.display = 'none';
+        }
+    }
+
+    // KPIs del modal con formato de miles
+    const compUsdEl = document.getElementById('det-kpi-comprado-usd');
+    if (compUsdEl) compUsdEl.textContent = `$${totalCompradoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const compVesEl = document.getElementById('det-kpi-comprado-ves');
+    if (compVesEl) compVesEl.textContent = `Bs. ${tasa > 0 ? totalCompradoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}`;
+
+    const deudaUsdEl = document.getElementById('det-kpi-deuda-usd');
+    if (deudaUsdEl) deudaUsdEl.textContent = `$${saldoDeudaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const deudaVesEl = document.getElementById('det-kpi-deuda-ves');
+    if (deudaVesEl) deudaVesEl.textContent = `Bs. ${tasa > 0 ? saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}`;
+
+    const deudaCardEl = document.getElementById('det-kpi-deuda-card');
+    if (deudaCardEl) {
+        deudaCardEl.className = tieneDeuda ? 'det-kpi-card danger' : 'det-kpi-card';
+    }
+
+    // Construir lista de transacciones
+    const listaVentas = Array.isArray(ventas) ? ventas : (AppState.ventas || []);
+    const listaAbonos = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
 
     const transacciones = [];
-    ventas.filter(v => v.clienteId === id).forEach(v => {
+    listaVentas.filter(v => v.clienteId === id).forEach(v => {
         transacciones.push({
+            tipoOperacion: 'cargo',
             fecha: v.fecha,
-            concepto: `Venta (${v.tipo})`,
-            detalle: v.items.map(i => `${i.cantidad}x ${i.nombre}`).join(', '),
-            cargoUSD: v.tipo === 'Crédito' ? v.total : 0,
+            concepto: `Venta (${v.tipo || 'Contado'})`,
+            detalle: (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos',
+            cargoUSD: v.tipo === 'Crédito' ? Number(v.total || 0) : 0,
             abonoUSD: 0,
             montoPagoVES: '-'
         });
     });
 
-    abonos.filter(a => a.clienteId === id).forEach(a => {
+    listaAbonos.filter(a => a.clienteId === id).forEach(a => {
         const aprobado = a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado;
         const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-            ? sanitizarAbonoMonedas(a, tasaActiva)
+            ? sanitizarAbonoMonedas(a, tasa)
             : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
 
         const nombreMetodo = a.formaPago || a.metodo || 'Abono';
         const badgeMoneda = esDivisa ? ' (Divisas $)' : ' (Bs. VES)';
         transacciones.push({
+            tipoOperacion: 'abono',
             fecha: a.fecha,
             concepto: aprobado ? `Abono / Pago${badgeMoneda}` : `Pago (${a.estado})${badgeMoneda}`,
             detalle: a.referencia && a.referencia !== 'N/A' && a.referencia !== 'Sin Ref' ? `${nombreMetodo} · Ref. ${a.referencia}` : nombreMetodo,
             cargoUSD: 0,
             abonoUSD: aprobado ? montoUSD : 0,
-            montoPagoVES: montoVES > 0 ? `Bs. ${Number(montoVES).toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : '-',
+            montoPagoVES: montoVES > 0 ? `Bs. ${Number(montoVES).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-',
             pendiente: !aprobado
         });
     });
@@ -368,27 +646,158 @@ function verDetalleCliente(id) {
         transacciones.push(...transaccionesPendientesCliente(id));
     }
 
-    transacciones.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    transacciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+    // Actualizar badge contador
+    const countEl = document.getElementById('det-movimientos-contador');
+    if (countEl) {
+        countEl.textContent = `${transacciones.length} movimiento${transacciones.length === 1 ? '' : 's'}`;
+    }
 
     let saldoAcumuladoUSD = 0;
-    const tbody = document.getElementById('det-historial-body');
-    tbody.innerHTML = transacciones.map(t => {
-        saldoAcumuladoUSD += (t.cargoUSD - t.abonoUSD);
-        const estadoTransaccion = t.estado || (t.pendiente ? 'Confirmando' : 'Pago agregado');
-        return `
-            <tr>
-                <td>${t.fecha}</td>
-                <td>${t.concepto} ${t.pendiente ? `<span class="transaction-badge transaction-pending">Confirmando</span>` : (t.estado ? `<span class="transaction-badge transaction-approved">${t.estado}</span>` : ``)}</td>
-                <td>${t.detalle}</td>
-                <td class="num">$${t.cargoUSD.toFixed(2)}</td>
-                <td class="num">$${t.abonoUSD.toFixed(2)}</td>
-                <td class="num">${t.montoPagoVES}</td>
-                <td class="num"><strong>$${saldoAcumuladoUSD.toFixed(2)}</strong></td>
-                <td class="num"><strong>Bs. ${tasaActiva > 0 ? (saldoAcumuladoUSD * tasaActiva).toFixed(2) : '—'}</strong></td>
-            </tr>
-        `;
-    }).join('');
+    const rowsDesktop = [];
+    const cardsMobile = [];
 
-    document.getElementById('cliente-detalle-card').style.display = 'block';
+    if (!transacciones.length) {
+        const mensajeVacio = `
+            <div style="text-align:center; padding:32px 16px; color:var(--text-muted, #64748b);">
+                <i class="fas fa-folder-open" style="font-size:2rem; opacity:0.35; margin-bottom:8px; display:block;"></i>
+                No hay movimientos registrados para este cliente.
+            </div>
+        `;
+        const tbody = document.getElementById('det-historial-body');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px 16px; color:var(--text-muted);">${mensajeVacio}</td></tr>`;
+        }
+        const mobileContainer = document.getElementById('det-historial-mobile');
+        if (mobileContainer) {
+            mobileContainer.innerHTML = mensajeVacio;
+        }
+    } else {
+        transacciones.forEach(t => {
+            saldoAcumuladoUSD += (t.cargoUSD - t.abonoUSD);
+            const saldoVES = tasa > 0 ? (saldoAcumuladoUSD * tasa) : 0;
+            const saldoEsDeudor = saldoAcumuladoUSD > 0;
+            const esCargo = t.cargoUSD > 0;
+            const esAbono = t.abonoUSD > 0;
+
+            // Fila Desktop
+            rowsDesktop.push(`
+                <tr>
+                    <td style="white-space:nowrap; padding:8px 10px;">${t.fecha}</td>
+                    <td style="padding:8px 10px;">
+                        ${t.concepto}
+                        ${t.pendiente ? `<span class="transaction-badge transaction-pending" style="font-size:0.7rem; margin-left:4px;">Confirmando</span>` : ''}
+                    </td>
+                    <td style="padding:8px 10px; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escaparHtmlInventario ? escaparHtmlInventario(t.detalle) : t.detalle}">
+                        ${escaparHtmlInventario ? escaparHtmlInventario(t.detalle) : t.detalle}
+                    </td>
+                    <td class="num" style="padding:8px 10px; color:${esCargo ? '#dc2626' : 'inherit'}; font-weight:${esCargo ? '700' : 'normal'};">
+                        ${esCargo ? `$${t.cargoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </td>
+                    <td class="num" style="padding:8px 10px; color:${esAbono ? '#16a34a' : 'inherit'}; font-weight:${esAbono ? '700' : 'normal'};">
+                        ${esAbono ? `$${t.abonoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                    </td>
+                    <td class="num" style="padding:8px 10px;">${t.montoPagoVES}</td>
+                    <td class="num" style="padding:8px 10px; font-weight:bold; color:${saldoEsDeudor ? 'var(--danger, #dc2626)' : '#16a34a'};">
+                        $${saldoAcumuladoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td class="num" style="padding:8px 10px; font-weight:bold; color:${saldoEsDeudor ? 'var(--danger, #dc2626)' : '#16a34a'};">
+                        Bs. ${tasa > 0 ? saldoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                    </td>
+                </tr>
+            `);
+
+            // Tarjeta Mobile Ergonómica (sin scroll horizontal)
+            cardsMobile.push(`
+                <div class="det-tx-card">
+                    <div class="det-tx-top">
+                        <div class="det-tx-title-group">
+                            <div class="det-tx-icon ${esAbono ? 'det-tx-icon-abono' : 'det-tx-icon-cargo'}">
+                                <i class="fas ${esAbono ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}"></i>
+                            </div>
+                            <div style="min-width:0;">
+                                <div class="det-tx-title">${t.concepto}</div>
+                                <div style="font-size:0.72rem; color:#64748b;">${t.fecha}</div>
+                            </div>
+                        </div>
+                        <div class="det-tx-amount ${esAbono ? 'det-tx-amount-abono' : 'det-tx-amount-cargo'}">
+                            ${esCargo ? `+$${t.cargoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                            ${esAbono ? `-$${t.abonoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                            ${!esCargo && !esAbono ? '$0.00' : ''}
+                        </div>
+                    </div>
+                    ${t.detalle ? `<div class="det-tx-details">${escaparHtmlInventario ? escaparHtmlInventario(t.detalle) : t.detalle}</div>` : ''}
+                    <div class="det-tx-meta">
+                        <span>Saldo resultante:</span>
+                        <span class="det-tx-balance" style="color:${saldoEsDeudor ? '#dc2626' : '#16a34a'};">
+                            <strong>$${saldoAcumuladoUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                            ${tasa > 0 ? `<small style="color:#64748b; margin-left:4px;">(Bs. ${saldoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</small>` : ''}
+                        </span>
+                    </div>
+                </div>
+            `);
+        });
+
+        const tbody = document.getElementById('det-historial-body');
+        if (tbody) tbody.innerHTML = rowsDesktop.join('');
+
+        const mobileContainer = document.getElementById('det-historial-mobile');
+        if (mobileContainer) mobileContainer.innerHTML = cardsMobile.join('');
+    }
+
+    // Abrir modal si abrirModal es verdadero
+    const modal = document.getElementById('modal-cliente-detalle');
+    if (modal && (abrirModal || modal.classList.contains('active'))) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
+window.verDetalleCliente = verDetalleCliente;
+
+function cerrarModalDetalleCliente() {
+    const modal = document.getElementById('modal-cliente-detalle');
+    if (modal) modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+window.cerrarModalDetalleCliente = cerrarModalDetalleCliente;
+
+function enviarWhatsappCliente() {
+    if (!clienteSeleccionadoId) return;
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cliente = lista.find(c => c.id === clienteSeleccionadoId);
+    if (!cliente || !cliente.telefono) {
+        alert('Este cliente no tiene número de teléfono registrado.');
+        return;
+    }
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
+    const { saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(cliente.id);
+    let tel = cliente.telefono.replace(/[^0-9]/g, '');
+    if (tel.startsWith('0')) {
+        tel = '58' + tel.substring(1);
+    } else if (tel.length === 10 && !tel.startsWith('58')) {
+        tel = '58' + tel;
+    }
+
+    let mensaje = '';
+    if (saldoDeudaUSD > 0) {
+        mensaje = `Hola ${cliente.nombre}, le saludamos cordialmente de Tu Bodeguita de Confianza. Le informamos que mantiene un saldo pendiente en cuenta de $${saldoDeudaUSD.toFixed(2)} (equivalente a Bs. ${tasa > 0 ? saldoDeudaVES.toFixed(2) : '0.00'}). Agradecemos su gentil atención para coordinar su abono o pago. ¡Muchas gracias!`;
+    } else {
+        mensaje = `Hola ${cliente.nombre}, le saludamos de Tu Bodeguita de Confianza. Le confirmamos que su cuenta se encuentra actualmente al día con saldo $0.00. ¡Muchas gracias por su preferencia!`;
+    }
+
+    const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
+}
+window.enviarWhatsappCliente = enviarWhatsappCliente;
+
+// Listener para cerrar modal con tecla Escape
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('modal-cliente-detalle');
+        if (modal && modal.classList.contains('active')) {
+            cerrarModalDetalleCliente();
+        }
+    }
+});
 

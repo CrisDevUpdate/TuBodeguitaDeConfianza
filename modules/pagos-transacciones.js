@@ -1619,8 +1619,23 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
         const abono = (AppState.abonos || []).find(a => a.id === abonoId);
         if (abono) {
             abono.estado = 'Pago agregado';
+            abono.fechaAprobacion = new Date().toISOString().replace('T', ' ').substring(0, 16);
             if (window.InventoryApp?.Firebase?.guardarAbono) {
                 window.InventoryApp.Firebase.guardarAbono(abono).catch(() => {});
+            }
+
+            // Actualizar solvencia y último abono del cliente
+            const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
+            if (cliente) {
+                cliente.ultimoAbonoFecha = new Date().toISOString();
+                if (window.InventoryApp?.Firebase?.guardarCliente) {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
+                }
+            }
+
+            // Liberación y acreditación proporcional de los puntos de lealtad congelados
+            if (typeof otorgarPuntosPorCompra === 'function' && Number(abono.montoUSD || 0) > 0) {
+                otorgarPuntosPorCompra(abono.clienteId, Number(abono.montoUSD), 'Abono Conciliado por Admin');
             }
         }
     }

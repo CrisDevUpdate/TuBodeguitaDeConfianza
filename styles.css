@@ -4817,3 +4817,760 @@ input[type="number"].pos-stepper-val,
     z-index: 100001 !important;
 }
 
+/* ==========================================================================
+   MÓDULO DE CLIENTES Y CUENTAS POR COBRAR + MODAL PANEL 360°
+   ========================================================================== */
+.clientes-kpis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.clientes-toolbar input:focus {
+    border-color: var(--primary-accent, #2563eb) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+}
+
+.clientes-item-card {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    gap: 10px;
+    box-sizing: border-box;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clientes-item-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.clientes-item-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.clientes-item-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1d4ed8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.95rem;
+    border: 1.5px solid #bfdbfe;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+}
+
+.clientes-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.clientes-item-name {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.clientes-item-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 3px;
+    flex-wrap: wrap;
+}
+
+.clientes-item-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.clientes-item-financial {
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.clientes-item-deuda-pill {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding: 6px 10px;
+    border-radius: 10px;
+    line-height: 1.2;
+}
+
+.clientes-item-deuda-pill.badge-danger {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+
+.clientes-item-deuda-pill.badge-danger .lbl {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #ef4444;
+}
+
+.clientes-item-deuda-pill.badge-danger .val {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #dc2626;
+}
+
+.clientes-item-deuda-pill.badge-danger .sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #b91c1c;
+}
+
+.clientes-item-deuda-pill.badge-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+}
+
+.clientes-item-deuda-pill.badge-success .val {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #16a34a;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.clientes-item-deuda-pill.badge-success .sub {
+    font-size: 0.72rem;
+    color: #65a30d;
+}
+
+.clientes-item-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.clientes-item-comprado {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.clientes-item-comprado .lbl {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.clientes-item-comprado .val {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.clientes-item-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ==========================================================================
+   MODAL PANEL 360° CLIENTE (PROFESIONAL, ERGONÓMICO Y RESPONSIVO)
+   ========================================================================== */
+#modal-cliente-detalle {
+    z-index: 10040 !important;
+}
+
+#modal-abono {
+    z-index: 10060 !important;
+}
+
+#modal-cliente-detalle .modal-cliente-detalle-content {
+    max-width: 780px !important;
+    width: 100% !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+}
+
+@media (max-width: 640px) {
+    #modal-cliente-detalle {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+    #modal-cliente-detalle .modal-cliente-detalle-content {
+        padding: 16px 16px calc(18px + var(--safe-bottom, 0px)) 16px !important;
+        border-radius: 22px 22px 0 0 !important;
+        max-height: 94vh !important;
+        width: 100% !important;
+    }
+}
+
+/* Modal Top Bar */
+.det-modal-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.det-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.det-modal-title i {
+    color: var(--primary-accent, #2563eb);
+    font-size: 1.15rem;
+}
+
+/* Modal Scrollable Body */
+.det-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Client Profile Card */
+.det-profile-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.det-profile-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.det-profile-avatar {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1d4ed8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    border: 2px solid #bfdbfe;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+}
+
+.det-profile-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.det-profile-name-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.det-profile-name {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.det-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.det-status-badge.badge-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.det-status-badge.badge-success {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.det-profile-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: #64748b;
+    flex-wrap: wrap;
+}
+
+.det-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.det-profile-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+@media (max-width: 440px) {
+    .det-profile-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+.det-btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.det-btn-action:active {
+    transform: scale(0.98);
+}
+
+.det-btn-whatsapp {
+    background: #10b981 !important;
+    border: 1px solid #059669 !important;
+    color: #ffffff !important;
+}
+
+.det-btn-whatsapp:hover {
+    background: #059669 !important;
+}
+
+/* Financial KPIs */
+.det-kpis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.det-kpi-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.det-kpi-card.danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.det-kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.det-kpi-card.danger .det-kpi-header {
+    color: #b91c1c;
+}
+
+.det-kpi-icon-comprado {
+    color: #0284c7;
+}
+
+.det-kpi-icon-deuda {
+    color: #ef4444;
+}
+
+.det-kpi-amount {
+    font-size: clamp(1.05rem, 3.8vw, 1.35rem);
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 4px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.det-kpi-card.danger .det-kpi-amount {
+    color: #dc2626;
+}
+
+.det-kpi-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.det-kpi-card.danger .det-kpi-sub {
+    color: #b91c1c;
+}
+
+/* Section Header */
+.det-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 2px 0 2px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.det-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.det-section-title i {
+    color: #2563eb;
+}
+
+.det-movimientos-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Mobile Transaction Cards */
+.det-transactions-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.det-tx-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 11px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.det-tx-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.det-tx-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.det-tx-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+
+.det-tx-icon-cargo {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.det-tx-icon-abono {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.det-tx-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.det-tx-amount {
+    font-size: 0.95rem;
+    font-weight: 800;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.det-tx-amount-cargo {
+    color: #dc2626;
+}
+
+.det-tx-amount-abono {
+    color: #16a34a;
+}
+
+.det-tx-details {
+    font-size: 0.78rem;
+    color: #475569;
+    line-height: 1.35;
+    background: #f8fafc;
+    padding: 6px 9px;
+    border-radius: 7px;
+    word-break: break-word;
+}
+
+.det-tx-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.74rem;
+    color: #64748b;
+    padding-top: 4px;
+    border-top: 1px dashed #f1f5f9;
+}
+
+.det-tx-balance strong {
+    color: #0f172a;
+}
+
+/* Desktop vs Mobile display toggles */
+@media (max-width: 640px) {
+    .det-transactions-desktop {
+        display: none !important;
+    }
+    .det-transactions-mobile {
+        display: flex !important;
+    }
+}
+
+@media (min-width: 641px) {
+    .det-transactions-desktop {
+        display: block !important;
+    }
+    .det-transactions-mobile {
+        display: none !important;
+    }
+}
+
+.det-table-container {
+    max-height: 38vh;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow-y: auto;
+}
+
+.det-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+/* Dark mode compatibility */
+body.dark-theme .clientes-item-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+body.dark-theme .clientes-item-avatar {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+    color: #60a5fa;
+    border-color: #2563eb;
+}
+
+body.dark-theme .clientes-item-name {
+    color: #f1f5f9;
+}
+
+body.dark-theme .clientes-item-bottom {
+    border-color: #334155;
+}
+
+body.dark-theme .clientes-item-comprado .val {
+    color: #f8fafc;
+}
+
+body.dark-theme #modal-cliente-detalle .modal-cliente-detalle-content {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+}
+
+body.dark-theme .det-modal-topbar {
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-modal-title {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-profile-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-profile-avatar {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%) !important;
+    color: #60a5fa !important;
+    border-color: #2563eb !important;
+}
+
+body.dark-theme .det-profile-name {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-profile-actions {
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-kpi-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-kpi-card.danger {
+    background: #2a1515 !important;
+    border-color: #7f1d1d !important;
+}
+
+body.dark-theme .det-kpi-amount {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-section-title {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-movimientos-badge {
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-tx-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-tx-title {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-tx-details {
+    background: #0f172a !important;
+    color: #cbd5e1 !important;
+}
+
+body.dark-theme .det-tx-meta {
+    border-color: #334155 !important;
+}
+
+body.dark-theme .det-tx-balance strong {
+    color: #f8fafc !important;
+}
+
+body.dark-theme .det-table-container {
+    border-color: #334155 !important;
+}
+
+body.dark-theme #modal-cliente-detalle thead {
+    background: #1e293b !important;
+}
+
+body.dark-theme #modal-cliente-detalle th {
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
+}
+
+body.dark-theme #modal-cliente-detalle td {
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-theme .det-modal-footer {
+    border-color: #334155 !important;
+}
+
