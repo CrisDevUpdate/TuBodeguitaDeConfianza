@@ -206,6 +206,21 @@
         "estado": "string",
         "origen": "string"
       }
+    },
+    {
+      "collection": "proveedores",
+      "fields": {
+        "id": "string",
+        "nombre": "string",
+        "rif": "string",
+        "telefono": "string",
+        "contacto": "string",
+        "direccion": "string",
+        "notas": "string",
+        "estado": "string",
+        "fechaRegistro": "string",
+        "updatedAt": "string"
+      }
     }
   ]
 }

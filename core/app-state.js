@@ -143,6 +143,7 @@ const AppState = window.AppState = window.InventoryApp.state = {
     categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General'],
     facturasCompras: [],
     kardex: [],
+    proveedores: [],
     proveedoresFrecuentes: ['Distribuidora Polar', 'Empresas Polar C.A.', 'Mayorista Central', 'Nestlé de Venezuela', 'Mavesa / Alimentos Polar', 'Distribuidora La Fama', 'Mondelez']
 };
 
@@ -152,7 +153,7 @@ const legacyGlobals = [
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
     'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
-    'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedoresFrecuentes'
+    'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedores','proveedoresFrecuentes'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {

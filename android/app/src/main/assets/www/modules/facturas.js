@@ -27,8 +27,7 @@ window.InventoryApp = window.InventoryApp || {};
     };
 
     /**
-     * Valida de forma estricta que se haya ingresado el proveedor antes de agregar o seleccionar productos.
-     * Si el proveedor es nuevo (no existe en la base de datos), lo acepta y lo registra automáticamente en Firebase.
+     * Valida de forma estricta que se haya ingresado el proveedor antes de agregar o seleccionar productos
      */
     function validarProveedorFactura(conAlerta = true) {
         const inputProv = document.getElementById('factura-proveedor');
@@ -36,7 +35,7 @@ window.InventoryApp = window.InventoryApp || {};
         if (!proveedor) {
             if (conAlerta) {
                 if (typeof showCustomAlert === 'function') {
-                    showCustomAlert('Proveedor Requerido', 'Por favor especifica el nombre o razón social del proveedor antes de agregar productos a la factura.', 'warning');
+                    showCustomAlert('Proveedor Requerido', 'Por favor especifica primero el nombre o razón social del proveedor antes de agregar productos a la factura.', 'warning');
                 } else {
                     alert('Por favor especifica primero el nombre o razón social del proveedor.');
                 }
@@ -49,55 +48,11 @@ window.InventoryApp = window.InventoryApp || {};
             }
             return false;
         }
-
         if (inputProv) {
             inputProv.style.borderColor = '';
             inputProv.style.boxShadow = '';
         }
-
-        estadoFactura.proveedor = proveedor;
-
-        // Asegurar que quede registrado en Firestore Firebase en segundo plano sin interrumpir al usuario
-        asegurarProveedorEnFirebase(proveedor);
-
         return true;
-    }
-
-    /**
-     * Verifica si un proveedor existe en la base de datos de Firebase / AppState.
-     * Si no existe, lo guarda de forma transparente en Firebase Firestore.
-     */
-    async function asegurarProveedorEnFirebase(nombreProveedor) {
-        if (!nombreProveedor) return;
-        const nombre = String(nombreProveedor).trim();
-        if (nombre.length < 2) return;
-
-        const existe = Array.isArray(AppState.proveedores) && AppState.proveedores.some(p => {
-            const nom = typeof p === 'string' ? p : (p?.nombre || '');
-            return nom.toLowerCase() === nombre.toLowerCase();
-        });
-
-        if (!existe) {
-            try {
-                if (window.InventoryApp?.Firebase?.guardarProveedor) {
-                    await window.InventoryApp.Firebase.guardarProveedor({
-                        nombre: nombre,
-                        estado: 'ACTIVO',
-                        notas: 'Registrado desde factura de compra'
-                    });
-                } else {
-                    if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
-                    AppState.proveedores.push({ id: 'PROV-' + Date.now(), nombre: nombre, estado: 'ACTIVO' });
-                    if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
-                    if (!AppState.proveedoresFrecuentes.includes(nombre)) AppState.proveedoresFrecuentes.push(nombre);
-                    if (window.InventoryApp?.Persistence) window.InventoryApp.Persistence.guardar(true);
-                }
-                actualizarDatalistProveedores();
-                console.info(`[Facturas] Proveedor "${nombre}" registrado con éxito en Firebase.`);
-            } catch (e) {
-                console.warn('[Facturas] Error al registrar proveedor en segundo plano:', e);
-            }
-        }
     }
 
     /**
@@ -118,41 +73,9 @@ window.InventoryApp = window.InventoryApp || {};
         if (inputProv && !inputProv._hasValidationListener) {
             inputProv._hasValidationListener = true;
             inputProv.addEventListener('input', () => {
-                const val = inputProv.value.trim();
-                estadoFactura.proveedor = val;
-                if (val) {
+                if (inputProv.value.trim()) {
                     inputProv.style.borderColor = '';
                     inputProv.style.boxShadow = '';
-                }
-
-                // Detector de proveedor nuevo
-                const helper = document.getElementById('factura-proveedor-helper');
-                if (helper) {
-                    if (val.length >= 2) {
-                        const existe = (AppState.proveedores || []).some(p => {
-                            const nom = typeof p === 'string' ? p : (p?.nombre || '');
-                            return nom.toLowerCase() === val.toLowerCase();
-                        });
-                        if (!existe) {
-                            helper.style.display = 'flex';
-                            const nombreSpan = document.getElementById('factura-helper-nombre-prov');
-                            if (nombreSpan) nombreSpan.textContent = `"${val}"`;
-                        } else {
-                            helper.style.display = 'none';
-                        }
-                    } else {
-                        helper.style.display = 'none';
-                    }
-                }
-            });
-
-            inputProv.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (validarProveedorFactura(true)) {
-                        const searchInput = document.getElementById('factura-search-producto');
-                        if (searchInput) searchInput.focus();
-                    }
                 }
             });
         }
@@ -166,7 +89,7 @@ window.InventoryApp = window.InventoryApp || {};
                     currentProv.style.borderColor = '#ef4444';
                     currentProv.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
                     if (typeof showCustomToast === 'function') {
-                        showCustomToast('Recuerda colocar el Proveedor de la factura', 'warning');
+                        showCustomToast('Recuerda colocar primero el Proveedor de la factura', 'warning');
                     }
                 }
             });
@@ -225,7 +148,7 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * Actualiza el catálogo datalist de proveedores frecuentes y de Firestore
+     * Actualiza el catálogo datalist de proveedores frecuentes
      */
     function actualizarDatalistProveedores() {
         const datalist = document.getElementById('lista-proveedores-datalist') || document.getElementById('factura-proveedores-datalist');
@@ -235,363 +158,29 @@ window.InventoryApp = window.InventoryApp || {};
             'Distribuidora Polar C.A.',
             'Empresas Polar',
             'Mayorista Central',
-            'Nestlé de Venezuela S.A.',
+            'Nestlé de Venezuela',
             'Mavesa / Alimentos Polar',
             'Distribuidora La Fama',
             'Mondelez Venezuela',
-            'Monaca / Alimentos Mary',
+            'Alimentos Mary',
             'Central Madeirense Mayorista',
             'Comercializadora El Rey',
-            'Empresas Sindoni'
+            'Empresas Sindoni',
+            'Monaca / Alimentos Mary'
         ]);
 
-        if (Array.isArray(AppState.proveedores)) {
-            AppState.proveedores.forEach(p => {
-                if (typeof p === 'string' && p.trim()) proveedores.add(p.trim());
-                else if (p && p.nombre && p.nombre.trim()) proveedores.add(p.nombre.trim());
-            });
-        }
         if (Array.isArray(AppState.proveedoresFrecuentes)) {
-            AppState.proveedoresFrecuentes.forEach(p => {
-                if (typeof p === 'string' && p.trim()) proveedores.add(p.trim());
-                else if (p && p.nombre && p.nombre.trim()) proveedores.add(p.nombre.trim());
-            });
+            AppState.proveedoresFrecuentes.forEach(p => proveedores.add(p));
         }
         if (Array.isArray(AppState.facturasCompras)) {
             AppState.facturasCompras.forEach(f => {
-                if (f && f.proveedor && f.proveedor.trim()) proveedores.add(f.proveedor.trim());
+                if (f.proveedor) proveedores.add(f.proveedor);
             });
         }
 
         datalist.innerHTML = Array.from(proveedores)
-            .sort()
             .map(prov => `<option value="${prov}"></option>`)
             .join('');
-    }
-
-    /**
-     * Modal interactivo para Registrar Nuevo Proveedor en Firebase con datos completos
-     */
-    function abrirModalRegistrarProveedor(nombreInicial = '') {
-        const inputActual = document.getElementById('factura-proveedor');
-        const valorActual = nombreInicial || (inputActual ? inputActual.value.trim() : '');
-
-        let modal = document.getElementById('modal-registro-proveedor-cloud');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modal-registro-proveedor-cloud';
-            modal.className = 'custom-modal-backdrop';
-            modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
-            document.body.appendChild(modal);
-        }
-
-        modal.innerHTML = `
-            <div style="background:var(--card-bg, #ffffff); border-radius:14px; max-width:490px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25), 0 8px 10px -6px rgba(0,0,0,0.15); border:1px solid var(--border-color, #e2e8f0); overflow:hidden; animation:modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
-                <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); padding:16px 20px; color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div style="width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">
-                            <i class="fas fa-truck-loading"></i>
-                        </div>
-                        <div>
-                            <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#ffffff;">Registrar Proveedor</h3>
-                            <p style="margin:2px 0 0 0; font-size:0.75rem; color:#bfdbfe;">Persistencia garantizada en Firebase Firestore</p>
-                        </div>
-                    </div>
-                    <button type="button" onclick="cerrarModalRegistrarProveedor()" style="background:transparent; border:none; color:#ffffff; font-size:1.2rem; cursor:pointer; padding:4px 8px; border-radius:6px; opacity:0.85;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-
-                <form id="form-registro-proveedor-cloud" onsubmit="guardarNuevoProveedorDesdeModal(event)" style="padding:20px; display:flex; flex-direction:column; gap:14px;">
-                    <div>
-                        <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                            Nombre o Razón Social <span style="color:#ef4444;">*</span>
-                        </label>
-                        <input type="text" id="modal-prov-nombre" required placeholder="Ej: Distribuidora Los Andes C.A." value="${valorActual}" style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                        <div>
-                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                                RIF / Identificación Fiscal
-                            </label>
-                            <input type="text" id="modal-prov-rif" placeholder="Ej: J-12345678-9" style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                        </div>
-                        <div>
-                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                                Teléfono / WhatsApp
-                            </label>
-                            <input type="text" id="modal-prov-telefono" placeholder="Ej: 0414-1234567" style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                        </div>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                        <div>
-                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                                Persona de Contacto
-                            </label>
-                            <input type="text" id="modal-prov-contacto" placeholder="Ej: Juan Pérez (Vendedor)" style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                        </div>
-                        <div>
-                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                                Ciudad / Ubicación
-                            </label>
-                            <input type="text" id="modal-prov-direccion" placeholder="Ej: Galpón 4, Valencia" style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color, #1e293b); margin-bottom:4px;">
-                            Notas / Condiciones Comerciales (Opcional)
-                        </label>
-                        <input type="text" id="modal-prov-notas" placeholder="Ej: Despachos martes y viernes" style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.85rem; background:var(--input-bg, #ffffff); color:var(--text-color, #0f172a);">
-                    </div>
-
-                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px; padding-top:12px; border-top:1px solid var(--border-color, #e2e8f0);">
-                        <button type="button" onclick="cerrarModalRegistrarProveedor()" style="padding:9px 16px; border:1px solid var(--border-color, #cbd5e1); background:var(--card-bg, #ffffff); color:var(--text-muted, #64748b); border-radius:8px; font-weight:600; font-size:0.88rem; cursor:pointer;">
-                            Cancelar
-                        </button>
-                        <button type="submit" id="btn-guardar-proveedor-submit" style="padding:9px 20px; background:#2563eb; color:#ffffff; border:none; border-radius:8px; font-weight:700; font-size:0.88rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(37,99,235,0.25);">
-                            <i class="fas fa-cloud-upload-alt"></i> Guardar en Firebase
-                        </button>
-                    </div>
-                </form>
-            </div>
-        `;
-
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            const inputNom = document.getElementById('modal-prov-nombre');
-            if (inputNom) inputNom.focus();
-        }, 60);
-    }
-
-    /**
-     * Procesa el formulario del modal y persiste el proveedor en Firebase
-     */
-    async function guardarNuevoProveedorDesdeModal(e) {
-        if (e && e.preventDefault) e.preventDefault();
-        const inputNombre = document.getElementById('modal-prov-nombre');
-        const inputRif = document.getElementById('modal-prov-rif');
-        const inputTel = document.getElementById('modal-prov-telefono');
-        const inputContacto = document.getElementById('modal-prov-contacto');
-        const inputDireccion = document.getElementById('modal-prov-direccion');
-        const inputNotas = document.getElementById('modal-prov-notas');
-        const btnSubmit = document.getElementById('btn-guardar-proveedor-submit');
-
-        const nombre = String(inputNombre?.value || '').trim();
-        if (!nombre) {
-            if (typeof showCustomToast === 'function') {
-                showCustomToast('Por favor escribe el nombre del proveedor', 'warning');
-            } else {
-                alert('El nombre del proveedor es obligatorio');
-            }
-            return;
-        }
-
-        if (btnSubmit) {
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-        }
-
-        try {
-            const provObj = {
-                nombre: nombre,
-                rif: String(inputRif?.value || '').trim(),
-                telefono: String(inputTel?.value || '').trim(),
-                contacto: String(inputContacto?.value || '').trim(),
-                direccion: String(inputDireccion?.value || '').trim(),
-                notas: String(inputNotas?.value || '').trim(),
-                estado: 'ACTIVO'
-            };
-
-            if (window.InventoryApp?.Firebase?.guardarProveedor) {
-                await window.InventoryApp.Firebase.guardarProveedor(provObj);
-            } else {
-                if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
-                AppState.proveedores.push({ id: 'PROV-' + Date.now(), ...provObj });
-                if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
-                AppState.proveedoresFrecuentes.push(nombre);
-                if (window.InventoryApp?.Persistence) window.InventoryApp.Persistence.guardar(true);
-            }
-
-            actualizarDatalistProveedores();
-
-            // Asignar al input de la factura
-            const inputProv = document.getElementById('factura-proveedor');
-            if (inputProv) {
-                inputProv.value = nombre;
-                inputProv.style.borderColor = '#16a34a';
-                inputProv.style.boxShadow = '0 0 0 3px rgba(22, 163, 74, 0.15)';
-                setTimeout(() => {
-                    inputProv.style.borderColor = '';
-                    inputProv.style.boxShadow = '';
-                }, 1500);
-            }
-            estadoFactura.proveedor = nombre;
-
-            const helper = document.getElementById('factura-proveedor-helper');
-            if (helper) helper.style.display = 'none';
-
-            cerrarModalRegistrarProveedor();
-
-            if (typeof showCustomToast === 'function') {
-                showCustomToast(`Proveedor "${nombre}" registrado exitosamente en Firebase`, 'success');
-            } else if (typeof showCustomAlert === 'function') {
-                showCustomAlert('Proveedor Registrado', `"${nombre}" ha sido registrado en Firebase y asignado a la factura.`, 'success');
-            }
-        } catch (err) {
-            console.error('[Facturas] Error guardando proveedor:', err);
-            if (typeof showCustomToast === 'function') {
-                showCustomToast('Error al conectar con Firebase, proveedor guardado localmente', 'warning');
-            }
-            cerrarModalRegistrarProveedor();
-        }
-    }
-
-    function cerrarModalRegistrarProveedor() {
-        const modal = document.getElementById('modal-registro-proveedor-cloud');
-        if (modal) modal.style.display = 'none';
-    }
-
-    /**
-     * Registro rápido con 1 clic desde el aviso interactivo en la factura
-     */
-    async function guardarProveedorRapidoDesdeInput() {
-        const inputProv = document.getElementById('factura-proveedor');
-        const nombre = String(inputProv?.value || '').trim();
-        if (!nombre) return;
-
-        if (window.InventoryApp?.Firebase?.guardarProveedor) {
-            await window.InventoryApp.Firebase.guardarProveedor({ nombre: nombre, estado: 'ACTIVO' });
-        }
-        actualizarDatalistProveedores();
-        const helper = document.getElementById('factura-proveedor-helper');
-        if (helper) helper.style.display = 'none';
-        if (typeof showCustomToast === 'function') {
-            showCustomToast(`"${nombre}" registrado en Firebase`, 'success');
-        }
-    }
-
-    /**
-     * Abre el modal del Directorio de Proveedores Registrados en Firebase
-     */
-    function abrirDirectorioProveedores() {
-        let modal = document.getElementById('modal-directorio-proveedores-cloud');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'modal-directorio-proveedores-cloud';
-            modal.className = 'custom-modal-backdrop';
-            modal.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
-            document.body.appendChild(modal);
-        }
-
-        const proveedores = Array.isArray(AppState.proveedores) ? AppState.proveedores : [];
-
-        modal.innerHTML = `
-            <div style="background:var(--card-bg, #ffffff); border-radius:14px; max-width:620px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); border:1px solid var(--border-color, #e2e8f0); overflow:hidden;">
-                <div style="background:linear-gradient(135deg, #1e293b, #334155); padding:16px 20px; color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div style="width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.1rem;">
-                            <i class="fas fa-address-book"></i>
-                        </div>
-                        <div>
-                            <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#ffffff;">Directorio de Proveedores</h3>
-                            <p style="margin:2px 0 0 0; font-size:0.75rem; color:#cbd5e1;">${proveedores.length} proveedores registrados en Firebase</p>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="cerrarDirectorioProveedores(); abrirModalRegistrarProveedor();" style="background:#2563eb; color:#ffffff; border:none; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                            <i class="fas fa-plus"></i> Nuevo
-                        </button>
-                        <button type="button" onclick="cerrarDirectorioProveedores()" style="background:transparent; border:none; color:#ffffff; font-size:1.2rem; cursor:pointer; padding:4px 8px; border-radius:6px; opacity:0.85;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div style="padding:12px 18px; border-bottom:1px solid var(--border-color, #e2e8f0); background:var(--bg-light, #f8fafc);">
-                    <input type="text" id="filtro-directorio-proveedores" oninput="filtrarDirectorioProveedores(this.value)" placeholder="Buscar proveedor por nombre, RIF o teléfono..." style="width:100%; padding:8px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.88rem; background:var(--input-bg, #ffffff); color:var(--text-color);">
-                </div>
-
-                <div id="lista-directorio-proveedores" style="padding:12px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;">
-                    ${renderizarFilasDirectorio(proveedores)}
-                </div>
-            </div>
-        `;
-
-        modal.style.display = 'flex';
-    }
-
-    function renderizarFilasDirectorio(lista) {
-        if (!lista || lista.length === 0) {
-            return `
-                <div style="text-align:center; padding:30px 10px; color:var(--text-muted);">
-                    <i class="fas fa-truck-moving" style="font-size:2rem; opacity:0.4; margin-bottom:10px;"></i>
-                    <p style="margin:0; font-size:0.9rem;">No hay proveedores registrados aún.</p>
-                </div>
-            `;
-        }
-
-        return lista.map(p => {
-            const nom = p.nombre || 'Sin nombre';
-            const rif = p.rif ? `RIF: ${p.rif}` : '';
-            const tel = p.telefono ? `Tel: ${p.telefono}` : '';
-            const contacto = p.contacto ? `Contacto: ${p.contacto}` : '';
-            const sub = [rif, tel, contacto].filter(Boolean).join(' · ');
-
-            return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; transition:border-color 0.15s ease;">
-                    <div style="min-width:0;">
-                        <div style="font-weight:700; font-size:0.92rem; color:var(--text-color);">${nom}</div>
-                        ${sub ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${sub}</div>` : ''}
-                    </div>
-                    <button type="button" onclick="seleccionarProveedorDesdeDirectorio('${nom.replace(/'/g, "\\'")}')" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; padding:6px 12px; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap; transition:all 0.15s ease;">
-                        Seleccionar
-                    </button>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function filtrarDirectorioProveedores(q) {
-        const query = String(q || '').toLowerCase().trim();
-        const listaEl = document.getElementById('lista-directorio-proveedores');
-        if (!listaEl) return;
-        const provs = Array.isArray(AppState.proveedores) ? AppState.proveedores : [];
-        const filtrados = provs.filter(p => {
-            const n = String(p.nombre || '').toLowerCase();
-            const r = String(p.rif || '').toLowerCase();
-            const t = String(p.telefono || '').toLowerCase();
-            const c = String(p.contacto || '').toLowerCase();
-            return n.includes(query) || r.includes(query) || t.includes(query) || c.includes(query);
-        });
-        listaEl.innerHTML = renderizarFilasDirectorio(filtrados);
-    }
-
-    function seleccionarProveedorDesdeDirectorio(nombre) {
-        const inputProv = document.getElementById('factura-proveedor');
-        if (inputProv) {
-            inputProv.value = nombre;
-            inputProv.style.borderColor = '#16a34a';
-            inputProv.style.boxShadow = '0 0 0 3px rgba(22, 163, 74, 0.15)';
-            setTimeout(() => {
-                inputProv.style.borderColor = '';
-                inputProv.style.boxShadow = '';
-            }, 1200);
-        }
-        estadoFactura.proveedor = nombre;
-        const helper = document.getElementById('factura-proveedor-helper');
-        if (helper) helper.style.display = 'none';
-        cerrarDirectorioProveedores();
-        if (typeof showCustomToast === 'function') {
-            showCustomToast(`Proveedor "${nombre}" seleccionado`, 'info');
-        }
-    }
-
-    function cerrarDirectorioProveedores() {
-        const modal = document.getElementById('modal-directorio-proveedores-cloud');
-        if (modal) modal.style.display = 'none';
     }
 
     /**
@@ -1601,24 +1190,5 @@ window.InventoryApp = window.InventoryApp || {};
     window.cerrarModalDetalleFactura = cerrarModalDetalleFactura;
     window.renderizarKardex = renderizarKardex;
     window.abrirFacturaConProducto = abrirFacturaConProducto;
-    window.validarProveedorFactura = validarProveedorFactura;
-    window.actualizarDatalistProveedores = actualizarDatalistProveedores;
-    window.abrirModalRegistrarProveedor = abrirModalRegistrarProveedor;
-    window.cerrarModalRegistrarProveedor = cerrarModalRegistrarProveedor;
-    window.guardarNuevoProveedorDesdeModal = guardarNuevoProveedorDesdeModal;
-    window.guardarProveedorRapidoDesdeInput = guardarProveedorRapidoDesdeInput;
-    window.abrirDirectorioProveedores = abrirDirectorioProveedores;
-    window.cerrarDirectorioProveedores = cerrarDirectorioProveedores;
-    window.filtrarDirectorioProveedores = filtrarDirectorioProveedores;
-    window.seleccionarProveedorDesdeDirectorio = seleccionarProveedorDesdeDirectorio;
-
-    window.InventoryApp.Facturas = {
-        abrirModalRegistrarProveedor,
-        cerrarModalRegistrarProveedor,
-        abrirDirectorioProveedores,
-        cerrarDirectorioProveedores,
-        actualizarDatalistProveedores,
-        validarProveedorFactura
-    };
 
 })();

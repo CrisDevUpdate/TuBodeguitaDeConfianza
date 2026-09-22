@@ -65,6 +65,15 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read, write: if true;
     }
+    match /proveedores/{proveedorId} {
+      allow read, write: if true;
+    }
+    match /facturas_compras/{facturaId} {
+      allow read, write: if true;
+    }
+    match /kardex_inventario/{kardexId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

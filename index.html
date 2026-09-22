@@ -3802,17 +3802,54 @@
                         </div>
 
                         <div style="margin-bottom:12px;">
-                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
-                                Proveedor <span style="color:var(--danger)">*</span>
-                            </label>
-                            <input type="text" id="factura-proveedor" list="lista-proveedores-datalist" placeholder="Nombre o Razón Social del Proveedor..." style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
-                            <datalist id="lista-proveedores-datalist">
-                                <option value="Distribuidora Polar C.A.">
-                                <option value="Monaca / Alimentos Mary">
-                                <option value="Nestlé Venezuela">
-                                <option value="Empresas Sindoni">
-                                <option value="Comercializadora El Rey">
-                            </datalist>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+                                <label for="factura-proveedor" style="font-size:0.82rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:6px; margin:0;">
+                                    <span>Proveedor <span style="color:#ef4444;">*</span></span>
+                                    <span style="font-size:0.75rem; color:#dc2626; font-weight:600;"><i class="fas fa-asterisk" style="font-size:0.6rem;"></i> Requerido para ingresar mercancía</span>
+                                </label>
+                                <div style="display:flex; gap:6px; align-items:center;">
+                                    <button type="button" onclick="abrirDirectorioProveedores()" title="Ver lista de proveedores registrados en Firebase" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; border-radius:6px; padding:3px 9px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
+                                        <i class="fas fa-address-book" style="color:#2563eb;"></i> Directorio
+                                    </button>
+                                    <button type="button" onclick="abrirModalRegistrarProveedor()" title="Registrar nuevo proveedor en Firebase Firestore" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; border-radius:6px; padding:3px 9px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
+                                        <i class="fas fa-plus-circle" style="color:#2563eb;"></i> + Añadir Proveedor
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <div style="position:relative; flex:1;">
+                                    <input type="text" id="factura-proveedor" list="lista-proveedores-datalist" placeholder="Escribe o selecciona el Proveedor (Ej: Distribuidora Polar)..." style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                                    <datalist id="lista-proveedores-datalist">
+                                        <option value="Distribuidora Polar C.A.">
+                                        <option value="Empresas Polar">
+                                        <option value="Monaca / Alimentos Mary">
+                                        <option value="Nestlé de Venezuela S.A.">
+                                        <option value="Mavesa / Alimentos Polar">
+                                        <option value="Mayorista Central">
+                                        <option value="Distribuidora La Fama">
+                                        <option value="Mondelez Venezuela">
+                                        <option value="Comercializadora El Rey">
+                                    </datalist>
+                                </div>
+                                <button type="button" id="btn-registrar-proveedor-quick" onclick="abrirModalRegistrarProveedor()" title="Registrar nuevo proveedor con datos completos en Firebase" style="background:#2563eb; color:#ffffff; border:none; border-radius:8px; padding:9px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 2px rgba(37,99,235,0.2); transition:background 0.15s ease;">
+                                    <i class="fas fa-cloud-upload-alt"></i> <span class="d-none-mobile">Nuevo en Firebase</span>
+                                </button>
+                            </div>
+                            <!-- Helper interactivo si el proveedor no existe en la base de datos -->
+                            <div id="factura-proveedor-helper" style="display:none; margin-top:6px; padding:6px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:0.8rem; color:#1e40af; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-info-circle" style="color:#2563eb;"></i>
+                                    <span>Proveedor nuevo detectado: <strong id="factura-helper-nombre-prov"></strong>. Se registrará en Firebase.</span>
+                                </div>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" onclick="guardarProveedorRapidoDesdeInput()" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:3px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;">
+                                        <i class="fas fa-cloud"></i> Guardar Rápido
+                                    </button>
+                                    <button type="button" onclick="abrirModalRegistrarProveedor()" style="background:#ffffff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700; cursor:pointer;">
+                                        + Agregar con RIF
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">

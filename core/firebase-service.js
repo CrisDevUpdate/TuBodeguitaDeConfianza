@@ -382,7 +382,8 @@ window.InventoryApp = window.InventoryApp || {};
         CONFIG: 'config',
         PAGOS_POR_VERIFICAR: 'PagosPorVerificar',
         FACTURAS: 'facturas_compras',
-        KARDEX: 'kardex_inventario'
+        KARDEX: 'kardex_inventario',
+        PROVEEDORES: 'proveedores'
     };
 
     /**
@@ -705,7 +706,8 @@ window.InventoryApp = window.InventoryApp || {};
                 snapConfig,
                 snapPagosPorVerificar,
                 snapFacturas,
-                snapKardex
+                snapKardex,
+                snapProveedores
             ] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
@@ -720,7 +722,8 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
                 obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
                 obtenerColeccionSegura(COLLECTIONS.FACTURAS),
-                obtenerColeccionSegura(COLLECTIONS.KARDEX)
+                obtenerColeccionSegura(COLLECTIONS.KARDEX),
+                obtenerColeccionSegura(COLLECTIONS.PROVEEDORES)
             ]);
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
@@ -790,6 +793,20 @@ window.InventoryApp = window.InventoryApp || {};
             if (snapKardex) {
                 if (!snapKardex.empty) {
                     AppState.kardex = snapKardex.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapProveedores) {
+                if (!snapProveedores.empty) {
+                    AppState.proveedores = snapProveedores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Sincronizar nombres a proveedoresFrecuentes para compatibilidad
+                    if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                    AppState.proveedores.forEach(p => {
+                        if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                            AppState.proveedoresFrecuentes.push(p.nombre);
+                        }
+                    });
+                } else {
+                    inicializarProveedoresBaseCloud().catch(() => {});
                 }
             }
             if (snapUsuarios) {
@@ -1666,6 +1683,60 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('config', err));
             syncListeners.push(unsubConfig);
 
+            // Listener de proveedores en tiempo real
+            const unsubProv = db.collection(COLLECTIONS.PROVEEDORES).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newProv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newProv);
+                    if (lastCollectionHashes[COLLECTIONS.PROVEEDORES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.PROVEEDORES] = hash;
+                        AppState.proveedores = newProv;
+                        if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                        newProv.forEach(p => {
+                            if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                                AppState.proveedoresFrecuentes.push(p.nombre);
+                            }
+                        });
+                        guardarCacheLocal();
+                        if (typeof actualizarDatalistProveedores === 'function') {
+                            actualizarDatalistProveedores();
+                        }
+                    }
+                }
+            }, err => manejarErrorListener('proveedores', err));
+            syncListeners.push(unsubProv);
+
+            // Listener de facturas de compras
+            const unsubFacturas = db.collection(COLLECTIONS.FACTURAS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newFac = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newFac);
+                    if (lastCollectionHashes[COLLECTIONS.FACTURAS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.FACTURAS] = hash;
+                        AppState.facturasCompras = newFac;
+                        guardarCacheLocal();
+                        if (typeof renderizarHistorialFacturas === 'function') {
+                            renderizarHistorialFacturas();
+                        }
+                    }
+                }
+            }, err => manejarErrorListener('facturas', err));
+            syncListeners.push(unsubFacturas);
+
+            // Listener de kardex
+            const unsubKardex = db.collection(COLLECTIONS.KARDEX).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newKdx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newKdx);
+                    if (lastCollectionHashes[COLLECTIONS.KARDEX] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.KARDEX] = hash;
+                        AppState.kardex = newKdx;
+                        guardarCacheLocal();
+                    }
+                }
+            }, err => manejarErrorListener('kardex', err));
+            syncListeners.push(unsubKardex);
+
             // Listener en tiempo real de /config/gamification para Modo Invierno
             try {
                 const unsubGamification = db.collection('config').doc('gamification').onSnapshot(doc => {
@@ -2482,6 +2553,11 @@ window.InventoryApp = window.InventoryApp || {};
                 }
 
                 await batch.commit();
+
+                // Asegurar que el proveedor quede registrado en la colección de proveedores de Firebase
+                if (registroFactura && registroFactura.proveedor) {
+                    guardarProveedorCloud({ nombre: registroFactura.proveedor }).catch(() => {});
+                }
             }
 
             actualizarUIEstadoNube('conectado', 'Factura de compra registrada');
@@ -2493,6 +2569,155 @@ window.InventoryApp = window.InventoryApp || {};
                 console.error('[Firebase] Error al guardar factura de compra:', error);
             }
             return true;
+        }
+    }
+
+    /**
+     * Inicializa los proveedores predeterminados en Firestore si la colección está vacía
+     */
+    async function inicializarProveedoresBaseCloud() {
+        if (!db || isQuotaExhausted) return;
+        const proveedoresBase = [
+            { nombre: 'Distribuidora Polar C.A.', rif: 'J-00041312-1', contacto: 'Ventas Canal Tradicional', telefono: '0212-2023111', estado: 'ACTIVO' },
+            { nombre: 'Empresas Polar', rif: 'J-00041312-1', contacto: 'Atención Comercial', telefono: '0800-7652700', estado: 'ACTIVO' },
+            { nombre: 'Mayorista Central', rif: 'J-31298455-0', contacto: 'Despacho Mayorista', telefono: '0414-9988776', estado: 'ACTIVO' },
+            { nombre: 'Nestlé de Venezuela S.A.', rif: 'J-00012977-6', contacto: 'Distribución Nacional', telefono: '0800-6378531', estado: 'ACTIVO' },
+            { nombre: 'Mavesa / Alimentos Polar', rif: 'J-00041312-1', contacto: 'Ventas Consumo Masivo', telefono: '0212-2023000', estado: 'ACTIVO' },
+            { nombre: 'Distribuidora La Fama', rif: 'J-30129844-2', contacto: 'Preventa', telefono: '0412-1234567', estado: 'ACTIVO' },
+            { nombre: 'Mondelez Venezuela', rif: 'J-00062400-9', contacto: 'Golosinas y Galletas', telefono: '0212-2384911', estado: 'ACTIVO' },
+            { nombre: 'Monaca / Alimentos Mary', rif: 'J-00030588-4', contacto: 'Harinas y Granos', telefono: '0212-2015555', estado: 'ACTIVO' }
+        ];
+
+        try {
+            const batch = db.batch();
+            const docsCreados = [];
+            proveedoresBase.forEach((p, index) => {
+                const id = 'PROV-' + (index + 1) + '-' + p.nombre.toLowerCase().replace(/[^a-z0-9]/g, '').substr(0, 10);
+                const ref = db.collection(COLLECTIONS.PROVEEDORES).doc(id);
+                const obj = {
+                    id: id,
+                    nombre: p.nombre,
+                    rif: p.rif,
+                    contacto: p.contacto,
+                    telefono: p.telefono,
+                    direccion: 'Venezuela',
+                    notas: 'Proveedor base del sistema',
+                    estado: 'ACTIVO',
+                    fechaRegistro: new Date().toISOString().substring(0, 10),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                batch.set(ref, obj);
+                docsCreados.push(obj);
+            });
+            await batch.commit();
+            AppState.proveedores = docsCreados;
+            if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+            docsCreados.forEach(p => {
+                if (!AppState.proveedoresFrecuentes.includes(p.nombre)) AppState.proveedoresFrecuentes.push(p.nombre);
+            });
+            if (typeof actualizarDatalistProveedores === 'function') {
+                actualizarDatalistProveedores();
+            }
+        } catch (e) {
+            console.warn('[Firebase] Aviso inicializando proveedores base:', e);
+        }
+    }
+
+    /**
+     * CRUD: Guardar o Actualizar Proveedor en Firestore
+     */
+    async function guardarProveedorCloud(proveedor) {
+        if (!proveedor) return false;
+        const nombre = String(proveedor.nombre || '').trim();
+        if (!nombre) return false;
+
+        const id = proveedor.id || ('PROV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
+        const timestamp = new Date().toISOString();
+
+        const provData = {
+            id: String(id),
+            nombre: nombre,
+            rif: String(proveedor.rif || '').trim().toUpperCase(),
+            telefono: String(proveedor.telefono || '').trim(),
+            contacto: String(proveedor.contacto || '').trim(),
+            direccion: String(proveedor.direccion || '').trim(),
+            notas: String(proveedor.notas || '').trim(),
+            estado: proveedor.estado || 'ACTIVO',
+            fechaRegistro: proveedor.fechaRegistro || timestamp.substring(0, 10)
+        };
+
+        // Actualización optimista local inmediata
+        if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
+        const idx = AppState.proveedores.findIndex(p => p.id === provData.id || (p.nombre && p.nombre.toLowerCase() === provData.nombre.toLowerCase()));
+        if (idx >= 0) {
+            AppState.proveedores[idx] = { ...AppState.proveedores[idx], ...provData };
+        } else {
+            AppState.proveedores.push(provData);
+        }
+
+        if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+        if (!AppState.proveedoresFrecuentes.includes(provData.nombre)) {
+            AppState.proveedoresFrecuentes.push(provData.nombre);
+        }
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (typeof actualizarDatalistProveedores === 'function') {
+            actualizarDatalistProveedores();
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Proveedor guardado localmente (Cuota)');
+            return provData;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Guardando proveedor en Firebase...');
+
+        try {
+            if (db) {
+                const docRef = db.collection(COLLECTIONS.PROVEEDORES).doc(String(provData.id));
+                await docRef.set({
+                    ...provData,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            actualizarUIEstadoNube('conectado', 'Proveedor registrado en Firebase');
+            return provData;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar proveedor en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Proveedor guardado localmente (Offline)');
+            }
+            return provData;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Proveedor de Firestore
+     */
+    async function eliminarProveedorCloud(proveedorId) {
+        if (!proveedorId) return false;
+        if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
+        AppState.proveedores = AppState.proveedores.filter(p => p.id !== proveedorId);
+        if (typeof actualizarDatalistProveedores === 'function') {
+            actualizarDatalistProveedores();
+        }
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+        try {
+            if (db && !isQuotaExhausted) {
+                await db.collection(COLLECTIONS.PROVEEDORES).doc(String(proveedorId)).delete();
+            }
+            return true;
+        } catch (e) {
+            console.error('[Firebase] Error eliminando proveedor:', e);
+            return false;
         }
     }
 
@@ -3077,6 +3302,8 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,
         guardarFacturaCompra: guardarFacturaCompraCloud,
+        guardarProveedor: guardarProveedorCloud,
+        eliminarProveedor: eliminarProveedorCloud,
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,
