@@ -806,7 +806,8 @@ window.InventoryApp = window.InventoryApp || {};
                         }
                     });
                 } else {
-                    inicializarProveedoresBaseCloud().catch(() => {});
+                    AppState.proveedores = [];
+                    AppState.proveedoresFrecuentes = [];
                 }
             }
             if (snapUsuarios) {
@@ -3079,7 +3080,10 @@ window.InventoryApp = window.InventoryApp || {};
                     COLLECTIONS.CLIENTES_ELIMINADOS,
                     COLLECTIONS.USUARIOS,
                     COLLECTIONS.CANJES,
-                    COLLECTIONS.PAGOS_POR_VERIFICAR
+                    COLLECTIONS.PAGOS_POR_VERIFICAR,
+                    COLLECTIONS.FACTURAS,
+                    COLLECTIONS.KARDEX,
+                    COLLECTIONS.PROVEEDORES
                 ];
 
                 for (const colName of coleccionesAPurgar) {
@@ -3097,25 +3101,47 @@ window.InventoryApp = window.InventoryApp || {};
                     }
                 }
 
-                // Restablecer config y SuperAdmin en la nube
+                // Restablecer config y usuarios SuperAdmin y Autoservicio en la nube
                 const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+                const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
+                const fechaHoy = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
                 const superAdminDoc = {
                     id: 'SuperAdmin',
                     cedula: 'SuperAdmin',
                     nombre: 'SuperAdmin',
-                    telefono: '0412-0000000',
+                    telefono: '',
                     email: 'superadmin@tubodeguita.com',
                     password: HASH_SUPERADMIN,
                     rol: 'admin',
                     estado: 'ACTIVO',
                     puntosAcumulados: 0,
                     puntosCanjeados: 0,
-                    fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                    fechaRegistro: fechaHoy
                 };
+                const autoServicioDoc = {
+                    id: 'Autoservicio',
+                    cedula: 'Autoservicio',
+                    nombre: 'Auto-servicio de Confianza',
+                    telefono: '',
+                    email: 'autoservicio@tubodeguita.com',
+                    password: HASH_AUTOSERVICIO_1409,
+                    rol: 'autoservicio',
+                    estado: 'ACTIVO',
+                    puntosAcumulados: 0,
+                    puntosCanjeados: 0,
+                    fechaRegistro: fechaHoy
+                };
+
                 await db.collection(COLLECTIONS.USUARIOS).doc('SuperAdmin').set(superAdminDoc);
+                await db.collection(COLLECTIONS.USUARIOS).doc('Autoservicio').set(autoServicioDoc);
 
                 await db.collection(COLLECTIONS.CONFIG).doc('global').set({
                     nextProductSequence: 1,
+                    cuentasBancarias: [],
+                    telefonoWhatsApp: '',
+                    ciclosRecuperacion: [],
+                    categoriasPersonalizadas: [],
                     lastPurge: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }

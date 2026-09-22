@@ -69,82 +69,13 @@ const AppState = window.AppState = window.InventoryApp.state = {
     rangoFechaPersonalizadoRecuperacion: { desde: '', hasta: '' },
     cicloSeleccionadoRecuperacion: 'actual',
     filtroTipoHistorialRecuperacion: 'todos',
-    cuentasBancarias: [
-        {
-            id: 'bancamiga_pm',
-            banco: 'Bancamiga (0172)',
-            bank: 'Bancamiga (0172)',
-            tipo: 'Pago Móvil / Transferencia',
-            type: 'Pago Móvil',
-            telefono: '0412-1234567',
-            phone: '0412-1234567',
-            cedulaRif: 'V-30.544.641',
-            idNumber: 'V-30.544.641',
-            titular: 'Josnairit Salazar / Tu Bodeguita',
-            cuenta: '01720111223344556677',
-            account: '01720111223344556677',
-            correo: '',
-            activo: true,
-            instrucciones: 'Reportar comprobante con últimos 6 u 8 dígitos de referencia'
-        },
-        {
-            id: 'bdv_pm',
-            banco: 'Banco de Venezuela (0102)',
-            bank: 'Banco de Venezuela (0102)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '01020000000000000000',
-            account: '01020000000000000000',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'banesco_pm',
-            banco: 'Banesco (0134)',
-            bank: 'Banesco (0134)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'mercantil_pm',
-            banco: 'Mercantil (0105)',
-            bank: 'Mercantil (0105)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        }
-    ],
-    telefonoWhatsApp: '0412-5363849',
+    cuentasBancarias: [],
+    telefonoWhatsApp: '',
     categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General'],
     facturasCompras: [],
     kardex: [],
     proveedores: [],
-    proveedoresFrecuentes: ['Distribuidora Polar', 'Empresas Polar C.A.', 'Mayorista Central', 'Nestlé de Venezuela', 'Mavesa / Alimentos Polar', 'Distribuidora La Fama', 'Mondelez']
+    proveedoresFrecuentes: []
 };
 
 const legacyGlobals = [
@@ -169,8 +100,9 @@ legacyGlobals.forEach((key) => {
  * Elimina cualquier guión, espacio, paréntesis o símbolo.
  */
 function normalizarNumeroWhatsApp(tel) {
-    if (!tel) return '584125363849';
+    if (!tel) return '';
     let clean = String(tel).replace(/\D/g, '');
+    if (!clean) return '';
     
     // Si ya empieza por 58 y tiene al menos 12 dígitos (58 + 10 dígitos)
     if (clean.startsWith('58') && clean.length >= 12) {
@@ -187,7 +119,7 @@ function normalizarNumeroWhatsApp(tel) {
         clean = '58' + clean;
     }
     
-    return clean || '584125363849';
+    return clean;
 }
 window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
 
@@ -197,7 +129,8 @@ window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
  * Si formateado === true, retorna el número con formato legible para la interfaz (ej: '0412-5363849').
  */
 function obtenerTelefonoWhatsApp(formateado = false) {
-    const raw = AppState.telefonoWhatsApp || '0412-5363849';
+    const raw = AppState.telefonoWhatsApp || '';
+    if (!raw) return '';
     if (formateado) {
         return raw;
     }
@@ -206,7 +139,7 @@ function obtenerTelefonoWhatsApp(formateado = false) {
 window.obtenerTelefonoWhatsApp = obtenerTelefonoWhatsApp;
 
 function obtenerTelefonoWhatsAppLimpio() {
-    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '0412-5363849');
+    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '');
 }
 window.obtenerTelefonoWhatsAppLimpio = obtenerTelefonoWhatsAppLimpio;
 

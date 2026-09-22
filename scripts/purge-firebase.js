@@ -1,4 +1,4 @@
-// Script para purgar datos de Firebase Firestore dejando solo SuperAdmin
+// Script para purgar datos de Firebase Firestore dejando solo SuperAdmin y Autoservicio
 const API_KEY = "AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA";
 const BASE_URL = "https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents";
 
@@ -13,6 +13,9 @@ const COLLECTIONS_TO_PURGE = [
   "clientesEliminados",
   "canjesPremios",
   "PagosPorVerificar",
+  "facturas_compras",
+  "kardex_inventario",
+  "proveedores",
   "app_state"
 ];
 
@@ -40,7 +43,7 @@ async function purgeCollection(colName) {
   return deletedCount;
 }
 
-async function purgeUsuariosExceptSuperAdmin() {
+async function purgeUsuariosExceptSuperAdminAndAutoservicio() {
   let deletedCount = 0;
   try {
     const res = await fetch(`${BASE_URL}/usuarios?key=${API_KEY}&pageSize=300`);
@@ -49,12 +52,13 @@ async function purgeUsuariosExceptSuperAdmin() {
       const docs = json.documents || [];
       for (const d of docs) {
         const id = d.name.split("/").pop();
-        if (id.toLowerCase() !== "superadmin") {
+        const idLower = id.toLowerCase();
+        if (idLower !== "superadmin" && idLower !== "autoservicio") {
           console.log(`Deleting user "${id}"...`);
           const ok = await deleteDoc(d.name);
           if (ok) deletedCount++;
         } else {
-          console.log(`Preserving SuperAdmin user doc: ${d.name}`);
+          console.log(`Preserving authorized user doc: ${d.name}`);
         }
       }
     }
@@ -64,12 +68,38 @@ async function purgeUsuariosExceptSuperAdmin() {
   return deletedCount;
 }
 
+async function ensureAutoservicioUser() {
+  const url = `${BASE_URL}/usuarios/Autoservicio?key=${API_KEY}`;
+  const body = {
+    fields: {
+      id: { stringValue: "Autoservicio" },
+      cedula: { stringValue: "Autoservicio" },
+      nombre: { stringValue: "Auto-servicio de Confianza" },
+      telefono: { stringValue: "" },
+      email: { stringValue: "autoservicio@tubodeguita.com" },
+      password: { stringValue: "efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350" },
+      rol: { stringValue: "autoservicio" },
+      estado: { stringValue: "ACTIVO" },
+      puntosAcumulados: { integerValue: "0" },
+      puntosCanjeados: { integerValue: "0" },
+      fechaRegistro: { stringValue: new Date().toISOString().replace('T', ' ').substring(0, 16) }
+    }
+  };
+  await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
 async function resetConfig() {
   const url = `${BASE_URL}/config/global?key=${API_KEY}`;
   const body = {
     fields: {
       nextProductSequence: { integerValue: "1" },
-      lastPurge: { timestampValue: new Date().toISOString() }
+      lastPurge: { timestampValue: new Date().toISOString() },
+      cuentasBancarias: { arrayValue: { values: [] } },
+      telefonoWhatsApp: { stringValue: "" }
     }
   };
   const res = await fetch(url, {
@@ -82,8 +112,10 @@ async function resetConfig() {
 
 async function main() {
   console.log("--- STARTING FIRESTORE PURGE TO VIRGIN PRODUCTION STATE ---");
-  const userDeletedCount = await purgeUsuariosExceptSuperAdmin();
-  console.log(`Collection "usuarios": deleted ${userDeletedCount} non-SuperAdmin documents`);
+  const userDeletedCount = await purgeUsuariosExceptSuperAdminAndAutoservicio();
+  console.log(`Collection "usuarios": deleted ${userDeletedCount} secondary user documents`);
+
+  await ensureAutoservicioUser();
 
   for (const col of COLLECTIONS_TO_PURGE) {
     const count = await purgeCollection(col);

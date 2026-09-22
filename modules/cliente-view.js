@@ -700,38 +700,16 @@ function vaciarCarritoCliente() {
     }
 }
 
-// Cuentas bancarias de respaldo estático (por si la red o caché aún no cargan)
-const bankAccountsFallback = [
-  { id: 'bancamiga_pm', type: 'Pago Móvil / Transferencia', bank: 'Bancamiga (0172)', phone: '0412-1234567', idNumber: 'V-30.544.641', titular: 'Josnairit Salazar / Tu Bodeguita', account: '01720111223344556677', activo: true },
-  { id: 'bdv_pm', type: 'Pago Móvil', bank: 'Banco de Venezuela (0102)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '01020000000000000000', activo: true },
-  { id: 'banesco_pm', type: 'Pago Móvil', bank: 'Banesco (0134)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true },
-  { id: 'mercantil_pm', type: 'Pago Móvil', bank: 'Mercantil (0105)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true }
-];
-
 /**
  * Retorna la lista activa de cuentas bancarias desde AppState (excluye cuentas pausadas)
  */
 function obtenerCuentasBancariasActivas() {
     let lista = AppState.cuentasBancarias;
-    if (!Array.isArray(lista) || lista.length === 0) {
-        try {
-            const cached = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    AppState.cuentasBancarias = parsed;
-                    lista = parsed;
-                }
-            }
-        } catch (e) {}
+    if (!Array.isArray(lista)) {
+        lista = [];
     }
-    if (!Array.isArray(lista) || lista.length === 0) {
-        lista = bankAccountsFallback;
-        AppState.cuentasBancarias = lista;
-    }
-
     // Retorna estrictamente solo las cuentas activas (no pausadas)
-    return lista.filter(c => c.activo !== false);
+    return lista.filter(c => c && c.activo !== false);
 }
 
 /**

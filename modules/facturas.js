@@ -231,19 +231,7 @@ window.InventoryApp = window.InventoryApp || {};
         const datalist = document.getElementById('lista-proveedores-datalist') || document.getElementById('factura-proveedores-datalist');
         if (!datalist) return;
 
-        const proveedores = new Set([
-            'Distribuidora Polar C.A.',
-            'Empresas Polar',
-            'Mayorista Central',
-            'Nestlé de Venezuela S.A.',
-            'Mavesa / Alimentos Polar',
-            'Distribuidora La Fama',
-            'Mondelez Venezuela',
-            'Monaca / Alimentos Mary',
-            'Central Madeirense Mayorista',
-            'Comercializadora El Rey',
-            'Empresas Sindoni'
-        ]);
+        const proveedores = new Set();
 
         if (Array.isArray(AppState.proveedores)) {
             AppState.proveedores.forEach(p => {

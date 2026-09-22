@@ -181,107 +181,79 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             </div>
         ` : ''}
 
-        <!-- MÓDULO DE SINCRONIZACIÓN Y BASE DE DATOS FIREBASE CLOUD -->
-        <div class="card" style="margin-bottom:20px; border-left: 4px solid var(--primary-accent);">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+        <!-- GESTIÓN EXCLUSIVA: RESPALDOS Y EXPORTACIÓN INTEGRAL DE DATOS -->
+        <div class="card" style="margin-bottom:20px; border-top: 4px solid #16a34a;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div>
-                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-cloud-bolt" style="color:var(--primary-accent);"></i> Base de Datos & Sincronización Firebase (Multi-dispositivo)
+                    <h3 style="margin:0 0 6px 0; font-size:1.2rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Respaldos y Exportación de Datos
                     </h3>
-                    <p style="margin:4px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
-                        Sincronización en tiempo real entre tu teléfono y tu PC mediante Cloud Firestore.
+                    <p style="margin:0; font-size:0.86rem; color:var(--text-muted); line-height:1.5;">
+                        Descarga una copia de seguridad íntegra de toda la base de datos en formato Excel (.xlsx) multihajas o JSON portátil.
+                        El archivo <strong>Máster Excel (.xlsx)</strong> integra todas las hojas del sistema: inventario completo con costos y precios, directorio de clientes, saldos deudores y cuentas por cobrar, cuentas bancarias, historial de ventas, pagos y abonos, programa de puntos y canjes de premios, facturas de compras, proveedores, movimientos de kardex y auditorías.
                     </p>
                 </div>
-                <div>
-                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Proyecto:</span>
-                    <code style="background:var(--bg-secondary); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--primary-accent); border:1px solid var(--border-light);">tubodeguitadeconfianza</code>
-                </div>
             </div>
 
-            <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:8px; padding:12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <div style="font-size:0.85rem; color:var(--text-main);">
-                    <i class="fas fa-circle-check" style="color:#16a34a; margin-right:4px;"></i> 
-                    <strong>Sincronización Multi-dispositivo:</strong> Ambos dispositivos (teléfono y PC) se actualizan instantáneamente.
+            <!-- Resumen de Entidades Integradas en el Respaldo -->
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:10px; padding:14px; margin-bottom:16px;">
+                <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-database" style="color:#16a34a;"></i> Datos incluidos en el archivo de respaldo:
                 </div>
-                <div style="display:flex; gap:8px;">
-                    <button type="button" class="btn btn-sm btn-outline" onclick="restablecerConfiguracionFirebaseUI()" title="Restablecer al proyecto tubodeguitadeconfianza">
-                        <i class="fas fa-arrow-rotate-left"></i> Restablecer Proyecto Oficial
-                    </button>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalCloudSync()">
-                        <i class="fas fa-sliders"></i> Abrir Panel de Sincronización
-                    </button>
-                </div>
-            </div>
-
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
-                <button type="button" class="btn btn-success" onclick="ejecutarSincronizacionNube()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:700;">
-                    <i class="fas fa-rotate"></i> Forzar Sincronización (Descargar)
-                </button>
-                <button type="button" class="btn btn-outline" onclick="ejecutarSubidaCompletaNube()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-cloud-arrow-up"></i> Subir Todo a Firestore
-                </button>
-                <button type="button" class="btn btn-outline" onclick="probarConexionFirebaseModal(); abrirModalCloudSync();" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-bolt"></i> Probar Conexión (Ping)
-                </button>
-            </div>
-        </div>
-
-        <!-- Gestión de Fotos en la Nube Vercel Blob -->
-        <div class="card" style="margin-bottom:20px; border-left: 4px solid #0284c7;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-                <div>
-                    <h3 style="margin:0 0 6px 0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-cloud" style="color:#0284c7;"></i> Almacén de Fotos en la Nube (Vercel Blob)
-                    </h3>
-                    <p style="margin:0; font-size:0.84rem; color:var(--text-muted);">
-                        Tus fotos de productos se almacenan de forma segura y permanente en Vercel Blob (Store ID: <code>store_5tUK9cDxqnqjrZw4</code>).
-                    </p>
-                </div>
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700; padding:4px 10px; border-radius:12px; font-size:0.75rem;">
-                        <i class="fas fa-circle-check"></i> Vercel Blob Activo
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-boxes-stacked" style="color:#2563eb;"></i> Inventario (${(AppState.productos || []).length} productos)
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-users" style="color:#059669;"></i> Clientes y Cuentas x Cobrar (${(AppState.clientes || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-building-columns" style="color:#d97706;"></i> Cuentas Bancarias (${(AppState.cuentasBancarias || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-cash-register" style="color:#7c3aed;"></i> Ventas Registradas (${(AppState.ventas || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-receipt" style="color:#0891b2;"></i> Pagos y Abonos (${(AppState.abonos || []).length + (AppState.transacciones || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-trophy" style="color:#eab308;"></i> Puntos y Canjes (${(AppState.canjesPremios || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-truck-ramp-box" style="color:#ea580c;"></i> Proveedores y Compras (${(AppState.proveedores || []).length + (AppState.facturasCompras || []).length})
+                    </span>
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-clipboard-check" style="color:#4f46e5;"></i> Kardex y Auditorías (${(AppState.kardex || []).length + (AppState.auditorias || []).length})
                     </span>
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:12px;">
-                <button type="button" class="btn btn-primary" onclick="abrirModalVisorBlob()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:700;">
-                    <i class="fas fa-images"></i> Ver Fotos en Vercel Blob
+            <!-- Botones de Acción de Exportación y Respaldo -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-bottom:16px;">
+                <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="padding:14px 18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:700; font-size:0.95rem; border-radius:8px; box-shadow: 0 2px 6px rgba(22,163,74,0.25);">
+                    <i class="fas fa-file-excel" style="font-size:1.25rem;"></i> Descargar Máster Excel (.xlsx)
                 </button>
-                <button type="button" class="btn btn-outline" onclick="sincronizarFotosVercelBlob()" id="btn-sync-blob-photos" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-arrows-rotate"></i> Sincronizar Fotos a Blob
+                <button type="button" class="btn btn-outline" onclick="descargarRespaldoLocal()" style="padding:14px 18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:600; font-size:0.95rem; border-radius:8px;">
+                    <i class="fas fa-file-code" style="font-size:1.25rem; color:#2563eb;"></i> Exportar Respaldo JSON
                 </button>
             </div>
 
-            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:12px; font-size:0.82rem; color:var(--text-muted);">
-                <div style="font-weight:700; color:var(--text-main); margin-bottom:4px;">
-                    <i class="fas fa-compass" style="color:#0284c7;"></i> ¿Cómo ver tus fotos en la consola de Vercel?
+            <!-- Importación / Restauración Opcional -->
+            <div style="padding-top:12px; border-top:1px dashed var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="font-size:0.8rem; color:var(--text-muted);">
+                    <i class="fas fa-shield-halved" style="color:#16a34a; margin-right:4px;"></i>
+                    Los respaldos descargados son 100% compatibles para restauración y auditoría externa.
                 </div>
-                <ol style="margin:0; padding-left:18px; line-height:1.5;">
-                    <li>Inicia sesión en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" style="color:#0284c7; font-weight:600; text-decoration:underline;">vercel.com</a>.</li>
-                    <li>Ve a la pestaña superior <strong>"Storage"</strong>.</li>
-                    <li>Haz clic en tu almacén Blob (<strong>store_5tUK9cDxqnqjrZw4</strong>).</li>
-                    <li>Entra en la pestaña <strong>"Blobs"</strong> o <strong>"Browser"</strong>: allí verás la carpeta <code>productos/</code> con todas tus fotos subidas.</li>
-                </ol>
-            </div>
-        </div>
-
-        <!-- Gestión de Respaldos y Base de Datos -->
-        <div class="card" style="margin-bottom:20px;">
-            <h3 style="margin:0 0 12px 0; font-size:1.1rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-database" style="color:var(--primary-accent);"></i> Respaldos y Exportación de Datos
-            </h3>
-            <p style="margin:0 0 14px 0; font-size:0.84rem; color:var(--text-muted);">
-                Descarga copias de seguridad de toda la base de datos o exporta tus archivos maestros en cualquier momento.
-            </p>
-
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
-                <button type="button" class="btn btn-outline" onclick="descargarRespaldoLocal()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-file-arrow-down" style="color:#2563eb;"></i> Exportar Respaldo JSON
-                </button>
-                <button type="button" class="btn btn-outline" onclick="descargarMasterExcel()" style="padding:10px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
-                    <i class="fas fa-file-excel" style="color:#16a34a;"></i> Descargar Máster Excel (.xlsx)
-                </button>
+                <div style="display:flex; gap:8px;">
+                    <label class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px; font-size:0.8rem;">
+                        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Importar Excel
+                        <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
+                    </label>
+                    <label class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px; font-size:0.8rem;">
+                        <i class="fas fa-file-code" style="color:#2563eb;"></i> Importar JSON
+                        <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
+                    </label>
+                </div>
             </div>
         </div>
     `;
@@ -530,6 +502,11 @@ async function procesarEjecucionHardReset() {
             productos: AppState.productos || [],
             clientes: AppState.clientes || [],
             abonos: AppState.abonos || [],
+            transacciones: AppState.transacciones || [],
+            cuentasBancarias: AppState.cuentasBancarias || [],
+            proveedores: AppState.proveedores || [],
+            facturasCompras: AppState.facturasCompras || [],
+            kardex: AppState.kardex || [],
             auditorias: AppState.auditorias || []
         };
 
@@ -551,12 +528,19 @@ async function procesarEjecucionHardReset() {
         if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen === 'function') {
             await window.InventoryApp.Persistence.limpiarBaseDeDatosVirgen();
         } else {
-            // Limpieza manual de respaldo
+            // Limpieza manual de respaldo total
             AppState.productos = [];
             AppState.clientes = [];
             AppState.ventas = [];
             AppState.abonos = [];
             AppState.transacciones = [];
+            AppState.cuentasBancarias = [];
+            AppState.telefonoWhatsApp = '';
+            AppState.proveedores = [];
+            AppState.proveedoresFrecuentes = [];
+            AppState.facturasCompras = [];
+            AppState.kardex = [];
+            AppState.pagosPorVerificar = [];
             AppState.auditorias = [];
             AppState.eliminaciones = [];
             AppState.clientesEliminados = [];
@@ -567,20 +551,35 @@ async function procesarEjecucionHardReset() {
             AppState.treeProgress = { porcentaje: 0, puntosActuales: 0, puntosMeta: 200, ciclo: 1 };
             AppState.temporadaInviernoActiva = false;
 
+            const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
+            const fechaReg = new Date().toISOString().replace('T', ' ').substring(0, 16);
             const superAdminUser = {
                 id: 'SuperAdmin',
                 cedula: 'SuperAdmin',
                 nombre: 'SuperAdmin',
-                telefono: '0412-0000000',
+                telefono: '',
                 email: 'superadmin@tubodeguita.com',
                 password: HASH_SUPERADMIN_DEFAULT,
                 rol: 'admin',
                 estado: 'ACTIVO',
                 puntosAcumulados: 0,
                 puntosCanjeados: 0,
-                fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                fechaRegistro: fechaReg
             };
-            AppState.usuarios = [superAdminUser];
+            const autoServicioUser = {
+                id: 'Autoservicio',
+                cedula: 'Autoservicio',
+                nombre: 'Auto-servicio de Confianza',
+                telefono: '',
+                email: 'autoservicio@tubodeguita.com',
+                password: HASH_AUTOSERVICIO_1409,
+                rol: 'autoservicio',
+                estado: 'ACTIVO',
+                puntosAcumulados: 0,
+                puntosCanjeados: 0,
+                fechaRegistro: fechaReg
+            };
+            AppState.usuarios = [superAdminUser, autoServicioUser];
             AppState.usuarioActual = null;
 
             if (window.InventoryApp.Persistence?.guardar) {
@@ -588,13 +587,30 @@ async function procesarEjecucionHardReset() {
             }
         }
 
+        // Purgar caché de cuentas bancarias y datos de localStorage
+        try {
+            localStorage.removeItem('bodeguita_cache_cuentas_bancarias');
+            localStorage.removeItem('bodeguita_cache_productos');
+            localStorage.removeItem('bodeguita_cache_premio');
+            localStorage.removeItem('bodeguita_usuarios');
+            localStorage.removeItem('bodeguita_clientes');
+            localStorage.removeItem('bodeguita_ventas');
+            localStorage.removeItem('bodeguita_abonos');
+            localStorage.removeItem('bodeguita_transacciones');
+            localStorage.removeItem('bodeguita_proveedores');
+            localStorage.removeItem('bodeguita_facturas_compras');
+            localStorage.removeItem('bodeguita_kardex');
+            localStorage.removeItem('bodeguita_inventario_v4_state');
+            localStorage.removeItem('bodeguita_app_state');
+        } catch (e) {}
+
         cerrarModalHardResetSuperAdmin();
 
         // 3. Notificación de éxito Zero-Alert
         if (window.InventoryApp.Modal?.alert) {
             await window.InventoryApp.Modal.alert(
                 'Reinicio de Fábrica Completado',
-                '✅ El sistema ha sido restablecido a su estado virgen con éxito.<br>Todas las tablas, ventas y deudas están en cero (0) y el SuperAdmin está activo.',
+                '✅ El sistema ha sido restablecido a su estado virgen con éxito.<br>Clientes, cuentas bancarias, proveedores y registros han sido eliminados por completo. Solo los usuarios SuperAdmin y Autoservicio permanecen activos.',
                 'success'
             );
         }
@@ -609,6 +625,11 @@ async function procesarEjecucionHardReset() {
         if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
         if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
         if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
+        if (typeof renderizarGestionCuentasBancariasAdmin === 'function') renderizarGestionCuentasBancariasAdmin();
+        if (typeof renderizarGestionWhatsAppAdmin === 'function') renderizarGestionWhatsAppAdmin();
+        if (typeof renderizarHistorialFacturas === 'function') renderizarHistorialFacturas();
+        if (typeof renderizarKardex === 'function') renderizarKardex();
+        if (typeof actualizarDatalistProveedores === 'function') actualizarDatalistProveedores();
         if (typeof switchTab === 'function') switchTab('pos');
 
     } catch (err) {
@@ -814,77 +835,8 @@ function renderizarGestionCuentasBancariasAdmin() {
     const box = document.getElementById('config-cuentas-bancarias-box');
     if (!box) return;
 
-    if (!Array.isArray(AppState.cuentasBancarias) || AppState.cuentasBancarias.length === 0) {
-        AppState.cuentasBancarias = [
-            {
-                id: 'bancamiga_pm',
-                banco: 'Bancamiga (0172)',
-                bank: 'Bancamiga (0172)',
-                tipo: 'Pago Móvil / Transferencia',
-                type: 'Pago Móvil',
-                telefono: '0412-1234567',
-                phone: '0412-1234567',
-                cedulaRif: 'V-30.544.641',
-                idNumber: 'V-30.544.641',
-                titular: 'Josnairit Salazar / Tu Bodeguita',
-                cuenta: '01720111223344556677',
-                account: '01720111223344556677',
-                correo: '',
-                activo: true,
-                instrucciones: 'Reportar comprobante con los últimos 6 u 8 dígitos de referencia'
-            },
-            {
-                id: 'bdv_pm',
-                banco: 'Banco de Venezuela (0102)',
-                bank: 'Banco de Venezuela (0102)',
-                tipo: 'Pago Móvil',
-                type: 'Pago Móvil',
-                telefono: '0412-5363849',
-                phone: '0412-5363849',
-                cedulaRif: 'V-28.123.456',
-                idNumber: 'V-28.123.456',
-                titular: 'Tu Bodeguita de Confianza',
-                cuenta: '01020000000000000000',
-                account: '01020000000000000000',
-                correo: '',
-                activo: true,
-                instrucciones: ''
-            },
-            {
-                id: 'banesco_pm',
-                banco: 'Banesco (0134)',
-                bank: 'Banesco (0134)',
-                tipo: 'Pago Móvil',
-                type: 'Pago Móvil',
-                telefono: '0412-5363849',
-                phone: '0412-5363849',
-                cedulaRif: 'V-28.123.456',
-                idNumber: 'V-28.123.456',
-                titular: 'Tu Bodeguita de Confianza',
-                cuenta: '',
-                account: '',
-                correo: '',
-                activo: true,
-                instrucciones: ''
-            },
-            {
-                id: 'mercantil_pm',
-                banco: 'Mercantil (0105)',
-                bank: 'Mercantil (0105)',
-                tipo: 'Pago Móvil',
-                type: 'Pago Móvil',
-                telefono: '0412-5363849',
-                phone: '0412-5363849',
-                cedulaRif: 'V-28.123.456',
-                idNumber: 'V-28.123.456',
-                titular: 'Tu Bodeguita de Confianza',
-                cuenta: '',
-                account: '',
-                correo: '',
-                activo: true,
-                instrucciones: ''
-            }
-        ];
+    if (!Array.isArray(AppState.cuentasBancarias)) {
+        AppState.cuentasBancarias = [];
     }
 
     const cuentas = AppState.cuentasBancarias;
@@ -1380,8 +1332,8 @@ function renderizarGestionWhatsAppAdmin() {
     const box = document.getElementById('config-whatsapp-box');
     if (!box) return;
 
-    const telActual = AppState.telefonoWhatsApp || '0412-5363849';
-    const telLimpio = typeof normalizarNumeroWhatsApp === 'function' ? normalizarNumeroWhatsApp(telActual) : '584125363849';
+    const telActual = AppState.telefonoWhatsApp || '';
+    const telLimpio = typeof normalizarNumeroWhatsApp === 'function' ? normalizarNumeroWhatsApp(telActual) : '';
 
     box.innerHTML = `
         <div class="card" style="margin-bottom:20px; border-left:4px solid #22c55e;">
@@ -1395,9 +1347,15 @@ function renderizarGestionWhatsAppAdmin() {
                     </p>
                 </div>
                 <div>
-                    <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.85rem; font-weight:700; padding:6px 14px; border-radius:18px; border:1px solid #bbf7d0;">
-                        <i class="fab fa-whatsapp"></i> Actual: ${telActual}
-                    </span>
+                    ${telActual ? `
+                        <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.85rem; font-weight:700; padding:6px 14px; border-radius:18px; border:1px solid #bbf7d0;">
+                            <i class="fab fa-whatsapp"></i> Actual: ${telActual}
+                        </span>
+                    ` : `
+                        <span class="badge" style="background:#fef3c7; color:#b45309; font-size:0.85rem; font-weight:700; padding:6px 14px; border-radius:18px; border:1px solid #fde68a;">
+                            <i class="fas fa-exclamation-triangle"></i> No configurado
+                        </span>
+                    `}
                 </div>
             </div>
 
@@ -1416,7 +1374,6 @@ function renderizarGestionWhatsAppAdmin() {
                             class="form-control" 
                             value="${telActual}" 
                             placeholder="Ej: 0412-5363849 o 0414-1234567"
-                            required
                             style="flex:1; height:42px; border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:0.95rem; font-weight:600;"
                             oninput="actualizarPrevisualizacionWhatsAppAdmin(this.value)"
                         >
