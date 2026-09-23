@@ -69,78 +69,13 @@ const AppState = window.AppState = window.InventoryApp.state = {
     rangoFechaPersonalizadoRecuperacion: { desde: '', hasta: '' },
     cicloSeleccionadoRecuperacion: 'actual',
     filtroTipoHistorialRecuperacion: 'todos',
-    cuentasBancarias: [
-        {
-            id: 'bancamiga_pm',
-            banco: 'Bancamiga (0172)',
-            bank: 'Bancamiga (0172)',
-            tipo: 'Pago Móvil / Transferencia',
-            type: 'Pago Móvil',
-            telefono: '0412-1234567',
-            phone: '0412-1234567',
-            cedulaRif: 'V-30.544.641',
-            idNumber: 'V-30.544.641',
-            titular: 'Josnairit Salazar / Tu Bodeguita',
-            cuenta: '01720111223344556677',
-            account: '01720111223344556677',
-            correo: '',
-            activo: true,
-            instrucciones: 'Reportar comprobante con últimos 6 u 8 dígitos de referencia'
-        },
-        {
-            id: 'bdv_pm',
-            banco: 'Banco de Venezuela (0102)',
-            bank: 'Banco de Venezuela (0102)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '01020000000000000000',
-            account: '01020000000000000000',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'banesco_pm',
-            banco: 'Banesco (0134)',
-            bank: 'Banesco (0134)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        },
-        {
-            id: 'mercantil_pm',
-            banco: 'Mercantil (0105)',
-            bank: 'Mercantil (0105)',
-            tipo: 'Pago Móvil',
-            type: 'Pago Móvil',
-            telefono: '0412-5363849',
-            phone: '0412-5363849',
-            cedulaRif: 'V-28.123.456',
-            idNumber: 'V-28.123.456',
-            titular: 'Tu Bodeguita de Confianza',
-            cuenta: '',
-            account: '',
-            correo: '',
-            activo: true,
-            instrucciones: ''
-        }
-    ],
-    telefonoWhatsApp: '0412-5363849',
-    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General']
+    cuentasBancarias: [],
+    telefonoWhatsApp: '',
+    categoriasPersonalizadas: ['Dulces', 'Bebidas', 'Snacks', 'Galletas', 'Chocolates', 'Chucherías', 'Combos & Ofertas', 'Víveres', 'General'],
+    facturasCompras: [],
+    kardex: [],
+    proveedores: [],
+    proveedoresFrecuentes: []
 };
 
 const legacyGlobals = [
@@ -149,7 +84,7 @@ const legacyGlobals = [
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
     'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
     'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
-    'telefonoWhatsApp','categoriasPersonalizadas'
+    'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedores','proveedoresFrecuentes'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {
@@ -165,8 +100,9 @@ legacyGlobals.forEach((key) => {
  * Elimina cualquier guión, espacio, paréntesis o símbolo.
  */
 function normalizarNumeroWhatsApp(tel) {
-    if (!tel) return '584125363849';
+    if (!tel) return '';
     let clean = String(tel).replace(/\D/g, '');
+    if (!clean) return '';
     
     // Si ya empieza por 58 y tiene al menos 12 dígitos (58 + 10 dígitos)
     if (clean.startsWith('58') && clean.length >= 12) {
@@ -183,7 +119,7 @@ function normalizarNumeroWhatsApp(tel) {
         clean = '58' + clean;
     }
     
-    return clean || '584125363849';
+    return clean;
 }
 window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
 
@@ -193,7 +129,8 @@ window.normalizarNumeroWhatsApp = normalizarNumeroWhatsApp;
  * Si formateado === true, retorna el número con formato legible para la interfaz (ej: '0412-5363849').
  */
 function obtenerTelefonoWhatsApp(formateado = false) {
-    const raw = AppState.telefonoWhatsApp || '0412-5363849';
+    const raw = AppState.telefonoWhatsApp || '';
+    if (!raw) return '';
     if (formateado) {
         return raw;
     }
@@ -202,7 +139,7 @@ function obtenerTelefonoWhatsApp(formateado = false) {
 window.obtenerTelefonoWhatsApp = obtenerTelefonoWhatsApp;
 
 function obtenerTelefonoWhatsAppLimpio() {
-    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '0412-5363849');
+    return normalizarNumeroWhatsApp(AppState.telefonoWhatsApp || '');
 }
 window.obtenerTelefonoWhatsAppLimpio = obtenerTelefonoWhatsAppLimpio;
 
@@ -254,6 +191,13 @@ window.InventoryApp.StockService = {
         p.stock = Number(p.stock || 0) - qty;
         return true;
     },
+    devolver(productId, quantity) {
+        const p = this._get(productId);
+        const qty = Number(quantity);
+        if (!p || !Number.isFinite(qty) || qty <= 0) return false;
+        p.stock = Math.max(0, Number(p.stock || 0) + qty);
+        return true;
+    },
     retiro(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);
@@ -273,6 +217,45 @@ window.InventoryApp.StockService = {
         const qty = Number(stockInicial);
         if (!p || !Number.isInteger(qty) || qty < 0) return false;
         p.stock = qty;
+        return true;
+    },
+    ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion', nuevoPrecioVenta = null, nuevoMargen = null) {
+        const p = this._get(productId);
+        const qty = Number(cantidadComprada);
+        if (!p || !Number.isFinite(qty) || qty <= 0) return false;
+        
+        const stockActual = Math.max(0, Number(p.stock || 0));
+        const costoActual = Math.max(0, Number(p.costo || 0));
+        const nuevoCosto = Number(nuevoCostoUnitario);
+        
+        // Sumar automáticamente la cantidad comprada al stock actual
+        p.stock = stockActual + qty;
+        
+        // Actualizar el costo unitario según el método
+        if (Number.isFinite(nuevoCosto) && nuevoCosto >= 0) {
+            if (metodoCosto === 'promedio' && stockActual > 0) {
+                // Costo promedio ponderado
+                const totalValor = (stockActual * costoActual) + (qty * nuevoCosto);
+                const nuevoStock = stockActual + qty;
+                p.costo = Number((totalValor / nuevoStock).toFixed(2));
+            } else {
+                // Costo de reposición (reemplazo directo del valor facturado)
+                p.costo = Number(nuevoCosto.toFixed(2));
+            }
+        }
+
+        // Actualizar el precio de venta si fue configurado en la factura
+        if (nuevoPrecioVenta !== null && Number.isFinite(Number(nuevoPrecioVenta)) && Number(nuevoPrecioVenta) > 0) {
+            p.precio = Number(Number(nuevoPrecioVenta).toFixed(2));
+        } else if (nuevoMargen !== null && Number.isFinite(Number(nuevoMargen)) && p.costo > 0) {
+            p.precio = Number((p.costo * (1 + (Number(nuevoMargen) / 100))).toFixed(2));
+        }
+        
+        // Recalcular el porcentaje de ganancia respecto al precio actual
+        if (p.precio && p.costo > 0) {
+            p.ganancia = Number((((p.precio - p.costo) / p.costo) * 100).toFixed(2));
+        }
+        
         return true;
     }
 };

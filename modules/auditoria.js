@@ -638,32 +638,44 @@ function abrirModalAjusteAuditoria(productoId) {
         if (diferencia > 0) {
             // SOBRANTE (Físico > Sistema)
             motivosContainer.innerHTML = `
-                <div style="font-weight:700; font-size:0.9rem; color:#166534; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <div style="font-weight:700; font-size:0.92rem; color:#166534; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-arrow-trend-up"></i> Selecciona el motivo del SOBRANTE: <span style="color:var(--danger)">*</span>
                 </div>
 
-                <label class="audit-modal-reason-card" style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer; transition:all 0.15s ease;">
-                    <input type="radio" name="audit-motivo-seleccionado" value="Error de conteo previo" style="margin-top:3px;" onchange="alSeleccionarMotivoAuditoria(this.value)">
-                    <div>
-                        <strong style="color:var(--text-color); font-size:0.9rem; display:block;">a) Error de conteo previo</strong>
-                        <span style="color:var(--text-muted); font-size:0.82rem; line-height:1.3; display:block;">
+                <div role="button" tabindex="0" class="audit-modal-reason-card is-selected-sobrante" onclick="alSeleccionarMotivoAuditoria(this, 'Error de conteo previo', 'sobrante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Error de conteo previo', 'sobrante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">a) Error de conteo previo</strong>
+                        <span class="audit-reason-desc">
                             Solo ajusta el número de existencias físicas en el sistema sin solicitar costos ni alterar precios base.
                         </span>
                     </div>
-                </label>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Error de conteo previo" checked style="display:none;">
+                </div>
 
-                <label class="audit-modal-reason-card" style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:10px; cursor:pointer; transition:all 0.15s ease;">
-                    <input type="radio" name="audit-motivo-seleccionado" value="Mercancía no registrada / Compra no ingresada" style="margin-top:3px;" onchange="alSeleccionarMotivoAuditoria(this.value)">
-                    <div>
-                        <strong style="color:var(--text-color); font-size:0.9rem; display:block;">b) Mercancía no registrada / Compra no ingresada</strong>
-                        <span style="color:var(--text-muted); font-size:0.82rem; line-height:1.3; display:block;">
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Mercancía no registrada / Compra no ingresada', 'sobrante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Mercancía no registrada / Compra no ingresada', 'sobrante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-boxes-stacked"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">b) Mercancía no registrada / Compra no ingresada</strong>
+                        <span class="audit-reason-desc">
                             Mercancía física encontrada en almacén no documentada previamente.
                         </span>
                     </div>
-                </label>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Mercancía no registrada / Compra no ingresada" style="display:none;">
+                </div>
 
                 <!-- ⚠️ ADVERTENCIA OBLIGATORIA SOBRE COMPRAS Y FACTURAS -->
-                <div id="audit-warning-compra-factura" style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px; margin-top:10px;">
+                <div id="audit-warning-compra-factura" style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; margin-top:12px;">
                     <div style="display:flex; align-items:flex-start; gap:10px;">
                         <i class="fas fa-triangle-exclamation" style="color:#d97706; font-size:1.2rem; margin-top:2px;"></i>
                         <div style="flex:1;">
@@ -673,7 +685,7 @@ function abrirModalAjusteAuditoria(productoId) {
                             <p style="margin:0 0 8px 0; font-size:0.82rem; color:#78350f; line-height:1.4;">
                                 Si este sobrante corresponde a <strong>mercancía nueva recibida de un proveedor</strong>, debe ingresarse obligatoriamente por el <strong>Módulo de Facturas</strong> para registrar el costo facturado de reposición y no desfasar la contabilidad.
                             </p>
-                            <button type="button" class="btn btn-sm" onclick="irACargarFacturaDesdeAuditoria('${p.id}')" style="background:#d97706; color:#ffffff; border:none; font-weight:700; border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            <button type="button" class="btn btn-sm" onclick="irACargarFacturaDesdeAuditoria('${p.id}')" style="background:#d97706; color:#ffffff; border:none; font-weight:700; border-radius:8px; padding:8px 14px; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                                 <i class="fas fa-file-invoice-dollar"></i> Ir a Cargar por Módulo de Facturas
                             </button>
                         </div>
@@ -683,39 +695,57 @@ function abrirModalAjusteAuditoria(productoId) {
         } else {
             // FALTANTE (Físico < Sistema)
             motivosContainer.innerHTML = `
-                <div style="font-weight:700; font-size:0.9rem; color:#991b1b; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <div style="font-weight:700; font-size:0.92rem; color:#991b1b; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
                     <i class="fas fa-triangle-exclamation"></i> Selecciona el motivo del FALTANTE: <span style="color:var(--danger)">*</span>
                 </div>
 
-                <label class="audit-modal-reason-card" style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer; transition:all 0.15s ease;">
-                    <input type="radio" name="audit-motivo-seleccionado" value="Merma / Daño / Vencimiento" style="margin-top:3px;" onchange="alSeleccionarMotivoAuditoria(this.value)">
-                    <div>
-                        <strong style="color:var(--text-color); font-size:0.9rem; display:block;">a) Merma / Daño / Vencimiento</strong>
-                        <span style="color:var(--text-muted); font-size:0.82rem; line-height:1.3; display:block;">
+                <div role="button" tabindex="0" class="audit-modal-reason-card is-selected-faltante" onclick="alSeleccionarMotivoAuditoria(this, 'Merma / Daño / Vencimiento', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Merma / Daño / Vencimiento', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">a) Merma / Daño / Vencimiento</strong>
+                        <span class="audit-reason-desc">
                             Pérdida de inventario por producto caducado, rotura física o deterioro de empaque.
                         </span>
                     </div>
-                </label>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Merma / Daño / Vencimiento" checked style="display:none;">
+                </div>
 
-                <label class="audit-modal-reason-card" style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:8px; cursor:pointer; transition:all 0.15s ease;">
-                    <input type="radio" name="audit-motivo-seleccionado" value="Error de despacho / Venta no registrada" style="margin-top:3px;" onchange="alSeleccionarMotivoAuditoria(this.value)">
-                    <div>
-                        <strong style="color:var(--text-color); font-size:0.9rem; display:block;">b) Error de despacho / Venta no registrada</strong>
-                        <span style="color:var(--text-muted); font-size:0.82rem; line-height:1.3; display:block;">
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Error de despacho / Venta no registrada', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Error de despacho / Venta no registrada', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-cart-arrow-down"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">b) Error de despacho / Venta no registrada</strong>
+                        <span class="audit-reason-desc">
                             Salida física de almacén no registrada oportunamente en el sistema POS.
                         </span>
                     </div>
-                </label>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Error de despacho / Venta no registrada" style="display:none;">
+                </div>
 
-                <label class="audit-modal-reason-card" style="display:flex; align-items:flex-start; gap:10px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:10px; cursor:pointer; transition:all 0.15s ease;">
-                    <input type="radio" name="audit-motivo-seleccionado" value="Pérdida desconocida" style="margin-top:3px;" onchange="alSeleccionarMotivoAuditoria(this.value)">
-                    <div>
-                        <strong style="color:var(--text-color); font-size:0.9rem; display:block;">c) Pérdida desconocida</strong>
-                        <span style="color:var(--text-muted); font-size:0.82rem; line-height:1.3; display:block;">
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Pérdida desconocida', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Pérdida desconocida', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-magnifying-glass"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">c) Pérdida desconocida</strong>
+                        <span class="audit-reason-desc">
                             Discrepancia no explicada sujeta a investigación interna de almacén.
                         </span>
                     </div>
-                </label>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Pérdida desconocida" style="display:none;">
+                </div>
             `;
         }
     }
@@ -727,17 +757,32 @@ function abrirModalAjusteAuditoria(productoId) {
 }
 window.abrirModalAjusteAuditoria = abrirModalAjusteAuditoria;
 
-function alSeleccionarMotivoAuditoria(valor) {
-    document.querySelectorAll('.audit-modal-reason-card').forEach(card => {
-        const input = card.querySelector('input');
-        if (input && input.checked) {
-            card.style.borderColor = '#0284c7';
-            card.style.background = '#f0f9ff';
-        } else {
-            card.style.borderColor = '#e2e8f0';
-            card.style.background = '#ffffff';
-        }
+function alSeleccionarMotivoAuditoria(elem, valor, tipo) {
+    const container = document.getElementById('audit-modal-motivos-list');
+    if (!container) return;
+
+    const cards = container.querySelectorAll('.audit-modal-reason-card');
+    cards.forEach(card => {
+        card.classList.remove('is-selected-sobrante', 'is-selected-faltante');
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio) radio.checked = false;
     });
+
+    const targetCard = (elem && elem.classList && elem.classList.contains('audit-modal-reason-card'))
+        ? elem
+        : (elem ? elem.closest('.audit-modal-reason-card') : null);
+
+    if (targetCard) {
+        if (tipo === 'sobrante') {
+            targetCard.classList.add('is-selected-sobrante');
+        } else {
+            targetCard.classList.add('is-selected-faltante');
+        }
+        const radio = targetCard.querySelector('input[type="radio"]');
+        if (radio) {
+            radio.checked = true;
+        }
+    }
 }
 window.alSeleccionarMotivoAuditoria = alSeleccionarMotivoAuditoria;
 

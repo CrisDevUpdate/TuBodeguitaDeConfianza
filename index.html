@@ -8,6 +8,35 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
     <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
+    <!-- Script de Restauración Inmediata de Paleta y Modo Oscuro (Previene Flicker al Recargar) -->
+    <script>
+        (function() {
+            try {
+                var raw = localStorage.getItem('app_theme_active_palette') || localStorage.getItem('app_theme_global_config');
+                if (raw) {
+                    var t = JSON.parse(raw);
+                    var r = document.documentElement;
+                    if (t.primary) r.style.setProperty('--primary', t.primary);
+                    if (t.primaryAccent) r.style.setProperty('--primary-accent', t.primaryAccent);
+                    if (t.primaryHover) r.style.setProperty('--primary-hover', t.primaryHover || t.primaryAccent);
+                    if (t.bgColor) r.style.setProperty('--bg-color', t.bgColor);
+                    if (t.cardBg) r.style.setProperty('--card-bg', t.cardBg);
+                    if (t.textMain) r.style.setProperty('--text-main', t.textMain);
+                    if (t.textMuted) r.style.setProperty('--text-muted', t.textMuted);
+                    if (t.border) r.style.setProperty('--border', t.border);
+                    if (t.borderLight) r.style.setProperty('--border-light', t.borderLight);
+                    if (t.mode === 'dark') {
+                        r.classList.add('dark-theme');
+                        r.setAttribute('data-mode', 'dark');
+                    } else {
+                        r.classList.remove('dark-theme');
+                        r.setAttribute('data-mode', 'light');
+                    }
+                    if (t.id) r.setAttribute('data-theme', t.id);
+                }
+            } catch(e) {}
+        })();
+    </script>
     <!-- Google Fonts para el estilo exacto de Tu Bodeguita de Confianza -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
     <!-- Font Awesome para los íconos del BCV -->
@@ -3400,10 +3429,11 @@
                     <div class="kpi-value-usd" id="inventario-total-costo-usd">$0.00</div>
                     <div class="kpi-value-ves" id="inventario-total-costo-ves">Bs. —</div>
                 </div>
-                <div class="kpi-card" style="border-left-color: var(--success);">
-                    <div class="kpi-title">GANANCIA ESPERADA</div>
+                <div class="kpi-card" id="inventario-card-ganancia-esperada" style="border-left-color: var(--success);">
+                    <div class="kpi-title" id="inventario-title-ganancia-esperada">GANANCIA ESPERADA</div>
                     <div class="kpi-value-usd" id="inventario-ganancia-esperada-usd" style="color: var(--success);">$0.00</div>
                     <div class="kpi-value-ves" id="inventario-ganancia-esperada-ves">Bs. —</div>
+                    <div id="inventario-alerta-ganancia-negativa" style="display:none; font-size:0.75rem; color:#dc2626; font-weight:700; margin-top:6px; line-height:1.3; background:#fee2e2; border:1px solid #fca5a5; padding:5px 8px; border-radius:6px;"></div>
                 </div>
             </div>
         </div>
@@ -3805,50 +3835,18 @@
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
                                 <label for="factura-proveedor" style="font-size:0.82rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:6px; margin:0;">
                                     <span>Proveedor <span style="color:#ef4444;">*</span></span>
-                                    <span style="font-size:0.75rem; color:#dc2626; font-weight:600;"><i class="fas fa-asterisk" style="font-size:0.6rem;"></i> Requerido para ingresar mercancía</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">(Se guarda automáticamente en Firebase al procesar)</span>
                                 </label>
-                                <div style="display:flex; gap:6px; align-items:center;">
-                                    <button type="button" onclick="abrirDirectorioProveedores()" title="Ver lista de proveedores registrados en Firebase" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; border-radius:6px; padding:3px 9px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
-                                        <i class="fas fa-address-book" style="color:#2563eb;"></i> Directorio
-                                    </button>
-                                    <button type="button" onclick="abrirModalRegistrarProveedor()" title="Registrar nuevo proveedor en Firebase Firestore" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; border-radius:6px; padding:3px 9px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
-                                        <i class="fas fa-plus-circle" style="color:#2563eb;"></i> + Añadir Proveedor
-                                    </button>
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:8px; align-items:center;">
-                                <div style="position:relative; flex:1;">
-                                    <input type="text" id="factura-proveedor" list="lista-proveedores-datalist" placeholder="Escribe o selecciona el Proveedor (Ej: Distribuidora Polar)..." style="width:100%; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
-                                    <datalist id="lista-proveedores-datalist">
-                                        <option value="Distribuidora Polar C.A.">
-                                        <option value="Empresas Polar">
-                                        <option value="Monaca / Alimentos Mary">
-                                        <option value="Nestlé de Venezuela S.A.">
-                                        <option value="Mavesa / Alimentos Polar">
-                                        <option value="Mayorista Central">
-                                        <option value="Distribuidora La Fama">
-                                        <option value="Mondelez Venezuela">
-                                        <option value="Comercializadora El Rey">
-                                    </datalist>
-                                </div>
-                                <button type="button" id="btn-registrar-proveedor-quick" onclick="abrirModalRegistrarProveedor()" title="Registrar nuevo proveedor con datos completos en Firebase" style="background:#2563eb; color:#ffffff; border:none; border-radius:8px; padding:9px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 2px rgba(37,99,235,0.2); transition:background 0.15s ease;">
-                                    <i class="fas fa-cloud-upload-alt"></i> <span class="d-none-mobile">Nuevo en Firebase</span>
+                                <button type="button" onclick="abrirDirectorioProveedores()" title="Ver, editar o eliminar proveedores registrados" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; border-radius:6px; padding:4px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">
+                                    <i class="fas fa-address-book" style="color:#2563eb;"></i> Directorio / Editar Proveedores
                                 </button>
                             </div>
-                            <!-- Helper interactivo si el proveedor no existe en la base de datos -->
-                            <div id="factura-proveedor-helper" style="display:none; margin-top:6px; padding:6px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:0.8rem; color:#1e40af; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <i class="fas fa-info-circle" style="color:#2563eb;"></i>
-                                    <span>Proveedor nuevo detectado: <strong id="factura-helper-nombre-prov"></strong>. Se registrará en Firebase.</span>
-                                </div>
-                                <div style="display:flex; gap:6px;">
-                                    <button type="button" onclick="guardarProveedorRapidoDesdeInput()" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:3px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;">
-                                        <i class="fas fa-cloud"></i> Guardar Rápido
-                                    </button>
-                                    <button type="button" onclick="abrirModalRegistrarProveedor()" style="background:#ffffff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700; cursor:pointer;">
-                                        + Agregar con RIF
-                                    </button>
-                                </div>
+                            <div style="position:relative; width:100%; display:flex; gap:6px;">
+                                <input type="text" id="factura-proveedor" list="lista-proveedores-datalist" placeholder="Si no tiene el proveedor, colocar: N/A" style="flex:1; padding:9px 12px; border:1px solid var(--border-color, #cbd5e1); border-radius:8px; font-size:0.9rem; font-weight:600; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                                <datalist id="lista-proveedores-datalist"></datalist>
+                                <button type="button" onclick="editarProveedorActualInput()" title="Editar este proveedor o gestionar directorio" style="background:#fef3c7; border:1px solid #fde68a; color:#b45309; border-radius:8px; padding:0 12px; font-size:0.82rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; white-space:nowrap; transition:all 0.15s ease;">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
                             </div>
                         </div>
 
@@ -3917,22 +3915,55 @@
                             </div>
 
                             <!-- Entradas: Cantidad Comprada y Nuevo Costo Facturado -->
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
                                 <div>
                                     <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color); margin-bottom:4px;">
                                         Cantidad Comprada <span style="color:var(--danger)">*</span>
                                     </label>
-                                    <input type="number" id="factura-item-cantidad" min="1" step="1" placeholder="Ej: 12" oninput="alCambiarInputsFacturaItem()" style="width:100%; padding:10px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.05rem; font-weight:800; text-align:center; background:#ffffff;">
+                                    <input type="number" id="factura-item-cantidad" min="1" step="1" placeholder="Ej: 12" oninput="alCambiarInputsFacturaItem('cantidad')" style="width:100%; padding:9px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.02rem; font-weight:800; text-align:center; background:#ffffff;">
                                 </div>
                                 <div>
                                     <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-color); margin-bottom:4px;">
                                         Nuevo Costo Facturado ($) <span style="color:var(--danger)">*</span>
                                     </label>
-                                    <input type="number" id="factura-item-costo" min="0" step="0.01" placeholder="Ej: 1.50" oninput="alCambiarInputsFacturaItem()" style="width:100%; padding:10px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.05rem; font-weight:800; text-align:center; background:#ffffff;">
+                                    <input type="number" id="factura-item-costo" min="0" step="0.01" placeholder="Ej: 1.50" oninput="alCambiarInputsFacturaItem('costo')" style="width:100%; padding:9px 12px; border:2px solid #cbd5e1; border-radius:8px; font-size:1.02rem; font-weight:800; text-align:center; background:#ffffff;">
                                 </div>
                             </div>
 
-                            <!-- Live Preview de Proyección (Stock, Costo y Subtotal) -->
+                            <!-- Entradas de Fijación de Precio y Margen para el Producto -->
+                            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-bottom:14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <label style="font-size:0.82rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-tags" style="color:#2563eb;"></i> Actualizar Precio de Venta (PVP)
+                                    </label>
+                                    <span id="factura-item-margen-badge" style="font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:6px; background:#dbeafe; color:#1e40af;">Margen deseado</span>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:10px;">
+                                    <div>
+                                        <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:3px;">
+                                            % Margen Ganancia
+                                        </label>
+                                        <div style="position:relative; display:flex; align-items:center;">
+                                            <input type="number" id="factura-item-margen" step="0.5" placeholder="Ej: 30" oninput="alCambiarInputsFacturaItem('margen')" style="width:100%; padding:8px 24px 8px 10px; border:2px solid #94a3b8; border-radius:7px; font-size:0.95rem; font-weight:800; text-align:center; background:#ffffff;">
+                                            <span style="position:absolute; right:8px; font-weight:700; color:var(--text-muted); font-size:0.85rem;">%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:3px;">
+                                            Nuevo PVP Venta ($) <span style="color:var(--danger)">*</span>
+                                        </label>
+                                        <div style="position:relative; display:flex; align-items:center;">
+                                            <span style="position:absolute; left:8px; font-weight:700; color:var(--text-muted); font-size:0.85rem;">$</span>
+                                            <input type="number" id="factura-item-precio" min="0" step="0.01" placeholder="Ej: 2.00" oninput="alCambiarInputsFacturaItem('precio')" style="width:100%; padding:8px 10px 8px 22px; border:2px solid #2563eb; border-radius:7px; font-size:0.95rem; font-weight:800; text-align:center; background:#ffffff; color:#1d4ed8;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="factura-item-alerta-precio-perdida" style="display:none; margin-top:8px; padding:7px 10px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; color:#dc2626; font-size:0.78rem; font-weight:600; line-height:1.35;">
+                                    <i class="fas fa-triangle-exclamation"></i> <strong>¡Atención!</strong> El precio de venta configurado es menor al costo. Estarías vendiendo a pérdida con margen negativo.
+                                </div>
+                            </div>
+
+                            <!-- Live Preview de Proyección (Stock, Costo, PVP y Subtotal) -->
                             <div id="factura-item-proyeccion-box" style="background:#f0fdf4; border:1px dashed #86efac; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.82rem; color:#166534;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                                     <span>Nuevo Stock Proyectado:</span>
@@ -3943,6 +3974,13 @@
                                     <div style="display:flex; align-items:center; gap:6px;">
                                         <strong id="factura-preview-nuevo-costo" style="font-size:0.95rem;">-</strong>
                                         <span id="factura-preview-variacion" style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; display:none;"></span>
+                                    </div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span>Nuevo PVP Venta en Sistema:</span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <strong id="factura-preview-nuevo-pvp" style="font-size:0.95rem; color:#1d4ed8;">$0.00</strong>
+                                        <span id="factura-preview-nuevo-margen" style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:#e0f2fe; color:#0369a1;">+0%</span>
                                     </div>
                                 </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #bbf7d0; padding-top:4px; margin-top:4px;">
@@ -3983,16 +4021,17 @@
                                 <thead>
                                     <tr>
                                         <th>Producto</th>
-                                        <th class="text-center" style="width:90px;">Cant.</th>
-                                        <th class="text-right" style="width:90px;">Costo Ant.</th>
-                                        <th class="text-right" style="width:100px;">Nuevo Costo</th>
-                                        <th class="text-right" style="width:95px;">Subtotal</th>
-                                        <th class="text-center" style="width:50px;"></th>
+                                        <th class="text-center" style="width:75px;">Cant.</th>
+                                        <th class="text-right" style="width:85px;">Costo Ant.</th>
+                                        <th class="text-right" style="width:95px;">Nuevo Costo</th>
+                                        <th class="text-right" style="width:115px;">Nuevo PVP</th>
+                                        <th class="text-right" style="width:90px;">Subtotal</th>
+                                        <th class="text-center" style="width:45px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="factura-items-body">
                                     <tr>
-                                        <td colspan="6" style="text-align:center; color:var(--text-muted); padding:36px;">
+                                        <td colspan="7" style="text-align:center; color:var(--text-muted); padding:36px;">
                                             <i class="fas fa-box-open" style="font-size:2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
                                             Aún no has agregado productos a esta factura.<br>
                                             <span style="font-size:0.8rem;">Utiliza el buscador de la izquierda para seleccionar productos.</span>
@@ -5380,7 +5419,7 @@
 
 <!-- Modal Conciliación de Discrepancia de Auditoría Física (Motivo Obligatorio) -->
 <div id="modal-ajuste-auditoria" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalAjusteAuditoria();">
-    <div class="modal-content" style="max-width:540px; border-radius:16px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
+    <div class="modal-content" style="max-width:540px; max-height:90vh; overflow-y:auto; border-radius:16px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
             <div>
                 <h3 style="margin:0 0 4px 0; font-size:1.15rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">

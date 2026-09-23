@@ -641,15 +641,50 @@ function renderizarInventario() {
         return total + ((Number(p.precio) || 0) - (Number(p.costo) || 0)) * (Number(p.stock) || 0);
     }, 0);
 
+    const prodsConPerdida = productos.filter(p => Number(p.stock) > 0 && Number(p.costo) > 0 && Number(p.precio) < Number(p.costo));
+
     const totalCostoUsd = document.getElementById('inventario-total-costo-usd');
     const totalCostoBs = document.getElementById('inventario-total-costo-ves');
     const gananciaUsd = document.getElementById('inventario-ganancia-esperada-usd');
     const gananciaBs = document.getElementById('inventario-ganancia-esperada-ves');
+    const cardGanancia = document.getElementById('inventario-card-ganancia-esperada');
+    const titleGanancia = document.getElementById('inventario-title-ganancia-esperada');
+    const alertaGanancia = document.getElementById('inventario-alerta-ganancia-negativa');
 
     if (totalCostoUsd) totalCostoUsd.textContent = `$${totalCosto.toFixed(2)}`;
     if (totalCostoBs) totalCostoBs.textContent = `Bs. ${tasaActiva > 0 ? (totalCosto * tasaActiva).toFixed(2) : '—'}`;
-    if (gananciaUsd) gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
-    if (gananciaBs) gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
+    
+    if (gananciaUsd) {
+        gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
+        if (gananciaEsperada < 0) {
+            gananciaUsd.style.color = '#dc2626';
+        } else {
+            gananciaUsd.style.color = 'var(--success, #16a34a)';
+        }
+    }
+    if (gananciaBs) {
+        gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
+        if (gananciaEsperada < 0) {
+            gananciaBs.style.color = '#dc2626';
+        } else {
+            gananciaBs.style.color = '';
+        }
+    }
+
+    if (cardGanancia) {
+        if (gananciaEsperada < 0 || prodsConPerdida.length > 0) {
+            cardGanancia.style.borderLeftColor = '#dc2626';
+            if (titleGanancia) titleGanancia.textContent = 'PROYECCIÓN DE GANANCIA (ALERTA)';
+            if (alertaGanancia) {
+                alertaGanancia.style.display = 'block';
+                alertaGanancia.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <strong>Atención:</strong> Tienes ${prodsConPerdida.length} producto(s) con precio menor al costo (margen negativo). Pulsa en "Ajustar PVP" o "Editar" para corregir el precio de venta.`;
+            }
+        } else {
+            cardGanancia.style.borderLeftColor = 'var(--success, #16a34a)';
+            if (titleGanancia) titleGanancia.textContent = 'GANANCIA ESPERADA';
+            if (alertaGanancia) alertaGanancia.style.display = 'none';
+        }
+    }
 
     // Filtrado de productos para la vista
     let prodsFiltrados = [...productos];
@@ -763,20 +798,23 @@ function renderizarInventario() {
 
                             <div class="inventario-item-pricing-row">
                                 <div class="inv-prices-block">
-                                    <span class="inv-price-usd">$${precioUSD.toFixed(2)}</span>
+                                    <span class="inv-price-usd" style="${costoUSD > 0 && precioUSD < costoUSD ? 'color:#dc2626; font-weight:800;' : ''}">$${precioUSD.toFixed(2)}</span>
                                     <span class="inv-price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                                 </div>
                                 <div class="inv-cost-margin">
                                     <span>Costo: <strong>$${costoUSD.toFixed(2)}</strong></span>
-                                    <span class="inv-margin-tag">+${ganancia}%</span>
+                                    ${costoUSD > 0 && precioUSD < costoUSD 
+                                        ? `<span class="inv-margin-tag" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${ganancia}%</span>`
+                                        : `<span class="inv-margin-tag">${ganancia >= 0 ? '+' : ''}${ganancia}%</span>`
+                                    }
                                 </div>
                             </div>
                         </div>
 
                         <div class="inventario-item-actions">
-                            <button type="button" class="btn-inv-action btn-inv-edit" onclick="editarProducto('${p.id}')" title="Editar producto" aria-label="Editar producto">
+                            <button type="button" class="btn-inv-action btn-inv-edit" onclick="editarProducto('${p.id}')" title="Editar producto" aria-label="Editar producto" style="${costoUSD > 0 && precioUSD < costoUSD ? 'background:#f97316; color:#ffffff;' : ''}">
                                 <i class="fas fa-pen-to-square"></i>
-                                <span>Editar</span>
+                                <span>${costoUSD > 0 && precioUSD < costoUSD ? 'Ajustar PVP' : 'Editar'}</span>
                             </button>
                             <button type="button" class="btn-inv-action btn-inv-retire" onclick="abrirModalEliminarProducto('${p.id}')" title="Retirar o dar de baja" aria-label="Retirar producto">
                                 <i class="fas fa-trash-can"></i>
@@ -802,8 +840,10 @@ function renderizarInventario() {
                 </tr>
             `;
         } else {
-            tbody.innerHTML = prodsFiltrados.map(p => `
-                <tr>
+            tbody.innerHTML = prodsFiltrados.map(p => {
+                const esPerdida = Number(p.costo || 0) > 0 && Number(p.precio || 0) < Number(p.costo || 0);
+                return `
+                <tr style="${esPerdida ? 'background:#fffbfb;' : ''}">
                     <td>${p.codigo}</td>
                     <td>
                         <div class="inventory-product-cell">
@@ -822,17 +862,31 @@ function renderizarInventario() {
                     </td>
                     <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
                     <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
-                    <td class="num">$${p.costo.toFixed(2)}</td>
-                    <td class="num">${p.ganancia}%</td>
-                    <td class="num"><strong>$${p.precio.toFixed(2)}</strong></td>
+                    <td class="num font-weight-bold">$${p.costo.toFixed(2)}</td>
+                    <td class="num">
+                        ${esPerdida 
+                            ? `<span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; border:1px solid #fca5a5; padding:3px 7px; border-radius:6px;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${p.ganancia}%</span>`
+                            : `<span style="color:${p.ganancia > 0 ? '#16a34a' : 'inherit'}; font-weight:600;">+${p.ganancia}%</span>`
+                        }
+                    </td>
+                    <td class="num">
+                        ${esPerdida 
+                            ? `<strong style="color:#dc2626;">$${p.precio.toFixed(2)}</strong><br><span style="color:#dc2626; font-size:0.72rem; font-weight:700;">⚠️ Menor al costo</span>`
+                            : `<strong>$${p.precio.toFixed(2)}</strong>`
+                        }
+                    </td>
                     <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
-                    <td class="num">${p.stock}</td>
+                    <td class="num font-weight-bold" style="${p.stock <= 5 ? 'color:#d97706;' : ''}">${p.stock}</td>
                     <td class="inventory-actions">
-                        <button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>
+                        ${esPerdida 
+                            ? `<button class="btn btn-warning" onclick="editarProducto('${p.id}')" style="background:#f97316; border-color:#ea580c; color:#ffffff; font-weight:700;" title="Ajustar precio de venta">Ajustar PVP</button>`
+                            : `<button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>`
+                        }
                         <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
     }
 

@@ -2555,9 +2555,12 @@ window.InventoryApp = window.InventoryApp || {};
 
                 await batch.commit();
 
-                // Asegurar que el proveedor quede registrado en la colección de proveedores de Firebase
+                // Asegurar que el proveedor quede registrado en la colección de proveedores de Firebase (si no es N/A)
                 if (registroFactura && registroFactura.proveedor) {
-                    guardarProveedorCloud({ nombre: registroFactura.proveedor }).catch(() => {});
+                    const pNom = String(registroFactura.proveedor).trim().toUpperCase();
+                    if (pNom && pNom !== 'N/A' && pNom !== 'NA' && pNom !== 'NO APLICA' && pNom !== 'N / A' && pNom !== 'NINGUNO') {
+                        guardarProveedorCloud({ nombre: registroFactura.proveedor }).catch(() => {});
+                    }
                 }
             }
 
@@ -2578,50 +2581,7 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function inicializarProveedoresBaseCloud() {
         if (!db || isQuotaExhausted) return;
-        const proveedoresBase = [
-            { nombre: 'Distribuidora Polar C.A.', rif: 'J-00041312-1', contacto: 'Ventas Canal Tradicional', telefono: '0212-2023111', estado: 'ACTIVO' },
-            { nombre: 'Empresas Polar', rif: 'J-00041312-1', contacto: 'Atención Comercial', telefono: '0800-7652700', estado: 'ACTIVO' },
-            { nombre: 'Mayorista Central', rif: 'J-31298455-0', contacto: 'Despacho Mayorista', telefono: '0414-9988776', estado: 'ACTIVO' },
-            { nombre: 'Nestlé de Venezuela S.A.', rif: 'J-00012977-6', contacto: 'Distribución Nacional', telefono: '0800-6378531', estado: 'ACTIVO' },
-            { nombre: 'Mavesa / Alimentos Polar', rif: 'J-00041312-1', contacto: 'Ventas Consumo Masivo', telefono: '0212-2023000', estado: 'ACTIVO' },
-            { nombre: 'Distribuidora La Fama', rif: 'J-30129844-2', contacto: 'Preventa', telefono: '0412-1234567', estado: 'ACTIVO' },
-            { nombre: 'Mondelez Venezuela', rif: 'J-00062400-9', contacto: 'Golosinas y Galletas', telefono: '0212-2384911', estado: 'ACTIVO' },
-            { nombre: 'Monaca / Alimentos Mary', rif: 'J-00030588-4', contacto: 'Harinas y Granos', telefono: '0212-2015555', estado: 'ACTIVO' }
-        ];
-
-        try {
-            const batch = db.batch();
-            const docsCreados = [];
-            proveedoresBase.forEach((p, index) => {
-                const id = 'PROV-' + (index + 1) + '-' + p.nombre.toLowerCase().replace(/[^a-z0-9]/g, '').substr(0, 10);
-                const ref = db.collection(COLLECTIONS.PROVEEDORES).doc(id);
-                const obj = {
-                    id: id,
-                    nombre: p.nombre,
-                    rif: p.rif,
-                    contacto: p.contacto,
-                    telefono: p.telefono,
-                    direccion: 'Venezuela',
-                    notas: 'Proveedor base del sistema',
-                    estado: 'ACTIVO',
-                    fechaRegistro: new Date().toISOString().substring(0, 10),
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                batch.set(ref, obj);
-                docsCreados.push(obj);
-            });
-            await batch.commit();
-            AppState.proveedores = docsCreados;
-            if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
-            docsCreados.forEach(p => {
-                if (!AppState.proveedoresFrecuentes.includes(p.nombre)) AppState.proveedoresFrecuentes.push(p.nombre);
-            });
-            if (typeof actualizarDatalistProveedores === 'function') {
-                actualizarDatalistProveedores();
-            }
-        } catch (e) {
-            console.warn('[Firebase] Aviso inicializando proveedores base:', e);
-        }
+        return;
     }
 
     /**
@@ -2631,6 +2591,10 @@ window.InventoryApp = window.InventoryApp || {};
         if (!proveedor) return false;
         const nombre = String(proveedor.nombre || '').trim();
         if (!nombre) return false;
+        const nUpper = nombre.toUpperCase();
+        if (nUpper === 'N/A' || nUpper === 'NA' || nUpper === 'NO APLICA' || nUpper === 'N / A' || nUpper === 'NINGUNO') {
+            return false;
+        }
 
         const id = proveedor.id || ('PROV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
         const timestamp = new Date().toISOString();

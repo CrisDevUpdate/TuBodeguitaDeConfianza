@@ -419,6 +419,14 @@ function editarProducto(id) {
     const p = productos.find(prod => prod.id === id);
     if (!p) return;
 
+    if (typeof window.toggleFormularioProducto === 'function') {
+        window.toggleFormularioProducto(true);
+    }
+    const formCard = document.getElementById('card-product-form') || document.getElementById('form-producto');
+    if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     document.getElementById('prod-id').value = p.id;
     document.getElementById('prod-codigo').value = p.codigo;
     document.getElementById('prod-codigo').readOnly = true;
@@ -488,9 +496,140 @@ function normalizarProductos() {
     productos = productos.map(normalizarDatosProducto);
 }
 
+let busquedaInventario = '';
+let filtroStockInventario = 'todos';
+let filtroStockCantidad = 5;
+let filtroStockOperador = '<=';
+
+try {
+    const savedCant = localStorage.getItem('inv_filtro_stock_cant');
+    if (savedCant !== null && !isNaN(parseInt(savedCant, 10))) {
+        filtroStockCantidad = Math.max(0, parseInt(savedCant, 10));
+    }
+    const savedOp = localStorage.getItem('inv_filtro_stock_op');
+    if (savedOp && ['<=', '=', '>='].includes(savedOp)) {
+        filtroStockOperador = savedOp;
+    }
+} catch (_) {}
+
+function alClickChipStockCustom(e) {
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alClickChipStockCustom = alClickChipStockCustom;
+
+function alCambiarOperadorStock(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const select = document.getElementById('inv-stock-operador') || (e ? e.target : null);
+    if (select) {
+        filtroStockOperador = select.value || '<=';
+        try { localStorage.setItem('inv_filtro_stock_op', filtroStockOperador); } catch (_) {}
+    }
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alCambiarOperadorStock = alCambiarOperadorStock;
+
+function alCambiarCantidadStock(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const input = document.getElementById('inv-stock-cantidad-input') || (e ? e.target : null);
+    if (input) {
+        const val = parseInt(input.value, 10);
+        filtroStockCantidad = isNaN(val) ? 0 : Math.max(0, val);
+        try { localStorage.setItem('inv_filtro_stock_cant', String(filtroStockCantidad)); } catch (_) {}
+    }
+    filtroStockInventario = 'bajo';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === 'bajo') chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.alCambiarCantidadStock = alCambiarCantidadStock;
+
+function filtrarInventarioTexto(valor) {
+    busquedaInventario = (valor || '').toLowerCase().trim();
+    const btnClear = document.getElementById('btn-clear-inv-search');
+    if (btnClear) {
+        btnClear.style.display = busquedaInventario ? 'inline-flex' : 'none';
+    }
+    renderizarInventario();
+}
+window.filtrarInventarioTexto = filtrarInventarioTexto;
+
+function limpiarBusquedaInventario() {
+    busquedaInventario = '';
+    const input = document.getElementById('inventario-buscar-input');
+    if (input) input.value = '';
+    const btnClear = document.getElementById('btn-clear-inv-search');
+    if (btnClear) btnClear.style.display = 'none';
+    renderizarInventario();
+}
+window.limpiarBusquedaInventario = limpiarBusquedaInventario;
+
+function filtrarInventarioStock(estado) {
+    filtroStockInventario = estado || 'todos';
+    ['todos', 'bajo', 'agotado'].forEach(st => {
+        const chip = document.getElementById(`chip-stock-${st}`);
+        if (chip) {
+            if (st === filtroStockInventario) chip.classList.add('active');
+            else chip.classList.remove('active');
+        }
+    });
+    renderizarInventario();
+}
+window.filtrarInventarioStock = filtrarInventarioStock;
+
+function nuevoProductoDesdeInventario() {
+    resetearFormularioProducto();
+    if (typeof window.toggleFormularioProducto === 'function') {
+        window.toggleFormularioProducto(true);
+    }
+    const formCard = document.getElementById('card-product-form') || document.getElementById('form-producto');
+    if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setTimeout(() => {
+        const inputNombre = document.getElementById('prod-nombre');
+        if (inputNombre) inputNombre.focus();
+    }, 250);
+}
+window.nuevoProductoDesdeInventario = nuevoProductoDesdeInventario;
+
+function toggleFormularioProducto(forzar) {
+    const form = document.getElementById('form-producto');
+    const icon = document.getElementById('icon-toggle-form');
+    const lbl = document.getElementById('lbl-toggle-form');
+    if (!form) return;
+    const estaOculto = form.style.display === 'none';
+    const mostrar = forzar !== undefined ? Boolean(forzar) : estaOculto;
+    form.style.display = mostrar ? 'block' : 'none';
+    if (icon) icon.className = mostrar ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    if (lbl) lbl.textContent = mostrar ? 'Ocultar' : 'Mostrar Formulario';
+}
+window.toggleFormularioProducto = toggleFormularioProducto;
+
 function renderizarInventario() {
     normalizarProductos();
     const tbody = document.getElementById('inventario-body');
+    const mobileList = document.getElementById('inventario-mobile-list');
 
     // Valor del inventario a costo: cuánto dinero está invertido actualmente en stock.
     const totalCosto = productos.reduce((total, p) => {
@@ -502,47 +641,254 @@ function renderizarInventario() {
         return total + ((Number(p.precio) || 0) - (Number(p.costo) || 0)) * (Number(p.stock) || 0);
     }, 0);
 
+    const prodsConPerdida = productos.filter(p => Number(p.stock) > 0 && Number(p.costo) > 0 && Number(p.precio) < Number(p.costo));
+
     const totalCostoUsd = document.getElementById('inventario-total-costo-usd');
     const totalCostoBs = document.getElementById('inventario-total-costo-ves');
     const gananciaUsd = document.getElementById('inventario-ganancia-esperada-usd');
     const gananciaBs = document.getElementById('inventario-ganancia-esperada-ves');
+    const cardGanancia = document.getElementById('inventario-card-ganancia-esperada');
+    const titleGanancia = document.getElementById('inventario-title-ganancia-esperada');
+    const alertaGanancia = document.getElementById('inventario-alerta-ganancia-negativa');
 
     if (totalCostoUsd) totalCostoUsd.textContent = `$${totalCosto.toFixed(2)}`;
     if (totalCostoBs) totalCostoBs.textContent = `Bs. ${tasaActiva > 0 ? (totalCosto * tasaActiva).toFixed(2) : '—'}`;
-    if (gananciaUsd) gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
-    if (gananciaBs) gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
+    
+    if (gananciaUsd) {
+        gananciaUsd.textContent = `$${gananciaEsperada.toFixed(2)}`;
+        if (gananciaEsperada < 0) {
+            gananciaUsd.style.color = '#dc2626';
+        } else {
+            gananciaUsd.style.color = 'var(--success, #16a34a)';
+        }
+    }
+    if (gananciaBs) {
+        gananciaBs.textContent = `Bs. ${tasaActiva > 0 ? (gananciaEsperada * tasaActiva).toFixed(2) : '—'}`;
+        if (gananciaEsperada < 0) {
+            gananciaBs.style.color = '#dc2626';
+        } else {
+            gananciaBs.style.color = '';
+        }
+    }
 
-    tbody.innerHTML = productos.map(p => `
-        <tr>
-            <td>${p.codigo}</td>
-            <td>
-                <div class="inventory-product-cell">
-                    <div class="inventory-product-thumb">
-                        ${p.imagen ? `<img src="${typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
-                    </div>
-                    <div>
-                        <div class="inventory-product-name">${p.nombre}</div>
-                    </div>
+    if (cardGanancia) {
+        if (gananciaEsperada < 0 || prodsConPerdida.length > 0) {
+            cardGanancia.style.borderLeftColor = '#dc2626';
+            if (titleGanancia) titleGanancia.textContent = 'PROYECCIÓN DE GANANCIA (ALERTA)';
+            if (alertaGanancia) {
+                alertaGanancia.style.display = 'block';
+                alertaGanancia.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <strong>Atención:</strong> Tienes ${prodsConPerdida.length} producto(s) con precio menor al costo (margen negativo). Pulsa en "Ajustar PVP" o "Editar" para corregir el precio de venta.`;
+            }
+        } else {
+            cardGanancia.style.borderLeftColor = 'var(--success, #16a34a)';
+            if (titleGanancia) titleGanancia.textContent = 'GANANCIA ESPERADA';
+            if (alertaGanancia) alertaGanancia.style.display = 'none';
+        }
+    }
+
+    // Filtrado de productos para la vista
+    let prodsFiltrados = [...productos];
+    if (busquedaInventario) {
+        const q = busquedaInventario.toLowerCase();
+        prodsFiltrados = prodsFiltrados.filter(p => 
+            (p.nombre && p.nombre.toLowerCase().includes(q)) ||
+            (p.codigo && String(p.codigo).toLowerCase().includes(q)) ||
+            (p.categoria && p.categoria.toLowerCase().includes(q)) ||
+            (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
+            (p.contenido && p.contenido.toLowerCase().includes(q))
+        );
+    }
+    // Sincronizar inputs del chip de stock en el DOM si no están en foco activo
+    const inputCantEl = document.getElementById('inv-stock-cantidad-input');
+    if (inputCantEl && document.activeElement !== inputCantEl && String(inputCantEl.value) !== String(filtroStockCantidad)) {
+        inputCantEl.value = filtroStockCantidad;
+    }
+    const selectOpEl = document.getElementById('inv-stock-operador');
+    if (selectOpEl && selectOpEl.value !== filtroStockOperador) {
+        selectOpEl.value = filtroStockOperador;
+    }
+
+    if (filtroStockInventario === 'bajo') {
+        const cantObjetivo = Number(filtroStockCantidad !== undefined ? filtroStockCantidad : 5);
+        const op = filtroStockOperador || '<=';
+        prodsFiltrados = prodsFiltrados.filter(p => {
+            const stock = Number(p.stock || 0);
+            if (op === '<=') {
+                if (cantObjetivo === 0) return stock <= 0;
+                return stock > 0 && stock <= cantObjetivo;
+            } else if (op === '=') {
+                return stock === cantObjetivo;
+            } else if (op === '>=') {
+                return stock >= cantObjetivo;
+            }
+            return stock <= cantObjetivo;
+        });
+    } else if (filtroStockInventario === 'agotado') {
+        prodsFiltrados = prodsFiltrados.filter(p => Number(p.stock || 0) <= 0);
+    }
+
+    const badgeTotal = document.getElementById('inventario-total-items-badge');
+    if (badgeTotal) {
+        badgeTotal.textContent = `${prodsFiltrados.length} ${prodsFiltrados.length === 1 ? 'producto' : 'productos'}${prodsFiltrados.length !== productos.length ? ` (de ${productos.length})` : ''}`;
+    }
+
+    // Mensaje contextual para estados vacíos
+    let mensajeVacio = 'Prueba ajustando los filtros de búsqueda';
+    if (filtroStockInventario === 'bajo') {
+        const opSign = filtroStockOperador === '<=' ? '≤' : (filtroStockOperador === '>=' ? '≥' : '=');
+        mensajeVacio = `No hay productos con Stock ${opSign} ${filtroStockCantidad}`;
+    } else if (filtroStockInventario === 'agotado') {
+        mensajeVacio = 'No hay productos con stock agotado';
+    } else if (busquedaInventario) {
+        mensajeVacio = `No se encontraron coincidencias para "${busquedaInventario}"`;
+    }
+
+    // 1. Renderizar Vista Móvil: Opción A - Vista en Lista Horizontal / Row Item
+    if (mobileList) {
+        if (prodsFiltrados.length === 0) {
+            mobileList.innerHTML = `
+                <div class="inventario-empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <p>No se encontraron productos</p>
+                    <small>${busquedaInventario || filtroStockInventario !== 'todos' ? mensajeVacio : 'Registra tu primer producto con el botón superior'}</small>
                 </div>
-            </td>
-            <td>
-                <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
-                    ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
-                </span>
-            </td>
-            <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
-            <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
-            <td class="num">$${p.costo.toFixed(2)}</td>
-            <td class="num">${p.ganancia}%</td>
-            <td class="num"><strong>$${p.precio.toFixed(2)}</strong></td>
-            <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
-            <td class="num">${p.stock}</td>
-            <td class="inventory-actions">
-                <button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>
-                <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
-            </td>
-        </tr>
-    `).join('');
+            `;
+        } else {
+            mobileList.innerHTML = prodsFiltrados.map(p => {
+                const stock = Number(p.stock || 0);
+                const precioUSD = Number(p.precio || 0);
+                const precioVES = tasaActiva > 0 ? (precioUSD * tasaActiva) : 0;
+                const costoUSD = Number(p.costo || 0);
+                const ganancia = Number(p.ganancia || 0);
+                const esAgotado = stock <= 0;
+                const esCombo = Boolean(p.esCombo === true || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+
+                const rawImg = p.imagen;
+                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || '';
+
+                return `
+                    <div class="inventario-item-card ${esAgotado ? 'card-agotado' : ''}" id="inv-card-${p.id}">
+                        <div class="inventario-item-img-wrap">
+                            ${imagenSrc 
+                                ? `<img src="${imagenSrc}" alt="${escaparHtmlInventario(p.nombre)}" class="inventario-item-img" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'inventario-item-noimg\\'><i class=\\'fas fa-box-open\\'></i></div>'">`
+                                : `<div class="inventario-item-noimg"><i class="fas fa-box-open"></i></div>`
+                            }
+                            ${esAgotado ? '<span class="inv-badge-agotado">Agotado</span>' : ''}
+                            ${esCombo ? '<span class="inv-badge-combo"><i class="fas fa-fire"></i></span>' : ''}
+                        </div>
+
+                        <div class="inventario-item-body">
+                            <div class="inventario-item-meta">
+                                <span class="inv-code">#${p.codigo || p.id}</span>
+                                <span class="inv-cat-badge ${esCombo ? 'is-combo' : ''}">
+                                    ${esCombo ? '🔥 Combo' : escaparHtmlInventario(p.categoria || 'General')}
+                                </span>
+                                ${esAgotado 
+                                    ? '<span class="inv-stock-pill stock-agotado"><i class="fas fa-circle-xmark"></i> 0 disp.</span>'
+                                    : (stock <= 5 
+                                        ? `<span class="inv-stock-pill stock-bajo"><i class="fas fa-triangle-exclamation"></i> ${stock} disp.</span>`
+                                        : `<span class="inv-stock-pill stock-ok"><i class="fas fa-check"></i> ${stock} disp.</span>`
+                                    )
+                                }
+                            </div>
+
+                            <h4 class="inventario-item-title" title="${escaparHtmlInventario(p.nombre)}">${escaparHtmlInventario(p.nombre)}</h4>
+
+                            ${p.contenido ? `<div class="inv-item-contenido"><i class="fas fa-cube"></i> ${escaparHtmlInventario(p.contenido)}</div>` : ''}
+
+                            <div class="inventario-item-pricing-row">
+                                <div class="inv-prices-block">
+                                    <span class="inv-price-usd" style="${costoUSD > 0 && precioUSD < costoUSD ? 'color:#dc2626; font-weight:800;' : ''}">$${precioUSD.toFixed(2)}</span>
+                                    <span class="inv-price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
+                                </div>
+                                <div class="inv-cost-margin">
+                                    <span>Costo: <strong>$${costoUSD.toFixed(2)}</strong></span>
+                                    ${costoUSD > 0 && precioUSD < costoUSD 
+                                        ? `<span class="inv-margin-tag" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${ganancia}%</span>`
+                                        : `<span class="inv-margin-tag">${ganancia >= 0 ? '+' : ''}${ganancia}%</span>`
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="inventario-item-actions">
+                            <button type="button" class="btn-inv-action btn-inv-edit" onclick="editarProducto('${p.id}')" title="Editar producto" aria-label="Editar producto" style="${costoUSD > 0 && precioUSD < costoUSD ? 'background:#f97316; color:#ffffff;' : ''}">
+                                <i class="fas fa-pen-to-square"></i>
+                                <span>${costoUSD > 0 && precioUSD < costoUSD ? 'Ajustar PVP' : 'Editar'}</span>
+                            </button>
+                            <button type="button" class="btn-inv-action btn-inv-retire" onclick="abrirModalEliminarProducto('${p.id}')" title="Retirar o dar de baja" aria-label="Retirar producto">
+                                <i class="fas fa-trash-can"></i>
+                                <span>Baja</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 2. Renderizar Vista Escritorio: Tabla tradicional
+    if (tbody) {
+        if (prodsFiltrados.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; padding: 32px 16px; color: var(--text-muted, #94a3b8);">
+                        <i class="fas fa-box-open" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
+                        <div style="font-weight:600; font-size:0.95rem; margin-bottom:4px;">No se encontraron productos</div>
+                        <small style="color:var(--text-muted, #64748b);">${busquedaInventario || filtroStockInventario !== 'todos' ? mensajeVacio : 'Registra tu primer producto con el botón superior'}</small>
+                    </td>
+                </tr>
+            `;
+        } else {
+            tbody.innerHTML = prodsFiltrados.map(p => {
+                const esPerdida = Number(p.costo || 0) > 0 && Number(p.precio || 0) < Number(p.costo || 0);
+                return `
+                <tr style="${esPerdida ? 'background:#fffbfb;' : ''}">
+                    <td>${p.codigo}</td>
+                    <td>
+                        <div class="inventory-product-cell">
+                            <div class="inventory-product-thumb">
+                                ${p.imagen ? `<img src="${typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
+                            </div>
+                            <div>
+                                <div class="inventory-product-name">${p.nombre}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
+                            ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
+                        </span>
+                    </td>
+                    <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
+                    <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
+                    <td class="num font-weight-bold">$${p.costo.toFixed(2)}</td>
+                    <td class="num">
+                        ${esPerdida 
+                            ? `<span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; border:1px solid #fca5a5; padding:3px 7px; border-radius:6px;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${p.ganancia}%</span>`
+                            : `<span style="color:${p.ganancia > 0 ? '#16a34a' : 'inherit'}; font-weight:600;">+${p.ganancia}%</span>`
+                        }
+                    </td>
+                    <td class="num">
+                        ${esPerdida 
+                            ? `<strong style="color:#dc2626;">$${p.precio.toFixed(2)}</strong><br><span style="color:#dc2626; font-size:0.72rem; font-weight:700;">⚠️ Menor al costo</span>`
+                            : `<strong>$${p.precio.toFixed(2)}</strong>`
+                        }
+                    </td>
+                    <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
+                    <td class="num font-weight-bold" style="${p.stock <= 5 ? 'color:#d97706;' : ''}">${p.stock}</td>
+                    <td class="inventory-actions">
+                        ${esPerdida 
+                            ? `<button class="btn btn-warning" onclick="editarProducto('${p.id}')" style="background:#f97316; border-color:#ea580c; color:#ffffff; font-weight:700;" title="Ajustar precio de venta">Ajustar PVP</button>`
+                            : `<button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>`
+                        }
+                        <button class="btn btn-danger" onclick="abrirModalEliminarProducto('${p.id}')">Retirar</button>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+        }
+    }
 
     renderizarHistorialEliminaciones();
     renderizarResumenPerdidasEconomicas();

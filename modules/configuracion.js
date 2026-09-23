@@ -69,10 +69,10 @@ function renderizarConfiguracionAdmin() {
                 </div>
             </div>
 
-            <div style="background:${inviernoActivo ? '#f0f9ff' : '#f8fafc'}; border:1px solid ${inviernoActivo ? '#bae6fd' : 'var(--border-light)'}; border-radius:10px; padding:16px; margin-bottom:18px;">
+            <div class="config-winter-box" style="background:${inviernoActivo ? 'var(--info-bg, #f0f9ff)' : 'var(--bg-color, #f8fafc)'}; border:1px solid ${inviernoActivo ? '#bae6fd' : 'var(--border-light)'}; border-radius:10px; padding:16px; margin-bottom:18px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                     <div style="flex:1; min-width:280px;">
-                        <strong style="color:${inviernoActivo ? '#0369a1' : 'var(--text-main)'}; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                        <strong style="color:var(--text-main); font-size:0.95rem; display:flex; align-items:center; gap:6px;">
                             <i class="fas fa-toggle-on" style="font-size:1.1rem; color:${inviernoActivo ? '#0284c7' : 'var(--text-muted)'};"></i> Interruptor: Activar Modo Temporada de Invierno
                         </strong>
                         <p style="margin:4px 0 0 0; font-size:0.83rem; color:var(--text-muted); line-height:1.4;">
@@ -98,9 +98,9 @@ function renderizarConfiguracionAdmin() {
 
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
                     <!-- Plantilla 1: Anuncio de Premios -->
-                    <div style="background:#ffffff; border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div class="config-marketing-card" style="background:var(--card-bg, #ffffff); border:1px solid var(--border-light); border-radius:10px; padding:14px; display:flex; flex-direction:column; justify-content:space-between;">
                         <div>
-                            <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700; margin-bottom:6px; display:inline-block;">📢 Plantilla: Lanzamiento de Premios</span>
+                            <span class="badge config-badge-anuncio" style="background:#dcfce7; color:#15803d; font-weight:700; margin-bottom:6px; display:inline-block; border-radius:6px; padding:4px 8px;">📢 Plantilla: Lanzamiento de Premios</span>
                             <h5 style="margin:4px 0 8px 0; font-size:0.92rem; color:var(--text-main);">Flyer & Emoción de Premios</h5>
                             <textarea id="wa-text-anuncio-premio" class="form-control" rows="5" style="font-size:0.82rem; font-family:monospace; line-height:1.4; resize:none;">🎉 ¡GRAN NOTICIA EN TU BODEGUITA DE CONFIANZA! 🏆🎁
 
@@ -122,9 +122,9 @@ Acumula puntos con cada compra o abono puntual y haz florecer tu Árbol de Recom
                     </div>
 
                     <!-- Plantilla 2: Confirmación de Ganador -->
-                    <div style="background:#ffffff; border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div class="config-marketing-card" style="background:var(--card-bg, #ffffff); border:1px solid var(--border-light); border-radius:10px; padding:14px; display:flex; flex-direction:column; justify-content:space-between;">
                         <div>
-                            <span class="badge" style="background:#fef3c7; color:#b45309; font-weight:700; margin-bottom:6px; display:inline-block;">🏆 Plantilla: Confirmación de Ganador</span>
+                            <span class="badge config-badge-ganador" style="background:#fef3c7; color:#b45309; font-weight:700; margin-bottom:6px; display:inline-block; border-radius:6px; padding:4px 8px;">🏆 Plantilla: Confirmación de Ganador</span>
                             <h5 style="margin:4px 0 8px 0; font-size:0.92rem; color:var(--text-main);">Felicitaciones por Canje de Premio</h5>
                             <textarea id="wa-text-confirmacion-ganador" class="form-control" rows="5" style="font-size:0.82rem; font-family:monospace; line-height:1.4; resize:none;">🌟 ¡FELICITACIONES, ERES NUESTRO GANADOR! 🌳🎉
 
@@ -149,7 +149,7 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
 
         <!-- MÓDULO 2: REINICIO GENERAL DE FÁBRICA (HARD-RESET EXCLUSIVO SUPERADMIN) -->
         ${esSuperAdmin ? `
-            <div class="card" style="margin-bottom:20px; border: 2px solid #ef4444; background:#fef2f2;">
+            <div class="card config-critical-zone" style="margin-bottom:20px; border: 2px solid #ef4444; background:#fef2f2;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
                     <div style="flex:1; min-width:280px;">
                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
@@ -157,14 +157,14 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
                                 <i class="fas fa-triangle-exclamation"></i> Zona Crítica / SuperAdmin
                             </span>
                         </div>
-                        <h3 style="margin:4px 0 6px 0; font-size:1.2rem; color:#991b1b; display:flex; align-items:center; gap:8px;">
+                        <h3 class="config-critical-title" style="margin:4px 0 6px 0; font-size:1.2rem; color:#991b1b; display:flex; align-items:center; gap:8px;">
                             <i class="fas fa-bomb"></i> Reinicio General de Fábrica (Hard-Reset)
                         </h3>
-                        <p style="margin:0; font-size:0.86rem; color:#7f1d1d; line-height:1.45;">
+                        <p class="config-critical-text" style="margin:0; font-size:0.86rem; color:#7f1d1d; line-height:1.45;">
                             Esta operación trunca y restaura el sistema a su estado original virgen de fábrica.
                             <b>Archiva el historial anterior con marca de tiempo</b> y restablece a cero:
                         </p>
-                        <ul style="margin:8px 0 0 16px; padding:0; font-size:0.82rem; color:#991b1b; line-height:1.4;">
+                        <ul class="config-critical-list" style="margin:8px 0 0 16px; padding:0; font-size:0.82rem; color:#991b1b; line-height:1.4;">
                             <li>Historial de ventas (diarias y acumuladas) y deudas pendientes.</li>
                             <li>Registros de auditoría, conteos físicos y mermas.</li>
                             <li>Usuarios y clientes secundarios registrados (preservando intacto a SuperAdmin).</li>

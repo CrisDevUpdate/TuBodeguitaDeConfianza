@@ -555,10 +555,13 @@ function escanearProductoAuditoria(event) {
     scanInput.value = '';
 }
 
-// Aplica el ajuste de UN producto: actualiza el Stock Digital para que coincida
-// con el Stock Físico contado y deja el registro correspondiente en el historial.
-async function aplicarAjusteInventario(productoId) {
-    const p = productos.find(prod => prod.id === productoId);
+// Variable global para el ajuste de auditoría en curso
+let productoAjusteAuditoriaActual = null;
+
+// Abre el modal de conciliación de discrepancia de auditoría física
+function abrirModalAjusteAuditoria(productoId) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const p = prods.find(prod => prod.id === productoId);
     if (!p) return;
 
     const diferencia = calcularDiferenciaAuditoria(productoId);
@@ -571,28 +574,267 @@ async function aplicarAjusteInventario(productoId) {
         return;
     }
 
-    const stockFisico = Number(conteosFisicos[productoId] || 0);
-    const stockAnterior = Number(p.stock || 0);
-
-    // Confirmación mediante Modal Personalizado
-    const difTexto = (diferencia > 0 ? `+${diferencia}` : `${diferencia}`);
-    const mensajeHtml = `¿Confirmar ajuste de inventario para <b>"${p.nombre}"</b>?<br><br>` +
-        `• <b>Stock Anterior:</b> ${stockAnterior} unds<br>` +
-        `• <b>Nuevo Stock Físico:</b> ${stockFisico} unds<br>` +
-        `• <b>Diferencia:</b> <span style="color:${diferencia >= 0 ? '#16a34a' : '#ef4444'}; font-weight:700;">${difTexto} unds</span><br>` +
-        `• <b>Motivo:</b> Auditoría Física de Inventario`;
-
-    let confirmado = false;
-    if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Auditoría de Inventario', mensajeHtml, 'warning');
-    } else {
-        confirmado = confirm(`¿Confirmar ajuste para ${p.nombre}?\nAnterior: ${stockAnterior}\nNuevo: ${stockFisico}\nDiferencia: ${difTexto}`);
+    if (diferencia === 0) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Inventario Conforme', `El conteo físico de "${p.nombre}" coincide exactamente con el stock del sistema (${p.stock} unds). No se requiere ajuste.`, 'info');
+        } else {
+            alert('El conteo físico coincide con el stock digital.');
+        }
+        return;
     }
 
-    if (!confirmado) return;
+    productoAjusteAuditoriaActual = {
+        producto: p,
+        diferencia: diferencia,
+        stockFisico: Number(conteosFisicos[productoId] || 0),
+        stockAnterior: Number(p.stock || 0)
+    };
 
-    // Actualiza el stock exclusivamente mediante el servicio formal de auditoría.
-    if (!InventoryApp.StockService.ajuste(productoId, stockFisico)) {
+    const modal = document.getElementById('modal-ajuste-auditoria');
+    if (!modal) {
+        // Fallback rápido si el elemento modal no estuviera en DOM
+        return aplicarAjusteInventarioLegacy(productoId);
+    }
+
+    // Datos del producto
+    const imgEl = document.getElementById('audit-modal-prod-img');
+    if (imgEl) imgEl.src = p.imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&auto=format&fit=crop&q=60';
+
+    const nombreEl = document.getElementById('audit-modal-prod-nombre');
+    if (nombreEl) nombreEl.textContent = p.nombre;
+
+    const codEl = document.getElementById('audit-modal-prod-codigo');
+    if (codEl) codEl.textContent = `${p.codigo || p.id}`;
+
+    const digitalEl = document.getElementById('audit-modal-stock-digital');
+    if (digitalEl) digitalEl.textContent = `${p.stock} unds`;
+
+    const fisicoEl = document.getElementById('audit-modal-stock-fisico');
+    if (fisicoEl) fisicoEl.textContent = `${productoAjusteAuditoriaActual.stockFisico} unds`;
+
+    const difEl = document.getElementById('audit-modal-diferencia');
+    if (difEl) {
+        if (diferencia > 0) {
+            difEl.innerHTML = `<span style="color:#16a34a; font-weight:800; font-size:1.1rem;"><i class="fas fa-arrow-trend-up"></i> +${diferencia} unds (Sobrante)</span>`;
+        } else {
+            difEl.innerHTML = `<span style="color:#dc2626; font-weight:800; font-size:1.1rem;"><i class="fas fa-triangle-exclamation"></i> ${diferencia} unds (Faltante)</span>`;
+        }
+    }
+
+    // Informar inmutabilidad de precios
+    const preciosEl = document.getElementById('audit-modal-precios-inmutables');
+    if (preciosEl) {
+        preciosEl.innerHTML = `
+            <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; font-size:0.8rem; color:#475569; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-lock" style="color:#0284c7;"></i>
+                <span>Precios Base Inmutables: Costo <strong>$${Number(p.costo || 0).toFixed(2)}</strong> · PVP <strong>$${Number(p.precio || 0).toFixed(2)}</strong> (Permanecen intactos)</span>
+            </div>
+        `;
+    }
+
+    // Contenedor de Motivos Dinámicos según sea Sobrante o Faltante
+    const motivosContainer = document.getElementById('audit-modal-motivos-list');
+    if (motivosContainer) {
+        if (diferencia > 0) {
+            // SOBRANTE (Físico > Sistema)
+            motivosContainer.innerHTML = `
+                <div style="font-weight:700; font-size:0.92rem; color:#166534; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-arrow-trend-up"></i> Selecciona el motivo del SOBRANTE: <span style="color:var(--danger)">*</span>
+                </div>
+
+                <div role="button" tabindex="0" class="audit-modal-reason-card is-selected-sobrante" onclick="alSeleccionarMotivoAuditoria(this, 'Error de conteo previo', 'sobrante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Error de conteo previo', 'sobrante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">a) Error de conteo previo</strong>
+                        <span class="audit-reason-desc">
+                            Solo ajusta el número de existencias físicas en el sistema sin solicitar costos ni alterar precios base.
+                        </span>
+                    </div>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Error de conteo previo" checked style="display:none;">
+                </div>
+
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Mercancía no registrada / Compra no ingresada', 'sobrante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Mercancía no registrada / Compra no ingresada', 'sobrante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-boxes-stacked"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">b) Mercancía no registrada / Compra no ingresada</strong>
+                        <span class="audit-reason-desc">
+                            Mercancía física encontrada en almacén no documentada previamente.
+                        </span>
+                    </div>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Mercancía no registrada / Compra no ingresada" style="display:none;">
+                </div>
+
+                <!-- ⚠️ ADVERTENCIA OBLIGATORIA SOBRE COMPRAS Y FACTURAS -->
+                <div id="audit-warning-compra-factura" style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; margin-top:12px;">
+                    <div style="display:flex; align-items:flex-start; gap:10px;">
+                        <i class="fas fa-triangle-exclamation" style="color:#d97706; font-size:1.2rem; margin-top:2px;"></i>
+                        <div style="flex:1;">
+                            <strong style="color:#92400e; font-size:0.85rem; display:block; margin-bottom:4px;">
+                                ⚠️ Atención sobre Costos y Reposición:
+                            </strong>
+                            <p style="margin:0 0 8px 0; font-size:0.82rem; color:#78350f; line-height:1.4;">
+                                Si este sobrante corresponde a <strong>mercancía nueva recibida de un proveedor</strong>, debe ingresarse obligatoriamente por el <strong>Módulo de Facturas</strong> para registrar el costo facturado de reposición y no desfasar la contabilidad.
+                            </p>
+                            <button type="button" class="btn btn-sm" onclick="irACargarFacturaDesdeAuditoria('${p.id}')" style="background:#d97706; color:#ffffff; border:none; font-weight:700; border-radius:8px; padding:8px 14px; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fas fa-file-invoice-dollar"></i> Ir a Cargar por Módulo de Facturas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // FALTANTE (Físico < Sistema)
+            motivosContainer.innerHTML = `
+                <div style="font-weight:700; font-size:0.92rem; color:#991b1b; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-triangle-exclamation"></i> Selecciona el motivo del FALTANTE: <span style="color:var(--danger)">*</span>
+                </div>
+
+                <div role="button" tabindex="0" class="audit-modal-reason-card is-selected-faltante" onclick="alSeleccionarMotivoAuditoria(this, 'Merma / Daño / Vencimiento', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Merma / Daño / Vencimiento', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">a) Merma / Daño / Vencimiento</strong>
+                        <span class="audit-reason-desc">
+                            Pérdida de inventario por producto caducado, rotura física o deterioro de empaque.
+                        </span>
+                    </div>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Merma / Daño / Vencimiento" checked style="display:none;">
+                </div>
+
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Error de despacho / Venta no registrada', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Error de despacho / Venta no registrada', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-cart-arrow-down"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">b) Error de despacho / Venta no registrada</strong>
+                        <span class="audit-reason-desc">
+                            Salida física de almacén no registrada oportunamente en el sistema POS.
+                        </span>
+                    </div>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Error de despacho / Venta no registrada" style="display:none;">
+                </div>
+
+                <div role="button" tabindex="0" class="audit-modal-reason-card" onclick="alSeleccionarMotivoAuditoria(this, 'Pérdida desconocida', 'faltante')" onkeydown="if(event.key==='Enter'||event.key===' '){alSeleccionarMotivoAuditoria(this, 'Pérdida desconocida', 'faltante'); event.preventDefault();}">
+                    <div class="audit-reason-radio-indicator">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="audit-reason-badge-icon">
+                        <i class="fas fa-magnifying-glass"></i>
+                    </div>
+                    <div class="audit-reason-text-wrap">
+                        <strong class="audit-reason-title">c) Pérdida desconocida</strong>
+                        <span class="audit-reason-desc">
+                            Discrepancia no explicada sujeta a investigación interna de almacén.
+                        </span>
+                    </div>
+                    <input type="radio" name="audit-motivo-seleccionado" value="Pérdida desconocida" style="display:none;">
+                </div>
+            `;
+        }
+    }
+
+    const inputNotas = document.getElementById('audit-modal-notas');
+    if (inputNotas) inputNotas.value = '';
+
+    modal.style.display = 'flex';
+}
+window.abrirModalAjusteAuditoria = abrirModalAjusteAuditoria;
+
+function alSeleccionarMotivoAuditoria(elem, valor, tipo) {
+    const container = document.getElementById('audit-modal-motivos-list');
+    if (!container) return;
+
+    const cards = container.querySelectorAll('.audit-modal-reason-card');
+    cards.forEach(card => {
+        card.classList.remove('is-selected-sobrante', 'is-selected-faltante');
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio) radio.checked = false;
+    });
+
+    const targetCard = (elem && elem.classList && elem.classList.contains('audit-modal-reason-card'))
+        ? elem
+        : (elem ? elem.closest('.audit-modal-reason-card') : null);
+
+    if (targetCard) {
+        if (tipo === 'sobrante') {
+            targetCard.classList.add('is-selected-sobrante');
+        } else {
+            targetCard.classList.add('is-selected-faltante');
+        }
+        const radio = targetCard.querySelector('input[type="radio"]');
+        if (radio) {
+            radio.checked = true;
+        }
+    }
+}
+window.alSeleccionarMotivoAuditoria = alSeleccionarMotivoAuditoria;
+
+function cerrarModalAjusteAuditoria() {
+    const modal = document.getElementById('modal-ajuste-auditoria');
+    if (modal) modal.style.display = 'none';
+    productoAjusteAuditoriaActual = null;
+}
+window.cerrarModalAjusteAuditoria = cerrarModalAjusteAuditoria;
+
+// Redirige al módulo de facturas para ingresar mercancía nueva
+function irACargarFacturaDesdeAuditoria(productoId) {
+    cerrarModalAjusteAuditoria();
+    if (typeof switchTab === 'function') {
+        switchTab('facturas');
+    }
+    setTimeout(() => {
+        if (typeof window.abrirFacturaConProducto === 'function') {
+            window.abrirFacturaConProducto(productoId);
+        }
+    }, 150);
+}
+window.irACargarFacturaDesdeAuditoria = irACargarFacturaDesdeAuditoria;
+
+// Confirma y aplica el ajuste con el motivo obligatorio
+async function confirmarAjusteAuditoria() {
+    if (!productoAjusteAuditoriaActual) return;
+    const { producto: p, diferencia, stockFisico, stockAnterior } = productoAjusteAuditoriaActual;
+
+    const radios = document.getElementsByName('audit-motivo-seleccionado');
+    let motivoSeleccionado = '';
+    for (const r of radios) {
+        if (r.checked) {
+            motivoSeleccionado = r.value;
+            break;
+        }
+    }
+
+    if (!motivoSeleccionado) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Motivo Obligatorio', 'Debes seleccionar obligatoriamente un motivo para el ajuste de inventario.', 'warning');
+        } else {
+            alert('Debes seleccionar obligatoriamente un motivo para el ajuste.');
+        }
+        return;
+    }
+
+    const inputNotas = document.getElementById('audit-modal-notas');
+    const notas = String(inputNotas?.value || '').trim();
+
+    // Actualiza el stock exclusivamente mediante el servicio formal de auditoría (sin alterar precios base ni costos)
+    if (!InventoryApp.StockService.ajuste(p.id, stockFisico)) {
         if (typeof showCustomAlert === 'function') {
             showCustomAlert('Error', 'No fue posible aplicar el ajuste de inventario.', 'error');
         } else {
@@ -604,17 +846,21 @@ async function aplicarAjusteInventario(productoId) {
     const usuarioNombre = AppState.usuarioActual?.nombre || AppState.usuarioActual?.id || 'SuperAdmin';
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
-    // Deja registro en el historial de auditoría.
+    // Deja registro en el historial de auditoría con el motivo obligatorio
     const registroAuditoria = {
         id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
         fecha: timestamp,
         productoId: p.id,
         codigo: p.codigo,
         nombre: p.nombre,
+        stockTeorico: stockAnterior,
         stockAnterior: stockAnterior,
         stockFisico: stockFisico,
         diferencia: diferencia,
+        motivo: motivoSeleccionado,
+        notas: notas,
         costo: Number(p.costo || 0),
+        precio: Number(p.precio || 0),
         perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0,
         usuario: usuarioNombre
     };
@@ -632,23 +878,26 @@ async function aplicarAjusteInventario(productoId) {
                 stockAnterior: stockAnterior,
                 nuevoStock: stockFisico,
                 diferencia: diferencia,
-                motivo: 'Auditoría Física de Inventario',
+                motivo: motivoSeleccionado,
+                notas: notas,
                 usuario: usuarioNombre,
                 timestamp: timestamp
             })
         }).catch(err => console.warn('[API Adjust] Fallback local:', err));
     } catch {}
 
-    // Sincronizar ajuste en Firestore
+    // Sincronizar ajuste en Firestore (sin alterar precios base)
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
-        window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(err => {
+        window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, p.id, stockFisico).catch(err => {
             console.warn('[Auditoria] Error sincronizando ajuste en Firestore:', err);
         });
     }
 
-    // Conservamos el conteo físico verificado (ahora en exacta concordancia con el nuevo stock digital)
-    conteosFisicos[productoId] = stockFisico;
+    // Conservamos el conteo físico verificado
+    conteosFisicos[p.id] = stockFisico;
     guardarConteosSesion();
+
+    cerrarModalAjusteAuditoria();
 
     renderizarInventario();
     renderizarPosProductos();
@@ -659,8 +908,60 @@ async function aplicarAjusteInventario(productoId) {
     }
 
     if (typeof showCustomToast === 'function') {
-        showCustomToast(`Ajuste aplicado para ${p.nombre} (Stock Digital: ${stockFisico})`, 'success');
+        showCustomToast(`Ajuste aplicado para "${p.nombre}" (${diferencia > 0 ? '+' : ''}${diferencia} unds - Motivo: ${motivoSeleccionado})`, 'success');
     }
+}
+window.confirmarAjusteAuditoria = confirmarAjusteAuditoria;
+
+// Aplica el ajuste de UN producto abriendo el modal de conciliación obligatoria
+function aplicarAjusteInventario(productoId) {
+    abrirModalAjusteAuditoria(productoId);
+}
+window.aplicarAjusteInventario = aplicarAjusteInventario;
+
+// Fallback legacy en caso de ausencia de DOM
+async function aplicarAjusteInventarioLegacy(productoId) {
+    const p = productos.find(prod => prod.id === productoId);
+    if (!p) return;
+
+    const diferencia = calcularDiferenciaAuditoria(productoId);
+    if (diferencia === null) return;
+
+    const stockFisico = Number(conteosFisicos[productoId] || 0);
+    const stockAnterior = Number(p.stock || 0);
+
+    if (!InventoryApp.StockService.ajuste(productoId, stockFisico)) return;
+
+    const usuarioNombre = AppState.usuarioActual?.nombre || AppState.usuarioActual?.id || 'SuperAdmin';
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const motivo = diferencia > 0 ? 'Error de conteo previo' : 'Pérdida desconocida';
+
+    const registroAuditoria = {
+        id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
+        fecha: timestamp,
+        productoId: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        stockTeorico: stockAnterior,
+        stockAnterior: stockAnterior,
+        stockFisico: stockFisico,
+        diferencia: diferencia,
+        motivo: motivo,
+        costo: Number(p.costo || 0),
+        precio: Number(p.precio || 0),
+        perdidaUSD: diferencia < 0 ? Math.abs(diferencia) * Number(p.costo || 0) : 0,
+        usuario: usuarioNombre
+    };
+    auditorias.push(registroAuditoria);
+
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
+        window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(() => {});
+    }
+
+    conteosFisicos[productoId] = stockFisico;
+    guardarConteosSesion();
+    renderizarAuditoria();
+    renderizarHistorialAuditoria();
 }
 
 // Aplica en bloque todos los ajustes pendientes (todos los productos con conteo físico capturado que difieran del stock digital).

@@ -219,7 +219,7 @@ window.InventoryApp.StockService = {
         p.stock = qty;
         return true;
     },
-    ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion') {
+    ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion', nuevoPrecioVenta = null, nuevoMargen = null) {
         const p = this._get(productId);
         const qty = Number(cantidadComprada);
         if (!p || !Number.isFinite(qty) || qty <= 0) return false;
@@ -242,11 +242,18 @@ window.InventoryApp.StockService = {
                 // Costo de reposición (reemplazo directo del valor facturado)
                 p.costo = Number(nuevoCosto.toFixed(2));
             }
-            
-            // Recalcular el porcentaje de ganancia respecto al precio actual
-            if (p.precio && p.costo > 0) {
-                p.ganancia = Number((((p.precio - p.costo) / p.costo) * 100).toFixed(2));
-            }
+        }
+
+        // Actualizar el precio de venta si fue configurado en la factura
+        if (nuevoPrecioVenta !== null && Number.isFinite(Number(nuevoPrecioVenta)) && Number(nuevoPrecioVenta) > 0) {
+            p.precio = Number(Number(nuevoPrecioVenta).toFixed(2));
+        } else if (nuevoMargen !== null && Number.isFinite(Number(nuevoMargen)) && p.costo > 0) {
+            p.precio = Number((p.costo * (1 + (Number(nuevoMargen) / 100))).toFixed(2));
+        }
+        
+        // Recalcular el porcentaje de ganancia respecto al precio actual
+        if (p.precio && p.costo > 0) {
+            p.ganancia = Number((((p.precio - p.costo) / p.costo) * 100).toFixed(2));
         }
         
         return true;
