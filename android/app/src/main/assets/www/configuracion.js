@@ -186,73 +186,87 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div>
                     <h3 style="margin:0 0 6px 0; font-size:1.2rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Respaldos y Exportación de Datos
+                        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Persistencia Portátil & Base de Datos Máster
                     </h3>
                     <p style="margin:0; font-size:0.86rem; color:var(--text-muted); line-height:1.5;">
-                        Descarga una copia de seguridad íntegra de toda la base de datos en formato Excel (.xlsx) multihajas o JSON portátil.
-                        El archivo <strong>Máster Excel (.xlsx)</strong> integra todas las hojas del sistema: inventario completo con costos y precios, directorio de clientes, saldos deudores y cuentas por cobrar, cuentas bancarias, historial de ventas, pagos y abonos, programa de puntos y canjes de premios, facturas de compras, proveedores, movimientos de kardex y auditorías.
+                        Estructura máster multihajas (.xlsx) y JSON que almacena la tabla de <strong>Usuarios</strong> junto con <strong>Inventario de Productos</strong>, <strong>Clientes</strong>, <strong>Ventas</strong> y <strong>Auditorías</strong> para funcionamiento 100% offline o respaldo físico.
                     </p>
                 </div>
             </div>
 
             <!-- Resumen de Entidades Integradas en el Respaldo -->
-            <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="background:var(--bg-secondary); border:1px solid var(--border-light); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
                 <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                     <i class="fas fa-database" style="color:#16a34a;"></i> Datos incluidos en el archivo de respaldo:
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-boxes-stacked" style="color:#2563eb;"></i> Inventario (${(AppState.productos || []).length} productos)
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-boxes-stacked" style="color:#2563eb;"></i> Inventario (${(AppState.productos || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-users" style="color:#059669;"></i> Clientes y Cuentas x Cobrar (${(AppState.clientes || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-users" style="color:#059669;"></i> Clientes (${(AppState.clientes || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-building-columns" style="color:#d97706;"></i> Cuentas Bancarias (${(AppState.cuentasBancarias || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-building-columns" style="color:#d97706;"></i> Bancos (${(AppState.cuentasBancarias || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-cash-register" style="color:#7c3aed;"></i> Ventas Registradas (${(AppState.ventas || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-cash-register" style="color:#7c3aed;"></i> Ventas (${(AppState.ventas || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-receipt" style="color:#0891b2;"></i> Pagos y Abonos (${(AppState.abonos || []).length + (AppState.transacciones || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-receipt" style="color:#0891b2;"></i> Abonos (${(AppState.abonos || []).length + (AppState.transacciones || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-trophy" style="color:#eab308;"></i> Puntos y Canjes (${(AppState.canjesPremios || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-user-shield" style="color:#dc2626;"></i> Usuarios (${(AppState.usuarios || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-truck-ramp-box" style="color:#ea580c;"></i> Proveedores y Compras (${(AppState.proveedores || []).length + (AppState.facturasCompras || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-trophy" style="color:#eab308;"></i> Puntos (${(AppState.canjesPremios || []).length})
                     </span>
-                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:5px 10px; font-size:0.78rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-clipboard-check" style="color:#4f46e5;"></i> Kardex y Auditorías (${(AppState.kardex || []).length + (AppState.auditorias || []).length})
+                    <span style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:6px; padding:4px 8px; font-size:0.75rem; font-weight:600; color:var(--text-main); display:inline-flex; align-items:center; gap:5px;">
+                        <i class="fas fa-clipboard-check" style="color:#4f46e5;"></i> Auditorías (${(AppState.kardex || []).length + (AppState.auditorias || []).length})
                     </span>
                 </div>
             </div>
 
-            <!-- Botones de Acción de Exportación y Respaldo -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-bottom:16px;">
-                <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="padding:14px 18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:700; font-size:0.95rem; border-radius:8px; box-shadow: 0 2px 6px rgba(22,163,74,0.25);">
-                    <i class="fas fa-file-excel" style="font-size:1.25rem;"></i> Descargar Máster Excel (.xlsx)
-                </button>
-                <button type="button" class="btn btn-outline" onclick="descargarRespaldoLocal()" style="padding:14px 18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:600; font-size:0.95rem; border-radius:8px;">
-                    <i class="fas fa-file-code" style="font-size:1.25rem; color:#2563eb;"></i> Exportar Respaldo JSON
-                </button>
-            </div>
-
-            <!-- Importación / Restauración Opcional -->
-            <div style="padding-top:12px; border-top:1px dashed var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div style="font-size:0.8rem; color:var(--text-muted);">
-                    <i class="fas fa-shield-halved" style="color:#16a34a; margin-right:4px;"></i>
-                    Los respaldos descargados son 100% compatibles para restauración y auditoría externa.
+            <!-- 2 Tarjetas con diseño idéntico al de Usuarios -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:4px;">
+                <!-- Máster Excel -->
+                <div style="border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; padding:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-excel" style="font-size:1.4rem; color:#16a34a;"></i>
+                        <strong style="color:#166534; font-size:1.05rem;">Archivo Máster Excel (.xlsx)</strong>
+                    </div>
+                    <p style="font-size:0.82rem; color:#166534; margin-bottom:14px; line-height:1.4;">
+                        Descarga o sincroniza todas las hojas de cálculo del sistema en formato nativo Excel (.xlsx).
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="width:100%; padding:12px 14px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
+                            <i class="fas fa-download"></i> Descargar Máster Excel (.xlsx)
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; font-weight:600; background:#fff;">
+                            <i class="fas fa-upload" style="color:#dc2626;"></i> <span style="color:#dc2626;">Importar Máster Excel (.xlsx)</span>
+                            <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
+                        </label>
+                    </div>
                 </div>
-                <div style="display:flex; gap:8px;">
-                    <label class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px; font-size:0.8rem;">
-                        <i class="fas fa-file-excel" style="color:#16a34a;"></i> Importar Excel
-                        <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
-                    </label>
-                    <label class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:6px; font-size:0.8rem;">
-                        <i class="fas fa-file-code" style="color:#2563eb;"></i> Importar JSON
-                        <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
-                    </label>
+
+                <!-- Respaldo JSON -->
+                <div style="border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <i class="fas fa-file-code" style="font-size:1.4rem; color:#2563eb;"></i>
+                        <strong style="color:#1e40af; font-size:1.05rem;">Copia de Seguridad JSON</strong>
+                    </div>
+                    <p style="font-size:0.82rem; color:#1e40af; margin-bottom:14px; line-height:1.4;">
+                        Respaldo liviano para migración rápida de estado de datos y sincronización de base local.
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button type="button" class="btn" onclick="descargarRespaldoLocal()" style="width:100%; padding:12px 14px; font-weight:700; background:#e11d48; color:#fff; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 2px 6px rgba(225,29,72,0.25);">
+                            <i class="fas fa-download"></i> Descargar Respaldo JSON
+                        </button>
+                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; font-weight:600; background:#fff;">
+                            <i class="fas fa-upload" style="color:#dc2626;"></i> <span style="color:#dc2626;">Importar Respaldo JSON</span>
+                            <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>

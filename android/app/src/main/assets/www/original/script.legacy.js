@@ -823,6 +823,8 @@ function calcularEstadoFinancieroCliente(clienteId) {
     return {
         totalCompradoUSD,
         totalCompradoVES: totalCompradoUSD * tasaActiva,
+        totalAbonadoUSD,
+        totalAbonadoVES: totalAbonadoUSD * tasaActiva,
         saldoDeudaUSD,
         saldoDeudaVES: saldoDeudaUSD * tasaActiva
     };

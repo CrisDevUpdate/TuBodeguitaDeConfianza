@@ -1140,7 +1140,15 @@ async function eliminarUsuario(cedula) {
     // 2. Eliminar del estado global local
     AppState.usuarios = (AppState.usuarios || []).filter(u => (u.cedula || u.id) !== cedula);
     if (Array.isArray(AppState.clientes)) {
-        AppState.clientes = AppState.clientes.filter(c => (c.id || c.cedula) !== cedula);
+        AppState.clientes = AppState.clientes.filter(c => {
+            const matchCed = (c.id || c.cedula) === cedula;
+            if (usuario.clienteId && (c.id === usuario.clienteId || c.usuarioId === (usuario.id || cedula))) {
+                delete c.usuarioId;
+                delete c.usuarioEmail;
+                return true;
+            }
+            return !matchCed;
+        });
     }
 
     // 3. Si era la sesión activa, cerrar sesión

@@ -14,6 +14,7 @@ window.InventoryApp = window.InventoryApp || {};
             const backdrop = document.createElement('div');
             backdrop.id = 'custom-modal-backdrop';
             backdrop.className = 'custom-modal-backdrop';
+            backdrop.style.zIndex = '100000';
             backdrop.innerHTML = `
                 <div class="custom-modal-card" id="custom-modal-card">
                     <div class="custom-modal-icon-wrapper" id="custom-modal-icon-wrapper">

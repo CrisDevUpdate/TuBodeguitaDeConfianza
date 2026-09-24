@@ -3649,7 +3649,7 @@ body.dark-mode .cliente-combos-carousel-wrapper {
 .custom-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 99999;
+    z-index: 100000 !important;
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(4px);
     display: flex;
@@ -5250,6 +5250,10 @@ input[type="number"].pos-stepper-val,
     z-index: 10060 !important;
 }
 
+#modal-enviar-informacion {
+    z-index: 10060 !important;
+}
+
 #modal-cliente-detalle .modal-cliente-detalle-content {
     max-width: 780px !important;
     width: 100% !important;
@@ -5410,17 +5414,11 @@ input[type="number"].pos-stepper-val,
 }
 
 .det-profile-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     padding-top: 10px;
     border-top: 1px dashed #e2e8f0;
-}
-
-@media (max-width: 440px) {
-    .det-profile-actions {
-        grid-template-columns: 1fr;
-    }
 }
 
 .det-btn-action {
@@ -5428,16 +5426,36 @@ input[type="number"].pos-stepper-val,
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 9px 12px;
-    font-size: 0.86rem;
+    padding: 8px 14px;
+    font-size: 0.84rem;
     font-weight: 700;
     border-radius: 10px;
     white-space: nowrap;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    cursor: pointer;
+    flex: 1 1 calc(50% - 8px);
+    min-width: 140px;
+    transition: transform 0.15s ease, filter 0.15s ease, background-color 0.15s ease;
+}
+
+@media (max-width: 520px) {
+    .det-btn-action {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
 }
 
 .det-btn-action:active {
     transform: scale(0.98);
+}
+
+.det-btn-send {
+    background: #4f46e5 !important;
+    border: 1px solid #4338ca !important;
+    color: #ffffff !important;
+}
+
+.det-btn-send:hover {
+    background: #4338ca !important;
 }
 
 .det-btn-whatsapp {
@@ -5448,6 +5466,36 @@ input[type="number"].pos-stepper-val,
 
 .det-btn-whatsapp:hover {
     background: #059669 !important;
+}
+
+.det-btn-email {
+    background: #0284c7 !important;
+    border: 1px solid #0369a1 !important;
+    color: #ffffff !important;
+}
+
+.det-btn-email:hover {
+    background: #0369a1 !important;
+}
+
+.det-btn-download {
+    background: #0d9488 !important;
+    border: 1px solid #0f766e !important;
+    color: #ffffff !important;
+}
+
+.det-btn-download:hover {
+    background: #0f766e !important;
+}
+
+.det-btn-print {
+    background: #475569 !important;
+    border: 1px solid #334155 !important;
+    color: #ffffff !important;
+}
+
+.det-btn-print:hover {
+    background: #334155 !important;
 }
 
 /* Financial KPIs */

@@ -4626,56 +4626,6 @@
                 </table>
             </div>
         </div>
-
-        <!-- 3. PERSISTENCIA PORTÁTIL & EXPORTACIÓN MÁSTER EXCEL (.XLSX) / JSON -->
-        <div class="card" style="margin-top:18px;">
-            <h3><i class="fas fa-file-excel" style="color:#16a34a;"></i> Persistencia Portátil & Base de Datos Máster</h3>
-            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">
-                Estructura máster multihajas (.xlsx) y JSON que almacena la tabla de <strong>Usuarios</strong> junto con <strong>Inventario de Productos</strong>, <strong>Clientes</strong>, <strong>Ventas</strong> y <strong>Auditorías</strong> para funcionamiento 100% offline o respaldo físico.
-            </p>
-
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px;">
-                <!-- Máster Excel -->
-                <div style="border:1px solid #bbf7d0; background:#f0fdf4; border-radius:10px; padding:14px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                        <i class="fas fa-file-excel" style="font-size:1.4rem; color:#16a34a;"></i>
-                        <strong style="color:#166534;">Archivo Máster Excel (.xlsx)</strong>
-                    </div>
-                    <p style="font-size:0.8rem; color:#166534; margin-bottom:12px;">
-                        Descarga o sincroniza todas las hojas de cálculo del sistema en formato nativo Excel (.xlsx).
-                    </p>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <button type="button" class="btn btn-success" onclick="descargarMasterExcel()" style="width:100%;">
-                            <i class="fas fa-download"></i> Descargar Máster Excel (.xlsx)
-                        </button>
-                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-                            <i class="fas fa-upload"></i> Importar Máster Excel (.xlsx)
-                            <input type="file" accept=".xlsx, .xls" style="display:none;" onchange="manejarImportacionExcel(event)">
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Respaldo JSON -->
-                <div style="border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:14px;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                        <i class="fas fa-file-code" style="font-size:1.4rem; color:#2563eb;"></i>
-                        <strong style="color:#1e40af;">Copia de Seguridad JSON</strong>
-                    </div>
-                    <p style="font-size:0.8rem; color:#1e40af; margin-bottom:12px;">
-                        Respaldo liviano para migración rápida de estado de datos y sincronización de base local.
-                    </p>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <button type="button" class="btn btn-primary" onclick="descargarRespaldoLocal()" style="width:100%;">
-                            <i class="fas fa-download"></i> Descargar Respaldo JSON
-                        </button>
-                        <label class="btn btn-outline" style="width:100%; text-align:center; cursor:pointer; margin:0; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-                            <i class="fas fa-upload"></i> Importar Respaldo JSON
-                            <input type="file" accept=".json" style="display:none;" onchange="manejarImportacionJSON(event)">
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- VISTA 7 (ADMIN): CONFIGURADOR DE PREMIO DEL MES & FIDELIZACIÓN -->
@@ -5539,6 +5489,7 @@
                         <div class="det-profile-meta">
                             <span id="det-cliente-id-text" class="det-meta-chip"><i class="fas fa-id-card"></i> Cédula: —</span>
                             <span id="det-cliente-tel-text" class="det-meta-chip"><i class="fas fa-phone"></i> Tel: —</span>
+                            <span id="det-cliente-email-text" class="det-meta-chip"><i class="fas fa-envelope"></i> Correo: —</span>
                         </div>
                     </div>
                 </div>
@@ -5546,10 +5497,22 @@
                 <!-- Profile Quick Actions Bar -->
                 <div class="det-profile-actions">
                     <button type="button" class="btn btn-warning det-btn-action" onclick="abrirModalAbono()">
-                        <i class="fas fa-hand-holding-dollar"></i> Registrar Abono / Pago
+                        <i class="fas fa-hand-holding-dollar"></i> Registrar Abono
                     </button>
-                    <button type="button" class="btn btn-success det-btn-action det-btn-whatsapp" id="det-btn-whatsapp" onclick="enviarWhatsappCliente()" style="display:none;" title="Enviar recordatorio o estado por WhatsApp">
-                        <i class="fab fa-whatsapp"></i> Notificar por WhatsApp
+                    <button type="button" class="btn det-btn-action det-btn-send" id="det-btn-enviar-info" onclick="enviarInformacionCliente()" title="Enviar información completa del estado de cuenta al cliente">
+                        <i class="fas fa-paper-plane"></i> Enviar Información
+                    </button>
+                    <button type="button" class="btn btn-success det-btn-action det-btn-whatsapp" id="det-btn-whatsapp" onclick="enviarWhatsappCliente()" title="Enviar estado de cuenta detallado por WhatsApp">
+                        <i class="fab fa-whatsapp"></i> Notificar WhatsApp
+                    </button>
+                    <button type="button" class="btn det-btn-action det-btn-email" id="det-btn-email" onclick="enviarCorreoCliente()" title="Enviar estado de cuenta detallado por Correo">
+                        <i class="fas fa-envelope"></i> Enviar Correo
+                    </button>
+                    <button type="button" class="btn det-btn-action det-btn-download" id="det-btn-excel" onclick="descargarEstadoCuentaCliente()" title="Descargar estado de cuenta en Excel (.xlsx)">
+                        <i class="fas fa-file-excel"></i> Descargar Excel
+                    </button>
+                    <button type="button" class="btn det-btn-action det-btn-print" id="det-btn-print" onclick="imprimirEstadoCuentaCliente()" title="Imprimir o guardar como PDF">
+                        <i class="fas fa-print"></i> Imprimir / PDF
                     </button>
                 </div>
             </div>
@@ -5611,6 +5574,90 @@
         <!-- Modal Footer -->
         <div class="det-modal-footer">
             <button type="button" class="btn" onclick="cerrarModalDetalleCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:600; padding:8px 22px; border-radius:10px;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Enviar Información y Estado de Cuenta al Cliente -->
+<div id="modal-enviar-informacion" class="modal" onclick="if(event.target === this) cerrarModalEnviarInfo();">
+    <div class="modal-content" style="max-width: 500px; width: 100%; border-radius: 20px; padding: 22px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; border-bottom: 1px solid var(--border-light, #e2e8f0); padding-bottom: 12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:42px; height:42px; border-radius:12px; background:#e0e7ff; color:#4338ca; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main, #0f172a); font-weight:800;">Enviar Información</h3>
+                    <p style="margin:2px 0 0; font-size:0.8rem; color:var(--text-muted, #64748b);" id="env-info-subtitulo">Estado de cuenta y desglose detallado</p>
+                </div>
+            </div>
+            <button type="button" onclick="cerrarModalEnviarInfo()" style="background:transparent; border:none; font-size:1.5rem; line-height:1; color:var(--text-muted, #64748b); cursor:pointer; padding:4px 8px; border-radius:6px;">&times;</button>
+        </div>
+
+        <!-- Tarjeta de Balance y Deuda Destacada -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase;">Cliente</span>
+                <span id="env-info-cliente-nombre" style="font-weight:700; font-size:0.95rem; color:#0f172a;">—</span>
+            </div>
+            <div style="padding: 12px 14px; background: #ffffff; border-radius: 10px; border: 1px solid #fecaca; border-left: 5px solid #dc2626; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:0.78rem; font-weight:800; color:#dc2626; text-transform:uppercase; letter-spacing:0.3px;">Deuda a pagar:</div>
+                    <div id="env-info-deuda-ves" style="font-size:1.3rem; font-weight:900; color:#b91c1c;">Bs. 0,00</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Saldo en USD:</div>
+                    <div id="env-info-deuda-usd" style="font-size:1.05rem; font-weight:800; color:#334155;">$0.00 USD</div>
+                </div>
+            </div>
+            <div id="env-info-resumen-movimientos" style="font-size:0.8rem; color:#64748b; margin-top:8px;">
+                Cargando desglose de movimientos...
+            </div>
+        </div>
+
+        <!-- Canales de Envío -->
+        <div style="display:flex; flex-direction:column; gap: 12px; margin-bottom: 16px;">
+            <!-- Opción WhatsApp -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #ffffff;">
+                <label style="font-size:0.82rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                    <i class="fab fa-whatsapp" style="color:#10b981; font-size:1.1rem;"></i> Enviar por WhatsApp
+                </label>
+                <div style="display:flex; gap:8px;">
+                    <input type="tel" id="env-info-telefono-input" placeholder="Ej: 04141234567 o 58414..." style="flex:1; padding:8px 12px; font-size:0.88rem; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
+                    <button type="button" class="btn btn-success" onclick="ejecutarEnvioInfoWhatsapp()" style="white-space:nowrap; padding:8px 16px; font-weight:700; font-size:0.85rem; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fab fa-whatsapp"></i> Enviar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Opción Correo Electrónico -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #ffffff;">
+                <label style="font-size:0.82rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                    <i class="fas fa-envelope" style="color:#0284c7; font-size:1rem;"></i> Enviar por Correo Electrónico
+                </label>
+                <div style="display:flex; gap:8px;">
+                    <input type="email" id="env-info-correo-input" placeholder="cliente@correo.com" style="flex:1; padding:8px 12px; font-size:0.88rem; border-radius:8px; border:1px solid #cbd5e1; outline:none;">
+                    <button type="button" class="btn det-btn-email" onclick="ejecutarEnvioInfoCorreo()" style="white-space:nowrap; padding:8px 16px; font-weight:700; font-size:0.85rem; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-envelope"></i> Enviar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Opción Copiar al Portapapeles -->
+            <button type="button" class="btn btn-outline-secondary" onclick="ejecutarCopiarInfoPortapapeles()" style="padding:10px 14px; font-size:0.88rem; font-weight:700; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid #cbd5e1; background:#f8fafc; color:#334155; cursor:pointer;">
+                <i class="fas fa-copy"></i> Copiar Estado de Cuenta al Portapapeles
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+            <button type="button" class="btn btn-outline-secondary" onclick="volverAFicha360DesdeEnvio()" style="padding:7px 16px; border-radius:8px; font-weight:600; font-size:0.84rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                <i class="fas fa-arrow-left"></i> Volver a la Ficha 360°
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="cerrarModalEnviarInfo()" style="padding:7px 18px; border-radius:8px; font-size:0.84rem; font-weight:600; background:#64748b; color:#fff; cursor:pointer;">
                 Cerrar
             </button>
         </div>

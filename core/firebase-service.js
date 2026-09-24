@@ -2150,7 +2150,7 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 const docRef = db.collection(COLLECTIONS.CLIENTES).doc(String(cliente.id));
-                await docRef.set({
+                const clienteData = {
                     id: String(cliente.id),
                     nombre: cliente.nombre || '',
                     telefono: cliente.telefono || '',
@@ -2158,7 +2158,10 @@ window.InventoryApp = window.InventoryApp || {};
                     deudaUSD: Number(cliente.deudaUSD || 0),
                     deudaInicialUSD: Number(cliente.deudaInicialUSD || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                };
+                if (cliente.usuarioId) clienteData.usuarioId = String(cliente.usuarioId);
+                if (cliente.cedula) clienteData.cedula = String(cliente.cedula);
+                await docRef.set(clienteData, { merge: true });
             }
 
             actualizarUIEstadoNube('conectado', 'Cliente guardado en Firestore');

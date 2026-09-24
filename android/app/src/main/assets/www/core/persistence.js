@@ -452,13 +452,125 @@ window.InventoryApp = window.InventoryApp || {};
             const fechaLegible = new Date().toLocaleString('es-VE');
             const tasaActual = Number(AppState.tasaUSD_BCV || AppState.tasaActiva || 0);
 
+            // Asegurar sincronización previa de clientes y sus deudas oficiales
+            if (typeof asegurarClientesOficiales === 'function') {
+                asegurarClientesOficiales();
+            }
+
+            if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES) && Array.isArray(AppState.clientes)) {
+                CLIENTES_OFICIALES.forEach(co => {
+                    const cMatch = AppState.clientes.find(c => c.id === co.id || (c.nombre && co.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                    if (cMatch) {
+                        if ((cMatch.deudaUSD === undefined || cMatch.deudaUSD === null || cMatch.deudaUSD === 0) && co.deudaUSD > 0) {
+                            const abonosList = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+                            const tieneAbono = abonosList.some(a => 
+                                (a.clienteId === cMatch.id || a.clienteNombre === cMatch.nombre || a.clienteCedula === cMatch.cedula) &&
+                                (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado)
+                            );
+                            if (!tieneAbono) {
+                                cMatch.deudaUSD = co.deudaUSD;
+                                cMatch.deudaInicialUSD = co.deudaInicialUSD;
+                            }
+                        }
+                        if (cMatch.deudaInicialUSD === undefined || cMatch.deudaInicialUSD === null) {
+                            cMatch.deudaInicialUSD = co.deudaInicialUSD;
+                        }
+                    }
+                });
+            }
+
+            // =========================================================
+            // PREPARAR DATOS DE CLIENTES Y CUENTAS POR COBRAR (HOJA 3)
+            // =========================================================
+            const listaClientesOrdenada = [...(AppState.clientes || [])].sort((a, b) => {
+                const idA = String(a.id || '').toUpperCase();
+                const idB = String(b.id || '').toUpperCase();
+                const matchA = idA.match(/^CLI-(\d+)$/);
+                const matchB = idB.match(/^CLI-(\d+)$/);
+                if (matchA && matchB) {
+                    return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
+                }
+                if (matchA) return -1;
+                if (matchB) return 1;
+                return (a.nombre || '').localeCompare(b.nombre || '');
+            });
+
+            const dataClientes = listaClientesOrdenada.map((c, idx) => {
+                let estadoFin = null;
+                if (typeof calcularEstadoFinancieroCliente === 'function') {
+                    estadoFin = calcularEstadoFinancieroCliente(c.id);
+                }
+
+                // Cálculo seguro del saldo deudor real
+                let saldoDeuda = 0;
+                if (estadoFin && typeof estadoFin.saldoDeudaUSD === 'number') {
+                    saldoDeuda = estadoFin.saldoDeudaUSD;
+                } else {
+                    saldoDeuda = Number(c.deudaUSD ?? c.deudaInicialUSD ?? c.saldoDeudor ?? c.deuda ?? c.saldo ?? 0);
+                }
+
+                // Respaldo de seguridad con la libreta oficial
+                if (saldoDeuda === 0 && typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                    const co = CLIENTES_OFICIALES.find(o => o.id === c.id || (o.nombre && c.nombre && o.nombre.trim().toLowerCase() === c.nombre.trim().toLowerCase()));
+                    if (co && co.deudaUSD > 0) {
+                        const abonosCli = (AppState.abonos || []).filter(a => 
+                            a && (a.clienteId === c.id || a.clienteNombre === c.nombre || a.clienteCedula === c.cedula) &&
+                            (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado)
+                        );
+                        const totalAbonado = abonosCli.reduce((sum, a) => sum + Number(a.monto || a.montoUSD || 0), 0);
+                        if (totalAbonado < co.deudaUSD) {
+                            saldoDeuda = Number((co.deudaUSD - totalAbonado).toFixed(2));
+                        }
+                    }
+                }
+
+                const totalComprado = estadoFin && typeof estadoFin.totalCompradoUSD === 'number'
+                    ? estadoFin.totalCompradoUSD 
+                    : Number(c.totalCompradoUSD ?? c.totalComprado ?? c.compras ?? (saldoDeuda > 0 ? saldoDeuda : 0)) || 0;
+                const totalAbonado = estadoFin && typeof estadoFin.totalAbonadoUSD === 'number'
+                    ? estadoFin.totalAbonadoUSD 
+                    : Number(c.totalAbonadoUSD ?? c.totalAbonado ?? c.abonos ?? 0) || 0;
+                const saldoBs = tasaActual > 0 
+                    ? Number((saldoDeuda * tasaActual).toFixed(2)) 
+                    : (estadoFin && typeof estadoFin.saldoDeudaVES === 'number' ? Number((estadoFin.saldoDeudaVES || 0).toFixed(2)) : 0);
+
+                const usuarioVinculado = (AppState.usuarios || []).find(u => 
+                    u.clienteId === c.id || 
+                    (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
+                    (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
+                    (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
+                );
+
+                const puntosAcum = Number(c.puntosAcumulados || usuarioVinculado?.puntosAcumulados || 0) || 0;
+                const puntosCanj = Number(c.puntosCanjeados || usuarioVinculado?.puntosCanjeados || 0) || 0;
+                const puntosDisp = Math.max(0, puntosAcum - puntosCanj);
+
+                return {
+                    'N°': idx + 1,
+                    'Cédula / RIF / ID': c.cedula || c.id || '',
+                    'Nombre Completo / Razón Social': c.nombre || '',
+                    'Teléfono / WhatsApp': c.telefono || '',
+                    'Correo Electrónico': c.email || usuarioVinculado?.email || '',
+                    'Saldo Deudor ($ USD)': Number((Number(saldoDeuda) || 0).toFixed(2)),
+                    'Saldo Deudor Estimado (Bs)': Number((Number(saldoBs) || 0).toFixed(2)),
+                    'Estado de Cuenta': (Number(saldoDeuda) || 0) > 0 ? 'CON SALDO PENDIENTE' : 'AL DÍA',
+                    'Total Compras Registradas ($ USD)': Number((Number(totalComprado) || 0).toFixed(2)),
+                    'Total Abonos Realizados ($ USD)': Number((Number(totalAbonado) || 0).toFixed(2)),
+                    'Puntos Acumulados': puntosAcum,
+                    'Puntos Canjeados': puntosCanj,
+                    'Puntos Disponibles': puntosDisp,
+                    'Usuario Vinculado': usuarioVinculado ? `${usuarioVinculado.cedula} (${usuarioVinculado.nombre})` : 'Sin usuario'
+                };
+            });
+
             // =========================================================
             // HOJA 1: RESUMEN GENERAL & KPIS DEL SISTEMA
             // =========================================================
             const stockTotalUnidades = (AppState.productos || []).reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
             const valCostoTotal = (AppState.productos || []).reduce((acc, p) => acc + ((Number(p.stock) || 0) * (Number(p.costo) || 0)), 0);
             const valVentaTotal = (AppState.productos || []).reduce((acc, p) => acc + ((Number(p.stock) || 0) * (Number(p.precio) || 0)), 0);
-            const deudaTotalClientes = (AppState.clientes || []).reduce((acc, c) => acc + (Number(c.saldoDeudor || c.deuda || c.saldo) || 0), 0);
+            const deudaTotalClientes = dataClientes.reduce((acc, c) => acc + (Number(c['Saldo Deudor ($ USD)']) || 0), 0);
+            const totalClientesConDeuda = dataClientes.filter(c => Number(c['Saldo Deudor ($ USD)']) > 0).length;
             const facturacionTotalVentas = (AppState.ventas || []).reduce((acc, v) => acc + (Number(v.total || v.totalUSD) || 0), 0);
             const abonosTotales = (AppState.abonos || []).reduce((acc, a) => acc + (Number(a.monto || a.montoUSD) || 0), 0);
             const comprasTotales = (AppState.facturasCompras || []).reduce((acc, f) => acc + (Number(f.totalUSD || f.total) || 0), 0);
@@ -474,7 +586,7 @@ window.InventoryApp = window.InventoryApp || {};
                 { 'Indicador / Métrica': 'Valorización de Inventario a Precio Venta ($)', 'Valor': `$${valVentaTotal.toFixed(2)} USD`, 'Detalles / Observaciones': 'Ingreso proyectado en vitrina' },
                 { 'Indicador / Métrica': 'Margen Proyectado Bruto ($)', 'Valor': `$${(valVentaTotal - valCostoTotal).toFixed(2)} USD`, 'Detalles / Observaciones': 'Ganancia bruta potencial en stock' },
                 { 'Indicador / Métrica': 'Total de Clientes en Directorio', 'Valor': (AppState.clientes || []).length, 'Detalles / Observaciones': 'Clientes registrados en el sistema' },
-                { 'Indicador / Métrica': 'Total Cuentas por Cobrar (Deuda Clientes)', 'Valor': `$${deudaTotalClientes.toFixed(2)} USD`, 'Detalles / Observaciones': `Equivalente aprox: Bs. ${(deudaTotalClientes * tasaActual).toFixed(2)}` },
+                { 'Indicador / Métrica': 'Total Cuentas por Cobrar (Deuda Clientes)', 'Valor': `$${deudaTotalClientes.toFixed(2)} USD`, 'Detalles / Observaciones': `Equivalente aprox: Bs. ${(deudaTotalClientes * tasaActual).toFixed(2)} (${totalClientesConDeuda} clientes con saldo pendiente)` },
                 { 'Indicador / Métrica': 'Total de Ventas Registradas', 'Valor': (AppState.ventas || []).length, 'Detalles / Observaciones': 'Operaciones históricas de venta' },
                 { 'Indicador / Métrica': 'Facturación Histórica Total ($)', 'Valor': `$${facturacionTotalVentas.toFixed(2)} USD`, 'Detalles / Observaciones': 'Monto total vendido histórico' },
                 { 'Indicador / Métrica': 'Total Abonos y Pagos a Deudas ($)', 'Valor': `$${abonosTotales.toFixed(2)} USD`, 'Detalles / Observaciones': 'Monto recaudado de cuentas por cobrar' },
@@ -496,15 +608,25 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen_General');
 
             // =========================================================
-            // HOJA 2: INVENTARIO DE PRODUCTOS
+            // HOJA 2: INVENTARIO DE PRODUCTOS (ORDENADO POR CATEGORÍA Y NOMBRE)
             // =========================================================
-            const dataProductos = (AppState.productos || []).map((p, idx) => {
+            const listaProductosOrdenada = [...(AppState.productos || [])].sort((a, b) => {
+                const catA = (a.categoria || 'General').toLowerCase();
+                const catB = (b.categoria || 'General').toLowerCase();
+                if (catA !== catB) return catA.localeCompare(catB);
+                return (a.nombre || '').localeCompare(b.nombre || '');
+            });
+
+            const dataProductos = listaProductosOrdenada.map((p, idx) => {
                 const costo = Number(p.costo || 0);
                 const precio = Number(p.precio || 0);
                 const stock = Number(p.stock || 0);
                 const ganancia = precio - costo;
                 const margen = costo > 0 ? (((precio - costo) / costo) * 100).toFixed(1) + '%' : '100%';
                 const estadoStock = stock <= 0 ? 'AGOTADO' : (stock <= 5 ? 'STOCK BAJO' : 'DISPONIBLE');
+                const valCosto = Number((stock * costo).toFixed(2));
+                const valVenta = Number((stock * precio).toFixed(2));
+                const gananciaProyectada = Number((valVenta - valCosto).toFixed(2));
 
                 return {
                     'N°': idx + 1,
@@ -512,13 +634,14 @@ window.InventoryApp = window.InventoryApp || {};
                     'Código / SKU': p.codigo || '',
                     'Nombre del Producto': p.nombre || '',
                     'Categoría': p.categoria || 'General',
-                    'Costo Unitario ($ USD)': costo,
-                    'Precio Venta ($ USD)': precio,
+                    'Costo Unitario ($ USD)': Number(costo.toFixed(2)),
+                    'Precio Venta ($ USD)': Number(precio.toFixed(2)),
                     'Ganancia Unitaria ($ USD)': Number(ganancia.toFixed(2)),
                     'Margen Bruto (%)': margen,
                     'Stock Actual': stock,
-                    'Valor Total Costo ($ USD)': Number((stock * costo).toFixed(2)),
-                    'Valor Total Venta ($ USD)': Number((stock * precio).toFixed(2)),
+                    'Valor Total Costo ($ USD)': valCosto,
+                    'Valor Total Venta ($ USD)': valVenta,
+                    'Ganancia Proyectada ($ USD)': gananciaProyectada,
                     'Estado Stock': estadoStock,
                     'URL Imagen / Almacén': p.imagen || p.image || ''
                 };
@@ -527,41 +650,19 @@ window.InventoryApp = window.InventoryApp || {};
                 'N°': 1, 'ID Producto': '', 'Código / SKU': '', 'Nombre del Producto': 'Sin productos registrados',
                 'Categoría': '', 'Costo Unitario ($ USD)': 0, 'Precio Venta ($ USD)': 0, 'Ganancia Unitaria ($ USD)': 0,
                 'Margen Bruto (%)': '0%', 'Stock Actual': 0, 'Valor Total Costo ($ USD)': 0, 'Valor Total Venta ($ USD)': 0,
-                'Estado Stock': '', 'URL Imagen / Almacén': ''
+                'Ganancia Proyectada ($ USD)': 0, 'Estado Stock': '', 'URL Imagen / Almacén': ''
             }]);
             wsProductos['!cols'] = calcularAnchoColumnas(dataProductos);
             XLSX.utils.book_append_sheet(wb, wsProductos, 'Inventario_Productos');
 
             // =========================================================
-            // HOJA 3: CLIENTES Y CUENTAS POR COBRAR
+            // HOJA 3: CLIENTES Y CUENTAS POR COBRAR (CONEXIÓN Y ORDEN)
             // =========================================================
-            const dataClientes = (AppState.clientes || []).map((c, idx) => {
-                const saldoDeuda = Number(c.saldoDeudor || c.deuda || c.saldo || 0);
-                const saldoBs = tasaActual > 0 ? Number((saldoDeuda * tasaActual).toFixed(2)) : 0;
-                const puntosAcum = Number(c.puntosAcumulados || 0);
-                const puntosCanj = Number(c.puntosCanjeados || 0);
-                const puntosDisp = Math.max(0, puntosAcum - puntosCanj);
-
-                return {
-                    'N°': idx + 1,
-                    'Cédula / RIF / ID': c.cedula || c.id || '',
-                    'Nombre Completo / Razón Social': c.nombre || '',
-                    'Teléfono / WhatsApp': c.telefono || '',
-                    'Saldo Deudor ($ USD)': saldoDeuda,
-                    'Saldo Deudor Estimado (Bs)': saldoBs,
-                    'Estado de Cuenta': saldoDeuda > 0 ? 'CON SALDO PENDIENTE' : 'AL DÍA',
-                    'Total Compras Registradas ($ USD)': Number(c.totalComprado || c.compras || 0),
-                    'Total Abonos Realizados ($ USD)': Number(c.totalAbonado || c.abonos || 0),
-                    'Puntos Acumulados': puntosAcum,
-                    'Puntos Canjeados': puntosCanj,
-                    'Puntos Disponibles': puntosDisp
-                };
-            });
             const wsClientes = XLSX.utils.json_to_sheet(dataClientes.length ? dataClientes : [{
                 'N°': 1, 'Cédula / RIF / ID': '', 'Nombre Completo / Razón Social': 'Sin clientes registrados',
-                'Teléfono / WhatsApp': '', 'Saldo Deudor ($ USD)': 0, 'Saldo Deudor Estimado (Bs)': 0,
+                'Teléfono / WhatsApp': '', 'Correo Electrónico': '', 'Saldo Deudor ($ USD)': 0, 'Saldo Deudor Estimado (Bs)': 0,
                 'Estado de Cuenta': 'AL DÍA', 'Total Compras Registradas ($ USD)': 0, 'Total Abonos Realizados ($ USD)': 0,
-                'Puntos Acumulados': 0, 'Puntos Canjeados': 0, 'Puntos Disponibles': 0
+                'Puntos Acumulados': 0, 'Puntos Canjeados': 0, 'Puntos Disponibles': 0, 'Usuario Vinculado': 'Sin usuario'
             }]);
             wsClientes['!cols'] = calcularAnchoColumnas(dataClientes);
             XLSX.utils.book_append_sheet(wb, wsClientes, 'Clientes_CuentasCobrar');
@@ -569,7 +670,14 @@ window.InventoryApp = window.InventoryApp || {};
             // =========================================================
             // HOJA 4: CUENTAS BANCARIAS Y MÉTODOS DE PAGO
             // =========================================================
-            const dataCuentas = (AppState.cuentasBancarias || []).map((cb, idx) => ({
+            const listaCuentasOrdenada = [...(AppState.cuentasBancarias || [])].sort((a, b) => {
+                const actA = a.activo !== false ? 0 : 1;
+                const actB = b.activo !== false ? 0 : 1;
+                if (actA !== actB) return actA - actB;
+                return (a.banco || '').localeCompare(b.banco || '');
+            });
+
+            const dataCuentas = listaCuentasOrdenada.map((cb, idx) => ({
                 'N°': idx + 1,
                 'ID': cb.id || '',
                 'Banco': cb.banco || cb.bank || '',
@@ -590,29 +698,42 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsCuentas, 'Cuentas_Bancarias');
 
             // =========================================================
-            // HOJA 5: HISTORIAL COMPLETO DE VENTAS
+            // HOJA 5: HISTORIAL COMPLETO DE VENTAS (CRONOLÓGICO)
             // =========================================================
-            const dataVentas = (AppState.ventas || []).map((v, idx) => {
+            const listaVentasOrdenada = [...(AppState.ventas || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+
+            const dataVentas = listaVentasOrdenada.map((v, idx) => {
                 const totalUSD = Number(v.total || v.totalUSD || 0);
                 const tasaVenta = Number(v.tasa || v.tasaCambio || tasaActual || 0);
-                const totalBs = Number(v.totalBs || (totalUSD * tasaVenta).toFixed(2));
+                const totalBs = Number(v.totalBs || (totalUSD * (tasaVenta > 0 ? tasaVenta : tasaActual)).toFixed(2));
                 const cantItems = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
                 const detalleItems = (v.items || []).map(it => `${it.cantidad || 1}x ${it.nombre || it.producto || 'Producto'} ($${Number(it.precio || 0).toFixed(2)})`).join(' | ');
+
+                let clienteNom = v.clienteNombre || v.cliente;
+                if (!clienteNom && v.clienteId) {
+                    const cliEncontrado = (AppState.clientes || []).find(c => c.id === v.clienteId);
+                    clienteNom = cliEncontrado ? cliEncontrado.nombre : v.clienteId;
+                }
 
                 return {
                     'N°': idx + 1,
                     'ID Venta': v.id || '',
                     'Fecha y Hora': v.fecha || '',
                     'Cédula Cliente': v.clienteCedula || v.clienteId || 'General',
-                    'Nombre Cliente': v.clienteNombre || v.cliente || 'Cliente General',
-                    'Condición de Pago': v.tipo || v.condicion || 'Contado',
-                    'Estado Pago': v.estadoPago || (v.tipo === 'Crédito' ? (v.pagada ? 'PAGADA' : 'PENDIENTE') : 'PAGADA'),
-                    'Total Venta ($ USD)': totalUSD,
-                    'Total Venta (Bs)': totalBs,
-                    'Tasa Cambio (Bs/$)': tasaVenta,
+                    'Nombre Cliente': clienteNom || 'Cliente General',
+                    'Condición de Pago': v.tipo || v.tipoPago || v.condicion || 'Contado',
+                    'Estado Pago': v.estadoPago || (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' ? (v.pagada ? 'PAGADA' : 'PENDIENTE') : 'PAGADA'),
+                    'Total Venta ($ USD)': Number(totalUSD.toFixed(2)),
+                    'Total Venta (Bs)': Number(totalBs.toFixed(2)),
+                    'Tasa Cambio (Bs/$)': Number(tasaVenta.toFixed(2)),
                     'Cantidad de Artículos': cantItems,
                     'Detalle de Productos Vendidos': detalleItems || 'Sin detalle',
-                    'Vendedor / Operador': v.vendedor || v.usuario || 'Caja General'
+                    'Vendedor / Operador': v.vendedorNombre || v.vendedor || v.usuario || 'Caja General'
                 };
             });
             const wsVentas = XLSX.utils.json_to_sheet(dataVentas.length ? dataVentas : [{
@@ -624,33 +745,47 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas_Historial');
 
             // =========================================================
-            // HOJA 6: ABONOS Y PAGOS A CRÉDITOS
+            // HOJA 6: ABONOS Y PAGOS A CRÉDITOS (CRONOLÓGICO)
             // =========================================================
-            const dataAbonos = (AppState.abonos || []).map((a, idx) => {
+            const listaAbonosOrdenada = [...(AppState.abonos || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+
+            const dataAbonos = listaAbonosOrdenada.map((a, idx) => {
                 const montoUSD = Number(a.monto || a.montoUSD || 0);
                 const tasaAbono = Number(a.tasa || tasaActual || 0);
                 const montoBs = Number(a.montoBs || (montoUSD * tasaAbono).toFixed(2));
+
+                let cliNombre = a.clienteNombre || a.cliente;
+                if (!cliNombre && a.clienteId) {
+                    const c = (AppState.clientes || []).find(cli => cli.id === a.clienteId);
+                    if (c) cliNombre = c.nombre;
+                }
 
                 return {
                     'N°': idx + 1,
                     'ID Abono': a.id || '',
                     'Fecha y Hora': a.fecha || '',
                     'Cédula Cliente': a.clienteCedula || a.clienteId || '',
-                    'Nombre Cliente': a.clienteNombre || a.cliente || '',
-                    'Monto Abonado ($ USD)': montoUSD,
-                    'Monto Abonado (Bs)': montoBs,
-                    'Tasa Aplicada (Bs/$)': tasaAbono,
+                    'Nombre Cliente': cliNombre || '',
+                    'Monto Abonado ($ USD)': Number(montoUSD.toFixed(2)),
+                    'Monto Abonado (Bs)': Number(montoBs.toFixed(2)),
+                    'Tasa Aplicada (Bs/$)': Number(tasaAbono.toFixed(2)),
                     'Referencia Bancaria': a.referencia || '',
                     'Banco / Método': a.metodo || a.banco || 'Pago Móvil',
-                    'Saldo Anterior ($ USD)': Number(a.saldoAnterior || 0),
-                    'Saldo Restante ($ USD)': Number(a.saldoRestante || 0),
+                    'Saldo Anterior ($ USD)': Number(Number(a.saldoAnterior || 0).toFixed(2)),
+                    'Saldo Restante ($ USD)': Number(Number(a.saldoRestante || 0).toFixed(2)),
+                    'Estado': a.estado || 'Confirmado',
                     'Registrado Por': a.usuario || a.responsable || 'Administración'
                 };
             });
             const wsAbonos = XLSX.utils.json_to_sheet(dataAbonos.length ? dataAbonos : [{
                 'N°': 1, 'ID Abono': '', 'Fecha y Hora': '', 'Cédula Cliente': '', 'Nombre Cliente': 'Sin abonos registrados',
                 'Monto Abonado ($ USD)': 0, 'Monto Abonado (Bs)': 0, 'Tasa Aplicada (Bs/$)': 0, 'Referencia Bancaria': '',
-                'Banco / Método': '', 'Saldo Anterior ($ USD)': 0, 'Saldo Restante ($ USD)': 0, 'Registrado Por': ''
+                'Banco / Método': '', 'Saldo Anterior ($ USD)': 0, 'Saldo Restante ($ USD)': 0, 'Estado': '', 'Registrado Por': ''
             }]);
             wsAbonos['!cols'] = calcularAnchoColumnas(dataAbonos);
             XLSX.utils.book_append_sheet(wb, wsAbonos, 'Pagos_Abonos');
@@ -658,7 +793,14 @@ window.InventoryApp = window.InventoryApp || {};
             // =========================================================
             // HOJA 7: TRANSACCIONES Y PAGOS POR CONCILIAR
             // =========================================================
-            const dataTx = (AppState.transacciones || []).map((t, idx) => {
+            const listaTxOrdenada = [...(AppState.transacciones || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.referencia || '').localeCompare(String(a.referencia || ''));
+            });
+
+            const dataTx = listaTxOrdenada.map((t, idx) => {
                 const montoOrig = Number(t.monto || 0);
                 const montoUSD = Number(t.montoUSD || (t.moneda === 'USD' ? montoOrig : (tasaActual > 0 ? (montoOrig / tasaActual) : 0)));
 
@@ -669,7 +811,7 @@ window.InventoryApp = window.InventoryApp || {};
                     'Cliente': t.cliente || t.clienteNombre || '',
                     'Banco Origen': t.bancoOrigen || t.origen || '',
                     'Banco Destino': t.bancoDestino || t.banco || '',
-                    'Monto Original': montoOrig,
+                    'Monto Original': Number(montoOrig.toFixed(2)),
                     'Moneda': t.moneda || 'VES',
                     'Monto ($ USD Equiv)': Number(montoUSD.toFixed(2)),
                     'Estado': t.estado || 'PENDIENTE',
@@ -685,14 +827,14 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsTx, 'Transacciones_Verificar');
 
             // =========================================================
-            // HOJA 8: PROGRAMA DE PUNTOS Y FIDELIZACIÓN
+            // HOJA 8: PROGRAMA DE PUNTOS Y FIDELIZACIÓN (DE MAYOR A MENOR)
             // =========================================================
             const premioActivo = AppState.premioMes || {};
             const metaPuntos = Number(premioActivo.puntosRequeridos || 600);
 
-            const dataPuntos = (AppState.usuarios || [])
+            const usuariosConPuntos = (AppState.usuarios || [])
                 .filter(u => u.rol === 'cliente' || Number(u.puntosAcumulados || 0) > 0)
-                .map((u, idx) => {
+                .map(u => {
                     const acumulados = Number(u.puntosAcumulados || 0);
                     const canjeados = Number(u.puntosCanjeados || 0);
                     const disponibles = Math.max(0, acumulados - canjeados);
@@ -703,19 +845,31 @@ window.InventoryApp = window.InventoryApp || {};
                     else if (disponibles >= 100) nivel = 'Plata';
 
                     return {
-                        'N°': idx + 1,
-                        'Cédula / RIF': u.cedula || u.id || '',
-                        'Nombre Cliente': u.nombre || '',
-                        'Teléfono (WhatsApp)': u.telefono || '',
-                        'Puntos Acumulados': acumulados,
-                        'Puntos Canjeados': canjeados,
-                        'Puntos Disponibles': disponibles,
-                        'Premio en Juego': premioActivo.nombre || 'Cafetera Espresso',
-                        'Meta de Puntos': metaPuntos,
-                        'Progreso hacia Premio (%)': progreso,
-                        'Nivel de Fidelidad': nivel
+                        cedula: u.cedula || u.id || '',
+                        nombre: u.nombre || '',
+                        telefono: u.telefono || '',
+                        acumulados,
+                        canjeados,
+                        disponibles,
+                        progreso,
+                        nivel
                     };
-                });
+                })
+                .sort((a, b) => b.disponibles - a.disponibles);
+
+            const dataPuntos = usuariosConPuntos.map((u, idx) => ({
+                'N°': idx + 1,
+                'Cédula / RIF': u.cedula,
+                'Nombre Cliente': u.nombre,
+                'Teléfono (WhatsApp)': u.telefono,
+                'Puntos Acumulados': u.acumulados,
+                'Puntos Canjeados': u.canjeados,
+                'Puntos Disponibles': u.disponibles,
+                'Premio en Juego': premioActivo.nombre || 'Cafetera Espresso',
+                'Meta de Puntos': metaPuntos,
+                'Progreso hacia Premio (%)': u.progreso,
+                'Nivel de Fidelidad': u.nivel
+            }));
             const wsPuntos = XLSX.utils.json_to_sheet(dataPuntos.length ? dataPuntos : [{
                 'N°': 1, 'Cédula / RIF': '', 'Nombre Cliente': 'Sin clientes en programa de puntos',
                 'Teléfono (WhatsApp)': '', 'Puntos Acumulados': 0, 'Puntos Canjeados': 0, 'Puntos Disponibles': 0,
@@ -727,7 +881,14 @@ window.InventoryApp = window.InventoryApp || {};
             // =========================================================
             // HOJA 9: CANJES DE PREMIOS REALIZADOS
             // =========================================================
-            const dataCanjes = (AppState.canjesPremios || []).map((c, idx) => ({
+            const listaCanjesOrdenada = [...(AppState.canjesPremios || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+
+            const dataCanjes = listaCanjesOrdenada.map((c, idx) => ({
                 'N°': idx + 1,
                 'ID Canje': c.id || '',
                 'Fecha Canje': c.fecha || '',
@@ -745,9 +906,16 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsCanjes, 'Canjes_Premios');
 
             // =========================================================
-            // HOJA 10: FACTURAS DE COMPRAS Y MERCANCÍA
+            // HOJA 10: FACTURAS DE COMPRAS Y MERCANCÍA (CRONOLÓGICO)
             // =========================================================
-            const dataCompras = (AppState.facturasCompras || []).map((fc, idx) => {
+            const listaComprasOrdenada = [...(AppState.facturasCompras || [])].sort((a, b) => {
+                const dateA = new Date(a.fechaEmision || a.fecha || 0).getTime();
+                const dateB = new Date(b.fechaEmision || b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.numeroFactura || b.id || '').localeCompare(String(a.numeroFactura || a.id || ''));
+            });
+
+            const dataCompras = listaComprasOrdenada.map((fc, idx) => {
                 const totalUSD = Number(fc.totalUSD || fc.total || 0);
                 const totalBs = Number(fc.totalBs || (totalUSD * tasaActual).toFixed(2));
                 const itemsStr = (fc.items || []).map(it => `${it.cantidad || 1}x ${it.nombre || 'Prod'} (Costo: $${Number(it.costoUnitario || it.costo || 0).toFixed(2)})`).join(' | ');
@@ -757,8 +925,8 @@ window.InventoryApp = window.InventoryApp || {};
                     'N° Factura / Control': fc.numeroFactura || fc.id || '',
                     'Fecha de Emisión': fc.fechaEmision || fc.fecha || '',
                     'Proveedor': fc.proveedor || '',
-                    'Total Factura ($ USD)': totalUSD,
-                    'Total Factura (Bs)': totalBs,
+                    'Total Factura ($ USD)': Number(totalUSD.toFixed(2)),
+                    'Total Factura (Bs)': Number(totalBs.toFixed(2)),
                     'Cantidad de Ítems': (fc.items || []).length,
                     'Método de Costo': fc.metodoCosto || 'Reposición Directa',
                     'Detalle de Mercancía': itemsStr || 'Sin detalle',
@@ -774,9 +942,13 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsCompras, 'Facturas_Compras');
 
             // =========================================================
-            // HOJA 11: DIRECTORIO DE PROVEEDORES
+            // HOJA 11: DIRECTORIO DE PROVEEDORES (ALFABÉTICO)
             // =========================================================
-            const dataProveedores = (AppState.proveedores || []).map((pr, idx) => ({
+            const listaProveedoresOrdenada = [...(AppState.proveedores || [])].sort((a, b) => 
+                (a.nombre || '').localeCompare(b.nombre || '')
+            );
+
+            const dataProveedores = listaProveedoresOrdenada.map((pr, idx) => ({
                 'N°': idx + 1,
                 'ID Proveedor': pr.id || '',
                 'Nombre / Razón Social': pr.nombre || '',
@@ -796,9 +968,16 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsProveedores, 'Proveedores');
 
             // =========================================================
-            // HOJA 12: KARDEX DE MOVIMIENTOS DE INVENTARIO
+            // HOJA 12: KARDEX DE MOVIMIENTOS DE INVENTARIO (CRONOLÓGICO)
             // =========================================================
-            const dataKardex = (AppState.kardex || []).map((k, idx) => ({
+            const listaKardexOrdenada = [...(AppState.kardex || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return 0;
+            });
+
+            const dataKardex = listaKardexOrdenada.map((k, idx) => ({
                 'N°': idx + 1,
                 'Fecha y Hora': k.fecha || '',
                 'Código Producto': k.codigo || '',
@@ -808,7 +987,7 @@ window.InventoryApp = window.InventoryApp || {};
                 'Salida (Unidades)': Number(k.salida || 0),
                 'Stock Anterior': Number(k.stockAnterior || 0),
                 'Stock Resultante': Number(k.stockNuevo || k.stockResultante || 0),
-                'Costo Unitario ($ USD)': Number(k.costo || 0),
+                'Costo Unitario ($ USD)': Number(Number(k.costo || 0).toFixed(2)),
                 'Referencia / Motivo': k.referencia || k.motivo || ''
             }));
             const wsKardex = XLSX.utils.json_to_sheet(dataKardex.length ? dataKardex : [{
@@ -822,14 +1001,21 @@ window.InventoryApp = window.InventoryApp || {};
             // =========================================================
             // HOJA 13: AUDITORÍAS E INVENTARIO FÍSICO
             // =========================================================
-            const dataAud = (AppState.auditorias || []).map((a, idx) => ({
+            const listaAudOrdenada = [...(AppState.auditorias || [])].sort((a, b) => {
+                const dateA = new Date(a.fecha || 0).getTime();
+                const dateB = new Date(b.fecha || 0).getTime();
+                if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+                return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+
+            const dataAud = listaAudOrdenada.map((a, idx) => ({
                 'N°': idx + 1,
                 'ID Auditoría': a.id || '',
                 'Fecha y Hora': a.fecha || '',
                 'Responsable': a.responsable || '',
                 'Total Productos Auditados': a.totalItems || (a.items || []).length || 0,
                 'Productos con Diferencias': a.totalDiferencias || 0,
-                'Impacto Económico ($ USD)': Number(a.impactoUSD || a.perdidaUSD || 0),
+                'Impacto Económico ($ USD)': Number(Number(a.impactoUSD || a.perdidaUSD || 0).toFixed(2)),
                 'Observaciones': a.observaciones || a.motivo || ''
             }));
             const wsAud = XLSX.utils.json_to_sheet(dataAud.length ? dataAud : [{
@@ -840,7 +1026,7 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsAud, 'Auditorias_Inventario');
 
             // =========================================================
-            // HOJA 14: MERMAS, BAJAS Y PÉRDIDAS
+            // HOJA 14: MERMAS, BAJAS Y PÉRDIDAS (CRONOLÓGICO)
             // =========================================================
             const bajasYmermas = [
                 ...(AppState.eliminaciones || []).map(e => ({
@@ -850,7 +1036,7 @@ window.InventoryApp = window.InventoryApp || {};
                     'Nombre / Concepto': e.nombre || '',
                     'Tipo de Baja': e.tipo || 'Merma / Producto Eliminado',
                     'Cantidad': Number(e.cantidad || e.stock || 1),
-                    'Pérdida Económica ($ USD)': Number(e.costo || e.perdida || 0),
+                    'Pérdida Económica ($ USD)': Number(Number(e.costo || e.perdida || 0).toFixed(2)),
                     'Motivo': e.motivo || '',
                     'Registrado Por': e.usuario || e.responsable || 'Administración'
                 })),
@@ -861,11 +1047,16 @@ window.InventoryApp = window.InventoryApp || {};
                     'Nombre / Concepto': ce.nombre || '',
                     'Tipo de Baja': 'Cliente Incobrable / Eliminado',
                     'Cantidad': 1,
-                    'Pérdida Económica ($ USD)': Number(ce.deuda || ce.saldo || 0),
+                    'Pérdida Económica ($ USD)': Number(Number(ce.deuda || ce.saldo || 0).toFixed(2)),
                     'Motivo': ce.motivo || 'Cuenta incobrable',
                     'Registrado Por': ce.usuario || 'Administración'
                 }))
-            ];
+            ].sort((a, b) => {
+                const dateA = new Date(a['Fecha y Hora'] || 0).getTime();
+                const dateB = new Date(b['Fecha y Hora'] || 0).getTime();
+                return dateB - dateA;
+            });
+
             const wsMermas = XLSX.utils.json_to_sheet(bajasYmermas.length ? bajasYmermas : [{
                 'ID Registro': '', 'Fecha y Hora': '', 'Código / Cédula': '', 'Nombre / Concepto': 'Sin registros de mermas',
                 'Tipo de Baja': '', 'Cantidad': 0, 'Pérdida Económica ($ USD)': 0, 'Motivo': '', 'Registrado Por': ''
@@ -874,15 +1065,30 @@ window.InventoryApp = window.InventoryApp || {};
             XLSX.utils.book_append_sheet(wb, wsMermas, 'Mermas_Bajas');
 
             // =========================================================
-            // HOJA 15: USUARIOS Y ACCESO AL SISTEMA
+            // HOJA 15: USUARIOS Y ACCESO AL SISTEMA (ORDEN JERÁRQUICO)
             // =========================================================
-            const dataUsuarios = (AppState.usuarios || []).map((u, idx) => ({
+            const rolPrioridad = {
+                'superadmin': 1,
+                'admin': 2,
+                'administrador': 2,
+                'vendedor': 3,
+                'cajero': 4,
+                'cliente': 5
+            };
+            const listaUsuariosOrdenada = [...(AppState.usuarios || [])].sort((a, b) => {
+                const prioA = rolPrioridad[String(a.rol || '').toLowerCase()] || 9;
+                const prioB = rolPrioridad[String(b.rol || '').toLowerCase()] || 9;
+                if (prioA !== prioB) return prioA - prioB;
+                return (a.nombre || '').localeCompare(b.nombre || '');
+            });
+
+            const dataUsuarios = listaUsuariosOrdenada.map((u, idx) => ({
                 'N°': idx + 1,
                 'Cédula / RIF / ID': u.cedula || u.id || '',
                 'Nombre y Apellido / Razón Social': u.nombre || '',
                 'Teléfono': u.telefono || '',
                 'Correo Electrónico': u.email || '',
-                'Rol': u.rol || 'cliente',
+                'Rol': (u.rol || 'cliente').toUpperCase(),
                 'Estado de Acceso': u.estado || 'ACTIVO',
                 'Puntos Acumulados': Number(u.puntosAcumulados || 0),
                 'Puntos Canjeados': Number(u.puntosCanjeados || 0),
@@ -982,18 +1188,24 @@ window.InventoryApp = window.InventoryApp || {};
                         const sheet = workbook.Sheets[sheetClientKey];
                         const json = XLSX.utils.sheet_to_json(sheet);
                         if (json.length > 0) {
-                            const clientesImportados = json.map(row => ({
-                                id: String(row['Cédula / RIF / ID'] || row['ID / Cédula'] || row['id'] || '').trim(),
-                                cedula: String(row['Cédula / RIF / ID'] || row['ID / Cédula'] || row['id'] || '').trim(),
-                                nombre: String(row['Nombre Completo / Razón Social'] || row['Nombre'] || row['nombre'] || '').trim(),
-                                telefono: String(row['Teléfono / WhatsApp'] || row['Teléfono'] || row['telefono'] || '').trim(),
-                                saldoDeudor: Number(row['Saldo Deudor ($ USD)'] || row['saldoDeudor'] || 0),
-                                deuda: Number(row['Saldo Deudor ($ USD)'] || row['deuda'] || 0),
-                                totalComprado: Number(row['Total Compras Registradas ($ USD)'] || row['totalComprado'] || 0),
-                                totalAbonado: Number(row['Total Abonos Realizados ($ USD)'] || row['totalAbonado'] || 0),
-                                puntosAcumulados: Number(row['Puntos Acumulados'] || row['puntosAcumulados'] || 0),
-                                puntosCanjeados: Number(row['Puntos Canjeados'] || row['puntosCanjeados'] || 0)
-                            })).filter(c => c.id && c.nombre && c.nombre !== 'Sin clientes registrados');
+                            const clientesImportados = json.map(row => {
+                                const deudaVal = Number(row['Saldo Deudor ($ USD)'] || row['Saldo Deudor'] || row['saldoDeudor'] || row['deudaUSD'] || row['deuda'] || 0);
+                                return {
+                                    id: String(row['Cédula / RIF / ID'] || row['ID / Cédula'] || row['id'] || '').trim(),
+                                    cedula: String(row['Cédula / RIF / ID'] || row['ID / Cédula'] || row['id'] || '').trim(),
+                                    nombre: String(row['Nombre Completo / Razón Social'] || row['Nombre'] || row['nombre'] || '').trim(),
+                                    telefono: String(row['Teléfono / WhatsApp'] || row['Teléfono'] || row['telefono'] || '').trim(),
+                                    email: String(row['Correo Electrónico'] || row['email'] || '').trim(),
+                                    deudaUSD: deudaVal,
+                                    deudaInicialUSD: deudaVal,
+                                    saldoDeudor: deudaVal,
+                                    deuda: deudaVal,
+                                    totalCompradoUSD: Number(row['Total Compras Registradas ($ USD)'] || row['totalComprado'] || 0),
+                                    totalAbonadoUSD: Number(row['Total Abonos Realizados ($ USD)'] || row['totalAbonado'] || 0),
+                                    puntosAcumulados: Number(row['Puntos Acumulados'] || row['puntosAcumulados'] || 0),
+                                    puntosCanjeados: Number(row['Puntos Canjeados'] || row['puntosCanjeados'] || 0)
+                                };
+                            }).filter(c => c.id && c.nombre && c.nombre !== 'Sin clientes registrados');
 
                             if (clientesImportados.length > 0) {
                                 AppState.clientes = clientesImportados;
