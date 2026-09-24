@@ -694,6 +694,19 @@ input:focus, select:focus, textarea:focus {
 .btn-danger { background: var(--danger); }
 .btn-danger:hover { background: #b91c1c; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3); }
 
+.btn-outline-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-outline-danger:hover {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #dc2626;
+}
+
 /* Tablas Responsivas con Desplazamiento Suave Touch */
 .table-responsive {
     overflow-x: auto;

@@ -2338,6 +2338,119 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Eliminar Transacción de Firestore
+     */
+    async function eliminarTransaccionCloud(txId) {
+        if (!txId) return false;
+        const id = String(txId);
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Transacción eliminada localmente');
+            return true;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Eliminando transacción de la nube...');
+
+        try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+
+            if (db) {
+                await db.collection(COLLECTIONS.TRANSACCIONES).doc(id).delete();
+                console.log('[Firebase] Transacción eliminada en Firestore:', id);
+            }
+
+            actualizarUIEstadoNube('conectado', 'Transacción eliminada');
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar transacción en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Transacción eliminada localmente (Offline)');
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Abono de Firestore
+     */
+    async function eliminarAbonoCloud(abonoId) {
+        if (!abonoId) return false;
+        const id = String(abonoId);
+
+        if (isQuotaExhausted) return true;
+
+        try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+            if (db) {
+                await db.collection(COLLECTIONS.ABONOS).doc(id).delete();
+                console.log('[Firebase] Abono eliminado en Firestore:', id);
+            }
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar abono en Firestore:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Lote de Transacciones y Abonos de Firestore
+     */
+    async function eliminarTransaccionesLoteCloud(txIds = [], abonoIds = []) {
+        if (!txIds.length && !abonoIds.length) return true;
+
+        if (isQuotaExhausted) return true;
+
+        actualizarUIEstadoNube('sincronizando', 'Eliminando historial de transacciones...');
+
+        try {
+            if (!db) {
+                await inicializarFirebase();
+            }
+            if (db) {
+                const batch = db.batch();
+                let opCount = 0;
+
+                txIds.forEach(id => {
+                    const ref = db.collection(COLLECTIONS.TRANSACCIONES).doc(String(id));
+                    batch.delete(ref);
+                    opCount++;
+                });
+
+                abonoIds.forEach(id => {
+                    const ref = db.collection(COLLECTIONS.ABONOS).doc(String(id));
+                    batch.delete(ref);
+                    opCount++;
+                });
+
+                if (opCount > 0) {
+                    await batch.commit();
+                    console.log(`[Firebase] Lote de ${opCount} registros eliminados en Firestore.`);
+                }
+            }
+            actualizarUIEstadoNube('conectado', 'Historial eliminado');
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error en lote eliminando en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Historial eliminado localmente (Offline)');
+            }
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Guardar o actualizar registro de Pago o Venta en PagosPorVerificar de Firestore
      */
     async function guardarPagoPorVerificarCloud(datosPago) {
@@ -3341,7 +3454,10 @@ window.InventoryApp = window.InventoryApp || {};
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,
         guardarAbono: guardarAbonoCloud,
+        eliminarAbono: eliminarAbonoCloud,
         guardarTransaccion: guardarTransaccionCloud,
+        eliminarTransaccion: eliminarTransaccionCloud,
+        eliminarTransaccionesLote: eliminarTransaccionesLoteCloud,
         guardarPagoPorVerificar: guardarPagoPorVerificarCloud,
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,

@@ -1000,10 +1000,10 @@ function renderizarTransacciones(filtro = null) {
 
     const pendientes = listadoTx.filter(t => t.estado === 'Confirmando').length;
     const agregados = listadoTx.filter(t => t.estado === 'Pago agregado').length;
-    const fallidos = listadoTx.filter(t => t.estado === 'Fallido').length;
+    const fallidos = listadoTx.filter(t => t.estado === 'Fallido' || t.estado === 'Rechazado').length;
     const resumen = document.getElementById('transaccion-resumen');
     if (resumen) {
-        resumen.textContent = `${pendientes} pendiente${pendientes === 1 ? '' : 's'} · ${fallidos} fallido${fallidos === 1 ? '' : 's'} · ${agregados} pago${agregados === 1 ? '' : 's'} agregado${agregados === 1 ? '' : 's'}`;
+        resumen.textContent = `${pendientes} pendiente${pendientes === 1 ? '' : 's'} · ${fallidos} rechazado/fallido${fallidos === 1 ? '' : 's'} · ${agregados} pago${agregados === 1 ? '' : 's'} agregado${agregados === 1 ? '' : 's'}`;
     }
 
     if (!lista.length) {
@@ -1023,12 +1023,16 @@ function renderizarTransacciones(filtro = null) {
                 : obtenerNombreClienteTransaccion(t.clienteId);
             const estadoClass = t.estado === 'Pago agregado'
                 ? 'transaction-approved'
-                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+                : (t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'transaction-failed' : 'transaction-pending');
             const accion = t.estado === 'Pago agregado'
-                ? '<span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>'
-                : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ? `<div style="display:flex;gap:8px;align-items:center;">
+                    <span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarTransaccion('${t.id}')" title="Eliminar transacción del historial"><i class="fas fa-trash-alt"></i></button>
+                </div>`
+                : `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                     <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}><i class="fas fa-pen"></i> Editar</button>
-                    <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
+                    <button type="button" class="btn btn-sm ${t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarTransaccion('${t.id}')" title="Eliminar transacción del historial"><i class="fas fa-trash-alt"></i></button>
                 </div>`;
             const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
             const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
@@ -1052,7 +1056,7 @@ function renderizarTransacciones(filtro = null) {
                 : obtenerNombreClienteTransaccion(t.clienteId);
             const estadoClass = t.estado === 'Pago agregado'
                 ? 'transaction-approved'
-                : (t.estado === 'Fallido' ? 'transaction-failed' : 'transaction-pending');
+                : (t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'transaction-failed' : 'transaction-pending');
             const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
             const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
             const esConciliado = t.estado === 'Pago agregado';
@@ -1061,7 +1065,7 @@ function renderizarTransacciones(filtro = null) {
 
             let statusIcon = '<i class="fas fa-clock" style="color:#d97706;"></i>';
             if (esConciliado) statusIcon = '<i class="fas fa-circle-check" style="color:#16a34a;"></i>';
-            else if (t.estado === 'Fallido') statusIcon = '<i class="fas fa-circle-xmark" style="color:#dc2626;"></i>';
+            else if (t.estado === 'Fallido' || t.estado === 'Rechazado') statusIcon = '<i class="fas fa-circle-xmark" style="color:#dc2626;"></i>';
 
             return `
                 <div class="transacciones-item-card ${estadoClass}">
@@ -1085,16 +1089,19 @@ function renderizarTransacciones(filtro = null) {
                         </div>
                     </div>
 
-                    ${!esConciliado ? `
-                        <div class="transacciones-item-actions">
+                    <div class="transacciones-item-actions" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+                        ${!esConciliado ? `
                             <button type="button" class="btn btn-warning btn-sm" onclick="editarTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
                                 <i class="fas fa-pen"></i> Editar
                             </button>
-                            <button type="button" class="btn btn-sm ${t.estado === 'Fallido' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
+                            <button type="button" class="btn btn-sm ${t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'btn-danger' : 'btn-warning'}" onclick="procesarVerificacionTransaccion('${t.id}')" ${t.verificando ? 'disabled' : ''}>
                                 ${t.verificando ? '<i class="fas fa-spinner fa-spin"></i> Verificando...' : '<i class="fas fa-rotate"></i> Reintentar'}
                             </button>
-                        </div>
-                    ` : ''}
+                        ` : ''}
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarTransaccion('${t.id}')" title="Eliminar transacción del historial">
+                            <i class="fas fa-trash-alt"></i> Eliminar
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -1103,6 +1110,290 @@ function renderizarTransacciones(filtro = null) {
 
 function filtrarTransacciones() {
     renderizarTransacciones(document.getElementById('transaccion-busqueda')?.value || '');
+}
+
+// --- ELIMINACIÓN Y VACIADO DE HISTORIAL DE TRANSACCIONES ---
+async function eliminarTransaccion(id) {
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    const tx = listadoTx.find(t => t.id === id);
+    if (!tx) {
+        alert('Transacción no encontrada.');
+        return;
+    }
+
+    const esConciliado = tx.estado === 'Pago agregado';
+    let mensajeConfirmacion = `¿Estás seguro de eliminar del historial la transacción con referencia <b>${tx.referencia || tx.id}</b> (${tx.estado})?`;
+    if (esConciliado) {
+        mensajeConfirmacion = `<b>¡Atención!</b> Esta transacción está en estado <b>Pago agregado (Conciliado)</b>.<br><br>Al eliminarla del historial, también se removerá el abono contable asociado de <b>Bs. ${Number(tx.montoVES || 0).toFixed(2)} ($${Number(tx.montoUSD || 0).toFixed(2)})</b> y se recalculará la deuda del cliente.<br><br>¿Deseas continuar y eliminarla?`;
+    }
+
+    const confirmado = await (window.InventoryApp?.Modal?.confirm
+        ? window.InventoryApp.Modal.confirm(
+            'Eliminar Transacción del Historial',
+            mensajeConfirmacion,
+            { confirmText: 'Sí, Eliminar', isDanger: true }
+        )
+        : confirm(`¿Deseas eliminar del historial la transacción con referencia "${tx.referencia || tx.id}"?`));
+
+    if (!confirmado) return;
+
+    // 1. Eliminar de transacciones y AppState.transacciones
+    if (Array.isArray(transacciones)) {
+        const idx = transacciones.findIndex(t => t.id === id);
+        if (idx !== -1) transacciones.splice(idx, 1);
+    }
+    if (Array.isArray(AppState.transacciones)) {
+        const idx = AppState.transacciones.findIndex(t => t.id === id);
+        if (idx !== -1) AppState.transacciones.splice(idx, 1);
+    }
+
+    // 2. Eliminar abono asociado si existía
+    let abonoEliminado = null;
+    const listaAbonos = Array.isArray(AppState.abonos) ? AppState.abonos : (window.abonos || []);
+    const idxAbono = listaAbonos.findIndex(a => 
+        a.transaccionId === id || 
+        (a.referencia && tx.referencia && String(a.referencia).trim() === String(tx.referencia).trim() && String(a.clienteId) === String(tx.clienteId))
+    );
+    if (idxAbono !== -1) {
+        abonoEliminado = listaAbonos[idxAbono];
+        listaAbonos.splice(idxAbono, 1);
+        if (Array.isArray(window.abonos) && window.abonos !== listaAbonos) {
+            const idxW = window.abonos.findIndex(a => a.id === abonoEliminado.id);
+            if (idxW !== -1) window.abonos.splice(idxW, 1);
+        }
+        if (Array.isArray(AppState.abonos) && AppState.abonos !== listaAbonos) {
+            const idxA = AppState.abonos.findIndex(a => a.id === abonoEliminado.id);
+            if (idxA !== -1) AppState.abonos.splice(idxA, 1);
+        }
+    }
+
+    // 3. Eliminar de pagosPorVerificar
+    if (Array.isArray(AppState.pagosPorVerificar)) {
+        AppState.pagosPorVerificar = AppState.pagosPorVerificar.filter(p => 
+            p.transaccionId !== id && p.id !== id && (!abonoEliminado || p.abonoId !== abonoEliminado.id)
+        );
+    }
+
+    // 4. Eliminar notificaciones asociadas
+    if (Array.isArray(AppState.notificaciones)) {
+        AppState.notificaciones = AppState.notificaciones.filter(n => 
+            n.transaccionId !== id && 
+            n.referenciaId !== id && 
+            (!abonoEliminado || (n.referenciaId !== abonoEliminado.id && n.pagoId !== abonoEliminado.id))
+        );
+    }
+
+    // 5. Persistir localmente
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // 6. Eliminar en Firestore Cloud
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.eliminarTransaccion === 'function') {
+            window.InventoryApp.Firebase.eliminarTransaccion(id).catch(err => {
+                console.warn('[Firebase] Error eliminando transacción:', err);
+            });
+        }
+        if (abonoEliminado && typeof window.InventoryApp.Firebase.eliminarAbono === 'function') {
+            window.InventoryApp.Firebase.eliminarAbono(abonoEliminado.id).catch(err => {
+                console.warn('[Firebase] Error eliminando abono asociado:', err);
+            });
+        }
+        if (typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
+            window.InventoryApp.Firebase.registrarAuditoria({
+                accion: 'ELIMINAR_TRANSACCION',
+                modulo: 'TRANSACCIONES',
+                detalle: `Se eliminó del historial la transacción Ref: ${tx.referencia || tx.id} (${tx.estado}) Monto: Bs. ${tx.montoVES} ($${tx.montoUSD})`,
+                clienteId: tx.clienteId,
+                fecha: new Date().toISOString()
+            }).catch(() => {});
+        }
+    }
+
+    // 7. Refrescar vistas
+    renderizarTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+    if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+    if (typeof verDetalleCliente === 'function' && tx.clienteId) {
+        const modalDet = document.getElementById('modal-cliente-detalle');
+        if (modalDet && modalDet.classList.contains('active')) {
+            verDetalleCliente(tx.clienteId);
+        }
+    }
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast('Transacción eliminada del historial con éxito.', 'success');
+    }
+}
+
+function abrirModalVaciarHistorialTransacciones() {
+    const modal = document.getElementById('modal-vaciar-historial-tx');
+    if (!modal) return;
+
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    const countRechazadas = listadoTx.filter(t => t.estado === 'Fallido' || t.estado === 'Rechazado').length;
+    const countPendientes = listadoTx.filter(t => t.estado === 'Confirmando').length;
+    const countTodos = listadoTx.length;
+
+    const bRechazadas = document.getElementById('badge-count-rechazadas');
+    if (bRechazadas) bRechazadas.textContent = `${countRechazadas}`;
+
+    const bPendientes = document.getElementById('badge-count-pendientes');
+    if (bPendientes) bPendientes.textContent = `${countPendientes}`;
+
+    const bTodos = document.getElementById('badge-count-todos');
+    if (bTodos) bTodos.textContent = `${countTodos}`;
+
+    const radioRechazadas = document.querySelector('input[name="criterio-vaciar-tx"][value="rechazadas"]');
+    if (radioRechazadas) radioRechazadas.checked = true;
+
+    modal.classList.add('active');
+}
+
+function cerrarModalVaciarHistorialTransacciones() {
+    const modal = document.getElementById('modal-vaciar-historial-tx');
+    if (modal) modal.classList.remove('active');
+}
+
+async function ejecutarVaciarHistorialTransacciones() {
+    const radioSeleccionado = document.querySelector('input[name="criterio-vaciar-tx"]:checked');
+    const criterio = radioSeleccionado ? radioSeleccionado.value : 'rechazadas';
+
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    let aEliminar = [];
+
+    if (criterio === 'rechazadas') {
+        aEliminar = listadoTx.filter(t => t.estado === 'Fallido' || t.estado === 'Rechazado');
+    } else if (criterio === 'pendientes') {
+        aEliminar = listadoTx.filter(t => t.estado === 'Confirmando');
+    } else if (criterio === 'todos') {
+        aEliminar = [...listadoTx];
+    }
+
+    if (!aEliminar.length) {
+        alert('No hay transacciones registradas que coincidan con la opción seleccionada.');
+        cerrarModalVaciarHistorialTransacciones();
+        return;
+    }
+
+    const contieneConciliadas = aEliminar.some(t => t.estado === 'Pago agregado');
+    let textoAdvertencia = `¿Confirmas eliminar <b>${aEliminar.length}</b> transacción(es) del historial?`;
+    if (contieneConciliadas) {
+        textoAdvertencia = `<b>¡Advertencia importante!</b> Se eliminarán <b>${aEliminar.length} registros</b>, incluyendo pagos conciliados.<br><br>Esto removerá sus abonos contables asociados y recalculará las deudas de los clientes correspondientes.<br><br>¿Estás completamente seguro de continuar?`;
+    }
+
+    const confirmado = await (window.InventoryApp?.Modal?.confirm
+        ? window.InventoryApp.Modal.confirm(
+            'Confirmar Eliminación de Historial',
+            textoAdvertencia,
+            { confirmText: 'Sí, Eliminar Registros', isDanger: true }
+        )
+        : confirm(`¿Confirmas eliminar ${aEliminar.length} transacción(es) del historial?`));
+
+    if (!confirmado) return;
+
+    cerrarModalVaciarHistorialTransacciones();
+
+    const idsAEliminar = new Set(aEliminar.map(t => t.id));
+    const abonosAEliminarIds = new Set();
+
+    // Eliminar de transacciones y AppState.transacciones
+    if (Array.isArray(transacciones)) {
+        for (let i = transacciones.length - 1; i >= 0; i--) {
+            if (idsAEliminar.has(transacciones[i].id)) {
+                transacciones.splice(i, 1);
+            }
+        }
+    }
+    if (Array.isArray(AppState.transacciones)) {
+        for (let i = AppState.transacciones.length - 1; i >= 0; i--) {
+            if (idsAEliminar.has(AppState.transacciones[i].id)) {
+                AppState.transacciones.splice(i, 1);
+            }
+        }
+    }
+
+    // Eliminar abonos asociados
+    if (Array.isArray(AppState.abonos)) {
+        for (let i = AppState.abonos.length - 1; i >= 0; i--) {
+            const ab = AppState.abonos[i];
+            if (idsAEliminar.has(ab.transaccionId)) {
+                abonosAEliminarIds.add(ab.id);
+                AppState.abonos.splice(i, 1);
+            }
+        }
+    }
+    if (Array.isArray(window.abonos)) {
+        for (let i = window.abonos.length - 1; i >= 0; i--) {
+            const ab = window.abonos[i];
+            if (idsAEliminar.has(ab.transaccionId)) {
+                abonosAEliminarIds.add(ab.id);
+                window.abonos.splice(i, 1);
+            }
+        }
+    }
+
+    // Limpiar pagos por verificar y notificaciones
+    if (Array.isArray(AppState.pagosPorVerificar)) {
+        AppState.pagosPorVerificar = AppState.pagosPorVerificar.filter(p => 
+            !idsAEliminar.has(p.transaccionId) && !idsAEliminar.has(p.id) && !abonosAEliminarIds.has(p.abonoId)
+        );
+    }
+    if (Array.isArray(AppState.notificaciones)) {
+        AppState.notificaciones = AppState.notificaciones.filter(n => 
+            !idsAEliminar.has(n.transaccionId) && !idsAEliminar.has(n.referenciaId) && !abonosAEliminarIds.has(n.referenciaId) && !abonosAEliminarIds.has(n.pagoId)
+        );
+    }
+
+    // Guardar persistencia local
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Sincronizar eliminaciones en Firestore
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.eliminarTransaccionesLote === 'function') {
+            window.InventoryApp.Firebase.eliminarTransaccionesLote(Array.from(idsAEliminar), Array.from(abonosAEliminarIds)).catch(err => {
+                console.warn('[Firebase] Error en lote eliminando transacciones:', err);
+            });
+        } else {
+            idsAEliminar.forEach(id => {
+                if (typeof window.InventoryApp.Firebase.eliminarTransaccion === 'function') {
+                    window.InventoryApp.Firebase.eliminarTransaccion(id).catch(() => {});
+                }
+            });
+            abonosAEliminarIds.forEach(abId => {
+                if (typeof window.InventoryApp.Firebase.eliminarAbono === 'function') {
+                    window.InventoryApp.Firebase.eliminarAbono(abId).catch(() => {});
+                }
+            });
+        }
+
+        if (typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
+            window.InventoryApp.Firebase.registrarAuditoria({
+                accion: 'VACIAR_HISTORIAL_TRANSACCIONES',
+                modulo: 'TRANSACCIONES',
+                detalle: `Se eliminaron ${aEliminar.length} transacciones con criterio "${criterio}".`,
+                fecha: new Date().toISOString()
+            }).catch(() => {});
+        }
+    }
+
+    // Refrescar vistas
+    renderizarTransacciones();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+    if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`Se eliminaron ${aEliminar.length} transacciones del historial exitosamente.`, 'success');
+    }
 }
 
 function guardarAbono(e) {
@@ -2178,5 +2469,9 @@ window.abrirModalAbono = abrirModalAbono;
 window.cerrarModalAbono = cerrarModalAbono;
 window.actualizarMonedaAbono = actualizarMonedaAbono;
 window.calcularEquivalenteAbono = calcularEquivalenteAbono;
+window.eliminarTransaccion = eliminarTransaccion;
+window.abrirModalVaciarHistorialTransacciones = abrirModalVaciarHistorialTransacciones;
+window.cerrarModalVaciarHistorialTransacciones = cerrarModalVaciarHistorialTransacciones;
+window.ejecutarVaciarHistorialTransacciones = ejecutarVaciarHistorialTransacciones;
 
 

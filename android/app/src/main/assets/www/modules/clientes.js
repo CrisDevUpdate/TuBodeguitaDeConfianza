@@ -776,15 +776,21 @@ function verDetalleCliente(id, abrirModal = true) {
         });
     });
 
+    const idsMovimientosAbonos = new Set();
     listaAbonos.filter(a => a.clienteId === id).forEach(a => {
         const aprobado = a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado;
         const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
             ? sanitizarAbonoMonedas(a, tasa)
             : { esDivisa: false, montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
 
+        if (a.id) idsMovimientosAbonos.add(String(a.id).trim());
+        if (a.transaccionId) idsMovimientosAbonos.add(String(a.transaccionId).trim());
+
         const nombreMetodo = a.formaPago || a.metodo || 'Abono';
         const badgeMoneda = esDivisa ? ' (Divisas $)' : ' (Bs. VES)';
         transacciones.push({
+            id: a.id,
+            transaccionId: a.transaccionId || null,
             tipoOperacion: 'abono',
             fecha: a.fecha,
             concepto: aprobado ? `Abono / Pago${badgeMoneda}` : `Pago (${a.estado})${badgeMoneda}`,
@@ -797,7 +803,13 @@ function verDetalleCliente(id, abrirModal = true) {
     });
 
     if (typeof transaccionesPendientesCliente === 'function') {
-        transacciones.push(...transaccionesPendientesCliente(id));
+        const pendientes = transaccionesPendientesCliente(id);
+        pendientes.forEach(p => {
+            const pId = String(p.id || '').trim();
+            if (!pId || !idsMovimientosAbonos.has(pId)) {
+                transacciones.push(p);
+            }
+        });
     }
 
     transacciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));

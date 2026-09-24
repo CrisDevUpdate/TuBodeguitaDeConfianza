@@ -47,22 +47,27 @@
      * "Los clientes sólo deben llegarles la notificación que el admin aprobó su transacción,
      * no todas las notificaciones que le llegan al admin"
      */
+    /**
+     * Retorna exclusivamente las notificaciones permitidas para el usuario en sesión activa.
+     * Regla estricta del sistema:
+     * "Los clientes sólo deben llegarles la notificación que el admin aprobó su transacción,
+     * no todas las notificaciones que le llegan al admin"
+     */
     function obtenerNotificacionesParaUsuarioActual() {
         const usuario = window.AppState?.usuarioActual;
         if (!usuario) return [];
+        limpiarNotificacionesDuplicadas();
         const lista = Array.isArray(AppState.notificaciones) ? AppState.notificaciones : [];
+        let resultado = [];
 
         if (esUsuarioAdmin()) {
             // El administrador ve las notificaciones de gestión (pagos reportados, ventas, créditos, auditorías, etc.)
-            // No se le llena la pantalla con notificaciones dirigidas exclusivamente al cliente individual
-            return lista.filter(n => n.paraCliente !== true || n.paraAdmin === true);
-        }
-
-        if (esUsuarioCliente()) {
+            resultado = lista.filter(n => n.paraCliente !== true || n.paraAdmin === true);
+        } else if (esUsuarioCliente()) {
             const miCedula = String(usuario.cedula || usuario.id || '').trim().toLowerCase();
             const miNombre = String(usuario.nombre || '').trim().toLowerCase();
 
-            return lista.filter(n => {
+            resultado = lista.filter(n => {
                 const notifClienteId = String(n.clienteId || n.clienteCedula || '').trim().toLowerCase();
                 const notifClienteNom = String(n.clienteNombre || '').trim().toLowerCase();
                 const esMio = (notifClienteId && notifClienteId === miCedula) || 
@@ -88,10 +93,65 @@
 
                 return esAprobacion && !esAlertaAdmin;
             });
+        } else {
+            // Otros roles (vendedores)
+            resultado = lista.filter(n => n.paraCliente !== true);
         }
 
-        // Otros roles (vendedores)
-        return lista.filter(n => n.paraCliente !== true);
+        // Deduplicación estricta para garantizar que nunca se listen 2 notificaciones por la misma transacción o pago
+        const clavesVistas = new Set();
+        const listaDeduplicada = [];
+
+        for (const notif of resultado) {
+            const refUnica = notif.referenciaId || notif.pagoId || notif.transaccionId;
+            let clave = notif.id;
+            if (refUnica && (notif.tipo === 'pago' || notif.tipo === 'aprobacion')) {
+                clave = `${notif.tipo}_${refUnica}`;
+            } else if (notif.clienteId && Number(notif.montoUSD || 0) > 0 && notif.tipo === 'pago') {
+                const minKey = String(notif.fecha || '').substring(0, 16);
+                clave = `pago_${notif.clienteId}_${Number(notif.montoUSD).toFixed(2)}_${minKey}`;
+            }
+
+            if (clavesVistas.has(clave)) {
+                continue;
+            }
+            clavesVistas.add(clave);
+            listaDeduplicada.push(notif);
+        }
+
+        return listaDeduplicada;
+    }
+
+    /**
+     * Limpia notificaciones duplicadas existentes en AppState.notificaciones
+     */
+    function limpiarNotificacionesDuplicadas() {
+        if (!Array.isArray(AppState.notificaciones) || AppState.notificaciones.length === 0) return;
+        const vistas = new Set();
+        const depuradas = [];
+
+        for (const n of AppState.notificaciones) {
+            const refUnica = n.referenciaId || n.pagoId || n.transaccionId;
+            let clave = n.id;
+            if (refUnica && (n.tipo === 'pago' || n.tipo === 'aprobacion')) {
+                clave = `${n.tipo}_${refUnica}`;
+            } else if (n.clienteId && Number(n.montoUSD || 0) > 0 && n.tipo === 'pago') {
+                const minKey = String(n.fecha || '').substring(0, 16);
+                clave = `pago_${n.clienteId}_${Number(n.montoUSD).toFixed(2)}_${minKey}`;
+            }
+
+            if (!vistas.has(clave)) {
+                vistas.add(clave);
+                depuradas.push(n);
+            }
+        }
+
+        if (depuradas.length !== AppState.notificaciones.length) {
+            AppState.notificaciones = depuradas;
+            if (window.InventoryApp?.Persistence?.guardar) {
+                window.InventoryApp.Persistence.guardar(true);
+            }
+        }
     }
 
     /**
@@ -108,14 +168,18 @@
         const nuevaNotif = {
             id: datos.id || ('notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
             tipo: datos.tipo || 'sistema', // 'aprobacion', 'pago', 'credito', 'comentario', 'venta', 'inventario', 'sistema'
-            subTipo: datos.subTipo || (esAprob ? 'aprobacion_admin' : null),
+            subTipo: datos.subTipo || (esAprob ? 'aprobacion_admin' : (datos.subTipo || null)),
             titulo: datos.titulo || (esAprob ? 'Transacción Aprobada' : 'Notificación del Sistema'),
             mensaje: datos.mensaje,
             clienteId: datos.clienteId || null,
             clienteNombre: datos.clienteNombre || null,
             montoUSD: Number(datos.montoUSD || 0),
             montoVES: Number(datos.montoVES || 0),
+            esDivisasUSD: Boolean(datos.esDivisasUSD),
             referenciaId: datos.referenciaId || null,
+            pagoId: datos.pagoId || datos.referenciaId || null,
+            transaccionId: datos.transaccionId || null,
+            estadoPago: datos.estadoPago || null,
             fecha: datos.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
             timestamp: datos.timestamp || Date.now(),
             leida: datos.leida !== undefined ? Boolean(datos.leida) : false,
@@ -124,12 +188,44 @@
             destino: datos.destino || (esAprob ? { tab: 'cliente-cuenta' } : { tab: 'pos' })
         };
 
-        // Evitar duplicados idénticos en menos de 5 segundos
-        const yaExiste = AppState.notificaciones.find(n => 
-            n.mensaje === nuevaNotif.mensaje && 
-            Math.abs(n.timestamp - nuevaNotif.timestamp) < 5000
-        );
-        if (yaExiste) return;
+        // Evitar duplicados idénticos: buscar si ya existe notificación para este pago/abono/transacción
+        const refBuscar = nuevaNotif.referenciaId || nuevaNotif.pagoId || nuevaNotif.transaccionId;
+        const yaExisteIdx = AppState.notificaciones.findIndex(n => {
+            if (refBuscar) {
+                const nRef = n.referenciaId || n.pagoId || n.transaccionId;
+                if (nRef && nRef === refBuscar && (n.tipo === nuevaNotif.tipo || nuevaNotif.tipo === 'pago')) {
+                    return true;
+                }
+            }
+            if (n.mensaje === nuevaNotif.mensaje && Math.abs(n.timestamp - nuevaNotif.timestamp) < 60000) {
+                return true;
+            }
+            if (nuevaNotif.clienteId && n.clienteId === nuevaNotif.clienteId &&
+                Math.abs(Number(n.montoUSD || 0) - Number(nuevaNotif.montoUSD || 0)) < 0.01 &&
+                Math.abs(n.timestamp - nuevaNotif.timestamp) < 60000 &&
+                n.tipo === nuevaNotif.tipo) {
+                return true;
+            }
+            return false;
+        });
+
+        if (yaExisteIdx >= 0) {
+            // Actualizar notificación existente en vez de crear una segunda duplicada
+            AppState.notificaciones[yaExisteIdx] = {
+                ...AppState.notificaciones[yaExisteIdx],
+                ...nuevaNotif,
+                id: AppState.notificaciones[yaExisteIdx].id // preservar ID original
+            };
+            if (window.InventoryApp?.Persistence?.guardar) {
+                window.InventoryApp.Persistence.guardar(true);
+            }
+            actualizarBadgesNotificaciones();
+            const vista = document.getElementById('notificaciones');
+            if (vista && vista.classList.contains('active')) {
+                renderizarNotificaciones(filtroActivo);
+            }
+            return;
+        }
 
         AppState.notificaciones.unshift(nuevaNotif);
 
@@ -1040,18 +1136,12 @@
                             <div class="notif-item-actions-block" onclick="event.stopPropagation();">
                                 ${esPendientePago ? `
                                     <button type="button" 
-                                            class="btn btn-sm btn-success" 
-                                            onclick="aprobarPagoDesdeNotificacion('${n.id}', '${refId}', event)" 
-                                            title="Aceptar y validar pago" 
-                                            style="padding:6px 12px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; background:#16a34a; color:#fff; border:none; border-radius:6px; cursor:pointer;">
-                                        <i class="fas fa-check"></i> <span>Aceptar</span>
-                                    </button>
-                                    <button type="button" 
-                                            class="btn btn-sm btn-danger" 
-                                            onclick="rechazarPagoDesdeNotificacion('${n.id}', '${refId}', event)" 
-                                            title="Rechazar pago" 
-                                            style="padding:6px 12px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; background:#dc2626; color:#fff; border:none; border-radius:6px; cursor:pointer;">
-                                        <i class="fas fa-times"></i> <span>Rechazar</span>
+                                            class="btn btn-sm btn-outline" 
+                                            onclick="irANotificacion('${n.id}'); event.stopPropagation();" 
+                                            title="Verificar y gestionar pago en Transacciones" 
+                                            style="padding:6px 14px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:6px; color:#0284c7; border-color:#0284c7; background:rgba(2, 132, 199, 0.05); border-radius:6px; cursor:pointer;">
+                                        <span>Ver en Transacciones</span>
+                                        <i class="fas fa-arrow-right"></i>
                                     </button>
                                 ` : (esAprobadoPago ? `
                                     <span class="badge" style="background:#dcfce7; color:#16a34a; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">

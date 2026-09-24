@@ -3835,7 +3835,10 @@
                     <input type="search" id="transaccion-busqueda" placeholder="Escribe el nombre del cliente o referencia..." oninput="filtrarTransacciones()">
                 </div>
                 <div id="transaccion-resumen" class="transaction-summary">0 pagos registrados</div>
-                <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
+                    <button type="button" class="btn btn-outline-danger transaction-reset-view" onclick="abrirModalVaciarHistorialTransacciones()" title="Eliminar o vaciar registros del historial de transacciones"><i class="fas fa-trash-alt"></i> Eliminar Historial</button>
+                </div>
             </div>
 
             <div id="transacciones-mobile-list" class="transacciones-mobile-list"></div>
@@ -5441,6 +5444,70 @@
                 <button type="submit" class="btn btn-danger"><i class="fas fa-user-times"></i> Confirmar Eliminación</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal para Eliminar / Vaciar Historial de Transacciones -->
+<div id="modal-vaciar-historial-tx" class="modal" onclick="if(event.target === this) cerrarModalVaciarHistorialTransacciones();">
+    <div class="modal-content" style="max-width:540px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:15px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:8px; color:var(--text-main);">
+                <i class="fas fa-trash-alt" style="color:var(--danger);"></i> Eliminar Historial de Transacciones
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalVaciarHistorialTransacciones()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
+            Selecciona el criterio para eliminar registros del historial de pagos y transferencias:
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+            <!-- Opción 1: Rechazadas y Fallidas -->
+            <label style="display:flex; align-items:flex-start; gap:12px; padding:14px; border:1.5px solid #fecaca; border-radius:10px; background:#fff1f2; cursor:pointer;">
+                <input type="radio" name="criterio-vaciar-tx" value="rechazadas" checked style="margin-top:4px; width:18px; height:18px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; color:#991b1b; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Eliminar solo Rechazadas y Fallidas</span>
+                        <span id="badge-count-rechazadas" class="badge" style="background:#fee2e2; color:#b91c1c; font-size:0.8rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid #fecaca;">0</span>
+                    </div>
+                    <small style="color:#7f1d1d; display:block; margin-top:4px; line-height:1.4;">
+                        Recomendado para limpiar pruebas y transacciones erradas. <b>No altera deudas de clientes ni abonos aprobados.</b>
+                    </small>
+                </div>
+            </label>
+
+            <!-- Opción 2: Solo Pendientes (Confirmando) -->
+            <label style="display:flex; align-items:flex-start; gap:12px; padding:14px; border:1.5px solid #fde68a; border-radius:10px; background:#fffbeb; cursor:pointer;">
+                <input type="radio" name="criterio-vaciar-tx" value="pendientes" style="margin-top:4px; width:18px; height:18px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; color:#92400e; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Eliminar transacciones Pendientes (Por Aprobar)</span>
+                        <span id="badge-count-pendientes" class="badge" style="background:#fef3c7; color:#92400e; font-size:0.8rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid #fde68a;">0</span>
+                    </div>
+                    <small style="color:#78350f; display:block; margin-top:4px; line-height:1.4;">
+                        Elimina transacciones en estado "Confirmando" que aún no han sido aprobadas ni han rebajado saldo.
+                    </small>
+                </div>
+            </label>
+
+            <!-- Opción 3: Todo el historial -->
+            <label style="display:flex; align-items:flex-start; gap:12px; padding:14px; border:1.5px solid #e2e8f0; border-radius:10px; background:#f8fafc; cursor:pointer;">
+                <input type="radio" name="criterio-vaciar-tx" value="todos" style="margin-top:4px; width:18px; height:18px;">
+                <div style="flex:1;">
+                    <div style="font-weight:700; color:var(--text-main); display:flex; justify-content:space-between; align-items:center;">
+                        <span>Eliminar TODO el Historial de Transacciones</span>
+                        <span id="badge-count-todos" class="badge" style="background:#e2e8f0; color:#334155; font-size:0.8rem; font-weight:700; padding:3px 10px; border-radius:999px;">0</span>
+                    </div>
+                    <small style="color:var(--text-muted); display:block; margin-top:4px; line-height:1.4;">
+                        Borra todo el historial. Las transacciones que estaban conciliadas removerán sus abonos asociados y recalcularán la deuda del cliente.
+                    </small>
+                </div>
+            </label>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" class="btn btn-outline" onclick="cerrarModalVaciarHistorialTransacciones()">Cancelar</button>
+            <button type="button" class="btn btn-danger" onclick="ejecutarVaciarHistorialTransacciones()"><i class="fas fa-trash-alt"></i> Confirmar Eliminación</button>
+        </div>
     </div>
 </div>
 
