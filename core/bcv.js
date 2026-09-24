@@ -46,16 +46,11 @@ function actualizarVistaTasaBCV() {
     const lblFecha = document.getElementById('fechaActualizacion');
     const badgeTipo = document.getElementById('tasa-badge-tipo');
 
-    if (monedaSeleccionada === 'EUR') {
-        tasaActiva = tasaEUR_BCV || (tasaUSD_BCV * 1.08);
-        if (lblTasa) {
-            lblTasa.textContent = tasaActiva > 0 ? `1 EUR = Bs. ${formatearBs(tasaActiva)}` : 'No disponible';
-        }
-    } else {
-        tasaActiva = tasaUSD_BCV;
-        if (lblTasa) {
-            lblTasa.textContent = tasaActiva > 0 ? `1 USD = Bs. ${formatearBs(tasaActiva)}` : 'No disponible';
-        }
+    // Siempre usar Tasa Oficial BCV (USD)
+    monedaSeleccionada = 'USD';
+    tasaActiva = tasaUSD_BCV;
+    if (lblTasa) {
+        lblTasa.textContent = tasaActiva > 0 ? `1 USD = Bs. ${formatearBs(tasaActiva)}` : 'No disponible';
     }
 
     if (lblFecha && fechaTasaBCV) {
@@ -280,11 +275,7 @@ function fijarTasaManual(usd, eur = null) {
 }
 
 function seleccionarMonedaBCV(moneda) {
-    monedaSeleccionada = moneda;
-    const btnUsd = document.getElementById('btn-usd');
-    const btnEur = document.getElementById('btn-eur');
-    if (btnUsd) btnUsd.classList.toggle('active', moneda === 'USD');
-    if (btnEur) btnEur.classList.toggle('active', moneda === 'EUR');
+    monedaSeleccionada = 'USD';
     actualizarVistaTasaBCV();
 }
 
