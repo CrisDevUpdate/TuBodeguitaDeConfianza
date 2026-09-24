@@ -714,6 +714,15 @@ window.abrirModalVisorBlob = async function() {
 
     try {
         const res = await fetch('/api/blob/list');
+        const cType = res.headers.get('content-type') || '';
+        if (!res.ok) {
+            const errTxt = await res.text();
+            throw new Error(`El servidor devolvió código ${res.status}: ${errTxt.substring(0, 120)}`);
+        }
+        if (!cType.includes('application/json')) {
+            const errTxt = await res.text();
+            throw new Error(`Respuesta no válida del servidor: ${errTxt.substring(0, 120)}`);
+        }
         const data = await res.json();
 
         if (!data.success) {

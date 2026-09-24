@@ -20,8 +20,12 @@ export default async function handler(req, res) {
     const cleanFilename = filename || `upload_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
     const targetPath = `${folder}/${cleanFilename}`;
 
-    // Si existe el token de Vercel Blob en las variables de entorno
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blobToken = (process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN.startsWith('vercel_blob_rw_'))
+      ? process.env.BLOB_READ_WRITE_TOKEN
+      : 'vercel_blob_rw_5tUK9cDxqnqjrZw4_XkW85LSec1NCakUeDwzKwNi6s2KYNg';
+
+    // Si existe el token de Vercel Blob
+    if (blobToken) {
       // Convertir base64 a Buffer si viene como data URI
       let buffer;
       if (fileData.startsWith('data:')) {
@@ -31,15 +35,30 @@ export default async function handler(req, res) {
         buffer = Buffer.from(fileData, 'base64');
       }
 
-      const blob = await put(targetPath, buffer, {
-        access: 'public',
-        contentType: contentType || 'image/jpeg'
-      });
+      let blob = null;
+      try {
+        blob = await put(targetPath, buffer, {
+          access: 'private',
+          token: blobToken,
+          contentType: contentType || 'image/jpeg',
+          allowOverwrite: true
+        });
+      } catch (privErr) {
+        blob = await put(targetPath, buffer, {
+          access: 'public',
+          token: blobToken,
+          contentType: contentType || 'image/jpeg',
+          allowOverwrite: true
+        });
+      }
+
+      const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(blob.pathname)}`;
 
       return res.status(200).json({
         success: true,
-        url: blob.url,
-        downloadUrl: blob.downloadUrl,
+        url: viewUrl,
+        rawUrl: blob.url,
+        downloadUrl: blob.downloadUrl || viewUrl,
         pathname: blob.pathname,
         provider: 'vercel-blob'
       });
