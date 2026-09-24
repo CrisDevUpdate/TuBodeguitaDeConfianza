@@ -784,10 +784,10 @@ function registrarTransaccion(event) {
         tx.montoVES = montoVES;
         tx.montoUSD = montoUSD;
         tx.tasaMomento = tasaActiva;
-        tx.fechaVerificacion = fechaAhora;
-        tx.estado = 'Pago agregado';
+        tx.fechaVerificacion = null;
+        tx.estado = 'Confirmando';
         tx.verificando = false;
-        tx.observacion = 'Abono validado y aplicado directamente por el Administrador.';
+        tx.observacion = 'Transacción registrada por Administrador. Pendiente de confirmación.';
     } else {
         tx = {
             id: generarIdTransaccion(),
@@ -798,15 +798,15 @@ function registrarTransaccion(event) {
             montoUSD,
             tasaMomento: tasaActiva,
             fecha: fechaAhora,
-            fechaVerificacion: fechaAhora,
-            estado: 'Pago agregado',
+            fechaVerificacion: null,
+            estado: 'Confirmando',
             verificando: false,
-            observacion: 'Abono registrado directamente por el Administrador.'
+            observacion: 'Transacción registrada por Administrador. Pendiente de confirmación.'
         };
         transacciones.push(tx);
     }
 
-    // Registrar o actualizar abono directo para rebajar la deuda de inmediato
+    // Registrar o actualizar abono directo como PENDIENTE (NO rebaja deuda hasta ser aprobado)
     let nuevoAbono = (AppState.abonos || []).find(a => a.transaccionId === tx.id);
     if (nuevoAbono) {
         nuevoAbono.montoUSD = montoUSD;
@@ -814,7 +814,7 @@ function registrarTransaccion(event) {
         nuevoAbono.metodo = tipo;
         nuevoAbono.referencia = referencia;
         nuevoAbono.tasaMomento = tasaActiva;
-        nuevoAbono.estado = 'Pago agregado';
+        nuevoAbono.estado = 'PENDIENTE_CONFIRMACION';
     } else {
         nuevoAbono = {
             id: 'A' + ((AppState.abonos || []).length + 1) + '_' + Date.now().toString().slice(-4),
@@ -828,23 +828,10 @@ function registrarTransaccion(event) {
             metodo: tipo,
             referencia,
             tasaMomento: tasaActiva,
-            estado: 'Pago agregado'
+            estado: 'PENDIENTE_CONFIRMACION'
         };
         if (!AppState.abonos) AppState.abonos = [];
         AppState.abonos.push(nuevoAbono);
-    }
-
-    // Actualizar fecha de último abono del cliente
-    if (clienteObj) {
-        clienteObj.ultimoAbonoFecha = new Date().toISOString();
-        if (window.InventoryApp?.Firebase?.guardarCliente) {
-            window.InventoryApp.Firebase.guardarCliente(clienteObj).catch(() => {});
-        }
-    }
-
-    // Otorgar puntos de fidelización por el pago
-    if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
-        otorgarPuntosPorCompra(clienteId, montoUSD, 'Abono a Cuenta');
     }
 
     // Guardar en persistencia local
@@ -852,7 +839,7 @@ function registrarTransaccion(event) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // Sincronizar en Firestore
+    // Sincronizar en Firestore como pendiente de verificación
     if (window.InventoryApp?.Firebase) {
         if (nuevoAbono && typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
             window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(err => {
@@ -866,8 +853,8 @@ function registrarTransaccion(event) {
         }
         if (typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
             window.InventoryApp.Firebase.guardarPagoPorVerificar({
-                id: tx.id,
-                abonoId: nuevoAbono?.id || tx.id,
+                id: nuevoAbono.id,
+                abonoId: nuevoAbono.id,
                 transaccionId: tx.id,
                 clienteId,
                 clienteNombre: clienteObj?.nombre || 'Cliente',
@@ -882,9 +869,9 @@ function registrarTransaccion(event) {
                 referencia,
                 fecha: fechaAhora,
                 fechaISO: new Date().toISOString(),
-                estado: 'APROBADO',
+                estado: 'PENDIENTE_VERIFICACION',
                 tipoRegistro: 'ABONO_DIRECTO_ADMIN',
-                origen: 'Registrado por Administrador'
+                origen: 'Transacciones Administración'
             }).catch(() => {});
         }
     }
@@ -892,15 +879,56 @@ function registrarTransaccion(event) {
     cancelarEdicionTransaccion();
     actualizarSelectTransacciones();
     renderizarTransacciones();
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (clienteSeleccionadoId === clienteId && typeof verDetalleCliente === 'function') {
         verDetalleCliente(clienteId);
     }
 
+    // Notificación interactiva para aceptar o rechazar
+    if (typeof window.registrarNotificacion === 'function') {
+        const nomCliente = clienteObj?.nombre || clienteId;
+        const esDivisa = tipo.includes('USD');
+        const bsFmt = Number(montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const usdFmt = Number(montoUSD || 0).toFixed(2);
+        const refStr = referencia && referencia !== 'Efectivo' ? ` - Ref: ${referencia}` : '';
+        const msgNotif = esDivisa
+            ? `${nomCliente} registró un pago en divisas de $${usdFmt} USD (${tipo}${refStr}). Pendiente de confirmación.`
+            : `${nomCliente} registró un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${tipo}${refStr}). Pendiente de confirmación.`;
+
+        window.registrarNotificacion({
+            tipo: 'pago',
+            subTipo: 'pago_pendiente',
+            titulo: 'Transacción por Aprobar',
+            mensaje: msgNotif,
+            clienteId: clienteId,
+            clienteNombre: nomCliente,
+            montoUSD: Number(montoUSD),
+            montoVES: Number(montoVES),
+            esDivisasUSD: esDivisa,
+            referenciaId: nuevoAbono.id,
+            pagoId: nuevoAbono.id,
+            transaccionId: tx.id,
+            estadoPago: 'PENDIENTE_VERIFICACION',
+            paraAdmin: true,
+            paraCliente: false,
+            destino: {
+                tab: 'transacciones',
+                subAccion: 'verPago',
+                idRef: nuevoAbono.id,
+                clienteId: clienteId
+            }
+        });
+    }
+
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
     const nombreCliente = clienteObj?.nombre || 'el cliente';
-    const msg = `¡Pago registrado! Se han rebajado $${montoUSD.toFixed(2)} (Bs. ${montoVES.toFixed(2)}) de la deuda de ${nombreCliente}.`;
+    const msg = `Transacción registrada para ${nombreCliente} ($${montoUSD.toFixed(2)}). Llegó la notificación para que sea aprobada o rechazada.`;
     if (window.InventoryApp?.Modal?.toast) {
-        window.InventoryApp.Modal.toast(msg, 'success');
+        window.InventoryApp.Modal.toast(msg, 'info');
     } else {
         alert(msg);
     }
@@ -1122,7 +1150,7 @@ function guardarAbono(e) {
     const fechaAhora = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const tipoTx = metodo === 'Pago Móvil VES' ? 'Pago Móvil' : (metodo === 'Transferencia VES' ? 'Transferencia Bancaria' : metodo);
 
-    // Crear la transacción directa como "Pago agregado"
+    // Crear la transacción como "Confirmando" (PENDIENTE de aprobación)
     const tx = {
         id: generarIdTransaccion(),
         clienteId,
@@ -1132,14 +1160,14 @@ function guardarAbono(e) {
         montoUSD,
         tasaMomento: tasaActiva,
         fecha: fechaAhora,
-        fechaVerificacion: fechaAhora,
-        estado: 'Pago agregado',
+        fechaVerificacion: null,
+        estado: 'Confirmando',
         verificando: false,
-        observacion: 'Abono registrado desde el perfil del cliente.'
+        observacion: 'Abono registrado desde Ficha 360°. Pendiente de confirmación.'
     };
     transacciones.push(tx);
 
-    // Crear el abono que reduce la deuda de inmediato
+    // Crear el abono como "PENDIENTE_CONFIRMACION" (NO descuenta deuda hasta ser aprobado)
     const nuevoAbono = {
         id: 'A' + ((AppState.abonos || []).length + 1) + '_' + Date.now().toString().slice(-4),
         transaccionId: tx.id,
@@ -1152,30 +1180,17 @@ function guardarAbono(e) {
         metodo: tipoTx,
         referencia,
         tasaMomento: tasaActiva,
-        estado: 'Pago agregado'
+        estado: 'PENDIENTE_CONFIRMACION'
     };
     if (!AppState.abonos) AppState.abonos = [];
     AppState.abonos.push(nuevoAbono);
-
-    // Actualizar fecha de último abono del cliente
-    if (clienteObj) {
-        clienteObj.ultimoAbonoFecha = new Date().toISOString();
-        if (window.InventoryApp?.Firebase?.guardarCliente) {
-            window.InventoryApp.Firebase.guardarCliente(clienteObj).catch(() => {});
-        }
-    }
-
-    // Puntos de fidelización
-    if (typeof otorgarPuntosPorCompra === 'function' && montoUSD > 0) {
-        otorgarPuntosPorCompra(clienteId, montoUSD, 'Abono a Cuenta');
-    }
 
     // Persistir localmente
     if (window.InventoryApp?.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // Sincronizar con Firestore
+    // Sincronizar con Firestore como pendiente de verificación
     if (window.InventoryApp?.Firebase) {
         if (typeof window.InventoryApp.Firebase.guardarAbono === 'function') {
             window.InventoryApp.Firebase.guardarAbono(nuevoAbono).catch(() => {});
@@ -1185,7 +1200,7 @@ function guardarAbono(e) {
         }
         if (typeof window.InventoryApp.Firebase.guardarPagoPorVerificar === 'function') {
             window.InventoryApp.Firebase.guardarPagoPorVerificar({
-                id: tx.id,
+                id: nuevoAbono.id,
                 abonoId: nuevoAbono.id,
                 transaccionId: tx.id,
                 clienteId,
@@ -1201,9 +1216,9 @@ function guardarAbono(e) {
                 referencia,
                 fecha: fechaAhora,
                 fechaISO: new Date().toISOString(),
-                estado: 'APROBADO',
+                estado: 'PENDIENTE_VERIFICACION',
                 tipoRegistro: esTransaccion ? 'ABONO_DIRECTO_DIGITAL' : 'ABONO_EFECTIVO',
-                origen: 'Abono Registrado por Administrador'
+                origen: 'Ficha 360° Cliente'
             }).catch(() => {});
         }
     }
@@ -1215,33 +1230,40 @@ function guardarAbono(e) {
 
     cerrarModalAbono();
     renderizarTransacciones();
+    if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+    if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
     if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof verDetalleCliente === 'function') verDetalleCliente(clienteId);
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
-    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
-    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
-    // Registrar en Centro de Notificaciones
+    // Registrar en Centro de Notificaciones con botones de Aceptar / Rechazar
+    const nomCliente = clienteObj?.nombre || clienteId;
+    const esDivisa = metodo === 'Efectivo USD';
+    const bsFmt = Number(montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+    const usdFmt = Number(montoUSD || 0).toFixed(2);
+    const refStr = referencia && referencia !== 'Efectivo' ? ` - Ref: ${referencia}` : '';
+    const msgNotif = esDivisa
+        ? `${nomCliente} registró un pago en divisas de $${usdFmt} USD (${tipoTx}${refStr}). Pendiente de confirmación.`
+        : `${nomCliente} registró un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${tipoTx}${refStr}). Pendiente de confirmación.`;
+
     if (typeof window.registrarNotificacion === 'function') {
-        const nomCliente = clienteObj?.nombre || clienteId;
-        const esDivisa = metodo === 'Efectivo USD';
-        const bsFmt = Number(montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 });
-        const usdFmt = Number(montoUSD || 0).toFixed(2);
-        const refStr = referencia && referencia !== 'Efectivo' ? ` - Ref: ${referencia}` : '';
-        const msgNotif = esDivisa
-            ? `${nomCliente} agregó un pago en divisas de $${usdFmt} USD (${tipoTx}${refStr})`
-            : `${nomCliente} agregó un pago de Bs. ${bsFmt} ($${usdFmt} USD) (${tipoTx}${refStr})`;
-
         window.registrarNotificacion({
             tipo: 'pago',
-            titulo: 'Abono Registrado',
+            subTipo: 'pago_pendiente',
+            titulo: 'Transacción por Aprobar',
             mensaje: msgNotif,
             clienteId: clienteId,
             clienteNombre: nomCliente,
             montoUSD: Number(montoUSD),
             montoVES: Number(montoVES),
+            esDivisasUSD: esDivisa,
             referenciaId: nuevoAbono.id,
+            pagoId: nuevoAbono.id,
+            transaccionId: tx.id,
+            estadoPago: 'PENDIENTE_VERIFICACION',
+            paraAdmin: true,
+            paraCliente: false,
             destino: {
                 tab: 'transacciones',
                 subAccion: 'verPago',
@@ -1251,9 +1273,12 @@ function guardarAbono(e) {
         });
     }
 
-    const msg = `¡Abono de $${montoUSD.toFixed(2)} (Bs. ${montoVES.toFixed(2)}) aplicado con éxito! Deuda rebajada de inmediato.`;
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
+    const msg = `Transacción registrada por $${montoUSD.toFixed(2)}${montoVES > 0 ? ' (Bs. ' + montoVES.toFixed(2) + ')' : ''}. Llegó la notificación para que sea aprobada o rechazada.`;
     if (window.InventoryApp?.Modal?.toast) {
-        window.InventoryApp.Modal.toast(msg, 'success');
+        window.InventoryApp.Modal.toast(msg, 'info');
     } else {
         alert(msg);
     }
@@ -1324,6 +1349,31 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
         }
     }
 
+    // Actualizar transacción asociada si existe
+    if (abono.transaccionId) {
+        const txList = Array.isArray(AppState.transacciones) ? AppState.transacciones : (window.transacciones || []);
+        const tx = txList.find(t => t.id === abono.transaccionId);
+        if (tx) {
+            tx.estado = 'Pago agregado';
+            tx.verificando = false;
+            tx.fechaVerificacion = abono.fechaAprobacion;
+            if (window.InventoryApp?.Firebase?.guardarTransaccion) {
+                window.InventoryApp.Firebase.guardarTransaccion(tx).catch(() => {});
+            }
+        }
+    }
+
+    // Actualizar estado en las notificaciones del Admin
+    if (Array.isArray(AppState.notificaciones)) {
+        AppState.notificaciones.forEach(n => {
+            if (n.referenciaId === abono.id || n.pagoId === abono.id || (abono.transaccionId && (n.transaccionId === abono.transaccionId || n.referenciaId === abono.transaccionId))) {
+                n.estadoPago = 'APROBADO';
+                n.leida = true;
+                n.titulo = 'Transacción Aprobada';
+            }
+        });
+    }
+
     // Registrar notificación dirigida exclusivamente al Cliente informando que el admin aprobó su transacción
     const montoMsg = montoDisplay;
     const refStr = abono.referencia ? ` (Ref: ${abono.referencia})` : '';
@@ -1359,6 +1409,12 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
     if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
     if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+    if (typeof verDetalleCliente === 'function' && abono.clienteId) {
+        const modalDet = document.getElementById('modal-cliente-detalle');
+        if (modalDet && modalDet.classList.contains('active')) {
+            verDetalleCliente(abono.clienteId);
+        }
+    }
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`✅ Abono de ${montoMsg} aprobado y conciliado exitosamente.`, 'success');
@@ -1393,6 +1449,30 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
     abono.estado = 'RECHAZADO';
     abono.fechaRechazo = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
+    // Actualizar transacción asociada si existe
+    if (abono.transaccionId) {
+        const txList = Array.isArray(AppState.transacciones) ? AppState.transacciones : (window.transacciones || []);
+        const tx = txList.find(t => t.id === abono.transaccionId);
+        if (tx) {
+            tx.estado = 'Rechazado';
+            tx.verificando = false;
+            if (window.InventoryApp?.Firebase?.guardarTransaccion) {
+                window.InventoryApp.Firebase.guardarTransaccion(tx).catch(() => {});
+            }
+        }
+    }
+
+    // Actualizar estado en las notificaciones del Admin
+    if (Array.isArray(AppState.notificaciones)) {
+        AppState.notificaciones.forEach(n => {
+            if (n.referenciaId === abono.id || n.pagoId === abono.id || (abono.transaccionId && (n.transaccionId === abono.transaccionId || n.referenciaId === abono.transaccionId))) {
+                n.estadoPago = 'RECHAZADO';
+                n.leida = true;
+                n.titulo = 'Transacción Rechazada';
+            }
+        });
+    }
+
     if (window.InventoryApp.Persistence?.guardar) {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -1413,6 +1493,14 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
 
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
     if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+    if (typeof verDetalleCliente === 'function' && abono.clienteId) {
+        const modalDet = document.getElementById('modal-cliente-detalle');
+        if (modalDet && modalDet.classList.contains('active')) {
+            verDetalleCliente(abono.clienteId);
+        }
+    }
 
     if (window.InventoryApp.Modal?.toast) {
         window.InventoryApp.Modal.toast(`Reporte de abono #${abono.id} marcado como rechazado.`, 'warning');
@@ -1521,6 +1609,46 @@ function obtenerPagosPendientesUnificados() {
                 metodo: metodoStr,
                 referencia: p.referencia || 'N/A',
                 nota: itemsTexto,
+                montoUSD: usd,
+                montoVES: ves,
+                esDivisaUSD
+            });
+        }
+    });
+
+    // 3. Recorrer Transacciones con estado Confirmando que no estén ya unificadas
+    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    listadoTx.forEach(t => {
+        if ((t.estado === 'Confirmando' || t.estado === 'PENDIENTE') && !esCredito(t)) {
+            const idNorm = String(t.id || '').trim();
+            const refNorm = String(t.referencia || '').trim().toLowerCase();
+            if (idsProcesados.has(idNorm)) return;
+            if (refNorm && refNorm !== 'sin ref' && refNorm !== 'n/a' && refsProcesadas.has(refNorm)) return;
+
+            idsProcesados.add(idNorm);
+            if (refNorm && refNorm !== 'sin ref' && refNorm !== 'n/a') {
+                refsProcesadas.add(refNorm);
+            }
+
+            const cObj = (clientes || AppState.clientes || []).find(c => c.id === t.clienteId);
+            const metodoStr = t.tipo || 'Transacción';
+            const tasaVal = Number(t.tasaMomento || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+            const esDivisaUSD = String(metodoStr).includes('USD');
+            const usd = Number(t.montoUSD || 0);
+            const ves = Number(t.montoVES || 0);
+
+            unificados.push({
+                id: t.id,
+                abonoId: null,
+                transaccionId: t.id,
+                ventaId: null,
+                origen: 'transaccion',
+                fecha: t.fecha || '',
+                clienteId: t.clienteId,
+                clienteNombre: cObj?.nombre || t.clienteId,
+                metodo: metodoStr,
+                referencia: t.referencia || 'Sin Ref',
+                nota: t.observacion || 'Transacción pendiente de aprobación',
                 montoUSD: usd,
                 montoVES: ves,
                 esDivisaUSD

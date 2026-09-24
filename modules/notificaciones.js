@@ -626,20 +626,33 @@
             const usdStr = montoUSD.toFixed(2);
             const textoMonto = esDivisa ? `en divisas de $${usdStr} USD` : `de Bs. ${bsStr}`;
 
+            const esPendiente = a.estado === 'PENDIENTE_CONFIRMACION' || a.estado === 'PENDIENTE' || a.estado === 'Confirmando' || a.estado === 'POR_VERIFICAR';
+            const esAprobado = a.estado === 'Pago agregado' || a.estado === 'Confirmado';
+            const esRechazado = a.estado === 'RECHAZADO' || a.estado === 'Rechazado';
+            const tituloAbono = esPendiente ? 'Transacción por Aprobar' : (esAprobado ? 'Transacción Aprobada' : (esRechazado ? 'Transacción Rechazada' : 'Abono Registrado'));
+            const estadoPagoVal = esPendiente ? 'PENDIENTE_VERIFICACION' : (esAprobado ? 'APROBADO' : (esRechazado ? 'RECHAZADO' : 'APROBADO'));
+            const msgTexto = esPendiente
+                ? `${nombre} registró un pago ${textoMonto} [${metodo}${ref}]. Requiere confirmación.`
+                : `${nombre} agregó un pago ${textoMonto} [${metodo}${ref}]`;
+
             notifs.push({
                 id: 'notif_init_abn_' + a.id,
                 tipo: 'pago',
-                titulo: 'Abono Registrado',
-                mensaje: `${nombre} agregó un pago ${textoMonto} [${metodo}${ref}]`,
+                subTipo: esPendiente ? 'pago_pendiente' : null,
+                titulo: tituloAbono,
+                mensaje: msgTexto,
                 clienteId: a.clienteId,
                 clienteNombre: nombre,
                 montoUSD: montoUSD,
                 montoVES: montoVES,
                 esDivisasUSD: esDivisa,
                 referenciaId: a.id,
+                pagoId: a.id,
+                transaccionId: a.transaccionId || null,
+                estadoPago: estadoPagoVal,
                 fecha: a.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
                 timestamp: isNaN(ts) ? Date.now() : ts,
-                leida: true,
+                leida: !esPendiente,
                 paraAdmin: true,
                 paraCliente: false,
                 destino: {
@@ -965,20 +978,47 @@
                     const tiempoRel = formatearTiempoRelativo(n.timestamp);
                     const noLeidaClase = !n.leida ? 'background:#f8fafc; font-weight:600;' : 'background:var(--bg-card);';
                     
+                    const refId = n.referenciaId || n.pagoId || n.transaccionId || '';
+                    const abonosList = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+                    const txList = Array.isArray(AppState.transacciones) ? AppState.transacciones : (window.transacciones || []);
+                    const pagosVerifList = Array.isArray(AppState.pagosPorVerificar) ? AppState.pagosPorVerificar : [];
+
+                    const abonoAsoc = abonosList.find(a => a.id === refId || a.transaccionId === refId);
+                    const txAsoc = txList.find(t => t.id === refId || t.id === n.transaccionId);
+                    const pagoVerifAsoc = pagosVerifList.find(p => p.id === refId || p.abonoId === refId || p.transaccionId === refId || p.pedidoId === refId);
+
+                    let estadoPago = n.estadoPago || null;
+                    if (!estadoPago) {
+                        if (abonoAsoc) estadoPago = abonoAsoc.estado;
+                        else if (pagoVerifAsoc) estadoPago = pagoVerifAsoc.estado;
+                        else if (txAsoc) estadoPago = txAsoc.estado;
+                    }
+
+                    const esPagoOTransaccion = n.tipo === 'pago' || n.subTipo === 'pago_pendiente' || Boolean(abonoAsoc) || Boolean(pagoVerifAsoc);
+                    const esAprobadoPago = estadoPago === 'Pago agregado' || estadoPago === 'APROBADO' || estadoPago === 'Confirmado';
+                    const esRechazadoPago = estadoPago === 'RECHAZADO' || estadoPago === 'Rechazado';
+                    const esPendientePago = esPagoOTransaccion && !esAprobadoPago && !esRechazadoPago;
+
                     return `
                         <div class="card notificacion-card-item" 
                              onclick="irANotificacion('${n.id}')"
-                             style="border-left:4px solid ${cfg.borderLeft}; ${noLeidaClase}">
+                             style="border-left:4px solid ${esPendientePago ? '#f59e0b' : cfg.borderLeft}; ${noLeidaClase}">
                             
                             <div class="notif-item-left-block">
-                                <div class="notif-item-icon-box" style="background:${cfg.bgBadge}; color:${cfg.color};">
+                                <div class="notif-item-icon-box" style="background:${esPendientePago ? '#fef3c7' : cfg.bgBadge}; color:${esPendientePago ? '#d97706' : cfg.color};">
                                     <i class="fas ${cfg.icon}"></i>
                                 </div>
                                 <div class="notif-item-body">
                                     <div class="notif-item-header-meta">
-                                        <span style="background:${cfg.bgBadge}; color:${cfg.color}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
-                                            ${cfg.label}
-                                        </span>
+                                        ${esPendientePago ? `
+                                            <span style="background:#fef3c7; color:#b45309; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase; display:inline-flex; align-items:center; gap:4px;">
+                                                <i class="fas fa-hourglass-half"></i> Por Aprobar
+                                            </span>
+                                        ` : `
+                                            <span style="background:${cfg.bgBadge}; color:${cfg.color}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
+                                                ${cfg.label}
+                                            </span>
+                                        `}
                                         <span style="font-size:0.8rem; color:var(--text-muted);">
                                             <i class="fas fa-clock" style="font-size:0.75rem; margin-right:3px;"></i> ${tiempoRel} • ${n.fecha}
                                         </span>
@@ -997,11 +1037,39 @@
                                 </div>
                             </div>
 
-                            <div class="notif-item-actions-block">
-                                <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none;">
-                                    <span>Ir al sitio</span>
-                                    <i class="fas fa-arrow-right"></i>
-                                </span>
+                            <div class="notif-item-actions-block" onclick="event.stopPropagation();">
+                                ${esPendientePago ? `
+                                    <button type="button" 
+                                            class="btn btn-sm btn-success" 
+                                            onclick="aprobarPagoDesdeNotificacion('${n.id}', '${refId}', event)" 
+                                            title="Aceptar y validar pago" 
+                                            style="padding:6px 12px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; background:#16a34a; color:#fff; border:none; border-radius:6px; cursor:pointer;">
+                                        <i class="fas fa-check"></i> <span>Aceptar</span>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-danger" 
+                                            onclick="rechazarPagoDesdeNotificacion('${n.id}', '${refId}', event)" 
+                                            title="Rechazar pago" 
+                                            style="padding:6px 12px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:5px; background:#dc2626; color:#fff; border:none; border-radius:6px; cursor:pointer;">
+                                        <i class="fas fa-times"></i> <span>Rechazar</span>
+                                    </button>
+                                ` : (esAprobadoPago ? `
+                                    <span class="badge" style="background:#dcfce7; color:#16a34a; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-circle-check"></i> Aprobado
+                                    </span>
+                                    <span class="btn btn-sm btn-outline" style="padding:5px 10px; font-size:0.75rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; pointer-events:none;">
+                                        <span>Conciliado</span>
+                                    </span>
+                                ` : (esRechazadoPago ? `
+                                    <span class="badge" style="background:#fee2e2; color:#dc2626; font-size:0.75rem; font-weight:700; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-circle-xmark"></i> Rechazado
+                                    </span>
+                                ` : `
+                                    <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none;">
+                                        <span>Ir al sitio</span>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </span>
+                                `))}
                                 <button type="button" 
                                         class="btn btn-sm btn-outline" 
                                         onclick="eliminarNotificacion('${n.id}', event)" 
@@ -1017,6 +1085,86 @@
         `;
     }
 
+    /**
+     * Permite aprobar directamente una transacción de pago desde la notificación
+     */
+    async function aprobarPagoDesdeNotificacion(notifId, refId, event) {
+        if (event) event.stopPropagation();
+        const notif = (AppState.notificaciones || []).find(n => n.id === notifId);
+        const targetId = refId || notif?.referenciaId || notif?.pagoId || notif?.transaccionId;
+
+        if (!targetId) {
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('No se encontró el identificador del pago a procesar.', 'warning');
+            }
+            return;
+        }
+
+        try {
+            if (typeof window.aprobarPagoOVerificacionUnificado === 'function') {
+                await window.aprobarPagoOVerificacionUnificado(targetId);
+            } else if (typeof window.aprobarAbonoReportadoAdmin === 'function') {
+                await window.aprobarAbonoReportadoAdmin(targetId);
+            }
+        } catch (e) {
+            console.error('Error al aprobar desde notificación:', e);
+        }
+
+        if (notif) {
+            notif.estadoPago = 'APROBADO';
+            notif.leida = true;
+            notif.titulo = 'Transacción Aprobada';
+        }
+
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        actualizarBadgesNotificaciones();
+        renderizarNotificaciones(filtroActivo);
+    }
+    window.aprobarPagoDesdeNotificacion = aprobarPagoDesdeNotificacion;
+
+    /**
+     * Permite rechazar directamente una transacción de pago desde la notificación
+     */
+    async function rechazarPagoDesdeNotificacion(notifId, refId, event) {
+        if (event) event.stopPropagation();
+        const notif = (AppState.notificaciones || []).find(n => n.id === notifId);
+        const targetId = refId || notif?.referenciaId || notif?.pagoId || notif?.transaccionId;
+
+        if (!targetId) {
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('No se encontró el identificador del pago.', 'warning');
+            }
+            return;
+        }
+
+        try {
+            if (typeof window.rechazarPagoOVerificacionUnificado === 'function') {
+                await window.rechazarPagoOVerificacionUnificado(targetId);
+            } else if (typeof window.rechazarAbonoReportadoAdmin === 'function') {
+                await window.rechazarAbonoReportadoAdmin(targetId);
+            }
+        } catch (e) {
+            console.error('Error al rechazar desde notificación:', e);
+        }
+
+        if (notif) {
+            notif.estadoPago = 'RECHAZADO';
+            notif.leida = true;
+            notif.titulo = 'Transacción Rechazada';
+        }
+
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        actualizarBadgesNotificaciones();
+        renderizarNotificaciones(filtroActivo);
+    }
+    window.rechazarPagoDesdeNotificacion = rechazarPagoDesdeNotificacion;
+
     // Exponer globalmente
     window.InventoryApp = window.InventoryApp || {};
     window.InventoryApp.Notifications = {
@@ -1027,7 +1175,9 @@
         limpiarLeidas: limpiarNotificacionesLeidas,
         render: renderizarNotificaciones,
         actualizarBadges: actualizarBadgesNotificaciones,
-        generarIniciales: generarNotificacionesInicialesSiVacio
+        generarIniciales: generarNotificacionesInicialesSiVacio,
+        aprobarDesdeNotificacion: aprobarPagoDesdeNotificacion,
+        rechazarDesdeNotificacion: rechazarPagoDesdeNotificacion
     };
 
     window.registrarNotificacion = registrarNotificacion;

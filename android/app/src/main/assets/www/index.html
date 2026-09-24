@@ -5795,7 +5795,7 @@
             <div class="form-group transaction-reference-field" id="abono-referencia-group" style="margin-bottom: 12px; display:none;">
                 <label>Número de Referencia</label>
                 <input type="text" id="abono-referencia" maxlength="40" placeholder="Referencia bancaria / pago móvil" autocomplete="off">
-                <small style="color:var(--text-muted);">Se aplicará y rebajará de inmediato la deuda del cliente.</small>
+                <small style="color:var(--text-muted);">Toda transacción enviará la notificación respectiva para ser aprobada o rechazada antes de rebajar la deuda.</small>
             </div>
             <div class="form-group" style="margin-bottom: 15px;">
                 <label>Equivalente Convertido</label>
@@ -5803,7 +5803,7 @@
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn btn-danger" onclick="cerrarModalAbono()">Cancelar</button>
-                <button type="submit" class="btn btn-success">Procesar Pago</button>
+                <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Enviar Pago para Aprobación</button>
             </div>
         </form>
     </div>
