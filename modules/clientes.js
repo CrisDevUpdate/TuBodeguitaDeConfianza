@@ -931,7 +931,9 @@ function obtenerDatosContextoCliente360() {
 
     const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
     const estado = calcularEstadoFinancieroCliente(cliente.id);
-    const emailCli = cliente.email || (Array.isArray(AppState.usuarios) && AppState.usuarios.find(u => (u.cedula || u.id) === cliente.id || u.id === cliente.usuarioId)?.email) || '';
+    const usuarioAsoc = Array.isArray(AppState.usuarios) && AppState.usuarios.find(u => (u.cedula || u.id) === cliente.id || u.id === cliente.usuarioId);
+    const emailCli = cliente.email || usuarioAsoc?.email || '';
+    const telCli = (cliente.telefono && cliente.telefono.trim()) || (cliente.tlf && cliente.tlf.trim()) || (cliente.phone && cliente.phone.trim()) || (usuarioAsoc?.telefono && usuarioAsoc.telefono.trim()) || '';
     
     // Obtener transacciones detalladas
     let transacciones = window._cliente360Transacciones || [];
@@ -989,6 +991,7 @@ function obtenerDatosContextoCliente360() {
     return {
         cliente,
         emailCli,
+        telCli,
         tasa,
         estado,
         transacciones
@@ -1044,8 +1047,9 @@ function abrirModalEnviarInfo(ctx) {
         elResumen.innerHTML = `Total Comprado: <strong>$${totalCompradoUSD.toFixed(2)}</strong> | Total Abonado: <strong>$${(totalAbonadoUSD || 0).toFixed(2)}</strong> | Tasa BCV: <strong>Bs. ${tasa.toFixed(2)}</strong>`;
     }
 
-    if (inputTel) inputTel.value = (cliente.telefono && cliente.telefono.trim()) || '';
-    if (inputEmail) inputEmail.value = (emailCli && emailCli.trim()) || '';
+    const tel = (cliente.telefono && cliente.telefono.trim()) || (ctx.telCli && ctx.telCli.trim()) || (cliente.tlf && cliente.tlf.trim()) || (cliente.phone && cliente.phone.trim()) || '';
+    if (inputTel) inputTel.value = tel;
+    if (inputEmail) inputEmail.value = (ctx.emailCli && ctx.emailCli.trim()) || (cliente.email && cliente.email.trim()) || '';
 
     const modal = document.getElementById('modal-enviar-informacion');
     if (modal) {
@@ -1127,7 +1131,7 @@ function ejecutarEnvioInfoWhatsapp() {
     if (!ctx) return;
 
     const inputTel = document.getElementById('env-info-telefono-input');
-    const tel = (inputTel ? inputTel.value.trim() : '') || (ctx.cliente.telefono && ctx.cliente.telefono.trim());
+    const tel = (inputTel ? inputTel.value.trim() : '') || (ctx.cliente.telefono && ctx.cliente.telefono.trim()) || (ctx.telCli && ctx.telCli.trim());
 
     if (!tel) {
         if (typeof showAlert === 'function') {
@@ -1137,6 +1141,14 @@ function ejecutarEnvioInfoWhatsapp() {
         }
         if (inputTel) inputTel.focus();
         return;
+    }
+
+    // Si el cliente no tenía teléfono guardado y se ingresó uno, guardarlo automáticamente
+    if (!ctx.cliente.telefono && tel) {
+        ctx.cliente.telefono = tel;
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(ctx.cliente).catch(() => {});
+        }
     }
 
     let phoneClean = tel.replace(/[^0-9]/g, '');
@@ -1171,7 +1183,7 @@ function ejecutarEnvioInfoCorreo() {
     if (!ctx) return;
 
     const inputEmail = document.getElementById('env-info-correo-input');
-    const email = (inputEmail ? inputEmail.value.trim() : '') || (ctx.emailCli && ctx.emailCli.trim());
+    const email = (inputEmail ? inputEmail.value.trim() : '') || (ctx.emailCli && ctx.emailCli.trim()) || (ctx.cliente.email && ctx.cliente.email.trim());
 
     if (!email) {
         if (typeof showAlert === 'function') {
@@ -1181,6 +1193,14 @@ function ejecutarEnvioInfoCorreo() {
         }
         if (inputEmail) inputEmail.focus();
         return;
+    }
+
+    // Si el cliente no tenía email guardado y se ingresó uno, guardarlo automáticamente
+    if (!ctx.cliente.email && email) {
+        ctx.cliente.email = email;
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(ctx.cliente).catch(() => {});
+        }
     }
 
     const { cliente, estado } = ctx;
