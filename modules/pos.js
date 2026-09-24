@@ -856,6 +856,9 @@ function eliminarDelCarrito(idx) {
 function abrirDrawerCarritoMobile() {
     sincronizarClienteSelects('pos-cliente-select');
     sincronizarCondicionPago('pos-tipo-pago');
+    if (typeof renderizarCustomClientePickersPOS === 'function') {
+        renderizarCustomClientePickersPOS('mobile');
+    }
     const overlay = document.getElementById('pos-cart-drawer-overlay');
     if (overlay) {
         overlay.classList.add('active');
@@ -864,6 +867,9 @@ function abrirDrawerCarritoMobile() {
 }
 
 function cerrarDrawerCarritoMobile() {
+    if (typeof cerrarDropdownClientePOS === 'function') {
+        cerrarDropdownClientePOS('mobile');
+    }
     const overlay = document.getElementById('pos-cart-drawer-overlay');
     if (overlay) {
         overlay.classList.remove('active');
@@ -889,6 +895,10 @@ function sincronizarClienteSelects(origenId) {
         mobileSel.value = desktopSel.value;
     } else if (origenId === 'pos-cliente-select-mobile' && mobileSel.value) {
         desktopSel.value = mobileSel.value;
+    }
+
+    if (typeof actualizarCustomClienteTriggerDisplay === 'function') {
+        actualizarCustomClienteTriggerDisplay();
     }
 }
 
@@ -1624,5 +1634,332 @@ window.ejecutarVentaCreditoDirecta = ejecutarVentaCreditoDirecta;
 window.cambiarACreditoDesdeModal = cambiarACreditoDesdeModal;
 window.cambiarAContadoDesdeModal = cambiarAContadoDesdeModal;
 window.ejecutarFinalizacionCheckoutPOS = ejecutarFinalizacionCheckoutPOS;
+
+// ============================================================================
+// SELECTOR PERSONALIZADO DE CLIENTES EN CARRITO POS CON BARRA DE DESPLAZAMIENTO
+// ============================================================================
+
+/**
+ * Renderiza el listado desplazable de clientes en los componentes personalizados (Desktop y Móvil)
+ * Garantiza que la barra de desplazamiento vertical esté activa y delimita la altura para no tapar la pantalla.
+ */
+function renderizarCustomClientePickersPOS(tipo = 'both') {
+    const targets = [];
+    if (tipo === 'both' || tipo === 'desktop') {
+        const desktopList = document.getElementById('pos-client-list-desktop');
+        if (desktopList) targets.push({ container: desktopList, tipo: 'desktop' });
+    }
+    if (tipo === 'both' || tipo === 'mobile') {
+        const mobileList = document.getElementById('pos-client-list-mobile');
+        if (mobileList) targets.push({ container: mobileList, tipo: 'mobile' });
+    }
+
+    if (targets.length === 0) return;
+
+    // Obtener lista completa de clientes (con fallback seguro a listas oficiales)
+    let listaClientes = [];
+    if (Array.isArray(window.clientes) && window.clientes.length > 0) {
+        listaClientes = window.clientes;
+    } else if (Array.isArray(window.AppState?.clientes) && window.AppState.clientes.length > 0) {
+        listaClientes = window.AppState.clientes;
+    } else if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        listaClientes = CLIENTES_OFICIALES;
+    }
+
+    // Asegurar que Cliente de Mostrador esté presente como primera opción
+    const tieneMostrador = listaClientes.some(c => c && (c.id === 'V-00000000' || (c.nombre && c.nombre.toLowerCase().includes('mostrador'))));
+    const items = tieneMostrador 
+        ? [...listaClientes] 
+        : [{ id: 'V-00000000', nombre: 'Cliente de Mostrador', cedula: 'V-00000000', deudaUSD: 0 }, ...listaClientes];
+
+    // Obtener cliente seleccionado actualmente en los selects ocultos
+    const desktopSel = document.getElementById('pos-cliente-select');
+    const mobileSel = document.getElementById('pos-cliente-select-mobile');
+    const valorActual = (desktopSel && desktopSel.value) || (mobileSel && mobileSel.value) || items[0]?.id || 'V-00000000';
+
+    targets.forEach(({ container, tipo: t }) => {
+        const html = items.map(c => {
+            if (!c) return '';
+            const cId = c.id || c.cedula || 'CLI-000';
+            const isSelected = String(cId) === String(valorActual);
+            const avatarChar = c.nombre ? c.nombre.trim().charAt(0).toUpperCase() : 'C';
+            const deudaUSD = Number(c.deudaUSD || 0);
+
+            let badgeHtml = '';
+            if (deudaUSD > 0) {
+                badgeHtml = `<span class="pos-client-debt-tag" title="Deuda pendiente: $${deudaUSD.toFixed(2)} USD"><i class="fas fa-exclamation-circle"></i> Debe $${deudaUSD.toFixed(2)}</span>`;
+            } else if (cId === 'V-00000000') {
+                badgeHtml = `<span class="pos-client-clean-tag"><i class="fas fa-store"></i> Mostrador</span>`;
+            } else {
+                badgeHtml = `<span class="pos-client-clean-tag"><i class="fas fa-check"></i> Al día</span>`;
+            }
+
+            const searchKey = `${c.nombre || ''} ${c.id || ''} ${c.cedula || ''}`.toLowerCase();
+
+            return `
+                <div class="pos-client-item ${isSelected ? 'selected' : ''}" 
+                     data-id="${cId}" 
+                     data-search="${searchKey}" 
+                     role="option" 
+                     aria-selected="${isSelected ? 'true' : 'false'}"
+                     onclick="seleccionarClientePOS('${cId}', '${t}')">
+                    <div class="pos-client-item-left">
+                        <div class="pos-client-item-avatar">${avatarChar}</div>
+                        <div class="pos-client-item-details">
+                            <span class="pos-client-item-name">${c.nombre || 'Sin nombre'}</span>
+                            <span class="pos-client-item-meta">
+                                <i class="fas fa-id-card"></i> ${c.cedula || c.id || 'V-00000000'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pos-client-item-right">
+                        ${badgeHtml}
+                        ${isSelected ? '<i class="fas fa-check pos-client-check"></i>' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
+    });
+
+    actualizarCustomClienteTriggerDisplay();
+}
+
+/**
+ * Actualiza la información visual (Nombre, Avatar, Deuda) en el botón activador del selector
+ */
+function actualizarCustomClienteTriggerDisplay() {
+    const desktopSel = document.getElementById('pos-cliente-select');
+    const mobileSel = document.getElementById('pos-cliente-select-mobile');
+    const valorActual = (desktopSel && desktopSel.value) || (mobileSel && mobileSel.value) || 'V-00000000';
+
+    let listaClientes = [];
+    if (Array.isArray(window.clientes) && window.clientes.length > 0) {
+        listaClientes = window.clientes;
+    } else if (Array.isArray(window.AppState?.clientes) && window.AppState.clientes.length > 0) {
+        listaClientes = window.AppState.clientes;
+    } else if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        listaClientes = CLIENTES_OFICIALES;
+    }
+
+    const clienteObj = listaClientes.find(c => c && (String(c.id) === String(valorActual) || String(c.cedula) === String(valorActual))) || {
+        id: valorActual,
+        nombre: valorActual === 'V-00000000' ? 'Cliente de Mostrador' : 'Cliente Asignado',
+        deudaUSD: 0
+    };
+
+    const deudaUSD = Number(clienteObj.deudaUSD || 0);
+    const avatarChar = clienteObj.nombre ? clienteObj.nombre.trim().charAt(0).toUpperCase() : 'C';
+
+    ['desktop', 'mobile'].forEach(tipo => {
+        const nameEl = document.getElementById(`pos-client-name-${tipo}`);
+        const badgeEl = document.getElementById(`pos-client-badge-${tipo}`);
+        const avatarEl = document.getElementById(`pos-client-avatar-${tipo}`);
+
+        if (nameEl) nameEl.textContent = clienteObj.nombre || 'Cliente de Mostrador';
+        if (avatarEl) avatarEl.textContent = avatarChar;
+
+        if (badgeEl) {
+            if (deudaUSD > 0) {
+                badgeEl.innerHTML = `<span class="pos-client-debt-tag" style="padding:1px 6px; font-size:0.68rem;"><i class="fas fa-exclamation-circle"></i> Debe $${deudaUSD.toFixed(2)} USD</span>`;
+            } else if (clienteObj.id === 'V-00000000') {
+                badgeEl.textContent = 'Venta Contado (Sin cuenta de crédito)';
+            } else {
+                badgeEl.innerHTML = `<span class="pos-client-clean-tag" style="padding:1px 6px; font-size:0.68rem;"><i class="fas fa-check"></i> Al día ($0.00 deuda)</span>`;
+            }
+        }
+
+        // Marcar visualmente el item seleccionado en la lista desplazable
+        const listEl = document.getElementById(`pos-client-list-${tipo}`);
+        if (listEl) {
+            listEl.querySelectorAll('.pos-client-item').forEach(item => {
+                const isSelected = item.getAttribute('data-id') === String(valorActual);
+                item.classList.toggle('selected', isSelected);
+                item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                const checkIcon = item.querySelector('.pos-client-check');
+                if (isSelected && !checkIcon) {
+                    const rightBox = item.querySelector('.pos-client-item-right');
+                    if (rightBox) {
+                        const icon = document.createElement('i');
+                        icon.className = 'fas fa-check pos-client-check';
+                        rightBox.appendChild(icon);
+                    }
+                } else if (!isSelected && checkIcon) {
+                    checkIcon.remove();
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Abre o cierra el desplegable de clientes asegurando el foco y posicionamiento del scroll
+ */
+function toggleDropdownClientePOS(tipo) {
+    const menu = document.getElementById(`pos-client-menu-${tipo}`);
+    const trigger = document.getElementById(`pos-client-trigger-${tipo}`);
+    if (!menu || !trigger) return;
+
+    const estaAbierto = menu.classList.contains('open');
+
+    // Cerrar cualquier otro selector antes de abrir
+    cerrarDropdownClientePOS('all');
+
+    if (!estaAbierto) {
+        menu.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+
+        // Limpiar buscador y resetear lista
+        const searchInput = document.getElementById(`pos-client-search-${tipo}`);
+        if (searchInput) {
+            searchInput.value = '';
+            filtrarClientesDropdownPOS('', tipo);
+            setTimeout(() => searchInput.focus(), 60);
+        }
+
+        // Asegurar que el elemento seleccionado esté visible en la barra de scroll
+        const scrollContainer = document.getElementById(`pos-client-list-${tipo}`);
+        if (scrollContainer) {
+            const activeItem = scrollContainer.querySelector('.pos-client-item.selected');
+            if (activeItem) {
+                setTimeout(() => {
+                    activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }, 80);
+            }
+        }
+    }
+}
+
+/**
+ * Cierra el menú desplegable del selector
+ */
+function cerrarDropdownClientePOS(tipo = 'all') {
+    const tipos = (tipo === 'all') ? ['desktop', 'mobile'] : [tipo];
+    tipos.forEach(t => {
+        const menu = document.getElementById(`pos-client-menu-${t}`);
+        const trigger = document.getElementById(`pos-client-trigger-${t}`);
+        if (menu) menu.classList.remove('open');
+        if (trigger) {
+            trigger.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+/**
+ * Asigna un cliente al carrito POS y sincroniza ambos ambientes
+ */
+function seleccionarClientePOS(clienteId, tipo) {
+    const desktopSel = document.getElementById('pos-cliente-select');
+    const mobileSel = document.getElementById('pos-cliente-select-mobile');
+
+    if (desktopSel) desktopSel.value = clienteId;
+    if (mobileSel) mobileSel.value = clienteId;
+
+    sincronizarClienteSelects('pos-cliente-select');
+
+    if (desktopSel) {
+        desktopSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    cerrarDropdownClientePOS('all');
+
+    // Pequeño aviso amigable si se fió con cliente de mostrador
+    const tipoPago = document.getElementById('pos-tipo-pago')?.value || document.getElementById('pos-tipo-pago-mobile')?.value;
+    if (tipoPago === 'Crédito' && clienteId === 'V-00000000') {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast('Para vender a Crédito debes asignar un cliente registrado.', 'warning');
+        }
+    }
+}
+
+/**
+ * Filtra los clientes en tiempo real dentro de la lista con scrollbar
+ */
+function filtrarClientesDropdownPOS(texto, tipo) {
+    const listEl = document.getElementById(`pos-client-list-${tipo}`);
+    if (!listEl) return;
+
+    const q = (texto || '').toLowerCase().trim();
+    const items = listEl.querySelectorAll('.pos-client-item');
+    let visibles = 0;
+
+    items.forEach(item => {
+        const searchData = item.getAttribute('data-search') || '';
+        const match = !q || searchData.includes(q);
+        item.style.display = match ? 'flex' : 'none';
+        if (match) visibles++;
+    });
+
+    let emptyState = listEl.querySelector('.pos-client-empty');
+    if (visibles === 0) {
+        if (!emptyState) {
+            emptyState = document.createElement('div');
+            emptyState.className = 'pos-client-empty';
+            emptyState.innerHTML = `
+                <i class="fas fa-user-slash" style="font-size:1.5rem; margin-bottom:6px; display:block; color:var(--text-muted, #94a3b8);"></i>
+                <span>No se encontró ningún cliente para "<strong>${texto}</strong>"</span>
+            `;
+            listEl.appendChild(emptyState);
+        } else {
+            emptyState.innerHTML = `
+                <i class="fas fa-user-slash" style="font-size:1.5rem; margin-bottom:6px; display:block; color:var(--text-muted, #94a3b8);"></i>
+                <span>No se encontró ningún cliente para "<strong>${texto}</strong>"</span>
+            `;
+            emptyState.style.display = 'block';
+        }
+    } else if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+}
+
+/**
+ * Limpia el campo de búsqueda del selector
+ */
+function limpiarBusquedaClienteDropdownPOS(tipo) {
+    const searchInput = document.getElementById(`pos-client-search-${tipo}`);
+    if (searchInput) {
+        searchInput.value = '';
+        filtrarClientesDropdownPOS('', tipo);
+        searchInput.focus();
+    }
+}
+
+// Escuchar clics fuera para cerrar desplegables
+if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.pos-custom-client-picker')) {
+            cerrarDropdownClientePOS('all');
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cerrarDropdownClientePOS('all');
+        }
+    });
+
+    // Auto-inicialización
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            renderizarCustomClientePickersPOS('both');
+        });
+    } else {
+        setTimeout(() => {
+            renderizarCustomClientePickersPOS('both');
+        }, 120);
+    }
+}
+
+// Exportar globalmente los nuevos métodos interactivos
+window.renderizarCustomClientePickersPOS = renderizarCustomClientePickersPOS;
+window.actualizarCustomClienteTriggerDisplay = actualizarCustomClienteTriggerDisplay;
+window.toggleDropdownClientePOS = toggleDropdownClientePOS;
+window.cerrarDropdownClientePOS = cerrarDropdownClientePOS;
+window.seleccionarClientePOS = seleccionarClientePOS;
+window.filtrarClientesDropdownPOS = filtrarClientesDropdownPOS;
+window.limpiarBusquedaClienteDropdownPOS = limpiarBusquedaClienteDropdownPOS;
 
 // --- CLIENTES Y DEUDAS MULTIMONEDA ---

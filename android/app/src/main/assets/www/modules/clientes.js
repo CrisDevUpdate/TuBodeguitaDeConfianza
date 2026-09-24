@@ -172,9 +172,15 @@ function actualizarSelectClientes() {
     const selectMobile = document.getElementById('pos-cliente-select-mobile');
     if (!select && !selectMobile) return;
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const optionsHTML = lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    const tieneMostrador = lista.some(c => c.id === 'V-00000000' || (c.nombre && c.nombre.toLowerCase().includes('mostrador')));
+    const mostradorHTML = tieneMostrador ? '' : '<option value="V-00000000">Cliente de Mostrador</option>';
+    const optionsHTML = mostradorHTML + lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
     if (select) select.innerHTML = optionsHTML;
     if (selectMobile) selectMobile.innerHTML = optionsHTML;
+
+    if (typeof renderizarCustomClientePickersPOS === 'function') {
+        renderizarCustomClientePickersPOS('both');
+    }
 }
 
 function calcularEstadoFinancieroCliente(clienteId) {

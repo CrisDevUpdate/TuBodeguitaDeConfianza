@@ -3118,12 +3118,36 @@
                     </button>
                 </div>
 
-                <!-- Selector de Cliente -->
-                <div class="pos-cart-client-box">
+                <!-- Selector de Cliente con Barra de Desplazamiento y Búsqueda -->
+                <div class="pos-cart-client-box" id="pos-cart-client-box">
                     <label for="pos-cliente-select" class="pos-cart-label">
                         <i class="fas fa-user-tag"></i> Cliente:
                     </label>
-                    <select id="pos-cliente-select" class="pos-cart-select" onchange="sincronizarClienteSelects('pos-cliente-select')"></select>
+                    <select id="pos-cliente-select" class="pos-cart-select sr-only-pos" onchange="sincronizarClienteSelects('pos-cliente-select')"></select>
+                    
+                    <!-- Componente Visual Personalizado con Barra de Desplazamiento y Búsqueda -->
+                    <div class="pos-custom-client-picker" id="pos-custom-client-desktop">
+                        <button type="button" class="pos-client-trigger" id="pos-client-trigger-desktop" onclick="toggleDropdownClientePOS('desktop')" aria-haspopup="listbox" aria-expanded="false" title="Asignar cliente a la compra">
+                            <div class="pos-client-trigger-content">
+                                <div class="pos-client-trigger-avatar" id="pos-client-avatar-desktop"><i class="fas fa-user"></i></div>
+                                <div class="pos-client-trigger-text">
+                                    <span class="pos-client-trigger-name" id="pos-client-name-desktop">Cliente de Mostrador</span>
+                                    <span class="pos-client-trigger-badge" id="pos-client-badge-desktop">V-00000000</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-down pos-client-trigger-chevron" id="pos-client-chevron-desktop"></i>
+                        </button>
+                        <div class="pos-client-dropdown-menu" id="pos-client-menu-desktop" role="listbox">
+                            <div class="pos-client-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" class="pos-client-search-input" id="pos-client-search-desktop" placeholder="Buscar por nombre o cédula..." oninput="filtrarClientesDropdownPOS(this.value, 'desktop')" autocomplete="off" />
+                                <button type="button" class="pos-client-search-clear" onclick="limpiarBusquedaClienteDropdownPOS('desktop')" title="Limpiar"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="pos-client-scroll-container" id="pos-client-list-desktop" tabindex="0">
+                                <!-- Opciones generadas con barra de desplazamiento scrollbar -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Lista de Ítems en Carrito Desktop -->
@@ -3214,12 +3238,36 @@
                     </div>
                 </div>
 
-                <!-- Selector de Cliente en Drawer Móvil -->
-                <div class="pos-drawer-client-box">
+                <!-- Selector de Cliente en Drawer Móvil con Barra de Desplazamiento y Búsqueda -->
+                <div class="pos-drawer-client-box" id="pos-drawer-client-box">
                     <label for="pos-cliente-select-mobile" class="pos-cart-label">
                         <i class="fas fa-user-tag"></i> Cliente Asignado:
                     </label>
-                    <select id="pos-cliente-select-mobile" class="pos-cart-select" onchange="sincronizarClienteSelects('pos-cliente-select-mobile')"></select>
+                    <select id="pos-cliente-select-mobile" class="pos-cart-select sr-only-pos" onchange="sincronizarClienteSelects('pos-cliente-select-mobile')"></select>
+                    
+                    <!-- Componente Visual Personalizado Móvil con Barra de Desplazamiento -->
+                    <div class="pos-custom-client-picker" id="pos-custom-client-mobile">
+                        <button type="button" class="pos-client-trigger" id="pos-client-trigger-mobile" onclick="toggleDropdownClientePOS('mobile')" aria-haspopup="listbox" aria-expanded="false" title="Asignar cliente a la compra">
+                            <div class="pos-client-trigger-content">
+                                <div class="pos-client-trigger-avatar" id="pos-client-avatar-mobile"><i class="fas fa-user"></i></div>
+                                <div class="pos-client-trigger-text">
+                                    <span class="pos-client-trigger-name" id="pos-client-name-mobile">Cliente de Mostrador</span>
+                                    <span class="pos-client-trigger-badge" id="pos-client-badge-mobile">V-00000000</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-down pos-client-trigger-chevron" id="pos-client-chevron-mobile"></i>
+                        </button>
+                        <div class="pos-client-dropdown-menu" id="pos-client-menu-mobile" role="listbox">
+                            <div class="pos-client-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" class="pos-client-search-input" id="pos-client-search-mobile" placeholder="Buscar por nombre o cédula..." oninput="filtrarClientesDropdownPOS(this.value, 'mobile')" autocomplete="off" />
+                                <button type="button" class="pos-client-search-clear" onclick="limpiarBusquedaClienteDropdownPOS('mobile')" title="Limpiar"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="pos-client-scroll-container" id="pos-client-list-mobile" tabindex="0">
+                                <!-- Opciones generadas con barra de desplazamiento scrollbar -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Lista de Productos en Carrito Móvil -->

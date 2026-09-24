@@ -871,6 +871,7 @@
 .pos-cart-client-box,
 .pos-drawer-client-box {
   margin-bottom: 12px;
+  position: relative;
 }
 
 .pos-cart-label {
@@ -888,6 +889,432 @@
   border-radius: var(--radius-sm, 8px) !important;
   font-size: 0.88rem !important;
   padding: 6px 12px !important;
+}
+
+/* Ocultar accesiblemente select nativo para delegar a selector interactivo con scrollbar */
+.sr-only-pos {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Selector Personalizado de Cliente con Barra de Desplazamiento y Búsqueda */
+.pos-custom-client-picker {
+  position: relative;
+  width: 100%;
+}
+
+.pos-client-trigger {
+  width: 100%;
+  min-height: 42px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: var(--radius-sm, 8px);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+.pos-client-trigger:hover {
+  border-color: var(--primary-accent, #2563eb);
+  background: var(--bg-canvas-subtle, #f8fafc);
+}
+
+.pos-client-trigger:focus,
+.pos-client-trigger.active {
+  outline: none;
+  border-color: var(--primary-accent, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.pos-client-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pos-client-trigger-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pos-client-trigger-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.pos-client-trigger-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.pos-client-trigger-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-client-trigger-chevron {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pos-client-trigger.active .pos-client-trigger-chevron {
+  transform: rotate(180deg);
+  color: var(--primary-accent, #2563eb);
+}
+
+/* Menú flotante del selector de cliente */
+.pos-client-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 1050;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.pos-drawer-client-box .pos-client-dropdown-menu {
+  z-index: 100010;
+}
+
+.pos-client-dropdown-menu.open {
+  display: flex !important;
+  animation: posMenuFadeDown 0.18s ease-out;
+}
+
+@keyframes posMenuFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Buscador interactivo dentro del dropdown */
+.pos-client-search-box {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-canvas-subtle, #f8fafc);
+  gap: 8px;
+}
+
+.pos-client-search-box i {
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.pos-client-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.82rem;
+  width: 100%;
+  color: var(--text-main, #0f172a);
+}
+
+.pos-client-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.pos-client-search-clear:hover {
+  color: var(--accent-danger, #ef4444);
+}
+
+/* BARRA DE DESPLAZAMIENTO (SCROLLBAR) VERTICAL OBLIGATORIA Y ESTILIZADA */
+.pos-client-scroll-container {
+  max-height: 220px;
+  min-height: 80px;
+  overflow-y: scroll !important; /* Muestra siempre la barra de desplazamiento */
+  overflow-x: hidden !important;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-accent, #2563eb) #f1f5f9;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pos-client-scroll-container::-webkit-scrollbar {
+  width: 7px !important;
+  display: block !important;
+}
+
+.pos-client-scroll-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.pos-client-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--primary-accent, #2563eb);
+  border-radius: 4px;
+}
+
+.pos-client-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
+}
+
+/* Ítems / Fila de clientes dentro de la lista con scroll */
+.pos-client-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle, #f8fafc);
+  user-select: none;
+}
+
+.pos-client-item:last-child {
+  border-bottom: none;
+}
+
+.pos-client-item:hover {
+  background: var(--bg-canvas-subtle, #f1f5f9);
+}
+
+.pos-client-item.selected {
+  background: rgba(37, 99, 235, 0.09);
+  border-left: 3px solid var(--primary-accent, #2563eb);
+}
+
+.pos-client-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pos-client-item-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pos-client-item.selected .pos-client-item-avatar {
+  background: var(--primary-accent, #2563eb);
+  color: #ffffff;
+}
+
+.pos-client-item-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pos-client-item-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.pos-client-item-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.pos-client-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pos-client-debt-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pos-client-clean-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pos-client-check {
+  color: var(--primary-accent, #2563eb);
+  font-size: 0.85rem;
+  margin-left: 2px;
+}
+
+.pos-client-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+}
+
+/* Compatibilidad con Tema Oscuro (Dark Mode) */
+body.dark-mode .pos-client-trigger,
+[data-theme="dark"] .pos-client-trigger,
+.theme-dark .pos-client-trigger {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+body.dark-mode .pos-client-trigger:hover,
+[data-theme="dark"] .pos-client-trigger:hover,
+.theme-dark .pos-client-trigger:hover {
+  background: #273549;
+}
+
+body.dark-mode .pos-client-trigger-name,
+[data-theme="dark"] .pos-client-trigger-name,
+.theme-dark .pos-client-trigger-name {
+  color: #f8fafc;
+}
+
+body.dark-mode .pos-client-dropdown-menu,
+[data-theme="dark"] .pos-client-dropdown-menu,
+.theme-dark .pos-client-dropdown-menu {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .pos-client-search-box,
+[data-theme="dark"] .pos-client-search-box,
+.theme-dark .pos-client-search-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-mode .pos-client-search-input,
+[data-theme="dark"] .pos-client-search-input,
+.theme-dark .pos-client-search-input {
+  color: #f8fafc;
+}
+
+body.dark-mode .pos-client-scroll-container,
+[data-theme="dark"] .pos-client-scroll-container,
+.theme-dark .pos-client-scroll-container {
+  scrollbar-color: #3b82f6 #0f172a;
+}
+
+body.dark-mode .pos-client-scroll-container::-webkit-scrollbar-track,
+[data-theme="dark"] .pos-client-scroll-container::-webkit-scrollbar-track,
+.theme-dark .pos-client-scroll-container::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+body.dark-mode .pos-client-item,
+[data-theme="dark"] .pos-client-item,
+.theme-dark .pos-client-item {
+  border-color: #334155;
+}
+
+body.dark-mode .pos-client-item:hover,
+[data-theme="dark"] .pos-client-item:hover,
+.theme-dark .pos-client-item:hover {
+  background: #273549;
+}
+
+body.dark-mode .pos-client-item-name,
+[data-theme="dark"] .pos-client-item-name,
+.theme-dark .pos-client-item-name {
+  color: #f8fafc;
+}
+
+body.dark-mode .pos-client-item-avatar,
+[data-theme="dark"] .pos-client-item-avatar,
+.theme-dark .pos-client-item-avatar {
+  background: #334155;
+  color: #94a3b8;
 }
 
 /* Scroll de Artículos del Carrito */
