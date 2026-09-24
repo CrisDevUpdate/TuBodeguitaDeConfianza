@@ -383,7 +383,8 @@ window.InventoryApp = window.InventoryApp || {};
         PAGOS_POR_VERIFICAR: 'PagosPorVerificar',
         FACTURAS: 'facturas_compras',
         KARDEX: 'kardex_inventario',
-        PROVEEDORES: 'proveedores'
+        PROVEEDORES: 'proveedores',
+        NOTIFICACIONES: 'notifications'
     };
 
     /**
@@ -2451,6 +2452,96 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Guardar / Actualizar Notificación en Firestore
+     */
+    async function guardarNotificacionCloud(notif) {
+        if (!notif || !notif.id) return false;
+        if (isQuotaExhausted) return true;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                const id = String(notif.id);
+                const docRef = db.collection(COLLECTIONS.NOTIFICACIONES).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...notif, id }) || {};
+                payload.updatedAt = new Date().toISOString();
+                await docRef.set(payload, { merge: true });
+                console.log('[Firebase] Notificación sincronizada en Firestore:', id);
+            }
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar notificación en Firestore:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Ocultar Notificación de la App sin borrarla de la Base de Datos
+     * En lugar de borrar el documento, lo actualiza con eliminada: true y oculta: true
+     */
+    async function ocultarNotificacionCloud(notifId) {
+        if (!notifId) return false;
+        if (isQuotaExhausted) return true;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                const id = String(notifId);
+                const docRef = db.collection(COLLECTIONS.NOTIFICACIONES).doc(id);
+                await docRef.set({
+                    id,
+                    eliminada: true,
+                    oculta: true,
+                    fechaEliminada: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+                console.log('[Firebase] Notificación ocultada en la App (conservada en la BD):', id);
+            }
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al ocultar notificación en Firestore:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Marcar Notificación como Leída en Firestore
+     */
+    async function marcarNotificacionLeidaCloud(notifId) {
+        if (!notifId) return false;
+        if (isQuotaExhausted) return true;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                const id = String(notifId);
+                const docRef = db.collection(COLLECTIONS.NOTIFICACIONES).doc(id);
+                await docRef.set({
+                    id,
+                    leida: true,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+            }
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al marcar notificación como leída:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Guardar o actualizar registro de Pago o Venta en PagosPorVerificar de Firestore
      */
     async function guardarPagoPorVerificarCloud(datosPago) {
@@ -3477,6 +3568,9 @@ window.InventoryApp = window.InventoryApp || {};
         reiniciarPuntosTodosLosUsuarios: reiniciarPuntosTodosLosUsuariosCloud,
         guardarCuentasBancarias: guardarCuentasBancariasCloud,
         guardarCanjePremio: guardarCanjePremioCloud,
+        guardarNotificacion: guardarNotificacionCloud,
+        ocultarNotificacion: ocultarNotificacionCloud,
+        marcarNotificacionLeida: marcarNotificacionLeidaCloud,
         actualizarUIEstadoNube,
         getConfig: obtenerConfiguracion
     };

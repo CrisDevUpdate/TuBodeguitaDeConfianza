@@ -53,7 +53,7 @@
      * "Los clientes sólo deben llegarles la notificación que el admin aprobó su transacción,
      * no todas las notificaciones que le llegan al admin"
      */
-    function obtenerNotificacionesParaUsuarioActual() {
+    function obtenerNotificacionesParaUsuarioActual(incluirOcultas = false) {
         const usuario = window.AppState?.usuarioActual;
         if (!usuario) return [];
         limpiarNotificacionesDuplicadas();
@@ -119,7 +119,14 @@
             listaDeduplicada.push(notif);
         }
 
-        return listaDeduplicada;
+        // Si se solicita la vista de archivo en BD, retorna únicamente las que fueron eliminadas/ocultas en la app
+        if (incluirOcultas) {
+            return listaDeduplicada.filter(n => n.eliminada === true || n.oculta === true);
+        }
+
+        // Por regla general del sistema: Las notificaciones eliminadas/ocultas NO se muestran en la app,
+        // pero permanecen 100% conservadas y almacenadas en la base de datos
+        return listaDeduplicada.filter(n => !n.eliminada && !n.oculta);
     }
 
     /**
@@ -299,34 +306,61 @@
     }
 
     /**
-     * Elimina una notificación puntual
+     * Elimina una notificación de la vista de la app sin borrarla de la base de datos
      */
     function eliminarNotificacion(id, event) {
         if (event) event.stopPropagation();
         if (!Array.isArray(AppState.notificaciones)) return;
-        AppState.notificaciones = AppState.notificaciones.filter(n => n.id !== id);
+        const notif = AppState.notificaciones.find(n => n.id === id);
+        if (notif) {
+            notif.eliminada = true;
+            notif.oculta = true;
+            notif.fechaEliminada = new Date().toISOString();
+        }
 
         if (window.InventoryApp?.Persistence?.guardar) {
             window.InventoryApp.Persistence.guardar(true);
         }
-        if (window.InventoryApp?.Firebase?.eliminarNotificacion) {
-            window.InventoryApp.Firebase.eliminarNotificacion(id).catch(() => {});
+        if (window.InventoryApp?.Firebase?.ocultarNotificacion) {
+            window.InventoryApp.Firebase.ocultarNotificacion(id).catch(() => {});
+        } else if (window.InventoryApp?.Firebase?.guardarNotificacion && notif) {
+            window.InventoryApp.Firebase.guardarNotificacion(notif).catch(() => {});
         }
 
         actualizarBadgesNotificaciones();
         renderizarNotificaciones(filtroActivo);
+
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Notificación eliminada de la vista (conservada en la base de datos)', 'info');
+        }
     }
 
     /**
-     * Limpia todas las notificaciones que ya fueron leídas del usuario actual
+     * Limpia todas las notificaciones que ya fueron leídas del usuario actual,
+     * quitándolas de la vista de la app pero manteniéndolas almacenadas en la base de datos.
      */
     function limpiarNotificacionesLeidas() {
         if (!Array.isArray(AppState.notificaciones)) return;
-        const listaUsuario = obtenerNotificacionesParaUsuarioActual();
-        const idsAEliminar = new Set(listaUsuario.filter(n => n.leida).map(n => n.id));
-        if (idsAEliminar.size === 0) return;
+        const listaUsuario = obtenerNotificacionesParaUsuarioActual(false);
+        const leidas = listaUsuario.filter(n => n.leida);
+        if (leidas.length === 0) {
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast('No hay notificaciones leídas pendientes por limpiar', 'info');
+            }
+            return;
+        }
 
-        AppState.notificaciones = AppState.notificaciones.filter(n => !idsAEliminar.has(n.id));
+        const ahoraIso = new Date().toISOString();
+        leidas.forEach(n => {
+            n.eliminada = true;
+            n.oculta = true;
+            n.fechaEliminada = ahoraIso;
+            if (window.InventoryApp?.Firebase?.ocultarNotificacion) {
+                window.InventoryApp.Firebase.ocultarNotificacion(n.id).catch(() => {});
+            } else if (window.InventoryApp?.Firebase?.guardarNotificacion) {
+                window.InventoryApp.Firebase.guardarNotificacion(n).catch(() => {});
+            }
+        });
 
         if (window.InventoryApp?.Persistence?.guardar) {
             window.InventoryApp.Persistence.guardar(true);
@@ -336,7 +370,35 @@
         renderizarNotificaciones(filtroActivo);
 
         if (window.InventoryApp?.Modal?.toast) {
-            window.InventoryApp.Modal.toast(`Se eliminaron ${idsAEliminar.size} notificación(es) leída(s)`, 'info');
+            window.InventoryApp.Modal.toast(`Se quitaron ${leidas.length} notificación(es) leída(s) de la vista (conservadas en BD)`, 'info');
+        }
+    }
+
+    /**
+     * Restaura una notificación previamente eliminada de la vista para que vuelva a mostrarse en la app
+     */
+    function restaurarNotificacion(id, event) {
+        if (event) event.stopPropagation();
+        if (!Array.isArray(AppState.notificaciones)) return;
+        const notif = AppState.notificaciones.find(n => n.id === id);
+        if (!notif) return;
+
+        notif.eliminada = false;
+        notif.oculta = false;
+        delete notif.fechaEliminada;
+
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+        if (window.InventoryApp?.Firebase?.guardarNotificacion) {
+            window.InventoryApp.Firebase.guardarNotificacion(notif).catch(() => {});
+        }
+
+        actualizarBadgesNotificaciones();
+        renderizarNotificaciones(filtroActivo);
+
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Notificación restaurada a la vista de la app', 'success');
         }
     }
 
@@ -826,9 +888,14 @@
 
         generarNotificacionesInicialesSiVacio();
 
-        const lista = obtenerNotificacionesParaUsuarioActual();
+        const esVistaArchivoBD = (filtro === 'eliminadas' || filtro === 'bd_archivo');
+        const lista = esVistaArchivoBD 
+            ? obtenerNotificacionesParaUsuarioActual(true)
+            : obtenerNotificacionesParaUsuarioActual(false);
+        const listaOcultasEnBD = obtenerNotificacionesParaUsuarioActual(true);
+        const countOcultasEnBD = listaOcultasEnBD.length;
         const total = lista.length;
-        const noLeidas = lista.filter(n => !n.leida).length;
+        const noLeidas = esVistaArchivoBD ? 0 : lista.filter(n => !n.leida).length;
 
         // ==========================================
         // VISTA DEDICADA PARA EL PERFIL CLIENTE
@@ -929,7 +996,7 @@
                                     <button type="button" 
                                             class="btn btn-sm btn-outline" 
                                             onclick="eliminarNotificacion('${n.id}', event)" 
-                                            title="Eliminar notificación" 
+                                            title="Eliminar de la vista (se conservará en la base de datos)" 
                                             style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
                                         <i class="fas fa-xmark"></i>
                                     </button>
@@ -952,10 +1019,12 @@
 
         // Filtrado de la lista
         let listaFiltrada = lista;
-        if (filtro === 'no_leidas') {
-            listaFiltrada = lista.filter(n => !n.leida);
-        } else if (filtro !== 'todas') {
-            listaFiltrada = lista.filter(n => n.tipo === filtro);
+        if (!esVistaArchivoBD) {
+            if (filtro === 'no_leidas') {
+                listaFiltrada = lista.filter(n => !n.leida);
+            } else if (filtro !== 'todas') {
+                listaFiltrada = lista.filter(n => n.tipo === filtro);
+            }
         }
 
         // Definición de estilos y badges por tipo
@@ -1029,7 +1098,7 @@
                         <button type="button" class="btn btn-sm btn-outline" onclick="marcarTodasNotificacionesLeidas()" ${noLeidas === 0 ? 'disabled' : ''}>
                             <i class="fas fa-check-double"></i> Marcar todas como leídas
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline" onclick="limpiarNotificacionesLeidas()">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="limpiarNotificacionesLeidas()" title="Ocultar de la app las notificaciones leídas (se conservan en la base de datos)">
                             <i class="fas fa-trash-can"></i> Limpiar leídas
                         </button>
                         <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalComentarioCliente()">
@@ -1039,7 +1108,7 @@
                 </div>
 
                 <!-- Barra de Filtros Rápidos -->
-                <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:14px;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:14px; align-items:center;">
                     <button type="button" class="btn btn-sm ${filtro === 'todas' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('todas')">
                         Todas (${total})
                     </button>
@@ -1058,11 +1127,25 @@
                     <button type="button" class="btn btn-sm ${filtro === 'venta' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('venta')">
                         <i class="fas fa-bag-shopping" style="color:#059669;"></i> Ventas (${countVentas})
                     </button>
+                    ${countOcultasEnBD > 0 ? `
+                        <button type="button" class="btn btn-sm ${esVistaArchivoBD ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('bd_archivo')" title="Notificaciones que fueron eliminadas de la app pero permanecen guardadas en la base de datos">
+                            <i class="fas fa-database"></i> En Base de Datos (${countOcultasEnBD})
+                        </button>
+                    ` : ''}
                 </div>
             </div>
 
             <!-- Listado de Notificaciones Interactivas -->
             <div id="lista-notificaciones-container" style="display:flex; flex-direction:column; gap:10px;">
+                ${esVistaArchivoBD ? `
+                    <div class="card" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 16px; margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px; color:#334155; font-size:0.88rem;">
+                            <i class="fas fa-database" style="color:#0284c7; font-size:1.15rem;"></i>
+                            <span>Estas notificaciones fueron <b>eliminadas de la vista activa de la app</b>, pero están <b>100% conservadas en la base de datos</b>.</span>
+                        </div>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:4px 10px; border-radius:12px;">${listaFiltrada.length} en base de datos</span>
+                    </div>
+                ` : ''}
                 ${listaFiltrada.length === 0 ? `
                     <div class="card" style="text-align:center; padding:40px 20px; color:var(--text-muted);">
                         <i class="fas fa-bell-slash" style="font-size:2.8rem; color:var(--border-color); margin-bottom:12px;"></i>
@@ -1160,13 +1243,23 @@
                                         <i class="fas fa-arrow-right"></i>
                                     </span>
                                 `))}
-                                <button type="button" 
-                                        class="btn btn-sm btn-outline" 
-                                        onclick="eliminarNotificacion('${n.id}', event)" 
-                                        title="Eliminar notificación" 
-                                        style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
-                                    <i class="fas fa-xmark"></i>
-                                </button>
+                                ${esVistaArchivoBD ? `
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline" 
+                                            onclick="restaurarNotificacion('${n.id}', event)" 
+                                            title="Restaurar a la vista activa de la app" 
+                                            style="padding:5px 10px; font-size:0.75rem; font-weight:600; display:inline-flex; align-items:center; gap:4px; color:#0284c7; border-color:#0284c7;">
+                                        <i class="fas fa-rotate-left"></i> <span>Restaurar</span>
+                                    </button>
+                                ` : `
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline" 
+                                            onclick="eliminarNotificacion('${n.id}', event)" 
+                                            title="Eliminar de la vista (se conservará en la base de datos)" 
+                                            style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                `}
                             </div>
                         </div>
                     `;
@@ -1262,6 +1355,7 @@
         marcarLeida: marcarNotificacionLeida,
         marcarTodasLeidas: marcarTodasNotificacionesLeidas,
         eliminar: eliminarNotificacion,
+        restaurar: restaurarNotificacion,
         limpiarLeidas: limpiarNotificacionesLeidas,
         render: renderizarNotificaciones,
         actualizarBadges: actualizarBadgesNotificaciones,
@@ -1274,6 +1368,7 @@
     window.marcarNotificacionLeida = marcarNotificacionLeida;
     window.marcarTodasNotificacionesLeidas = marcarTodasNotificacionesLeidas;
     window.eliminarNotificacion = eliminarNotificacion;
+    window.restaurarNotificacion = restaurarNotificacion;
     window.limpiarNotificacionesLeidas = limpiarNotificacionesLeidas;
     window.irANotificacion = irANotificacion;
     window.renderizarNotificaciones = renderizarNotificaciones;
