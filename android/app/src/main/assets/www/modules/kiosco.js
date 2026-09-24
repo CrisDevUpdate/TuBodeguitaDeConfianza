@@ -245,6 +245,9 @@
             // Cantidad ya agregada al carrito
             const itemEnCarrito = carritoKiosco.find(i => i.productoId === p.id);
             const cantEnCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+            const stockBadgeClass = agotado 
+                ? 'badge-stock-tag stock-agotado' 
+                : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
 
             return `
                 <div class="kiosco-product-card cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-combo es-super-combo' : ''}" 
@@ -264,7 +267,7 @@
                         <div class="cliente-prod-meta">
                             <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
                             <span class="kiosco-product-category cliente-prod-badge-cat">${p.categoria || 'General'}</span>
-                            ${!agotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                            <span class="${stockBadgeClass}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
                         </div>
                         <h3 class="kiosco-product-name cliente-prod-title" title="${p.nombre}">${p.nombre}</h3>
                         

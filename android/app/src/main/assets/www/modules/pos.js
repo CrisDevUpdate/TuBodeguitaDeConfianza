@@ -515,6 +515,9 @@ function renderizarPosProductos(filtro = null) {
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const esAgotado = stock <= 0;
                 const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                const stockBadgeClass = esAgotado 
+                    ? 'badge-stock-tag stock-agotado' 
+                    : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
                 
                 const rawImg = p.imagen;
                 const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
@@ -529,7 +532,7 @@ function renderizarPosProductos(filtro = null) {
                     <div class="cliente-prod-meta">
                         <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
                         <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
-                        ${!esAgotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                        <span class="${stockBadgeClass}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
                     </div>
                     <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
                     

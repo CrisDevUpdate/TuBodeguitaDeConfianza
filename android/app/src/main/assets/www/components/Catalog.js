@@ -248,10 +248,11 @@ class CatalogManager {
 
                     <!-- Cuerpo de la Tarjeta -->
                     <div class="cliente-prod-body">
-                        <!-- Código SKU Estático y Contenido -->
+                        <!-- Código SKU Estático, Contenido y Stock -->
                         <div class="cliente-prod-meta">
                             <span class="cliente-prod-code">${p.codigo || p.id}</span>
                             ${p.contenido ? `<span class="cliente-prod-content">${p.contenido}</span>` : ''}
+                            <span class="${esAgotado ? 'badge-stock-tag stock-agotado' : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal')}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
                         </div>
 
                         <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>

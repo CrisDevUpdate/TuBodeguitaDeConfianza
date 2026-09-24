@@ -382,6 +382,10 @@ function renderizarCatalogoCliente() {
                 ? Number(p.puntos) 
                 : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
 
+        const stockBadgeClass = agotado 
+            ? 'badge-stock-tag stock-agotado' 
+            : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
+
         return `
             <div class="cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}"
                 onclick="if (!event.target.closest('button') && !${agotado}) agregarAlCarritoCliente('${p.id}');"
@@ -395,7 +399,7 @@ function renderizarCatalogoCliente() {
                     <div class="cliente-prod-meta">
                         <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
                         <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
-                        ${!agotado && stock <= 5 ? `<span class="badge-stock-low">Stock: ${stock}</span>` : ''}
+                        <span class="${stockBadgeClass}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
                     </div>
                     <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
                     
