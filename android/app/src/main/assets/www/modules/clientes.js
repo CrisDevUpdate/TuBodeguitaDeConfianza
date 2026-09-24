@@ -154,7 +154,7 @@ function calcularEstadoFinancieroCliente(clienteId) {
     const abonosCli = abonos.filter(a => a.clienteId === clienteId && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
 
     const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
     
     let totalAbonadoUSD = 0;
     abonosCli.forEach(a => {
@@ -164,11 +164,15 @@ function calcularEstadoFinancieroCliente(clienteId) {
         totalAbonadoUSD += montoUSD;
     });
 
-    const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
+    const clienteObj = (Array.isArray(clientes) ? clientes : (AppState.clientes || [])).find(c => c.id === clienteId);
+    const deudaDirecta = Number(clienteObj?.deudaInicialUSD ?? clienteObj?.deudaUSD ?? 0);
+    const totalCreditoEfectivo = totalCreditoUSD > 0 ? totalCreditoUSD : deudaDirecta;
+
+    const saldoDeudaUSD = Math.max(0, totalCreditoEfectivo - totalAbonadoUSD);
 
     return {
-        totalCompradoUSD,
-        totalCompradoVES: totalCompradoUSD * tasaActiva,
+        totalCompradoUSD: Math.max(totalCompradoUSD, totalCreditoEfectivo),
+        totalCompradoVES: Math.max(totalCompradoUSD, totalCreditoEfectivo) * tasaActiva,
         saldoDeudaUSD,
         saldoDeudaVES: saldoDeudaUSD * tasaActiva
     };
@@ -234,7 +238,24 @@ function filtrarClientesEstado(estado) {
 }
 window.filtrarClientesEstado = filtrarClientesEstado;
 
+function asegurarClientesOficiales() {
+    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        if (!Array.isArray(clientes) || clientes.length === 0) {
+            clientes = JSON.parse(JSON.stringify(CLIENTES_OFICIALES));
+            AppState.clientes = clientes;
+        } else {
+            CLIENTES_OFICIALES.forEach(co => {
+                const existe = clientes.some(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                if (!existe) {
+                    clientes.push(JSON.parse(JSON.stringify(co)));
+                }
+            });
+        }
+    }
+}
+
 function renderizarClientes() {
+    asegurarClientesOficiales();
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
     }

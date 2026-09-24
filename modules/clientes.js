@@ -148,13 +148,46 @@ function actualizarSelectClientes() {
 }
 
 function calcularEstadoFinancieroCliente(clienteId) {
-    const ventasCli = ventas.filter(v => v.clienteId === clienteId);
-    // Solo los abonos aprobados impactan la deuda. Los pagos en Confirmando
-    // permanecen visibles como conciliación, pero no se contabilizan.
-    const abonosCli = abonos.filter(a => a.clienteId === clienteId && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
+    if (!clienteId) return { totalCompradoUSD: 0, totalCompradoVES: 0, saldoDeudaUSD: 0, saldoDeudaVES: 0 };
+
+    const clientesList = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const clienteObj = clientesList.find(c => 
+        String(c.id).toUpperCase() === String(clienteId).toUpperCase() ||
+        (c.cedula && String(c.cedula).toUpperCase() === String(clienteId).toUpperCase()) ||
+        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(clienteId).toUpperCase())
+    );
+
+    const keys = new Set();
+    keys.add(String(clienteId).toUpperCase());
+    if (clienteObj) {
+        if (clienteObj.id) keys.add(String(clienteObj.id).toUpperCase());
+        if (clienteObj.cedula) keys.add(String(clienteObj.cedula).toUpperCase());
+        if (clienteObj.usuarioId) keys.add(String(clienteObj.usuarioId).toUpperCase());
+        if (clienteObj.nombre) keys.add(String(clienteObj.nombre).trim().toUpperCase());
+    }
+
+    const ventasList = Array.isArray(ventas) ? ventas : (AppState.ventas || []);
+    const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
+
+    const ventasCli = ventasList.filter(v => {
+        if (!v) return false;
+        const vCId = String(v.clienteId || '').toUpperCase();
+        const vCCed = String(v.clienteCedula || '').toUpperCase();
+        const vUId = String(v.usuarioId || '').toUpperCase();
+        return keys.has(vCId) || keys.has(vCCed) || keys.has(vUId);
+    });
+
+    const abonosCli = abonosList.filter(a => {
+        if (!a) return false;
+        const aCId = String(a.clienteId || '').toUpperCase();
+        const aCCed = String(a.clienteCedula || '').toUpperCase();
+        const aUId = String(a.usuarioId || '').toUpperCase();
+        const coincide = keys.has(aCId) || keys.has(aCCed) || keys.has(aUId);
+        return coincide && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado);
+    });
 
     const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
     
     let totalAbonadoUSD = 0;
     abonosCli.forEach(a => {
@@ -164,11 +197,14 @@ function calcularEstadoFinancieroCliente(clienteId) {
         totalAbonadoUSD += montoUSD;
     });
 
-    const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
+    const deudaDirecta = Number(clienteObj?.deudaInicialUSD ?? clienteObj?.deudaUSD ?? 0);
+    const totalCreditoEfectivo = totalCreditoUSD > 0 ? totalCreditoUSD : deudaDirecta;
+
+    const saldoDeudaUSD = Math.max(0, totalCreditoEfectivo - totalAbonadoUSD);
 
     return {
-        totalCompradoUSD,
-        totalCompradoVES: totalCompradoUSD * tasaActiva,
+        totalCompradoUSD: Math.max(totalCompradoUSD, totalCreditoEfectivo),
+        totalCompradoVES: Math.max(totalCompradoUSD, totalCreditoEfectivo) * tasaActiva,
         saldoDeudaUSD,
         saldoDeudaVES: saldoDeudaUSD * tasaActiva
     };
@@ -234,7 +270,24 @@ function filtrarClientesEstado(estado) {
 }
 window.filtrarClientesEstado = filtrarClientesEstado;
 
+function asegurarClientesOficiales() {
+    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        if (!Array.isArray(clientes) || clientes.length === 0) {
+            clientes = JSON.parse(JSON.stringify(CLIENTES_OFICIALES));
+            AppState.clientes = clientes;
+        } else {
+            CLIENTES_OFICIALES.forEach(co => {
+                const existe = clientes.some(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                if (!existe) {
+                    clientes.push(JSON.parse(JSON.stringify(co)));
+                }
+            });
+        }
+    }
+}
+
 function renderizarClientes() {
+    asegurarClientesOficiales();
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
     }
@@ -334,16 +387,33 @@ function renderizarClientes() {
     }
 
     if (tbody) {
+        const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+
         tbody.innerHTML = clientesFiltrados.map(c => {
             const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
             const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
             const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
             const tieneDeuda = c.saldoDeudaUSD > 0;
 
+            const userVinculado = usuariosList.find(u => 
+                u.clienteId === c.id || 
+                (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
+                (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
+                (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
+            );
+            const userBadge = userVinculado 
+                ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:600;" title="Cuenta de usuario activa: ${userVinculado.cedula}"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
+                : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px;" title="Sin cuenta de usuario creada aún"><i class="fas fa-user-clock"></i> Sin usuario</span>`;
+
             return `
                 <tr>
                     <td><strong>${idSafe}</strong></td>
-                    <td style="font-weight:600; color:var(--text-main);">${nomSafe}</td>
+                    <td style="font-weight:600; color:var(--text-main);">
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>${nomSafe}</span>
+                            ${userBadge}
+                        </div>
+                    </td>
                     <td>${telSafe}</td>
                     <td class="num">$${c.totalCompradoUSD.toFixed(2)}</td>
                     <td class="num" style="color: ${tieneDeuda ? 'var(--danger)' : '#16a34a'}; font-weight: bold;">
@@ -368,6 +438,8 @@ function renderizarClientes() {
     }
 
     if (mobileList) {
+        const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+
         mobileList.innerHTML = clientesFiltrados.map(c => {
             const idSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.id) : c.id;
             const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
@@ -381,6 +453,16 @@ function renderizarClientes() {
                 .join('')
                 .toUpperCase();
 
+            const userVinculado = usuariosList.find(u => 
+                u.clienteId === c.id || 
+                (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
+                (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
+                (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
+            );
+            const userBadge = userVinculado 
+                ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.68rem; padding:1px 5px; border-radius:4px; font-weight:600;"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
+                : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.68rem; padding:1px 5px; border-radius:4px;"><i class="fas fa-user-clock"></i> Sin usuario</span>`;
+
             return `
                 <div class="clientes-item-card">
                     <div class="clientes-item-top">
@@ -388,7 +470,10 @@ function renderizarClientes() {
                             <span>${iniciales}</span>
                         </div>
                         <div class="clientes-item-info">
-                            <div class="clientes-item-name">${nomSafe}</div>
+                            <div class="clientes-item-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <span>${nomSafe}</span>
+                                ${userBadge}
+                            </div>
                             <div class="clientes-item-meta">
                                 <span><i class="fas fa-id-card"></i> ${idSafe}</span>
                                 ${c.telefono ? `<span><i class="fas fa-phone"></i> ${telSafe}</span>` : ''}

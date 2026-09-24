@@ -41,6 +41,22 @@ function prepararCodigoNuevoProducto() {
 // --- CÁLCULO INTELIGENTE Y BIDIRECCIONAL DE PRECIOS Y COSTOS ---
 let ultimoOrigenCalculo = 'costo'; // 'costo' | 'precio'
 
+function actualizarIndicadorGananciaUnitaria() {
+    const costoInput = document.getElementById('prod-costo');
+    const precioInput = document.getElementById('prod-precio');
+    const infoGU = document.getElementById('prod-ganancia-unitaria-info');
+    if (!infoGU) return;
+
+    const c = parseFloat(costoInput?.value) || 0;
+    const p = parseFloat(precioInput?.value) || 0;
+    if (p > 0 || c > 0) {
+        const gu = p - c;
+        infoGU.innerHTML = `<strong>GU</strong>: <span style="color:${gu >= 0 ? '#16a34a' : '#dc2626'}; font-weight:700;">${gu >= 0 ? '+' : ''}$${gu.toFixed(2)}</span> (PV - PU)`;
+    } else {
+        infoGU.textContent = 'GU: Ganancia Unitaria ($) = PV - PU';
+    }
+}
+
 function calcularPreciosDesdeCosto() {
     ultimoOrigenCalculo = 'costo';
     const costoInput = document.getElementById('prod-costo');
@@ -53,6 +69,7 @@ function calcularPreciosDesdeCosto() {
         if (ultimoOrigenCalculo === 'costo') {
             precioInput.value = '';
         }
+        actualizarIndicadorGananciaUnitaria();
         return;
     }
 
@@ -63,6 +80,7 @@ function calcularPreciosDesdeCosto() {
         const precioSugerido = costo * (1 + (ganancia / 100));
         precioInput.value = precioSugerido.toFixed(2);
     }
+    actualizarIndicadorGananciaUnitaria();
 }
 
 function calcularCostoDesdePrecio() {
@@ -75,6 +93,7 @@ function calcularCostoDesdePrecio() {
     const precioVal = precioInput.value.trim();
     if (precioVal === '') {
         costoInput.value = '';
+        actualizarIndicadorGananciaUnitaria();
         return;
     }
 
@@ -83,6 +102,7 @@ function calcularCostoDesdePrecio() {
 
     if (isNaN(precio) || precio < 0) {
         costoInput.value = '';
+        actualizarIndicadorGananciaUnitaria();
         return;
     }
 
@@ -93,6 +113,7 @@ function calcularCostoDesdePrecio() {
         const costoCalculado = precio / divisor;
         costoInput.value = costoCalculado.toFixed(2);
     }
+    actualizarIndicadorGananciaUnitaria();
 }
 
 function alCambiarGanancia() {
@@ -108,6 +129,7 @@ function alCambiarGanancia() {
     } else {
         calcularPreciosDesdeCosto();
     }
+    actualizarIndicadorGananciaUnitaria();
 }
 
 // Mantener compatibilidad total con llamadas anteriores
@@ -542,6 +564,7 @@ function editarProducto(id) {
 
     productoImagenTemporal = p.imagen || '';
     actualizarVistaImagenProducto();
+    actualizarIndicadorGananciaUnitaria();
 
     document.getElementById('btn-prod-save').innerHTML = '<i class="fas fa-save"></i> Actualizar Producto';
 }
@@ -557,11 +580,20 @@ function normalizarDatosProducto(p) {
     if (p.contenido === undefined) {
         p.contenido = p.medida ?? p.presentacion ?? '';
     }
+    const precio = Number(p.precio) || 0;
+    const costo = Number(p.costo) || 0;
+    if (p.gananciaUnitaria === undefined || isNaN(p.gananciaUnitaria)) {
+        p.gananciaUnitaria = Number((precio - costo).toFixed(2));
+    }
 
     return p;
 }
 
 function normalizarProductos() {
+    if ((!Array.isArray(productos) || productos.length === 0) && typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF)) {
+        productos = JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF));
+        AppState.productos = productos;
+    }
     productos = productos.map(normalizarDatosProducto);
 }
 
@@ -871,10 +903,10 @@ function renderizarInventario() {
                                     <span class="inv-price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                                 </div>
                                 <div class="inv-cost-margin">
-                                    <span>Costo: <strong>$${costoUSD.toFixed(2)}</strong></span>
+                                    <span>Costo (PU): <strong>$${costoUSD.toFixed(2)}</strong></span>
                                     ${costoUSD > 0 && precioUSD < costoUSD 
-                                        ? `<span class="inv-margin-tag" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${ganancia}%</span>`
-                                        : `<span class="inv-margin-tag">${ganancia >= 0 ? '+' : ''}${ganancia}%</span>`
+                                        ? `<span class="inv-margin-tag" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${ganancia}% (GU: -$${Math.abs(precioUSD - costoUSD).toFixed(2)})</span>`
+                                        : `<span class="inv-margin-tag" title="Ganancia Unitaria GU: $${(precioUSD - costoUSD).toFixed(2)}">${ganancia >= 0 ? '+' : ''}${ganancia}% <small style="font-weight:700; opacity:0.9;">(GU: +$${(precioUSD - costoUSD).toFixed(2)})</small></span>`
                                     }
                                 </div>
                             </div>
@@ -931,17 +963,17 @@ function renderizarInventario() {
                     </td>
                     <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>
                     <td class="inventory-content-cell">${p.contenido ? escaparHtmlInventario(p.contenido) : '<span class="inventory-empty">—</span>'}</td>
-                    <td class="num font-weight-bold">$${p.costo.toFixed(2)}</td>
+                    <td class="num font-weight-bold" title="PU: Precio Unitario">$${p.costo.toFixed(2)}</td>
                     <td class="num">
                         ${esPerdida 
-                            ? `<span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; border:1px solid #fca5a5; padding:3px 7px; border-radius:6px;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${p.ganancia}%</span>`
-                            : `<span style="color:${p.ganancia > 0 ? '#16a34a' : 'inherit'}; font-weight:600;">+${p.ganancia}%</span>`
+                            ? `<span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; border:1px solid #fca5a5; padding:3px 7px; border-radius:6px;" title="Venta a pérdida: El precio de venta es menor al costo"><i class="fas fa-triangle-exclamation"></i> ${p.ganancia}%</span><br><small style="color:#dc2626; font-size:0.72rem; font-weight:700;">GU: -$${Math.abs(p.precio - p.costo).toFixed(2)}</small>`
+                            : `<span style="color:${p.ganancia > 0 ? '#16a34a' : 'inherit'}; font-weight:600;">+${p.ganancia}%</span><br><small style="color:var(--text-muted, #64748b); font-size:0.75rem; font-weight:600;" title="GU: Ganancia Unitaria ($) = PV - PU">GU: +$${((p.precio || 0) - (p.costo || 0)).toFixed(2)}</small>`
                         }
                     </td>
                     <td class="num">
                         ${esPerdida 
-                            ? `<strong style="color:#dc2626;">$${p.precio.toFixed(2)}</strong><br><span style="color:#dc2626; font-size:0.72rem; font-weight:700;">⚠️ Menor al costo</span>`
-                            : `<strong>$${p.precio.toFixed(2)}</strong>`
+                            ? `<strong style="color:#dc2626;" title="PV: Precio Venta">$${p.precio.toFixed(2)}</strong><br><span style="color:#dc2626; font-size:0.72rem; font-weight:700;">⚠️ Menor al costo</span>`
+                            : `<strong title="PV: Precio Venta">$${p.precio.toFixed(2)}</strong>`
                         }
                     </td>
                     <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>

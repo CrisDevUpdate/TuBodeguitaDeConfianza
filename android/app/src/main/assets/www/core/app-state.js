@@ -10,9 +10,15 @@ const AppState = window.AppState = window.InventoryApp.state = {
     tasaEUR_BCV: 0,
     fechaTasaBCV: null,
     monedaSeleccionada: 'USD',
-    productos: [],
-    clientes: [],
-    ventas: [],
+    productos: (typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF)) 
+        ? JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF)) 
+        : [],
+    clientes: (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
+        ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
+        : [],
+    ventas: (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS))
+        ? JSON.parse(JSON.stringify(VENTAS_INICIALES_FIADOS))
+        : [],
     abonos: [],
     transacciones: [],
     carrito: [],
@@ -57,7 +63,7 @@ const AppState = window.AppState = window.InventoryApp.state = {
     },
     canjesPremios: [],
     notificaciones: [],
-    nextProductSequence: 1,
+    nextProductSequence: 27,
     ciclosRecuperacion: [],
     cicloRecuperacionActual: {
         id: 'ciclo_actual',

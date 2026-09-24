@@ -744,7 +744,20 @@ window.InventoryApp = window.InventoryApp || {};
             }
             if (snapCli) {
                 if (!snapCli.empty) {
-                    AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                        CLIENTES_OFICIALES.forEach(co => {
+                            const found = loadedClients.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                            if (!found) {
+                                loadedClients.push(JSON.parse(JSON.stringify(co)));
+                                guardarClienteCloud(co).catch(() => {});
+                            } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
+                                found.deudaUSD = co.deudaUSD;
+                                found.deudaInicialUSD = co.deudaInicialUSD;
+                            }
+                        });
+                    }
+                    AppState.clientes = loadedClients;
                 } else if (Array.isArray(AppState.clientes) && AppState.clientes.length > 0) {
                     AppState.clientes.forEach(c => guardarClienteCloud(c).catch(() => {}));
                 }
@@ -754,10 +767,21 @@ window.InventoryApp = window.InventoryApp || {};
                     AppState.ventas = snapVentas.docs
                         .map(doc => ({ id: doc.id, ...doc.data() }))
                         .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                    if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+                        VENTAS_INICIALES_FIADOS.forEach(vf => {
+                            const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                            if (!exists) {
+                                AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
+                                registrarVentaCloud(vf, vf.items || []).catch(() => {});
+                            }
+                        });
+                    }
                     // Limpieza reactiva de documento fantasma en ventas si existiera
                     try {
                         db.collection(COLLECTIONS.VENTAS).doc('PagosPorVerificar').delete().catch(() => {});
                     } catch (e) {}
+                } else if (Array.isArray(AppState.ventas) && AppState.ventas.length > 0) {
+                    AppState.ventas.forEach(v => registrarVentaCloud(v, v.items || []).catch(() => {}));
                 }
             }
             if (snapAbonos) {
@@ -965,8 +989,12 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.clientes.forEach(c => {
                 const ref = db.collection(COLLECTIONS.CLIENTES).doc(String(c.id));
                 batch.set(ref, {
+                    id: String(c.id),
                     nombre: c.nombre || '',
                     telefono: c.telefono || '',
+                    email: c.email || '',
+                    deudaUSD: Number(c.deudaUSD || 0),
+                    deudaInicialUSD: Number(c.deudaInicialUSD || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });
@@ -1143,7 +1171,19 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de clientes
             const unsubCli = db.collection(COLLECTIONS.CLIENTES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    const newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                        CLIENTES_OFICIALES.forEach(co => {
+                            const found = newClientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                            if (!found) {
+                                newClientes.push(JSON.parse(JSON.stringify(co)));
+                                guardarClienteCloud(co).catch(() => {});
+                            } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
+                                found.deudaUSD = co.deudaUSD;
+                                found.deudaInicialUSD = co.deudaInicialUSD;
+                            }
+                        });
+                    }
                     const hash = calcularHashColeccion(newClientes);
                     if (lastCollectionHashes[COLLECTIONS.CLIENTES] !== hash) {
                         lastCollectionHashes[COLLECTIONS.CLIENTES] = hash;
@@ -1267,9 +1307,18 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
-                const newVentas = snapshot.docs
+                let newVentas = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+                    VENTAS_INICIALES_FIADOS.forEach(vf => {
+                        const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                        if (!exists) {
+                            newVentas.push(JSON.parse(JSON.stringify(vf)));
+                            registrarVentaCloud(vf, vf.items || []).catch(() => {});
+                        }
+                    });
+                }
                 const hash = calcularHashColeccion(newVentas);
                 if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
                     lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
@@ -2106,6 +2155,8 @@ window.InventoryApp = window.InventoryApp || {};
                     nombre: cliente.nombre || '',
                     telefono: cliente.telefono || '',
                     email: cliente.email || '',
+                    deudaUSD: Number(cliente.deudaUSD || 0),
+                    deudaInicialUSD: Number(cliente.deudaInicialUSD || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             }

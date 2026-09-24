@@ -3378,16 +3378,19 @@
                             <small>Clasificación de bodega / chucherías.</small>
                         </div>
                         <div class="form-group">
-                            <label for="prod-costo">Costo Compra ($)</label>
+                            <label for="prod-costo">Costo Unitario PU ($)</label>
                             <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" placeholder="Auto desde precio" required>
+                            <small style="color:var(--text-muted); font-size:0.75rem;">PU: Precio de compra unitario.</small>
                         </div>
                         <div class="form-group">
                             <label for="prod-ganancia">% Ganancia</label>
                             <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="alCambiarGanancia()" required>
+                            <small id="prod-ganancia-unitaria-info" style="display:block; margin-top:3px; font-size:0.75rem; color:var(--text-muted);">GU: Ganancia Unitaria ($) = PV - PU</small>
                         </div>
                         <div class="form-group">
-                            <label for="prod-precio">Precio Venta ($)</label>
+                            <label for="prod-precio">Precio Venta PV ($)</label>
                             <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularCostoDesdePrecio()" placeholder="Ej. 10.00" required>
+                            <small style="color:var(--text-muted); font-size:0.75rem;">PV: PVP al cliente.</small>
                         </div>
                         <div class="form-group product-stock-group">
                             <label class="product-stock-label">
@@ -3495,9 +3498,9 @@
                             <th>Categoría</th>
                             <th>Descripción</th>
                             <th>Contenido / Medida</th>
-                            <th class="num">Costo ($)</th>
-                            <th class="num">% Margen</th>
-                            <th class="num">Precio ($)</th>
+                            <th class="num" title="PU: Precio Unitario de costo">Costo PU ($)</th>
+                            <th class="num" title="Ganancia porcentual y Ganancia Unitaria GU ($)">% Margen / GU</th>
+                            <th class="num" title="PV: Precio Venta al público">Precio Venta PV ($)</th>
                             <th class="num">Precio (Bs)</th>
                             <th class="num">Stock</th>
                             <th>Acciones</th>
@@ -6316,6 +6319,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
 <!-- Scripts de Arquitectura y Módulos -->
+<script src="data/inventario-oficial.js?v=20260923_v1"></script>
+<script src="data/clientes-oficiales.js?v=20260923_v1"></script>
 <script type="module" src="lib/comboFinancialMath.js?v=4.5.0_anti_dup"></script>
 <script src="core/app-state.js?v=4.5.0_anti_dup"></script>
 <script src="core/modal.js?v=4.5.0_anti_dup"></script>

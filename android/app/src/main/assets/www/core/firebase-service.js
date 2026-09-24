@@ -380,7 +380,10 @@ window.InventoryApp = window.InventoryApp || {};
         USUARIOS: 'usuarios',
         CANJES: 'canjesPremios',
         CONFIG: 'config',
-        PAGOS_POR_VERIFICAR: 'PagosPorVerificar'
+        PAGOS_POR_VERIFICAR: 'PagosPorVerificar',
+        FACTURAS: 'facturas_compras',
+        KARDEX: 'kardex_inventario',
+        PROVEEDORES: 'proveedores'
     };
 
     /**
@@ -701,7 +704,10 @@ window.InventoryApp = window.InventoryApp || {};
                 snapUsuarios,
                 snapCanjes,
                 snapConfig,
-                snapPagosPorVerificar
+                snapPagosPorVerificar,
+                snapFacturas,
+                snapKardex,
+                snapProveedores
             ] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
@@ -714,7 +720,10 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.USUARIOS),
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
+                obtenerColeccionSegura(COLLECTIONS.FACTURAS),
+                obtenerColeccionSegura(COLLECTIONS.KARDEX),
+                obtenerColeccionSegura(COLLECTIONS.PROVEEDORES)
             ]);
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
@@ -735,7 +744,20 @@ window.InventoryApp = window.InventoryApp || {};
             }
             if (snapCli) {
                 if (!snapCli.empty) {
-                    AppState.clientes = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                        CLIENTES_OFICIALES.forEach(co => {
+                            const found = loadedClients.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                            if (!found) {
+                                loadedClients.push(JSON.parse(JSON.stringify(co)));
+                                guardarClienteCloud(co).catch(() => {});
+                            } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
+                                found.deudaUSD = co.deudaUSD;
+                                found.deudaInicialUSD = co.deudaInicialUSD;
+                            }
+                        });
+                    }
+                    AppState.clientes = loadedClients;
                 } else if (Array.isArray(AppState.clientes) && AppState.clientes.length > 0) {
                     AppState.clientes.forEach(c => guardarClienteCloud(c).catch(() => {}));
                 }
@@ -745,10 +767,21 @@ window.InventoryApp = window.InventoryApp || {};
                     AppState.ventas = snapVentas.docs
                         .map(doc => ({ id: doc.id, ...doc.data() }))
                         .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                    if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+                        VENTAS_INICIALES_FIADOS.forEach(vf => {
+                            const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                            if (!exists) {
+                                AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
+                                registrarVentaCloud(vf, vf.items || []).catch(() => {});
+                            }
+                        });
+                    }
                     // Limpieza reactiva de documento fantasma en ventas si existiera
                     try {
                         db.collection(COLLECTIONS.VENTAS).doc('PagosPorVerificar').delete().catch(() => {});
                     } catch (e) {}
+                } else if (Array.isArray(AppState.ventas) && AppState.ventas.length > 0) {
+                    AppState.ventas.forEach(v => registrarVentaCloud(v, v.items || []).catch(() => {}));
                 }
             }
             if (snapAbonos) {
@@ -774,6 +807,31 @@ window.InventoryApp = window.InventoryApp || {};
             if (snapCliElim) {
                 if (!snapCliElim.empty) {
                     AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapFacturas) {
+                if (!snapFacturas.empty) {
+                    AppState.facturasCompras = snapFacturas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapKardex) {
+                if (!snapKardex.empty) {
+                    AppState.kardex = snapKardex.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
+            }
+            if (snapProveedores) {
+                if (!snapProveedores.empty) {
+                    AppState.proveedores = snapProveedores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Sincronizar nombres a proveedoresFrecuentes para compatibilidad
+                    if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                    AppState.proveedores.forEach(p => {
+                        if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                            AppState.proveedoresFrecuentes.push(p.nombre);
+                        }
+                    });
+                } else {
+                    AppState.proveedores = [];
+                    AppState.proveedoresFrecuentes = [];
                 }
             }
             if (snapUsuarios) {
@@ -931,8 +989,12 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.clientes.forEach(c => {
                 const ref = db.collection(COLLECTIONS.CLIENTES).doc(String(c.id));
                 batch.set(ref, {
+                    id: String(c.id),
                     nombre: c.nombre || '',
                     telefono: c.telefono || '',
+                    email: c.email || '',
+                    deudaUSD: Number(c.deudaUSD || 0),
+                    deudaInicialUSD: Number(c.deudaInicialUSD || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });
@@ -1109,7 +1171,19 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de clientes
             const unsubCli = db.collection(COLLECTIONS.CLIENTES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
-                    const newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                        CLIENTES_OFICIALES.forEach(co => {
+                            const found = newClientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                            if (!found) {
+                                newClientes.push(JSON.parse(JSON.stringify(co)));
+                                guardarClienteCloud(co).catch(() => {});
+                            } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
+                                found.deudaUSD = co.deudaUSD;
+                                found.deudaInicialUSD = co.deudaInicialUSD;
+                            }
+                        });
+                    }
                     const hash = calcularHashColeccion(newClientes);
                     if (lastCollectionHashes[COLLECTIONS.CLIENTES] !== hash) {
                         lastCollectionHashes[COLLECTIONS.CLIENTES] = hash;
@@ -1233,9 +1307,18 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
-                const newVentas = snapshot.docs
+                let newVentas = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+                    VENTAS_INICIALES_FIADOS.forEach(vf => {
+                        const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                        if (!exists) {
+                            newVentas.push(JSON.parse(JSON.stringify(vf)));
+                            registrarVentaCloud(vf, vf.items || []).catch(() => {});
+                        }
+                    });
+                }
                 const hash = calcularHashColeccion(newVentas);
                 if (lastCollectionHashes[COLLECTIONS.VENTAS] !== hash) {
                     lastCollectionHashes[COLLECTIONS.VENTAS] = hash;
@@ -1650,6 +1733,60 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('config', err));
             syncListeners.push(unsubConfig);
 
+            // Listener de proveedores en tiempo real
+            const unsubProv = db.collection(COLLECTIONS.PROVEEDORES).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newProv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newProv);
+                    if (lastCollectionHashes[COLLECTIONS.PROVEEDORES] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.PROVEEDORES] = hash;
+                        AppState.proveedores = newProv;
+                        if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                        newProv.forEach(p => {
+                            if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                                AppState.proveedoresFrecuentes.push(p.nombre);
+                            }
+                        });
+                        guardarCacheLocal();
+                        if (typeof actualizarDatalistProveedores === 'function') {
+                            actualizarDatalistProveedores();
+                        }
+                    }
+                }
+            }, err => manejarErrorListener('proveedores', err));
+            syncListeners.push(unsubProv);
+
+            // Listener de facturas de compras
+            const unsubFacturas = db.collection(COLLECTIONS.FACTURAS).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newFac = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newFac);
+                    if (lastCollectionHashes[COLLECTIONS.FACTURAS] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.FACTURAS] = hash;
+                        AppState.facturasCompras = newFac;
+                        guardarCacheLocal();
+                        if (typeof renderizarHistorialFacturas === 'function') {
+                            renderizarHistorialFacturas();
+                        }
+                    }
+                }
+            }, err => manejarErrorListener('facturas', err));
+            syncListeners.push(unsubFacturas);
+
+            // Listener de kardex
+            const unsubKardex = db.collection(COLLECTIONS.KARDEX).onSnapshot(snapshot => {
+                if (!snapshot.metadata.hasPendingWrites) {
+                    const newKdx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const hash = calcularHashColeccion(newKdx);
+                    if (lastCollectionHashes[COLLECTIONS.KARDEX] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.KARDEX] = hash;
+                        AppState.kardex = newKdx;
+                        guardarCacheLocal();
+                    }
+                }
+            }, err => manejarErrorListener('kardex', err));
+            syncListeners.push(unsubKardex);
+
             // Listener en tiempo real de /config/gamification para Modo Invierno
             try {
                 const unsubGamification = db.collection('config').doc('gamification').onSnapshot(doc => {
@@ -2018,6 +2155,8 @@ window.InventoryApp = window.InventoryApp || {};
                     nombre: cliente.nombre || '',
                     telefono: cliente.telefono || '',
                     email: cliente.email || '',
+                    deudaUSD: Number(cliente.deudaUSD || 0),
+                    deudaInicialUSD: Number(cliente.deudaInicialUSD || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             }
@@ -2426,6 +2565,179 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Registrar Factura de Compra y Actualización de Costos en Firestore
+     */
+    async function guardarFacturaCompraCloud(registroFactura, itemsKardex = []) {
+        if (!registroFactura) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Factura guardada localmente');
+            return true;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Guardando factura de compra...');
+
+        try {
+            if (db) {
+                const batch = db.batch();
+                const facId = registroFactura.id || `FAC-${Date.now()}`;
+                const facRef = db.collection(COLLECTIONS.FACTURAS).doc(String(facId));
+                batch.set(facRef, {
+                    ...registroFactura,
+                    id: facId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                if (Array.isArray(itemsKardex)) {
+                    itemsKardex.forEach(k => {
+                        const kdxId = k.id || `KDX-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                        const kdxRef = db.collection(COLLECTIONS.KARDEX).doc(String(kdxId));
+                        batch.set(kdxRef, {
+                            ...k,
+                            id: kdxId,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                }
+
+                await batch.commit();
+
+                // Asegurar que el proveedor quede registrado en la colección de proveedores de Firebase (si no es N/A)
+                if (registroFactura && registroFactura.proveedor) {
+                    const pNom = String(registroFactura.proveedor).trim().toUpperCase();
+                    if (pNom && pNom !== 'N/A' && pNom !== 'NA' && pNom !== 'NO APLICA' && pNom !== 'N / A' && pNom !== 'NINGUNO') {
+                        guardarProveedorCloud({ nombre: registroFactura.proveedor }).catch(() => {});
+                    }
+                }
+            }
+
+            actualizarUIEstadoNube('conectado', 'Factura de compra registrada');
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar factura de compra:', error);
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Inicializa los proveedores predeterminados en Firestore si la colección está vacía
+     */
+    async function inicializarProveedoresBaseCloud() {
+        if (!db || isQuotaExhausted) return;
+        return;
+    }
+
+    /**
+     * CRUD: Guardar o Actualizar Proveedor en Firestore
+     */
+    async function guardarProveedorCloud(proveedor) {
+        if (!proveedor) return false;
+        const nombre = String(proveedor.nombre || '').trim();
+        if (!nombre) return false;
+        const nUpper = nombre.toUpperCase();
+        if (nUpper === 'N/A' || nUpper === 'NA' || nUpper === 'NO APLICA' || nUpper === 'N / A' || nUpper === 'NINGUNO') {
+            return false;
+        }
+
+        const id = proveedor.id || ('PROV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4));
+        const timestamp = new Date().toISOString();
+
+        const provData = {
+            id: String(id),
+            nombre: nombre,
+            rif: String(proveedor.rif || '').trim().toUpperCase(),
+            telefono: String(proveedor.telefono || '').trim(),
+            contacto: String(proveedor.contacto || '').trim(),
+            direccion: String(proveedor.direccion || '').trim(),
+            notas: String(proveedor.notas || '').trim(),
+            estado: proveedor.estado || 'ACTIVO',
+            fechaRegistro: proveedor.fechaRegistro || timestamp.substring(0, 10)
+        };
+
+        // Actualización optimista local inmediata
+        if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
+        const idx = AppState.proveedores.findIndex(p => p.id === provData.id || (p.nombre && p.nombre.toLowerCase() === provData.nombre.toLowerCase()));
+        if (idx >= 0) {
+            AppState.proveedores[idx] = { ...AppState.proveedores[idx], ...provData };
+        } else {
+            AppState.proveedores.push(provData);
+        }
+
+        if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+        if (!AppState.proveedoresFrecuentes.includes(provData.nombre)) {
+            AppState.proveedoresFrecuentes.push(provData.nombre);
+        }
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (typeof actualizarDatalistProveedores === 'function') {
+            actualizarDatalistProveedores();
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Proveedor guardado localmente (Cuota)');
+            return provData;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Guardando proveedor en Firebase...');
+
+        try {
+            if (db) {
+                const docRef = db.collection(COLLECTIONS.PROVEEDORES).doc(String(provData.id));
+                await docRef.set({
+                    ...provData,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            actualizarUIEstadoNube('conectado', 'Proveedor registrado en Firebase');
+            return provData;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar proveedor en Firestore:', error);
+                actualizarUIEstadoNube('offline', 'Proveedor guardado localmente (Offline)');
+            }
+            return provData;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Proveedor de Firestore
+     */
+    async function eliminarProveedorCloud(proveedorId) {
+        if (!proveedorId) return false;
+        if (!Array.isArray(AppState.proveedores)) AppState.proveedores = [];
+        AppState.proveedores = AppState.proveedores.filter(p => p.id !== proveedorId);
+        if (typeof actualizarDatalistProveedores === 'function') {
+            actualizarDatalistProveedores();
+        }
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+        try {
+            if (db && !isQuotaExhausted) {
+                await db.collection(COLLECTIONS.PROVEEDORES).doc(String(proveedorId)).delete();
+            }
+            return true;
+        } catch (e) {
+            console.error('[Firebase] Error eliminando proveedor:', e);
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Registrar Retiro / Pérdida de Producto en Firestore
      */
     async function registrarEliminacionCloud(registroEliminacion, productoId, nuevoStock) {
@@ -2783,7 +3095,10 @@ window.InventoryApp = window.InventoryApp || {};
                     COLLECTIONS.CLIENTES_ELIMINADOS,
                     COLLECTIONS.USUARIOS,
                     COLLECTIONS.CANJES,
-                    COLLECTIONS.PAGOS_POR_VERIFICAR
+                    COLLECTIONS.PAGOS_POR_VERIFICAR,
+                    COLLECTIONS.FACTURAS,
+                    COLLECTIONS.KARDEX,
+                    COLLECTIONS.PROVEEDORES
                 ];
 
                 for (const colName of coleccionesAPurgar) {
@@ -2801,25 +3116,47 @@ window.InventoryApp = window.InventoryApp || {};
                     }
                 }
 
-                // Restablecer config y SuperAdmin en la nube
+                // Restablecer config y usuarios SuperAdmin y Autoservicio en la nube
                 const HASH_SUPERADMIN = '1a09807a0e6928a66d91025ed5fccd713c9edb101e72a1bbcb8a01cd9a53cb51';
+                const HASH_AUTOSERVICIO_1409 = 'efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350';
+                const fechaHoy = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
                 const superAdminDoc = {
                     id: 'SuperAdmin',
                     cedula: 'SuperAdmin',
                     nombre: 'SuperAdmin',
-                    telefono: '0412-0000000',
+                    telefono: '',
                     email: 'superadmin@tubodeguita.com',
                     password: HASH_SUPERADMIN,
                     rol: 'admin',
                     estado: 'ACTIVO',
                     puntosAcumulados: 0,
                     puntosCanjeados: 0,
-                    fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                    fechaRegistro: fechaHoy
                 };
+                const autoServicioDoc = {
+                    id: 'Autoservicio',
+                    cedula: 'Autoservicio',
+                    nombre: 'Auto-servicio de Confianza',
+                    telefono: '',
+                    email: 'autoservicio@tubodeguita.com',
+                    password: HASH_AUTOSERVICIO_1409,
+                    rol: 'autoservicio',
+                    estado: 'ACTIVO',
+                    puntosAcumulados: 0,
+                    puntosCanjeados: 0,
+                    fechaRegistro: fechaHoy
+                };
+
                 await db.collection(COLLECTIONS.USUARIOS).doc('SuperAdmin').set(superAdminDoc);
+                await db.collection(COLLECTIONS.USUARIOS).doc('Autoservicio').set(autoServicioDoc);
 
                 await db.collection(COLLECTIONS.CONFIG).doc('global').set({
                     nextProductSequence: 1,
+                    cuentasBancarias: [],
+                    telefonoWhatsApp: '',
+                    ciclosRecuperacion: [],
+                    categoriasPersonalizadas: [],
                     lastPurge: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
@@ -3005,6 +3342,9 @@ window.InventoryApp = window.InventoryApp || {};
         guardarPagoPorVerificar: guardarPagoPorVerificarCloud,
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,
+        guardarFacturaCompra: guardarFacturaCompraCloud,
+        guardarProveedor: guardarProveedorCloud,
+        eliminarProveedor: eliminarProveedorCloud,
         registrarEliminacion: registrarEliminacionCloud,
         guardarUsuario: guardarUsuarioCloud,
         eliminarUsuario: eliminarUsuarioCloud,

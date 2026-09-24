@@ -24,7 +24,12 @@ window.InventoryApp = window.InventoryApp || {};
         'bodeguita_cache_cuentas_bancarias',
         'bodeguita_conteos_respaldo_v1',
         'bodeguita_ciclos_recuperacion',
-        'bodeguita_tasas_bcv'
+        'bodeguita_tasas_bcv',
+        'bodeguita_proveedores',
+        'bodeguita_facturas_compras',
+        'bodeguita_kardex',
+        'bodeguita_inventario_v4_state',
+        'bodeguita_app_state'
     ];
 
     const CLAVES_BASE_DATOS = [
@@ -115,7 +120,7 @@ window.InventoryApp = window.InventoryApp || {};
                 id: 'SuperAdmin',
                 cedula: 'SuperAdmin',
                 nombre: 'SuperAdmin',
-                telefono: '0412-0000000',
+                telefono: '',
                 email: 'superadmin@tubodeguita.com',
                 password: HASH_SUPERADMIN,
                 rol: 'admin',
@@ -145,7 +150,7 @@ window.InventoryApp = window.InventoryApp || {};
                 id: 'Autoservicio',
                 cedula: 'Autoservicio',
                 nombre: 'Auto-servicio de Confianza',
-                telefono: '0412-0000000',
+                telefono: '',
                 email: 'autoservicio@tubodeguita.com',
                 password: HASH_AUTOSERVICIO_1409,
                 rol: 'autoservicio',
@@ -256,10 +261,22 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // 4. El 100% de las entidades de negocio se inicializan en memoria vacías para ser alimentadas exclusivamente por Firestore
-        AppState.productos = AppState.productos || [];
-        AppState.clientes = AppState.clientes || [];
-        AppState.ventas = AppState.ventas || [];
+        // 4. El 100% de las entidades de negocio se inicializan en memoria con el catálogo oficial o sincronización Firestore
+        if (!Array.isArray(AppState.productos) || AppState.productos.length === 0) {
+            AppState.productos = (typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF))
+                ? JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF))
+                : [];
+        }
+        if (!Array.isArray(AppState.clientes) || AppState.clientes.length === 0) {
+            AppState.clientes = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
+                ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
+                : [];
+        }
+        if (!Array.isArray(AppState.ventas) || AppState.ventas.length === 0) {
+            AppState.ventas = (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS))
+                ? JSON.parse(JSON.stringify(VENTAS_INICIALES_FIADOS))
+                : [];
+        }
         AppState.abonos = AppState.abonos || [];
         AppState.pagosPorVerificar = AppState.pagosPorVerificar || [];
         AppState.transacciones = AppState.transacciones || [];
@@ -291,7 +308,7 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     async function limpiarBaseDeDatosVirgen() {
-        // 1. Limpiar estado en memoria
+        // 1. Limpiar estado en memoria totalmente
         AppState.productos = [];
         AppState.clientes = [];
         AppState.ventas = [];
@@ -305,10 +322,21 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.auditorias = [];
         AppState.eliminaciones = [];
         AppState.clientesEliminados = [];
+        AppState.cuentasBancarias = [];
+        AppState.telefonoWhatsApp = '';
+        AppState.proveedores = [];
+        AppState.proveedoresFrecuentes = [];
+        AppState.facturasCompras = [];
+        AppState.kardex = [];
+        AppState.ciclosRecuperacion = [];
+        AppState.categoriasPersonalizadas = [];
         AppState.nextProductSequence = 1;
         AppState.canjesPremios = [];
+        AppState.treeProgress = { porcentaje: 0, puntosActuales: 0, puntosMeta: 200, ciclo: 1 };
+        AppState.temporadaInviernoActiva = false;
         
-        // 2. SuperAdmin intacto con credenciales maestras
+        // 2. Preservar ÚNICAMENTE los usuarios SuperAdmin y Autoservicio
+        AppState.usuarios = [];
         asegurarUsuarioAdminInicial();
         AppState.usuarioActual = null;
 

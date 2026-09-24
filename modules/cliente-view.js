@@ -1540,9 +1540,36 @@ async function renderizarEstadoCuentaCliente() {
         // Modo local fallback
     }
 
-    const ventasCliente = (AppState.ventas || []).filter(v => (v.clienteId === cedula || v.clienteId === usuario.id));
-    const abonosAprobados = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
-    const todosAbonosCliente = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id));
+    const clienteIdVinculado = usuario.clienteId || null;
+    const idsCoincidentes = new Set([
+        String(cedula || '').toUpperCase(),
+        String(usuario.id || '').toUpperCase()
+    ]);
+    if (clienteIdVinculado) idsCoincidentes.add(String(clienteIdVinculado).toUpperCase());
+    if (usuario.clienteVinculado) idsCoincidentes.add(String(usuario.clienteVinculado).trim().toUpperCase());
+
+    const clienteEncontrado = (AppState.clientes || []).find(c => 
+        (c.cedula && String(c.cedula).toUpperCase() === String(cedula).toUpperCase()) ||
+        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (clienteIdVinculado && String(c.id).toUpperCase() === String(clienteIdVinculado).toUpperCase())
+    );
+    if (clienteEncontrado) {
+        if (clienteEncontrado.id) idsCoincidentes.add(String(clienteEncontrado.id).toUpperCase());
+        if (clienteEncontrado.cedula) idsCoincidentes.add(String(clienteEncontrado.cedula).toUpperCase());
+        if (clienteEncontrado.nombre) idsCoincidentes.add(String(clienteEncontrado.nombre).trim().toUpperCase());
+    }
+
+    const esDelCliente = (obj) => {
+        if (!obj) return false;
+        const cId = String(obj.clienteId || '').toUpperCase();
+        const cCed = String(obj.clienteCedula || '').toUpperCase();
+        const uId = String(obj.usuarioId || '').toUpperCase();
+        return idsCoincidentes.has(cId) || idsCoincidentes.has(cCed) || idsCoincidentes.has(uId);
+    };
+
+    const ventasCliente = (AppState.ventas || []).filter(esDelCliente);
+    const abonosAprobados = (AppState.abonos || []).filter(a => esDelCliente(a) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
+    const todosAbonosCliente = (AppState.abonos || []).filter(esDelCliente);
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
@@ -1560,7 +1587,9 @@ async function renderizarEstadoCuentaCliente() {
     totalAbonadoVES = Number(totalAbonadoVES.toFixed(2));
 
     const totalCompradoUSD = ventasCliente.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoUSD = ventasCliente.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const totalCreditoVentas = ventasCliente.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const deudaDirecta = Number(clienteEncontrado?.deudaInicialUSD ?? clienteEncontrado?.deudaUSD ?? 0);
+    const totalCreditoUSD = totalCreditoVentas > 0 ? totalCreditoVentas : deudaDirecta;
     const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
     const saldoDeudaVES = tasa > 0 ? (saldoDeudaUSD * tasa) : 0;
     const totalCompradoVES = tasa > 0 ? (totalCompradoUSD * tasa) : 0;
