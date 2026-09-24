@@ -3378,16 +3378,16 @@
                             <small>Clasificación de bodega / chucherías.</small>
                         </div>
                         <div class="form-group">
-                            <label>Costo Compra ($)</label>
-                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" required>
+                            <label for="prod-costo">Costo Compra ($)</label>
+                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" placeholder="Auto desde precio" required>
                         </div>
                         <div class="form-group">
-                            <label>% Ganancia</label>
-                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="calcularPreciosDesdeCosto()" required>
+                            <label for="prod-ganancia">% Ganancia</label>
+                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="alCambiarGanancia()" required>
                         </div>
                         <div class="form-group">
-                            <label>Precio Venta ($)</label>
-                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularGananciaDesdePrecio()" required>
+                            <label for="prod-precio">Precio Venta ($)</label>
+                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularCostoDesdePrecio()" placeholder="Ej. 10.00" required>
                         </div>
                         <div class="form-group product-stock-group">
                             <label class="product-stock-label">

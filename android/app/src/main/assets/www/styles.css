@@ -3933,6 +3933,7 @@ body.dark-mode .cliente-combos-carousel-wrapper {
 /* ==========================================================================
    SISTEMA DE CONTRASTE OPTIMIZADO - MODO OSCURO (DARK MODE ENGINE)
    ========================================================================== */
+html.dark-theme,
 body.dark-theme,
 .dark-theme {
     --bg-color: #0b0f19;
@@ -3944,12 +3945,18 @@ body.dark-theme,
     --text-muted: #94a3b8;
     --border: #1e293b;
     --border-light: #334155;
+    --success-bg: rgba(22, 163, 74, 0.2);
+    --warning-bg: rgba(217, 119, 6, 0.2);
+    --danger-bg: rgba(220, 38, 38, 0.2);
+    --info-bg: rgba(2, 132, 199, 0.2);
     background-color: #0b0f19 !important;
     color: #f8fafc !important;
 }
 
+/* 1. Tarjetas Principales y Contenedores */
 body.dark-theme .card,
 body.dark-theme .modal-content,
+body.dark-theme .modal-card,
 body.dark-theme .pos-container,
 body.dark-theme .pos-cart-panel,
 body.dark-theme .pos-products-panel,
@@ -3967,11 +3974,14 @@ body.dark-theme .batch-drop-zone,
 body.dark-theme .catalog-product-card,
 body.dark-theme .tree-container,
 body.dark-theme .fidelizacion-card,
-body.dark-theme .auth-card {
+body.dark-theme .auth-card,
+body.dark-theme .cart-modal,
+body.dark-theme .audit-modal-content,
+body.dark-theme .config-marketing-card {
     background-color: #131b2e !important;
-    border-color: #1e293b !important;
+    border-color: #334155 !important;
     color: #f8fafc !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
 }
 
 body.dark-theme header {
@@ -3979,20 +3989,39 @@ body.dark-theme header {
     border-bottom: 1px solid #1e293b;
 }
 
+/* 2. Sub-paneles y cajas anidadas con fondos claros forzados inline */
+body.dark-theme [style*="background:#ffffff"],
+body.dark-theme [style*="background: #ffffff"],
+body.dark-theme [style*="background:#fff"],
+body.dark-theme [style*="background: #fff"],
+body.dark-theme [style*="background:#f8fafc"],
+body.dark-theme [style*="background: #f8fafc"],
+body.dark-theme [style*="background:#f1f5f9"],
+body.dark-theme [style*="background: #f1f5f9"],
+body.dark-theme [style*="background: white"],
+body.dark-theme [style*="background:white"] {
+    background-color: #1a2234 !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* 3. Tipografía de Alto Contraste en Modo Oscuro */
 body.dark-theme h1,
 body.dark-theme h2,
 body.dark-theme h3,
 body.dark-theme h4,
 body.dark-theme h5,
-body.dark-theme h6,
-body.dark-theme strong,
-body.dark-theme b,
-body.dark-theme label {
+body.dark-theme h6 {
     color: #f8fafc !important;
 }
 
+body.dark-theme strong:not([style*="color"]):not([class*="text-"]),
+body.dark-theme b:not([style*="color"]):not([class*="text-"]),
+body.dark-theme label:not([style*="color"]) {
+    color: #f8fafc;
+}
+
 body.dark-theme p,
-body.dark-theme span:not(.badge),
 body.dark-theme li {
     color: #cbd5e1;
 }
@@ -4003,12 +4032,185 @@ body.dark-theme .help-text {
     color: #94a3b8 !important;
 }
 
-body.dark-theme input,
+/* 4. Resguardo de Colores Financieros y Semánticos */
+body.dark-theme .text-success,
+body.dark-theme strong.text-success,
+body.dark-theme [style*="color:#16a34a"],
+body.dark-theme [style*="color: #16a34a"],
+body.dark-theme [style*="color:#15803d"],
+body.dark-theme [style*="color: #15803d"],
+body.dark-theme [style*="color:#059669"],
+body.dark-theme [style*="color: #059669"],
+body.dark-theme [style*="color:var(--success)"] {
+    color: #4ade80 !important;
+}
+
+body.dark-theme .text-danger,
+body.dark-theme strong.text-danger,
+body.dark-theme [style*="color:#dc2626"],
+body.dark-theme [style*="color: #dc2626"],
+body.dark-theme [style*="color:#ef4444"],
+body.dark-theme [style*="color: #ef4444"],
+body.dark-theme [style*="color:#b91c1c"],
+body.dark-theme [style*="color:#991b1b"],
+body.dark-theme [style*="color:#7f1d1d"],
+body.dark-theme [style*="color:var(--danger)"] {
+    color: #f87171 !important;
+}
+
+body.dark-theme .text-warning,
+body.dark-theme strong.text-warning,
+body.dark-theme [style*="color:#d97706"],
+body.dark-theme [style*="color: #d97706"],
+body.dark-theme [style*="color:#b45309"],
+body.dark-theme [style*="color:#78350f"],
+body.dark-theme [style*="color:var(--warning)"] {
+    color: #fbbf24 !important;
+}
+
+body.dark-theme .text-info,
+body.dark-theme strong.text-info,
+body.dark-theme [style*="color:#0284c7"],
+body.dark-theme [style*="color:#0369a1"],
+body.dark-theme [style*="color:#2563eb"],
+body.dark-theme [style*="color:#1d4ed8"],
+body.dark-theme [style*="color:var(--info)"] {
+    color: #38bdf8 !important;
+}
+
+/* 5. Cajas de Alerta, Avisos y Notificaciones */
+body.dark-theme [style*="background:#fffbeb"],
+body.dark-theme [style*="background: #fffbeb"],
+body.dark-theme [style*="background:#fef3c7"],
+body.dark-theme [style*="background: #fef3c7"] {
+    background-color: rgba(217, 119, 6, 0.16) !important;
+    border-color: rgba(245, 158, 11, 0.45) !important;
+    color: #fef08a !important;
+}
+body.dark-theme [style*="background:#fffbeb"] *,
+body.dark-theme [style*="background: #fffbeb"] *,
+body.dark-theme [style*="background:#fef3c7"] *,
+body.dark-theme [style*="background: #fef3c7"] * {
+    color: #fef08a;
+}
+body.dark-theme [style*="background:#fffbeb"] strong,
+body.dark-theme [style*="background: #fffbeb"] strong,
+body.dark-theme [style*="background:#fef3c7"] strong,
+body.dark-theme [style*="background: #fef3c7"] strong {
+    color: #fbbf24 !important;
+}
+
+body.dark-theme [style*="background:#f0fdf4"],
+body.dark-theme [style*="background: #f0fdf4"],
+body.dark-theme [style*="background:#dcfce7"],
+body.dark-theme [style*="background: #dcfce7"] {
+    background-color: rgba(22, 163, 74, 0.16) !important;
+    border-color: rgba(34, 197, 94, 0.45) !important;
+    color: #bbf7d0 !important;
+}
+body.dark-theme [style*="background:#f0fdf4"] *,
+body.dark-theme [style*="background: #f0fdf4"] *,
+body.dark-theme [style*="background:#dcfce7"] *,
+body.dark-theme [style*="background: #dcfce7"] * {
+    color: #bbf7d0;
+}
+body.dark-theme [style*="background:#f0fdf4"] strong,
+body.dark-theme [style*="background: #f0fdf4"] strong,
+body.dark-theme [style*="background:#dcfce7"] strong,
+body.dark-theme [style*="background: #dcfce7"] strong {
+    color: #4ade80 !important;
+}
+
+body.dark-theme [style*="background:#fef2f2"],
+body.dark-theme [style*="background: #fef2f2"],
+body.dark-theme [style*="background:#fee2e2"],
+body.dark-theme [style*="background: #fee2e2"],
+body.dark-theme .config-critical-zone {
+    background-color: rgba(220, 38, 38, 0.16) !important;
+    border-color: rgba(239, 68, 68, 0.45) !important;
+    color: #fca5a5 !important;
+}
+body.dark-theme [style*="background:#fef2f2"] *,
+body.dark-theme [style*="background: #fef2f2"] *,
+body.dark-theme [style*="background:#fee2e2"] *,
+body.dark-theme [style*="background: #fee2e2"] *,
+body.dark-theme .config-critical-zone * {
+    color: #fca5a5;
+}
+body.dark-theme [style*="background:#fef2f2"] strong,
+body.dark-theme [style*="background: #fef2f2"] strong,
+body.dark-theme [style*="background:#fee2e2"] strong,
+body.dark-theme [style*="background: #fee2e2"] strong,
+body.dark-theme .config-critical-zone strong,
+body.dark-theme .config-critical-title {
+    color: #f87171 !important;
+}
+
+body.dark-theme [style*="background:#f0f9ff"],
+body.dark-theme [style*="background: #f0f9ff"],
+body.dark-theme [style*="background:#e0f2fe"],
+body.dark-theme [style*="background: #e0f2fe"],
+body.dark-theme .config-winter-box {
+    background-color: rgba(2, 132, 199, 0.16) !important;
+    border-color: rgba(56, 189, 248, 0.45) !important;
+    color: #bae6fd !important;
+}
+body.dark-theme [style*="background:#f0f9ff"] *,
+body.dark-theme [style*="background: #f0f9ff"] *,
+body.dark-theme [style*="background:#e0f2fe"] *,
+body.dark-theme [style*="background: #e0f2fe"] *,
+body.dark-theme .config-winter-box * {
+    color: #bae6fd;
+}
+body.dark-theme [style*="background:#f0f9ff"] strong,
+body.dark-theme [style*="background: #f0f9ff"] strong,
+body.dark-theme [style*="background:#e0f2fe"] strong,
+body.dark-theme [style*="background: #e0f2fe"] strong,
+body.dark-theme .config-winter-box strong {
+    color: #38bdf8 !important;
+}
+
+/* 6. Badges y Etiquetas en Modo Oscuro */
+body.dark-theme .config-badge-anuncio {
+    background: rgba(34, 197, 94, 0.25) !important;
+    color: #4ade80 !important;
+    border: 1px solid rgba(34, 197, 94, 0.4) !important;
+}
+body.dark-theme .config-badge-ganador {
+    background: rgba(245, 158, 11, 0.25) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+body.dark-theme .badge-active,
+body.dark-theme .badge-success {
+    background: rgba(22, 163, 74, 0.25) !important;
+    color: #4ade80 !important;
+}
+body.dark-theme .badge-warning {
+    background: rgba(217, 119, 6, 0.25) !important;
+    color: #fbbf24 !important;
+}
+body.dark-theme .badge-danger {
+    background: rgba(220, 38, 38, 0.25) !important;
+    color: #f87171 !important;
+}
+body.dark-theme .badge-info {
+    background: rgba(2, 132, 199, 0.25) !important;
+    color: #38bdf8 !important;
+}
+
+/* 7. Formularios, Entradas y Selectores */
+body.dark-theme input:not([type="radio"]):not([type="checkbox"]):not([type="color"]),
 body.dark-theme select,
 body.dark-theme textarea,
 body.dark-theme .form-control {
     background-color: #0f172a !important;
     border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+body.dark-theme select option {
+    background-color: #0f172a !important;
     color: #f8fafc !important;
 }
 
@@ -4025,6 +4227,27 @@ body.dark-theme .form-control:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
 }
 
+/* Selector de color visual personalizado */
+body.dark-theme input[type="color"],
+input[type="color"].theme-color-input {
+    background: #0f172a !important;
+    padding: 3px !important;
+    border: 2px solid #475569 !important;
+    border-radius: 8px !important;
+    width: 44px !important;
+    height: 38px !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0 !important;
+}
+input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    border-radius: 5px !important;
+}
+
+/* 8. Tablas */
 body.dark-theme table,
 body.dark-theme .table {
     color: #f8fafc !important;
@@ -4033,7 +4256,7 @@ body.dark-theme .table {
 
 body.dark-theme table thead th,
 body.dark-theme .table thead th {
-    background-color: #1e293b !important;
+    background-color: #162032 !important;
     color: #f8fafc !important;
     border-bottom: 2px solid #334155 !important;
 }
@@ -4046,14 +4269,15 @@ body.dark-theme .table tbody td {
 
 body.dark-theme table tbody tr:nth-child(even),
 body.dark-theme .table tbody tr:nth-child(even) {
-    background-color: #0f172a !important;
+    background-color: rgba(255, 255, 255, 0.02) !important;
 }
 
 body.dark-theme table tbody tr:hover,
 body.dark-theme .table tbody tr:hover {
-    background-color: #1e293b !important;
+    background-color: rgba(59, 130, 246, 0.08) !important;
 }
 
+/* 9. Botones y Navegación */
 body.dark-theme .btn-outline,
 body.dark-theme .btn-secondary {
     background-color: #1e293b !important;
@@ -4092,6 +4316,12 @@ body.dark-theme .winter-joke-box {
     background: rgba(15, 23, 42, 0.85) !important;
     border-color: #0284c7 !important;
     color: #7dd3fc !important;
+}
+
+body.dark-theme .cart-modal-header,
+body.dark-theme .cart-modal-footer {
+    background: #131b2e !important;
+    border-color: #334155 !important;
 }
 
 .btn-modal-close {

@@ -8,6 +8,35 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
     <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
+    <!-- Script de Restauración Inmediata de Paleta y Modo Oscuro (Previene Flicker al Recargar) -->
+    <script>
+        (function() {
+            try {
+                var raw = localStorage.getItem('app_theme_active_palette') || localStorage.getItem('app_theme_global_config');
+                if (raw) {
+                    var t = JSON.parse(raw);
+                    var r = document.documentElement;
+                    if (t.primary) r.style.setProperty('--primary', t.primary);
+                    if (t.primaryAccent) r.style.setProperty('--primary-accent', t.primaryAccent);
+                    if (t.primaryHover) r.style.setProperty('--primary-hover', t.primaryHover || t.primaryAccent);
+                    if (t.bgColor) r.style.setProperty('--bg-color', t.bgColor);
+                    if (t.cardBg) r.style.setProperty('--card-bg', t.cardBg);
+                    if (t.textMain) r.style.setProperty('--text-main', t.textMain);
+                    if (t.textMuted) r.style.setProperty('--text-muted', t.textMuted);
+                    if (t.border) r.style.setProperty('--border', t.border);
+                    if (t.borderLight) r.style.setProperty('--border-light', t.borderLight);
+                    if (t.mode === 'dark') {
+                        r.classList.add('dark-theme');
+                        r.setAttribute('data-mode', 'dark');
+                    } else {
+                        r.classList.remove('dark-theme');
+                        r.setAttribute('data-mode', 'light');
+                    }
+                    if (t.id) r.setAttribute('data-theme', t.id);
+                }
+            } catch(e) {}
+        })();
+    </script>
     <!-- Google Fonts para el estilo exacto de Tu Bodeguita de Confianza -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
     <!-- Font Awesome para los íconos del BCV -->
@@ -3349,16 +3378,16 @@
                             <small>Clasificación de bodega / chucherías.</small>
                         </div>
                         <div class="form-group">
-                            <label>Costo Compra ($)</label>
-                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" required>
+                            <label for="prod-costo">Costo Compra ($)</label>
+                            <input type="number" id="prod-costo" step="0.01" min="0" oninput="calcularPreciosDesdeCosto()" placeholder="Auto desde precio" required>
                         </div>
                         <div class="form-group">
-                            <label>% Ganancia</label>
-                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="calcularPreciosDesdeCosto()" required>
+                            <label for="prod-ganancia">% Ganancia</label>
+                            <input type="number" id="prod-ganancia" step="0.1" min="0" value="40" oninput="alCambiarGanancia()" required>
                         </div>
                         <div class="form-group">
-                            <label>Precio Venta ($)</label>
-                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularGananciaDesdePrecio()" required>
+                            <label for="prod-precio">Precio Venta ($)</label>
+                            <input type="number" id="prod-precio" step="0.01" min="0" oninput="calcularCostoDesdePrecio()" placeholder="Ej. 10.00" required>
                         </div>
                         <div class="form-group product-stock-group">
                             <label class="product-stock-label">

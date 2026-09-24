@@ -38,21 +38,87 @@ function prepararCodigoNuevoProducto() {
     }
 }
 
-function calcularPreciosDesdeCosto() {
-    const costo = parseFloat(document.getElementById('prod-costo').value) || 0;
-    const ganancia = parseFloat(document.getElementById('prod-ganancia').value) || 0;
-    const precioSugerido = costo * (1 + (ganancia / 100));
-    document.getElementById('prod-precio').value = precioSugerido.toFixed(2);
-}
+// --- CÁLCULO INTELIGENTE Y BIDIRECCIONAL DE PRECIOS Y COSTOS ---
+let ultimoOrigenCalculo = 'costo'; // 'costo' | 'precio'
 
-function calcularGananciaDesdePrecio() {
-    const costo = parseFloat(document.getElementById('prod-costo').value) || 0;
-    const precio = parseFloat(document.getElementById('prod-precio').value) || 0;
-    if (costo > 0) {
-        const gananciaCalculada = ((precio - costo) / costo) * 100;
-        document.getElementById('prod-ganancia').value = gananciaCalculada.toFixed(2);
+function calcularPreciosDesdeCosto() {
+    ultimoOrigenCalculo = 'costo';
+    const costoInput = document.getElementById('prod-costo');
+    const gananciaInput = document.getElementById('prod-ganancia');
+    const precioInput = document.getElementById('prod-precio');
+    if (!costoInput || !gananciaInput || !precioInput) return;
+
+    const costoVal = costoInput.value.trim();
+    if (costoVal === '') {
+        if (ultimoOrigenCalculo === 'costo') {
+            precioInput.value = '';
+        }
+        return;
+    }
+
+    const costo = parseFloat(costoVal);
+    const ganancia = parseFloat(gananciaInput.value) || 0;
+
+    if (!isNaN(costo) && costo >= 0) {
+        const precioSugerido = costo * (1 + (ganancia / 100));
+        precioInput.value = precioSugerido.toFixed(2);
     }
 }
+
+function calcularCostoDesdePrecio() {
+    ultimoOrigenCalculo = 'precio';
+    const costoInput = document.getElementById('prod-costo');
+    const gananciaInput = document.getElementById('prod-ganancia');
+    const precioInput = document.getElementById('prod-precio');
+    if (!costoInput || !gananciaInput || !precioInput) return;
+
+    const precioVal = precioInput.value.trim();
+    if (precioVal === '') {
+        costoInput.value = '';
+        return;
+    }
+
+    const precio = parseFloat(precioVal);
+    const ganancia = parseFloat(gananciaInput.value) || 0;
+
+    if (isNaN(precio) || precio < 0) {
+        costoInput.value = '';
+        return;
+    }
+
+    // Fórmula: Precio Venta = Costo * (1 + Ganancia% / 100)
+    // Despeje: Costo = Precio Venta / (1 + Ganancia% / 100)
+    const divisor = 1 + (ganancia / 100);
+    if (divisor > 0) {
+        const costoCalculado = precio / divisor;
+        costoInput.value = costoCalculado.toFixed(2);
+    }
+}
+
+function alCambiarGanancia() {
+    const costoInput = document.getElementById('prod-costo');
+    const precioInput = document.getElementById('prod-precio');
+    const costoVal = costoInput ? costoInput.value.trim() : '';
+    const precioVal = precioInput ? precioInput.value.trim() : '';
+
+    // Si el usuario fijó el precio de venta o no recuerda el costo,
+    // recalculamos el costo de compra en base al nuevo porcentaje de ganancia.
+    if (ultimoOrigenCalculo === 'precio' || (costoVal === '' && precioVal !== '')) {
+        calcularCostoDesdePrecio();
+    } else {
+        calcularPreciosDesdeCosto();
+    }
+}
+
+// Mantener compatibilidad total con llamadas anteriores
+function calcularGananciaDesdePrecio() {
+    calcularCostoDesdePrecio();
+}
+
+window.calcularPreciosDesdeCosto = calcularPreciosDesdeCosto;
+window.calcularCostoDesdePrecio = calcularCostoDesdePrecio;
+window.calcularGananciaDesdePrecio = calcularGananciaDesdePrecio;
+window.alCambiarGanancia = alCambiarGanancia;
 
 // --- IMAGEN Y PRESENTACIÓN DEL PRODUCTO ---
 function abrirSelectorImagenProducto() {
@@ -242,10 +308,13 @@ function alCambiarCategoriaFormulario(val) {
 window.alCambiarCategoriaFormulario = alCambiarCategoriaFormulario;
 
 function resetearFormularioProducto() {
+    ultimoOrigenCalculo = 'costo';
     const form = document.getElementById('form-producto');
     if (form) form.reset();
     const id = document.getElementById('prod-id');
     if (id) id.value = '';
+    const gananciaInput = document.getElementById('prod-ganancia');
+    if (gananciaInput && !gananciaInput.value) gananciaInput.value = '40';
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
     productoImagenTemporal = '';
