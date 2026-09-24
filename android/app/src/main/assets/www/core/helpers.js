@@ -392,6 +392,7 @@ function switchTab(tabId) {
     // Re-renderizado seguro según la pestaña activa
     try {
         if (tabId === 'pos') {
+            if (typeof actualizarChipsCategoriasPOS === 'function') actualizarChipsCategoriasPOS();
             if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
             if (typeof renderizarCarrito === 'function') renderizarCarrito();
             if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
@@ -408,6 +409,8 @@ function switchTab(tabId) {
             if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
             if (typeof alCambiarMetodoTransaccionDirecta === 'function') alCambiarMetodoTransaccionDirecta();
             if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+        } else if (tabId === 'facturas') {
+            if (typeof inicializarModuloFacturas === 'function') inicializarModuloFacturas();
         } else if (tabId === 'auditoria') {
             if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
             if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();

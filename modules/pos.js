@@ -1,6 +1,7 @@
 // --- POS MULTIMONEDA & MOBILE-FIRST ARCHITECTURE ---
 let posModoVista = localStorage.getItem('pos_modo_vista') || 'grid';
 let posCategoriaActiva = 'TODOS';
+let posMostrarAgotados = false;
 
 function cambiarModoVistaPOS(modo) {
     if (modo !== 'grid' && modo !== 'list') modo = 'grid';
@@ -43,6 +44,15 @@ function seleccionarCategoriaPOS(cat) {
     renderizarPosProductos();
 }
 
+function toggleMostrarAgotadosPOS() {
+    posMostrarAgotados = !posMostrarAgotados;
+    actualizarChipsCategoriasPOS();
+    renderizarPosProductos();
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(posMostrarAgotados ? 'Mostrando todos los productos (incluyendo agotados)' : 'Ocultando productos agotados', 'info');
+    }
+}
+
 function limpiarBusquedaPOS() {
     const input = document.getElementById('pos-search');
     if (input) {
@@ -53,6 +63,228 @@ function limpiarBusquedaPOS() {
     if (btnClear) btnClear.style.display = 'none';
     renderizarPosProductos();
 }
+
+/**
+ * Habilita el desplazamiento horizontal interactivo (Drag-to-Scroll, Rueda del ratón y Touch)
+ * Permite mantener el click y rodar a los lados sin barra de scroll visible.
+ */
+function inicializarScrollHorizontalInteractivo(container, leftBtnId = 'pos-cat-scroll-left', rightBtnId = 'pos-cat-scroll-right') {
+    if (!container) return;
+
+    if (!container.dataset.dragScrollInit) {
+        container.dataset.dragScrollInit = 'true';
+
+        let isDown = false;
+        let startX = 0;
+        let startScrollLeft = 0;
+        let hasDragged = false;
+        let lastX = 0;
+        let lastTime = 0;
+        let velocity = 0;
+
+        // 1. ARRASTRE CON RATÓN (PC - "Mantengo el click y voy rodando a un lado")
+        container.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // Solo click izquierdo
+            isDown = true;
+            hasDragged = false;
+            startX = e.pageX - container.offsetLeft;
+            startScrollLeft = container.scrollLeft;
+            lastX = e.pageX;
+            lastTime = Date.now();
+            velocity = 0;
+            container.classList.add('is-dragging');
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            const currentX = e.pageX - container.offsetLeft;
+            const walk = currentX - startX;
+
+            if (Math.abs(walk) > 4) {
+                hasDragged = true;
+                container.classList.add('is-actively-dragging');
+                // Prevenir selección indeseada de texto al arrastrar
+                e.preventDefault();
+            }
+
+            if (hasDragged) {
+                const now = Date.now();
+                const dt = now - lastTime || 1;
+                velocity = (e.pageX - lastX) / dt;
+                lastTime = now;
+                lastX = e.pageX;
+
+                // Desplazamiento fluido en tiempo real
+                container.scrollLeft = startScrollLeft - (walk * 1.15);
+                actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+            }
+        });
+
+        const terminarArrastre = () => {
+            if (!isDown) return;
+            isDown = false;
+            container.classList.remove('is-dragging');
+
+            if (hasDragged) {
+                // Inercia suave al soltar el ratón
+                if (Math.abs(velocity) > 0.15) {
+                    let vel = velocity * 180;
+                    let remaining = vel;
+                    const deslizarConInercia = () => {
+                        if (Math.abs(remaining) > 0.8) {
+                            container.scrollLeft -= remaining * 0.1;
+                            remaining *= 0.88;
+                            actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+                            requestAnimationFrame(deslizarConInercia);
+                        }
+                    };
+                    requestAnimationFrame(deslizarConInercia);
+                }
+
+                // Prevenir que el click accidental se ejecute en el botón sobre el cual se soltó el cursor
+                const interceptarClickAccidental = (ev) => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    window.removeEventListener('click', interceptarClickAccidental, true);
+                };
+                window.addEventListener('click', interceptarClickAccidental, true);
+                setTimeout(() => {
+                    window.removeEventListener('click', interceptarClickAccidental, true);
+                    container.classList.remove('is-actively-dragging');
+                    hasDragged = false;
+                }, 70);
+            } else {
+                container.classList.remove('is-actively-dragging');
+            }
+        };
+
+        window.addEventListener('mouseup', terminarArrastre);
+
+        // 2. RUEDA DEL RATÓN EN PC (Traduce scroll vertical a horizontal sin barra)
+        container.addEventListener('wheel', (e) => {
+            if (Math.abs(e.deltaY) > 0 || Math.abs(e.deltaX) > 0) {
+                e.preventDefault();
+                const delta = Math.abs(e.deltaX) > 0 ? e.deltaX : e.deltaY;
+                container.scrollLeft += delta * 0.95;
+                actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+            }
+        }, { passive: false });
+
+        // 3. EVENTOS TOUCH EN MÓVIL (Soporte táctil optimizado y anti-clicks accidentales tras swipe)
+        let touchStartX = 0;
+        let touchHasDragged = false;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches.length === 1) {
+                touchStartX = e.touches[0].pageX - container.offsetLeft;
+                touchHasDragged = false;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches && e.touches.length === 1) {
+                const currentTouchX = e.touches[0].pageX - container.offsetLeft;
+                if (Math.abs(currentTouchX - touchStartX) > 6) {
+                    touchHasDragged = true;
+                }
+            }
+            actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+        }, { passive: true });
+
+        container.addEventListener('touchend', () => {
+            if (touchHasDragged) {
+                const interceptarClickTouch = (ev) => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    window.removeEventListener('click', interceptarClickTouch, true);
+                };
+                window.addEventListener('click', interceptarClickTouch, true);
+                setTimeout(() => {
+                    window.removeEventListener('click', interceptarClickTouch, true);
+                    touchHasDragged = false;
+                }, 70);
+            }
+            actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+        }, { passive: true });
+
+        // 4. Sincronizar botones ante scroll nativo
+        container.addEventListener('scroll', () => {
+            actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+        }, { passive: true });
+    }
+
+    // Configurar botones de flecha laterales (‹ y ›)
+    const btnLeft = document.getElementById(leftBtnId);
+    const btnRight = document.getElementById(rightBtnId);
+
+    if (btnLeft && !btnLeft.dataset.scrollBound) {
+        btnLeft.dataset.scrollBound = 'true';
+        btnLeft.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            container.scrollBy({ left: -240, behavior: 'smooth' });
+        });
+    }
+
+    if (btnRight && !btnRight.dataset.scrollBound) {
+        btnRight.dataset.scrollBound = 'true';
+        btnRight.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            container.scrollBy({ left: 240, behavior: 'smooth' });
+        });
+    }
+
+    // Actualizar visibilidad y estados de botones
+    setTimeout(() => {
+        actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId);
+    }, 40);
+}
+
+/**
+ * Actualiza la opacidad y visibilidad de los botones de navegación lateral del carrusel de categorías
+ */
+function actualizarEstadoBotonesScroll(container, leftBtnId, rightBtnId) {
+    if (!container) return;
+    const btnLeft = document.getElementById(leftBtnId);
+    const btnRight = document.getElementById(rightBtnId);
+    if (!btnLeft && !btnRight) return;
+
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    const puedeScroll = maxScroll > 8;
+
+    if (!puedeScroll) {
+        if (btnLeft) btnLeft.style.display = 'none';
+        if (btnRight) btnRight.style.display = 'none';
+        return;
+    }
+
+    if (btnLeft) {
+        btnLeft.style.display = 'inline-flex';
+        const atStart = container.scrollLeft <= 4;
+        btnLeft.style.opacity = atStart ? '0.25' : '1';
+        btnLeft.style.pointerEvents = atStart ? 'none' : 'auto';
+    }
+
+    if (btnRight) {
+        btnRight.style.display = 'inline-flex';
+        const atEnd = container.scrollLeft >= (maxScroll - 4);
+        btnRight.style.opacity = atEnd ? '0.25' : '1';
+        btnRight.style.pointerEvents = atEnd ? 'none' : 'auto';
+    }
+}
+
+// Exponer globalmente
+window.inicializarScrollHorizontalInteractivo = inicializarScrollHorizontalInteractivo;
+window.actualizarEstadoBotonesScroll = actualizarEstadoBotonesScroll;
+
+// Sincronizar en cambios de tamaño de pantalla
+window.addEventListener('resize', () => {
+    const posCont = document.getElementById('pos-categories-chips');
+    if (posCont) actualizarEstadoBotonesScroll(posCont, 'pos-cat-scroll-left', 'pos-cat-scroll-right');
+    const cliCont = document.getElementById('cliente-categorias-chips');
+    if (cliCont) actualizarEstadoBotonesScroll(cliCont, 'cliente-cat-scroll-left', 'cliente-cat-scroll-right');
+});
 
 function actualizarChipsCategoriasPOS() {
     const container = document.getElementById('pos-categories-chips');
@@ -84,6 +316,7 @@ function actualizarChipsCategoriasPOS() {
 
     const categorias = Array.from(categoriasSet).sort();
     const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
+    const totalAgotados = prods.filter(p => Number(p.stock || 0) <= 0).length;
 
     const iconoPorCategoria = (nombreCat) => {
         const c = String(nombreCat || '').toLowerCase();
@@ -124,7 +357,29 @@ function actualizarChipsCategoriasPOS() {
         `;
     });
 
+    // Chip dedicado para productos agotados (tal como "Bebidas", "Chocolates", etc.)
+    const isAgotadosActive = posCategoriaActiva === 'AGOTADOS';
+    html += `
+        <button type="button" class="chip-filter chip-filter-agotados ${isAgotadosActive ? 'active' : ''}" 
+                onclick="seleccionarCategoriaPOS('AGOTADOS')"
+                style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(239,68,68,0.35); font-weight: 800;' : 'border-color: rgba(239, 68, 68, 0.45); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}"
+                title="Ver productos actualmente agotados">
+            🚫 Agotados (${totalAgotados})
+        </button>
+    `;
+
     container.innerHTML = html;
+
+    // Activar soporte interactivo de arrastre, rueda y controles
+    inicializarScrollHorizontalInteractivo(container, 'pos-cat-scroll-left', 'pos-cat-scroll-right');
+
+    // Desplazar suavemente hacia la categoría activa si está fuera de vista
+    const activeChip = container.querySelector('.chip-filter.active');
+    if (activeChip) {
+        try {
+            activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        } catch {}
+    }
 }
 
 function renderizarPosProductos(filtro = null) {
@@ -138,17 +393,30 @@ function renderizarPosProductos(filtro = null) {
 
     const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || tasaActiva || 0);
+    const totalAgotados = prods.filter(p => Number(p.stock || 0) <= 0).length;
 
     const filtrados = prods.filter(p => {
-        if (posCategoriaActiva !== 'TODOS') {
-            if (posCategoriaActiva === 'COMBOS') {
-                const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
-                if (!esCombo) return false;
-            } else {
-                const catProd = (p.categoria || '').trim().toLowerCase();
-                if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+        const stock = Number(p.stock || 0);
+        const esAgotado = stock <= 0;
+
+        // Si la categoría seleccionada es AGOTADOS
+        if (posCategoriaActiva === 'AGOTADOS') {
+            if (!esAgotado) return false;
+        } else {
+            // Por defecto, productos agotados NO aparecen a menos que posMostrarAgotados sea true
+            if (esAgotado && !posMostrarAgotados) return false;
+
+            if (posCategoriaActiva !== 'TODOS') {
+                if (posCategoriaActiva === 'COMBOS') {
+                    const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                    if (!esCombo) return false;
+                } else {
+                    const catProd = (p.categoria || '').trim().toLowerCase();
+                    if (catProd !== posCategoriaActiva.toLowerCase()) return false;
+                }
             }
         }
+
         if (!f) return true;
         const nombre = (p.nombre || "").toLowerCase();
         const codigo = (p.codigo || "").toLowerCase();
@@ -158,14 +426,30 @@ function renderizarPosProductos(filtro = null) {
 
     const countEl = document.getElementById('pos-catalog-count');
     if (countEl) {
-        countEl.textContent = `${filtrados.length} ${filtrados.length === 1 ? 'producto encontrado' : 'productos encontrados'}`;
+        if (posCategoriaActiva === 'AGOTADOS') {
+            countEl.innerHTML = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> ${filtrados.length} ${filtrados.length === 1 ? 'producto agotado' : 'productos agotados'}</span>`;
+        } else {
+            let txt = `${filtrados.length} ${filtrados.length === 1 ? 'producto disponible' : 'productos disponibles'}`;
+            if (totalAgotados > 0 && !posMostrarAgotados) {
+                txt += ` <span style="font-size:0.75rem; color:var(--text-muted, #94a3b8); font-weight:normal;">(${totalAgotados} agotado${totalAgotados === 1 ? '' : 's'} oculto${totalAgotados === 1 ? '' : 's'})</span>`;
+            }
+            countEl.innerHTML = txt;
+        }
     }
 
     const activeCatEl = document.getElementById('pos-catalog-active-cat');
     if (activeCatEl) {
-        if (posCategoriaActiva !== 'TODOS') {
-            activeCatEl.textContent = `Filtro: ${posCategoriaActiva}`;
+        if (posCategoriaActiva === 'AGOTADOS') {
+            activeCatEl.innerHTML = `<span style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:999px; padding:2px 10px; font-weight:700;">🚫 Viendo sólo Agotados</span> <button type="button" onclick="seleccionarCategoriaPOS('TODOS')" style="margin-left:6px; background:none; border:none; color:var(--accent-primary, #2563eb); text-decoration:underline; font-size:0.75rem; cursor:pointer; font-weight:600;">Ver disponibles</button>`;
+            activeCatEl.style.display = 'inline-flex';
+            activeCatEl.style.alignItems = 'center';
+        } else if (posCategoriaActiva !== 'TODOS') {
+            activeCatEl.innerHTML = `Filtro: <strong>${posCategoriaActiva}</strong> <button type="button" onclick="seleccionarCategoriaPOS('TODOS')" style="margin-left:4px; background:none; border:none; color:var(--accent-primary, #2563eb); font-weight:bold; cursor:pointer;" title="Quitar filtro">×</button>`;
             activeCatEl.style.display = 'inline-block';
+        } else if (posMostrarAgotados) {
+            activeCatEl.innerHTML = `<span style="background:rgba(234,179,8,0.15); color:#ca8a04; border:1px solid rgba(234,179,8,0.3); border-radius:999px; padding:2px 10px; font-weight:700;"><i class="fas fa-eye"></i> Mostrando agotados</span> <button type="button" onclick="toggleMostrarAgotadosPOS()" style="margin-left:6px; background:none; border:none; color:var(--accent-primary, #2563eb); text-decoration:underline; font-size:0.75rem; cursor:pointer;">Ocultar</button>`;
+            activeCatEl.style.display = 'inline-flex';
+            activeCatEl.style.alignItems = 'center';
         } else {
             activeCatEl.style.display = 'none';
         }
@@ -180,13 +464,50 @@ function renderizarPosProductos(filtro = null) {
             gridEl.classList.add('cliente-catalogo-grid');
         }
         if (filtrados.length === 0) {
-            gridEl.innerHTML = `
-                <div style="grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
-                    <i class="fas fa-box-open" style="font-size: 2.2rem; margin-bottom: 8px; opacity: 0.4;"></i>
-                    <p style="font-weight: 700; margin: 4px 0; color: var(--text-secondary, #475569);">No se encontraron productos</p>
-                    <small>Intenta buscar con otro término o selecciona "Todos"</small>
-                </div>
-            `;
+            if (posCategoriaActiva === 'AGOTADOS') {
+                gridEl.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
+                        <i class="fas fa-check-circle" style="font-size: 2.4rem; margin-bottom: 8px; color: #10b981;"></i>
+                        <p style="font-weight: 700; margin: 4px 0; color: #10b981;">¡Excelente! No hay productos agotados</p>
+                        <small>Todos los productos cuentan con existencias disponibles para la venta.</small>
+                        <div style="margin-top: 14px;">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="seleccionarCategoriaPOS('TODOS')" style="font-size: 0.8rem; padding: 6px 14px; border-radius: 8px;">
+                                <i class="fas fa-arrow-left"></i> Volver a Disponibles
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const agotadosCoincidentes = prods.filter(p => {
+                    if (Number(p.stock || 0) > 0) return false;
+                    if (!f) return false;
+                    const nombre = (p.nombre || "").toLowerCase();
+                    const codigo = (p.codigo || "").toLowerCase();
+                    const cat = (p.categoria || "").toLowerCase();
+                    return nombre.includes(f) || codigo.includes(f) || cat.includes(f);
+                });
+
+                if (agotadosCoincidentes.length > 0) {
+                    gridEl.innerHTML = `
+                        <div style="grid-column: 1 / -1; padding: 36px 16px; text-align: center; background: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.35); border-radius: 12px;">
+                            <i class="fas fa-ban" style="font-size: 2.2rem; margin-bottom: 8px; color: #ef4444;"></i>
+                            <p style="font-weight: 700; margin: 4px 0; color: #ef4444;">${agotadosCoincidentes.length === 1 ? 'El producto coincide con un ítem agotado' : 'Los productos coincidentes están agotados'}</p>
+                            <small style="display:block; margin-bottom: 12px; color: var(--text-secondary, #64748b);">No aparece en la venta normal porque su existencia es 0.</small>
+                            <button type="button" class="btn btn-sm" onclick="seleccionarCategoriaPOS('AGOTADOS')" style="background: #ef4444; color: #fff; font-weight: 700; border-radius: 8px; padding: 6px 14px; border: none; cursor: pointer;">
+                                <i class="fas fa-eye"></i> Ver en Agotados (${agotadosCoincidentes.length})
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    gridEl.innerHTML = `
+                        <div style="grid-column: 1 / -1; padding: 40px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
+                            <i class="fas fa-box-open" style="font-size: 2.2rem; margin-bottom: 8px; opacity: 0.4;"></i>
+                            <p style="font-weight: 700; margin: 4px 0; color: var(--text-secondary, #475569);">No se encontraron productos disponibles</p>
+                            <small>Intenta buscar con otro término o selecciona "Todos"</small>
+                        </div>
+                    `;
+                }
+            }
         } else {
             gridEl.innerHTML = filtrados.map(p => {
                 const stock = Number(p.stock || 0);
@@ -235,7 +556,7 @@ function renderizarPosProductos(filtro = null) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted, #94a3b8);">
-                        No hay productos que coincidan con el filtro
+                        ${posCategoriaActiva === 'AGOTADOS' ? '🎉 ¡No hay productos agotados!' : 'No hay productos disponibles que coincidan con el filtro'}
                     </td>
                 </tr>
             `;
@@ -1286,6 +1607,7 @@ window.renderizarCarrito = renderizarCarrito;
 window.eliminarDelCarrito = eliminarDelCarrito;
 window.cambiarModoVistaPOS = cambiarModoVistaPOS;
 window.seleccionarCategoriaPOS = seleccionarCategoriaPOS;
+window.toggleMostrarAgotadosPOS = toggleMostrarAgotadosPOS;
 window.limpiarBusquedaPOS = limpiarBusquedaPOS;
 window.abrirDrawerCarritoMobile = abrirDrawerCarritoMobile;
 window.cerrarDrawerCarritoMobile = cerrarDrawerCarritoMobile;

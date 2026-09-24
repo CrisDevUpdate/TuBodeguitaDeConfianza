@@ -392,6 +392,7 @@ function switchTab(tabId) {
     // Re-renderizado seguro según la pestaña activa
     try {
         if (tabId === 'pos') {
+            if (typeof actualizarChipsCategoriasPOS === 'function') actualizarChipsCategoriasPOS();
             if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
             if (typeof renderizarCarrito === 'function') renderizarCarrito();
             if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();

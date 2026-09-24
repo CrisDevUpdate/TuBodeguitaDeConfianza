@@ -325,8 +325,14 @@ function renderizarCatalogoCliente() {
         const q = clienteBusqueda.toLowerCase();
         prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
     }
-    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
-        prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
+    if (clienteFiltroCategoria === 'AGOTADOS') {
+        prods = prods.filter(p => Number(p.stock || 0) <= 0);
+    } else {
+        // Por defecto los productos agotados no aparecen en el catálogo de clientes
+        prods = prods.filter(p => Number(p.stock || 0) > 0);
+        if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
+            prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
+        }
     }
 
     // Ordenamiento por Stock, Puntos y Alfabético
@@ -480,7 +486,18 @@ function renderizarCategoriasCatalogo() {
         `;
     }).join('');
 
+    const totalAgotadosCli = (AppState.productos || []).filter(p => Number(p.stock || 0) <= 0).length;
+    const isAgotadosActive = clienteFiltroCategoria === 'AGOTADOS';
+    html += `
+        <button type="button" class="chip-filter ${isAgotadosActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('AGOTADOS')" style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; font-weight:800;' : 'border-color: rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}" title="Ver productos agotados">
+            🚫 Agotados (${totalAgotadosCli})
+        </button>
+    `;
+
     container.innerHTML = html;
+    if (typeof inicializarScrollHorizontalInteractivo === 'function') {
+        inicializarScrollHorizontalInteractivo(container, 'cliente-cat-scroll-left', 'cliente-cat-scroll-right');
+    }
 }
 
 function filtrarCatalogoClienteCategoria(cat) {

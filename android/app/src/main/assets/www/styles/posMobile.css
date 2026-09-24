@@ -54,6 +54,8 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0 !important;
+  max-width: 100% !important;
   box-sizing: border-box;
 }
 
@@ -72,6 +74,10 @@
   padding-bottom: 10px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
 }
 
 .pos-search-row {
@@ -177,42 +183,133 @@
   }
 }
 
-/* Chips de Categorías Deslizables Horizontalmente */
-.pos-categories-scroll {
+/* Contenedor wrapper con botones de desplazamiento suave */
+.pos-categories-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding: 8px 2px 2px 2px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: 4px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  box-sizing: border-box;
 }
 
-.pos-categories-scroll::-webkit-scrollbar {
-  display: none;
+.pos-cat-scroll-btn {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--text-secondary, #64748b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 2;
+  padding: 0;
+}
+
+.pos-cat-scroll-btn:hover {
+  background: var(--bg-canvas-subtle, #f1f5f9);
+  color: var(--accent-primary, #2563eb);
+  border-color: var(--accent-primary, #2563eb);
+  transform: scale(1.06);
+}
+
+.pos-cat-scroll-btn:active {
+  transform: scale(0.94);
+}
+
+/* Chips de Categorías Deslizables Horizontalmente y con Drag-to-Scroll */
+.pos-categories-scroll,
+#pos-categories-chips,
+#cliente-categorias-chips {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 6px 2px 8px 2px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  touch-action: pan-x pan-y !important;
+  cursor: grab;
+  cursor: -webkit-grab;
+  user-select: none;
+  -webkit-user-select: none;
+  scroll-behavior: smooth;
+}
+
+.pos-categories-scroll::-webkit-scrollbar,
+#pos-categories-chips::-webkit-scrollbar,
+#cliente-categorias-chips::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.pos-categories-scroll.is-dragging,
+#pos-categories-chips.is-dragging,
+#cliente-categorias-chips.is-dragging {
+  cursor: grabbing !important;
+  cursor: -webkit-grabbing !important;
+  scroll-behavior: auto !important;
+}
+
+.pos-categories-scroll.is-actively-dragging,
+#pos-categories-chips.is-actively-dragging,
+#cliente-categorias-chips.is-actively-dragging {
+  cursor: grabbing !important;
+  cursor: -webkit-grabbing !important;
+}
+
+.pos-categories-scroll.is-actively-dragging *,
+#pos-categories-chips.is-actively-dragging *,
+#cliente-categorias-chips.is-actively-dragging * {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .pos-categories-scroll .chip-filter,
-.pos-chip {
-  flex: 0 0 auto;
+.pos-chip,
+#pos-categories-chips .chip-filter,
+#cliente-categorias-chips .chip-filter {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 6px 14px;
-  min-height: 32px;
+  min-height: 33px;
   border-radius: var(--radius-pill, 20px);
   background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #cbd5e1);
+  border: 1.5px solid var(--border-color, #cbd5e1);
   color: var(--text-primary, #0f172a);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  user-select: none;
-  transition: all 0.2s ease;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-user-drag: none !important;
+  touch-action: pan-x pan-y !important;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pos-categories-scroll .chip-filter:hover,
@@ -261,163 +358,311 @@
 }
 
 /* ==========================================================================
-   3. VISUALIZACIÓN DE PRODUCTOS: MODO CUADRÍCULA & LISTA
-   (Usa el mismo diseño exacto del Catálogo del Cliente .cliente-catalogo-grid)
+   3. VISUALIZACIÓN DE PRODUCTOS EN POS: OPCIÓN A (LISTA HORIZONTAL / ROW ITEM)
+   Optimizado para máxima velocidad de escaneo, proporción 1:1 de imagen y densidad
    ========================================================================== */
-#pos-grid-view,
-.pos-catalog-container #pos-grid-view,
-.pos-catalog-container.pos-mode-grid #pos-grid-view {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px !important;
-  margin-top: 10px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
 
-@media (min-width: 641px) and (max-width: 899px) {
-  #pos-grid-view,
-  .pos-catalog-container #pos-grid-view {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-  }
-}
-
-@media (min-width: 900px) {
-  #pos-grid-view,
-  .pos-catalog-container #pos-grid-view {
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important;
-    gap: 12px !important;
-  }
-}
-
-/* En modo móvil (<= 899px), tarjetas compactas idénticas al catálogo del cliente */
+/* Contenedor en Móvil / Tablets (< 900px): Lista Vertical de Ítems Horizontales */
 @media (max-width: 899px) {
-  #pos-grid-view {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-  }
-
-  .pos-catalog-container .cliente-prod-card,
-  #pos-grid-view .cliente-prod-card {
-    min-width: 0 !important;
-    width: 100% !important;
-    border-radius: 10px !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
-    overflow: hidden !important;
+  #pos-grid-view,
+  .pos-catalog-container #pos-grid-view,
+  .pos-catalog-container.pos-mode-grid #pos-grid-view,
+  .cliente-catalogo-grid {
     display: flex !important;
     flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 20px !important;
   }
 
+  /* Tarjeta de Producto Fila Horizontal (Row Item) */
+  .cliente-prod-card,
+  .pos-catalog-container .cliente-prod-card,
+  #pos-grid-view .cliente-prod-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    gap: 12px !important;
+    min-height: 74px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    transition: transform 0.12s ease, background-color 0.15s ease, box-shadow 0.15s ease !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .cliente-prod-card:active,
+  #pos-grid-view .cliente-prod-card:active {
+    transform: scale(0.985) !important;
+    background: var(--bg-hover, #f8fafc) !important;
+  }
+
+  /* 1. Miniatura Izquierda: Cuadrada Proporcional (64x64px), sin deformación */
+  .cliente-prod-img-wrapper,
   .pos-catalog-container .cliente-prod-img-wrapper,
   #pos-grid-view .cliente-prod-img-wrapper {
-    height: 115px !important;
-    min-height: 115px !important;
-    max-height: 115px !important;
-    width: 100% !important;
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
     position: relative !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    margin: 0 !important;
   }
 
+  .cliente-prod-img,
   .pos-catalog-container .cliente-prod-img,
   #pos-grid-view .cliente-prod-img {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+    transition: filter 0.2s ease !important;
   }
 
-  .pos-catalog-container .cliente-prod-badge-cat,
-  #pos-grid-view .cliente-prod-badge-cat {
-    font-size: 0.6rem !important;
-    padding: 2px 5px !important;
-    top: 4px !important;
-    left: 4px !important;
-    position: absolute !important;
-    border-radius: 4px !important;
-    z-index: 2 !important;
-  }
-
-  .pos-catalog-container .badge-stock-pill,
-  .pos-catalog-container .badge-agotado-pill,
-  #pos-grid-view .badge-stock-pill,
-  #pos-grid-view .badge-agotado-pill {
-    font-size: 0.6rem !important;
-    padding: 2px 5px !important;
-    top: 4px !important;
-    right: 4px !important;
-    position: absolute !important;
-    border-radius: 4px !important;
-    z-index: 2 !important;
-  }
-
+  /* 2. Cuerpo Central: Información, Código, Categoría y Precios */
+  .cliente-prod-body,
   .pos-catalog-container .cliente-prod-body,
   #pos-grid-view .cliente-prod-body {
-    padding: 8px 8px 10px 8px !important;
-    gap: 2px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    flex: 1 !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
   }
 
+  .cliente-prod-meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+    line-height: 1 !important;
+  }
+
+  .cliente-prod-code,
   .pos-catalog-container .cliente-prod-code,
   #pos-grid-view .cliente-prod-code {
-    font-size: 0.62rem !important;
-    margin-bottom: 0px !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
     color: var(--text-muted, #94a3b8) !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.02em !important;
   }
 
+  .cliente-prod-badge-cat,
+  .pos-catalog-container .cliente-prod-badge-cat,
+  #pos-grid-view .cliente-prod-badge-cat {
+    position: static !important;
+    font-size: 0.62rem !important;
+    font-weight: 700 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    color: var(--text-secondary, #475569) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    max-width: 120px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-block !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+  }
+
+  .badge-stock-low {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+    white-space: nowrap !important;
+  }
+
+  .cliente-prod-title,
   .pos-catalog-container .cliente-prod-title,
   #pos-grid-view .cliente-prod-title {
-    font-size: 0.82rem !important;
+    font-size: 0.9rem !important;
     font-weight: 700 !important;
-    line-height: 1.2 !important;
-    margin-bottom: 4px !important;
-    min-height: 2.3em !important;
+    color: var(--text-main, #0f172a) !important;
+    line-height: 1.25 !important;
+    margin: 2px 0 3px 0 !important;
+    min-height: 0 !important;
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
+    text-overflow: ellipsis !important;
     word-break: break-word !important;
   }
 
+  .cliente-prod-prices,
   .pos-catalog-container .cliente-prod-prices,
   #pos-grid-view .cliente-prod-prices {
-    padding-top: 4px !important;
-    margin-bottom: 6px !important;
     display: flex !important;
-    flex-direction: column !important;
-    gap: 1px !important;
-    margin-top: auto !important;
-    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
   }
 
+  .cliente-prod-prices .price-usd,
   .pos-catalog-container .cliente-prod-prices .price-usd,
   #pos-grid-view .cliente-prod-prices .price-usd {
-    font-size: 1.05rem !important;
-    line-height: 1.1 !important;
+    font-size: 1.08rem !important;
     font-weight: 800 !important;
     color: var(--primary-accent, #2563eb) !important;
+    line-height: 1 !important;
   }
 
+  .cliente-prod-prices .price-ves,
   .pos-catalog-container .cliente-prod-prices .price-ves,
   #pos-grid-view .cliente-prod-prices .price-ves {
-    font-size: 0.72rem !important;
-    line-height: 1.1 !important;
-    font-weight: 700 !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
     color: var(--text-muted, #64748b) !important;
+    line-height: 1 !important;
   }
 
-  .pos-catalog-container .cliente-btn-add,
-  #pos-grid-view .cliente-btn-add {
-    min-height: 35px !important;
-    padding: 6px 8px !important;
-    font-size: 0.78rem !important;
-    border-radius: 6px !important;
-    font-weight: 700 !important;
-    width: 100% !important;
+  /* 3. Columna de Acción Derecha: Botón Táctil de Agregar (+) */
+  .cliente-prod-action {
+    flex-shrink: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
+    margin-left: auto !important;
+  }
+
+  .cliente-btn-add,
+  .pos-catalog-container .cliente-btn-add,
+  #pos-grid-view .cliente-btn-add {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    max-width: 42px !important;
+    max-height: 42px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    font-size: 1.1rem !important;
+    background: var(--primary-accent, #2563eb) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    transition: transform 0.1s ease, background-color 0.15s ease !important;
+  }
+
+  .cliente-btn-add:active {
+    transform: scale(0.92) !important;
+  }
+
+  .cliente-btn-add .cliente-btn-text {
+    display: none !important;
+  }
+
+  .cliente-btn-add i {
+    font-size: 1.1rem !important;
+    margin: 0 !important;
+  }
+
+  /* Estado Agotado */
+  .cliente-prod-card.card-agotado,
+  #pos-grid-view .cliente-prod-card.card-agotado {
+    opacity: 0.6 !important;
+    background: var(--bg-muted, #f8fafc) !important;
+    border-color: var(--border-light, #e2e8f0) !important;
+    cursor: not-allowed !important;
+  }
+
+  .card-agotado .cliente-prod-img {
+    filter: grayscale(0.85) !important;
+  }
+
+  .card-agotado .badge-agotado-pill {
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    color: #ffffff !important;
+    font-size: 0.6rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    border-radius: 8px !important;
+  }
+
+  .card-agotado .cliente-btn-add {
+    background: var(--border, #cbd5e1) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+  }
+}
+
+/* Pantallas Grandes (>= 900px): Cuadrícula POS de Escritorio */
+@media (min-width: 900px) {
+  #pos-grid-view,
+  .pos-catalog-container #pos-grid-view {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+    gap: 14px !important;
+    margin-top: 14px !important;
+  }
+
+  .cliente-prod-card {
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: 12px !important;
+  }
+
+  .cliente-prod-img-wrapper {
+    width: 100% !important;
+    height: 150px !important;
+  }
+
+  .cliente-prod-action {
+    width: 100% !important;
+    padding: 0 12px 12px 12px !important;
+  }
+
+  .cliente-prod-action .cliente-btn-add {
+    width: 100% !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+    gap: 6px !important;
+  }
+
+  .cliente-btn-text {
+    display: inline !important;
   }
 }
 
@@ -677,56 +922,88 @@
 
 /* Controles de Cantidad (+ / - Steppers) */
 .pos-stepper {
-  display: inline-flex;
-  align-items: center;
-  background: var(--bg-canvas-subtle, #f1f5f9);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: var(--radius-sm, 8px);
-  overflow: hidden;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--bg-canvas-subtle, #f1f5f9) !important;
+  border: 1px solid var(--border-color, #e2e8f0) !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+  max-width: 104px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .pos-stepper-btn {
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: var(--text-primary, #0f172a);
-  font-size: 0.85rem;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.12s ease;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  max-width: 30px !important;
+  max-height: 30px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-primary, #0f172a) !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+  user-select: none !important;
 }
 
 .pos-stepper-btn:hover {
-  background: var(--border-color, #e2e8f0);
+  background: var(--border-color, #e2e8f0) !important;
 }
 
 .pos-stepper-btn:active {
-  background: #cbd5e1;
+  background: #cbd5e1 !important;
 }
 
-.pos-stepper-val {
-  width: 32px;
-  text-align: center;
-  font-weight: 800;
-  font-size: 0.82rem;
-  color: var(--text-primary, #0f172a);
-  border: none;
-  background: transparent;
-  padding: 0;
-  min-height: auto;
-  -moz-appearance: textfield;
+.pos-stepper-val,
+input[type="number"].pos-stepper-val,
+.pos-stepper input[type="number"] {
+  width: 36px !important;
+  min-width: 30px !important;
+  max-width: 42px !important;
+  height: 30px !important;
+  min-height: 0 !important;
+  max-height: 32px !important;
+  text-align: center !important;
+  font-weight: 800 !important;
+  font-size: 0.92rem !important;
+  color: var(--text-primary, #0f172a) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  line-height: 30px !important;
+  -moz-appearance: textfield !important;
+  flex: 0 0 36px !important;
+  box-sizing: border-box !important;
 }
 
 .pos-stepper-val::-webkit-inner-spin-button,
-.pos-stepper-val::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.pos-stepper-val::-webkit-outer-spin-button,
+.pos-stepper input::-webkit-inner-spin-button,
+.pos-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
 }
 
 .pos-btn-del-item {
@@ -979,41 +1256,42 @@
    7. DRAWER / HOJA DESLIZABLE (BOTTOM SHEET) DE CARRITO MÓVIL
    ========================================================================== */
 .pos-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 9999;
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 100000 !important;
   display: none;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease !important;
 }
 
 .pos-drawer-overlay.active {
-  display: flex;
-  align-items: flex-end;
-  opacity: 1;
+  display: flex !important;
+  align-items: flex-end !important;
+  opacity: 1 !important;
 }
 
 .pos-cart-drawer {
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  background: var(--bg-card, #ffffff);
-  border-radius: 20px 20px 0 0;
-  padding: 10px 16px calc(24px + var(--sab, 0px)) 16px;
-  box-sizing: border-box;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
+  width: 100% !important;
+  max-width: 600px !important;
+  margin: 0 auto !important;
+  background: var(--bg-card, #ffffff) !important;
+  border-radius: 20px 20px 0 0 !important;
+  padding: 12px 16px max(24px, env(safe-area-inset-bottom, 24px)) 16px !important;
+  box-sizing: border-box !important;
+  max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
   transform: translateY(100%);
-  transition: transform 0.28s cubic-bezier(0.32, 1, 0.23, 1);
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.25);
+  transition: transform 0.28s cubic-bezier(0.32, 1, 0.23, 1) !important;
+  box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.35) !important;
+  z-index: 100001 !important;
 }
 
 .pos-drawer-overlay.active .pos-cart-drawer {
-  transform: translateY(0);
+  transform: translateY(0) !important;
 }
 
 .pos-drawer-handle-bar {
@@ -1059,94 +1337,184 @@
 }
 
 .pos-drawer-close-btn {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: var(--bg-canvas-subtle, #f1f5f9);
-  color: var(--text-secondary, #475569);
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: var(--bg-canvas-subtle, #f1f5f9) !important;
+  color: var(--text-secondary, #475569) !important;
+  font-size: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
 }
 
-/* Lista de ítems en Drawer */
+/* Lista de ítems en Drawer Móvil */
 .pos-drawer-items-list {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  max-height: 48vh;
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  max-height: 50vh !important;
+  margin-bottom: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding-right: 2px !important;
 }
 
 .pos-drawer-item-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px;
-  background: var(--bg-canvas-subtle, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: var(--radius-sm, 10px);
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 12px !important;
+  background: var(--bg-canvas-subtle, #f8fafc) !important;
+  border: 1px solid var(--border-color, #e2e8f0) !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-height: 72px !important;
+  position: relative !important;
 }
 
-.pos-drawer-item-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
+.pos-drawer-item-thumb-wrap {
+  width: 50px !important;
+  height: 50px !important;
+  min-width: 50px !important;
+  min-height: 50px !important;
+  max-width: 50px !important;
+  max-height: 50px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  background: var(--bg-muted, #f1f5f9) !important;
+  border: 1px solid var(--border-light, #e2e8f0) !important;
 }
 
 .pos-drawer-item-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  object-fit: cover;
-  flex-shrink: 0;
-  background: #e2e8f0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
 }
 
-.pos-drawer-item-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.pos-drawer-item-content {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+}
+
+.pos-drawer-item-header-row {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
 
 .pos-drawer-item-name {
-  font-size: 0.84rem;
-  font-weight: 800;
-  color: var(--text-primary, #0f172a);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary, #0f172a) !important;
+  line-height: 1.25 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: break-word !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.pos-btn-del-item {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #ef4444 !important;
+  font-size: 0.85rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  transition: background-color 0.12s ease, transform 0.12s ease !important;
+}
+
+.pos-btn-del-item:hover {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+}
+
+.pos-btn-del-item:active {
+  transform: scale(0.9) !important;
+}
+
+.pos-drawer-item-footer-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.pos-drawer-item-prices {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  flex-shrink: 0 !important;
 }
 
 .pos-drawer-item-price {
-  font-size: 0.74rem;
-  color: var(--text-muted, #64748b);
-}
-
-.pos-drawer-item-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  color: var(--text-muted, #64748b) !important;
+  white-space: nowrap !important;
 }
 
 .pos-drawer-item-subtotal {
-  font-size: 0.92rem;
-  font-weight: 900;
-  color: var(--accent-primary, #2563eb);
-  min-width: 50px;
-  text-align: right;
+  font-size: 1.05rem !important;
+  font-weight: 900 !important;
+  color: var(--accent-primary, #2563eb) !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: 55px !important;
+}
+
+/* Compatibilidad con estructuras alternativas */
+.pos-drawer-item-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.pos-drawer-item-info {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+}
+
+.pos-drawer-item-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
 }
 
 /* Pie del Drawer Móvil */
@@ -1193,25 +1561,26 @@
 }
 
 .pos-btn-checkout-drawer {
-  width: 100%;
-  padding: 13px 18px;
-  min-height: 48px;
-  border-radius: var(--radius-md, 12px);
-  font-size: 1rem;
-  font-weight: 800;
-  background: var(--accent-success, #16a34a);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+  width: 100% !important;
+  padding: 13px 18px !important;
+  min-height: 48px !important;
+  border-radius: var(--radius-md, 12px) !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  background: var(--accent-success, #16a34a) !important;
+  color: #ffffff !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3) !important;
 }
 
 .pos-btn-checkout-drawer:active {
-  transform: scale(0.98);
-  background: #15803d;
+  transform: scale(0.98) !important;
+  background: #15803d !important;
 }
 
 /* ==========================================================================
@@ -1299,6 +1668,14 @@ body.dark-mode .pos-sticky-header,
   border-color: var(--border-subtle, #172033);
 }
 
+[data-theme="dark"] .pos-cat-scroll-btn,
+body.dark-mode .pos-cat-scroll-btn,
+.theme-dark .pos-cat-scroll-btn {
+  background: var(--bg-card, #172033);
+  border-color: var(--border-color, #1e293b);
+  color: var(--text-secondary, #94a3b8);
+}
+
 [data-theme="dark"] .pos-search-input,
 body.dark-mode .pos-search-input,
 .theme-dark .pos-search-input {
@@ -1342,4 +1719,696 @@ body.dark-mode .pos-drawer-totals {
 body.dark-mode .pos-mobile-cart-bar {
   background: #090d16;
   border-color: #1e293b;
+}
+
+/* ============================================================
+   DISEÑO MÓVIL OPTIMIZADO PARA INVENTARIO (< 900px)
+   ============================================================ */
+@media (max-width: 899px) {
+  .inventario-table-desktop {
+    display: none !important;
+  }
+  .inventario-mobile-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 24px !important;
+  }
+  .inventario-item-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 9px 10px !important;
+    border-radius: 12px !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    gap: 10px !important;
+    min-height: 74px !important;
+    position: relative !important;
+    transition: background-color 0.15s ease, transform 0.12s ease !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .inventario-item-card:active {
+    transform: scale(0.988) !important;
+    background: var(--bg-hover, #f8fafc) !important;
+  }
+  .inventario-item-img-wrap {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    margin: 0 !important;
+  }
+  .inventario-item-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+  .inventario-item-noimg {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--text-muted, #94a3b8) !important;
+    font-size: 1.4rem !important;
+  }
+}
+@media (min-width: 900px) {
+  .inventario-mobile-list,
+  .clientes-mobile-list,
+  .transacciones-mobile-list,
+  .auditoria-mobile-list,
+  .usuarios-mobile-list,
+  .ventas-hoy-mobile-list,
+  .ventas-general-mobile-list,
+  .premio-canjes-mobile-list {
+    display: none !important;
+  }
+  .inventario-table-desktop,
+  .clientes-table-desktop,
+  .transacciones-table-desktop,
+  .auditoria-table-desktop,
+  .usuarios-table-desktop,
+  .ventas-hoy-table-desktop,
+  .ventas-general-table-desktop,
+  .premio-canjes-table-desktop {
+    display: block !important;
+  }
+}
+
+/* ============================================================
+   DISEÑO MÓVIL ROW-ITEM PARA TODOS LOS MÓDULOS DE GESTIÓN (< 900px)
+   ============================================================ */
+@media (max-width: 899px) {
+  /* Ocultar tablas de escritorio */
+  .clientes-table-desktop,
+  .transacciones-table-desktop,
+  .auditoria-table-desktop,
+  .usuarios-table-desktop,
+  .ventas-hoy-table-desktop,
+  .ventas-general-table-desktop,
+  .premio-canjes-table-desktop {
+    display: none !important;
+  }
+
+  /* Contenedores de Listas Móviles */
+  .clientes-mobile-list,
+  .transacciones-mobile-list,
+  .auditoria-mobile-list,
+  .usuarios-mobile-list,
+  .ventas-hoy-mobile-list,
+  .ventas-general-mobile-list,
+  .premio-canjes-mobile-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 24px !important;
+  }
+
+  /* ------------------------------------------------------------
+     1. CLIENTES ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .clientes-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 14px !important;
+    padding: 14px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .clientes-item-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .clientes-item-avatar {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+    color: #1d4ed8 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    border: 1.5px solid #bfdbfe !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    flex-shrink: 0 !important;
+  }
+  .clientes-item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .clientes-item-name {
+    font-size: 0.98rem !important;
+    font-weight: 700 !important;
+    color: var(--text-main, #0f172a) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.25 !important;
+  }
+  .clientes-item-meta {
+    display: flex !important;
+    gap: 10px !important;
+    font-size: 0.78rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 3px !important;
+    flex-wrap: wrap !important;
+  }
+  .clientes-item-financial {
+    flex-shrink: 0 !important;
+    text-align: right !important;
+  }
+  .clientes-item-deuda-pill {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
+    line-height: 1.2 !important;
+  }
+  .clientes-item-deuda-pill.badge-danger {
+    background: #fef2f2 !important;
+    border: 1px solid #fecaca !important;
+    color: #b91c1c !important;
+  }
+  .clientes-item-deuda-pill.badge-danger .lbl {
+    font-size: 0.68rem !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.4px !important;
+    color: #ef4444 !important;
+  }
+  .clientes-item-deuda-pill.badge-danger .val {
+    font-size: 0.92rem !important;
+    font-weight: 800 !important;
+    color: #dc2626 !important;
+  }
+  .clientes-item-deuda-pill.badge-danger .sub {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    color: #b91c1c !important;
+  }
+  .clientes-item-deuda-pill.badge-success {
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    color: #15803d !important;
+  }
+  .clientes-item-deuda-pill.badge-success .val {
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    color: #16a34a !important;
+  }
+  .clientes-item-deuda-pill.badge-success .sub {
+    font-size: 0.72rem !important;
+    color: #65a30d !important;
+  }
+  .clientes-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding-top: 10px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+  .clientes-item-comprado {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+  }
+  .clientes-item-comprado .lbl {
+    font-size: 0.78rem !important;
+    color: var(--text-muted, #64748b) !important;
+  }
+  .clientes-item-comprado .val {
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    color: var(--text-main, #1e293b) !important;
+  }
+  .clientes-item-actions {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  /* ------------------------------------------------------------
+     2. TRANSACCIONES ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .transacciones-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .transacciones-item-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .transacciones-item-id {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-accent, #2563eb) !important;
+  }
+  .transacciones-item-date {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+  }
+  .transacciones-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.84rem !important;
+  }
+  .transacciones-item-amount {
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+  }
+  .transacciones-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* ------------------------------------------------------------
+     3. AUDITORÍA ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .auditoria-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .auditoria-item-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .auditoria-item-img-wrap {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    min-height: 52px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: var(--bg-muted, #f1f5f9) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .auditoria-item-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  .auditoria-item-noimg {
+    color: var(--text-muted, #94a3b8) !important;
+    font-size: 1.2rem !important;
+  }
+  .auditoria-item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .auditoria-item-title-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .auditoria-item-name {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-main, #0f172a) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .auditoria-item-sub {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 2px !important;
+  }
+  .auditoria-item-middle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--bg-muted, #f8fafc) !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .auditoria-stock-badge {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .auditoria-stock-badge .lbl {
+    font-size: 0.68rem !important;
+    color: var(--text-muted, #64748b) !important;
+    font-weight: 600 !important;
+    margin-bottom: 2px !important;
+    text-transform: uppercase !important;
+  }
+  .auditoria-stock-badge .val {
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .auditoria-stock-badge input {
+    width: 65px !important;
+    height: 32px !important;
+    text-align: center !important;
+    font-weight: 700 !important;
+    border-radius: 6px !important;
+  }
+  .auditoria-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  /* ------------------------------------------------------------
+     4. USUARIOS ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .usuarios-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+  .usuarios-item-card.current-session {
+    border-color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.04) !important;
+  }
+  .usuarios-item-top {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .usuarios-item-avatar-wrap {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #e2e8f0 !important;
+  }
+  .usuarios-item-avatar-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+  .usuarios-item-avatar-initials {
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    color: #475569 !important;
+  }
+  .usuarios-item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .usuarios-item-name-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .usuarios-item-name {
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    color: var(--text-main, #0f172a) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .usuarios-item-meta {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-top: 2px !important;
+  }
+  .usuarios-item-status {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 4px !important;
+  }
+  .usuarios-pts-pill {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-accent, #2563eb) !important;
+    background: rgba(37, 99, 235, 0.08) !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+  }
+  .usuarios-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+    flex-wrap: wrap !important;
+  }
+  .usuarios-role-select-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 0.8rem !important;
+  }
+  .btn-wa-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 4px 10px !important;
+    background: #22c55e !important;
+    color: #ffffff !important;
+    border-radius: 20px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+  }
+  .usuarios-item-actions {
+    display: flex !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     5. VENTAS ITEM CARD (Mobile Row Item)
+     ------------------------------------------------------------ */
+  .ventas-item-card {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-card, #ffffff) !important;
+    border: 1px solid var(--border-light, #e2e8f0) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .ventas-item-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .ventas-item-id {
+    font-weight: 800 !important;
+    font-size: 0.88rem !important;
+    color: var(--primary-accent, #2563eb) !important;
+  }
+  .ventas-item-time {
+    font-size: 0.75rem !important;
+    color: var(--text-muted, #64748b) !important;
+    margin-left: 6px !important;
+  }
+  .ventas-item-amounts {
+    text-align: right !important;
+  }
+  .ventas-item-usd {
+    display: block !important;
+    font-weight: 800 !important;
+    font-size: 1rem !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .ventas-item-ves {
+    display: block !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    color: #16a34a !important;
+  }
+  .ventas-item-middle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.82rem !important;
+    padding: 4px 0 !important;
+  }
+  .ventas-item-client-name {
+    font-weight: 600 !important;
+    color: var(--text-main, #0f172a) !important;
+  }
+  .ventas-item-items-count {
+    color: var(--text-muted, #64748b) !important;
+    font-size: 0.78rem !important;
+    margin-left: 6px !important;
+  }
+  .ventas-item-bottom {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     6. NOTIFICACIONES CARD (Mobile Row Item Polish)
+     ------------------------------------------------------------ */
+  .notificacion-card-item {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+  .notif-item-left-block {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+  }
+  .notif-item-icon-box {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.1rem !important;
+    flex-shrink: 0 !important;
+  }
+  .notif-item-body {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .notif-item-msg {
+    font-size: 0.88rem !important;
+    line-height: 1.4 !important;
+    margin: 4px 0 6px !important;
+    word-break: break-word !important;
+  }
+  .notif-item-actions-block {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding-top: 6px !important;
+    border-top: 1px dashed var(--border-light, #f1f5f9) !important;
+  }
+
+  /* ------------------------------------------------------------
+     7. PREMIO DEL MES & CONFIGURACIÓN (Mobile Fluid Optimization)
+     ------------------------------------------------------------ */
+  #premio-mes-admin .reward-form-row {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  #premio-mes-admin .reward-config-container {
+    padding: 4px 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #premio-mes-admin .reward-config-card {
+    padding: 16px 12px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .reward-preview-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .reward-preview-img-wrapper {
+    height: 160px !important;
+  }
+  #premio-admin-historial-canjes .table-responsive {
+    border: none !important;
+  }
+
+  /* Tarjetas de Cuentas Bancarias y Formularios en Configuración */
+  #config-cuentas-bancarias-box [style*="grid-template-columns"],
+  #configuracion [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
 }

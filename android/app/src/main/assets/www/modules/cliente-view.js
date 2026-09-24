@@ -325,8 +325,14 @@ function renderizarCatalogoCliente() {
         const q = clienteBusqueda.toLowerCase();
         prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
     }
-    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
-        prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
+    if (clienteFiltroCategoria === 'AGOTADOS') {
+        prods = prods.filter(p => Number(p.stock || 0) <= 0);
+    } else {
+        // Por defecto los productos agotados no aparecen en el catálogo de clientes
+        prods = prods.filter(p => Number(p.stock || 0) > 0);
+        if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
+            prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
+        }
     }
 
     // Ordenamiento por Stock, Puntos y Alfabético
@@ -480,7 +486,18 @@ function renderizarCategoriasCatalogo() {
         `;
     }).join('');
 
+    const totalAgotadosCli = (AppState.productos || []).filter(p => Number(p.stock || 0) <= 0).length;
+    const isAgotadosActive = clienteFiltroCategoria === 'AGOTADOS';
+    html += `
+        <button type="button" class="chip-filter ${isAgotadosActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('AGOTADOS')" style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; font-weight:800;' : 'border-color: rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}" title="Ver productos agotados">
+            🚫 Agotados (${totalAgotadosCli})
+        </button>
+    `;
+
     container.innerHTML = html;
+    if (typeof inicializarScrollHorizontalInteractivo === 'function') {
+        inicializarScrollHorizontalInteractivo(container, 'cliente-cat-scroll-left', 'cliente-cat-scroll-right');
+    }
 }
 
 function filtrarCatalogoClienteCategoria(cat) {
@@ -700,38 +717,16 @@ function vaciarCarritoCliente() {
     }
 }
 
-// Cuentas bancarias de respaldo estático (por si la red o caché aún no cargan)
-const bankAccountsFallback = [
-  { id: 'bancamiga_pm', type: 'Pago Móvil / Transferencia', bank: 'Bancamiga (0172)', phone: '0412-1234567', idNumber: 'V-30.544.641', titular: 'Josnairit Salazar / Tu Bodeguita', account: '01720111223344556677', activo: true },
-  { id: 'bdv_pm', type: 'Pago Móvil', bank: 'Banco de Venezuela (0102)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '01020000000000000000', activo: true },
-  { id: 'banesco_pm', type: 'Pago Móvil', bank: 'Banesco (0134)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true },
-  { id: 'mercantil_pm', type: 'Pago Móvil', bank: 'Mercantil (0105)', phone: '0412-5363849', idNumber: 'V-28.123.456', titular: 'Tu Bodeguita de Confianza', account: '', activo: true }
-];
-
 /**
  * Retorna la lista activa de cuentas bancarias desde AppState (excluye cuentas pausadas)
  */
 function obtenerCuentasBancariasActivas() {
     let lista = AppState.cuentasBancarias;
-    if (!Array.isArray(lista) || lista.length === 0) {
-        try {
-            const cached = localStorage.getItem('bodeguita_cache_cuentas_bancarias');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    AppState.cuentasBancarias = parsed;
-                    lista = parsed;
-                }
-            }
-        } catch (e) {}
+    if (!Array.isArray(lista)) {
+        lista = [];
     }
-    if (!Array.isArray(lista) || lista.length === 0) {
-        lista = bankAccountsFallback;
-        AppState.cuentasBancarias = lista;
-    }
-
     // Retorna estrictamente solo las cuentas activas (no pausadas)
-    return lista.filter(c => c.activo !== false);
+    return lista.filter(c => c && c.activo !== false);
 }
 
 /**
@@ -1562,9 +1557,36 @@ async function renderizarEstadoCuentaCliente() {
         // Modo local fallback
     }
 
-    const ventasCliente = (AppState.ventas || []).filter(v => (v.clienteId === cedula || v.clienteId === usuario.id));
-    const abonosAprobados = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
-    const todosAbonosCliente = (AppState.abonos || []).filter(a => (a.clienteId === cedula || a.clienteId === usuario.id));
+    const clienteIdVinculado = usuario.clienteId || null;
+    const idsCoincidentes = new Set([
+        String(cedula || '').toUpperCase(),
+        String(usuario.id || '').toUpperCase()
+    ]);
+    if (clienteIdVinculado) idsCoincidentes.add(String(clienteIdVinculado).toUpperCase());
+    if (usuario.clienteVinculado) idsCoincidentes.add(String(usuario.clienteVinculado).trim().toUpperCase());
+
+    const clienteEncontrado = (AppState.clientes || []).find(c => 
+        (c.cedula && String(c.cedula).toUpperCase() === String(cedula).toUpperCase()) ||
+        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (clienteIdVinculado && String(c.id).toUpperCase() === String(clienteIdVinculado).toUpperCase())
+    );
+    if (clienteEncontrado) {
+        if (clienteEncontrado.id) idsCoincidentes.add(String(clienteEncontrado.id).toUpperCase());
+        if (clienteEncontrado.cedula) idsCoincidentes.add(String(clienteEncontrado.cedula).toUpperCase());
+        if (clienteEncontrado.nombre) idsCoincidentes.add(String(clienteEncontrado.nombre).trim().toUpperCase());
+    }
+
+    const esDelCliente = (obj) => {
+        if (!obj) return false;
+        const cId = String(obj.clienteId || '').toUpperCase();
+        const cCed = String(obj.clienteCedula || '').toUpperCase();
+        const uId = String(obj.usuarioId || '').toUpperCase();
+        return idsCoincidentes.has(cId) || idsCoincidentes.has(cCed) || idsCoincidentes.has(uId);
+    };
+
+    const ventasCliente = (AppState.ventas || []).filter(esDelCliente);
+    const abonosAprobados = (AppState.abonos || []).filter(a => esDelCliente(a) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
+    const todosAbonosCliente = (AppState.abonos || []).filter(esDelCliente);
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
@@ -1582,7 +1604,9 @@ async function renderizarEstadoCuentaCliente() {
     totalAbonadoVES = Number(totalAbonadoVES.toFixed(2));
 
     const totalCompradoUSD = ventasCliente.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoUSD = ventasCliente.filter(v => v.tipo === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const totalCreditoVentas = ventasCliente.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const deudaDirecta = Number(clienteEncontrado?.deudaInicialUSD ?? clienteEncontrado?.deudaUSD ?? 0);
+    const totalCreditoUSD = totalCreditoVentas > 0 ? totalCreditoVentas : deudaDirecta;
     const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
     const saldoDeudaVES = tasa > 0 ? (saldoDeudaUSD * tasa) : 0;
     const totalCompradoVES = tasa > 0 ? (totalCompradoUSD * tasa) : 0;

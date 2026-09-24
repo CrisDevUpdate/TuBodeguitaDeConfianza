@@ -3058,9 +3058,17 @@
                         </div>
                     </div>
 
-                    <!-- Chips Horizontales de Categorías -->
-                    <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-top:8px; margin-bottom:4px; scrollbar-width:none;">
-                        <!-- Generado dinámicamente -->
+                    <!-- Chips Horizontales de Categorías con Drag-to-Scroll y Controles Laterales -->
+                    <div class="pos-categories-wrapper">
+                        <button type="button" class="pos-cat-scroll-btn pos-cat-scroll-btn-left" id="pos-cat-scroll-left" aria-label="Desplazar categorías hacia la izquierda" title="Desplazar a la izquierda" style="opacity:0.3; pointer-events:none;">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="pos-categories-scroll" id="pos-categories-chips" role="tablist">
+                            <!-- Generado dinámicamente -->
+                        </div>
+                        <button type="button" class="pos-cat-scroll-btn pos-cat-scroll-btn-right" id="pos-cat-scroll-right" aria-label="Desplazar categorías hacia la derecha" title="Desplazar a la derecha">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -5198,9 +5206,17 @@
                         </div>
                     </div>
 
-                    <!-- Chips de Categorías con scroll horizontal suave -->
-                    <div id="cliente-categorias-chips" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; scrollbar-width:none;">
-                        <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
+                    <!-- Chips de Categorías con scroll horizontal suave y Drag-to-Scroll -->
+                    <div class="pos-categories-wrapper" style="margin-bottom:12px;">
+                        <button type="button" class="pos-cat-scroll-btn pos-cat-scroll-btn-left" id="cliente-cat-scroll-left" aria-label="Desplazar categorías hacia la izquierda" title="Desplazar a la izquierda" style="opacity:0.3; pointer-events:none;">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div id="cliente-categorias-chips" class="pos-categories-scroll" role="tablist" style="margin-bottom:0;">
+                            <button type="button" class="chip-filter active" onclick="filtrarCatalogoPorCategoria('TODOS')">Todos</button>
+                        </div>
+                        <button type="button" class="pos-cat-scroll-btn pos-cat-scroll-btn-right" id="cliente-cat-scroll-right" aria-label="Desplazar categorías hacia la derecha" title="Desplazar a la derecha">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
 
