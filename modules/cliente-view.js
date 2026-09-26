@@ -1561,60 +1561,45 @@ async function renderizarEstadoCuentaCliente() {
         // Modo local fallback
     }
 
-    const clienteIdVinculado = usuario.clienteId || null;
-    const idsCoincidentes = new Set([
-        String(cedula || '').toUpperCase(),
-        String(usuario.id || '').toUpperCase()
-    ]);
-    if (clienteIdVinculado) idsCoincidentes.add(String(clienteIdVinculado).toUpperCase());
-    if (usuario.clienteVinculado) idsCoincidentes.add(String(usuario.clienteVinculado).trim().toUpperCase());
-
-    const clienteEncontrado = (AppState.clientes || []).find(c => 
-        (c.cedula && String(c.cedula).toUpperCase() === String(cedula).toUpperCase()) ||
-        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
-        (clienteIdVinculado && String(c.id).toUpperCase() === String(clienteIdVinculado).toUpperCase())
-    );
-    if (clienteEncontrado) {
-        if (clienteEncontrado.id) idsCoincidentes.add(String(clienteEncontrado.id).toUpperCase());
-        if (clienteEncontrado.cedula) idsCoincidentes.add(String(clienteEncontrado.cedula).toUpperCase());
-        if (clienteEncontrado.nombre) idsCoincidentes.add(String(clienteEncontrado.nombre).trim().toUpperCase());
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        asegurarSincronizacionUsuariosAClientes();
     }
 
-    const esDelCliente = (obj) => {
-        if (!obj) return false;
-        const cId = String(obj.clienteId || '').toUpperCase();
-        const cCed = String(obj.clienteCedula || '').toUpperCase();
-        const uId = String(obj.usuarioId || '').toUpperCase();
-        return idsCoincidentes.has(cId) || idsCoincidentes.has(cCed) || idsCoincidentes.has(uId);
-    };
+    const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'
+        ? calcularEstadoFinancieroCliente(usuario)
+        : null;
 
-    const ventasCliente = (AppState.ventas || []).filter(esDelCliente);
-    const abonosAprobados = (AppState.abonos || []).filter(a => esDelCliente(a) && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado));
-    const todosAbonosCliente = (AppState.abonos || []).filter(esDelCliente);
+    const clienteEncontrado = estadoFin?.clienteObj || (AppState.clientes || []).find(c => 
+        (c.cedula && String(c.cedula).toUpperCase() === String(cedula).toUpperCase()) ||
+        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (usuario.clienteId && String(c.id).toUpperCase() === String(usuario.clienteId).toUpperCase()) ||
+        (usuario.nombre && c.nombre && String(c.nombre).trim().toUpperCase() === String(usuario.nombre).trim().toUpperCase())
+    );
+
+    const ventasCliente = estadoFin?.ventasCliente || [];
+    const abonosAprobados = estadoFin?.abonosCliente || [];
+    const todosAbonosCliente = (AppState.abonos || []).filter(a => {
+        if (!a) return false;
+        const aCId = String(a.clienteId || '').toUpperCase();
+        const aCCed = String(a.clienteCedula || '').toUpperCase();
+        const aUId = String(a.usuarioId || '').toUpperCase();
+        const aNom = String(a.clienteNombre || '').toUpperCase();
+        const uCed = String(cedula || '').toUpperCase();
+        const uId = String(usuario.id || '').toUpperCase();
+        const uNom = String(usuario.nombre || '').toUpperCase();
+        const cId = clienteEncontrado ? String(clienteEncontrado.id || '').toUpperCase() : '';
+        return (cId && aCId === cId) || (uCed && (aCCed === uCed || aCId === uCed)) || (uId && aUId === uId) || (uNom && aNom === uNom);
+    });
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
-    // Sanar y sumar abonos conciliados
-    let totalAbonadoUSD = 0;
-    let totalAbonadoVES = 0;
-    abonosAprobados.forEach(a => {
-        const { montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function' 
-            ? sanitizarAbonoMonedas(a, tasa) 
-            : { montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
-        totalAbonadoUSD += montoUSD;
-        totalAbonadoVES += montoVES;
-    });
-    totalAbonadoUSD = Number(totalAbonadoUSD.toFixed(2));
-    totalAbonadoVES = Number(totalAbonadoVES.toFixed(2));
-
-    const totalCompradoUSD = ventasCliente.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoVentas = ventasCliente.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const deudaDirecta = Number(clienteEncontrado?.deudaInicialUSD ?? clienteEncontrado?.deudaUSD ?? 0);
-    const totalCreditoUSD = totalCreditoVentas > 0 ? totalCreditoVentas : deudaDirecta;
-    const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
-    const saldoDeudaVES = tasa > 0 ? (saldoDeudaUSD * tasa) : 0;
-    const totalCompradoVES = tasa > 0 ? (totalCompradoUSD * tasa) : 0;
-    const esSolvente = saldoDeudaUSD <= 0.01;
+    const totalAbonadoUSD = estadoFin ? estadoFin.totalAbonadoUSD : 0;
+    const totalAbonadoVES = estadoFin ? estadoFin.totalAbonadoVES : 0;
+    const totalCompradoUSD = estadoFin ? estadoFin.totalCompradoUSD : 0;
+    const totalCompradoVES = estadoFin ? estadoFin.totalCompradoVES : 0;
+    const saldoDeudaUSD = estadoFin ? estadoFin.saldoDeudaUSD : 0;
+    const saldoDeudaVES = estadoFin ? estadoFin.saldoDeudaVES : 0;
+    const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
 
     const formatVES = (val) => Number(val || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -2294,11 +2279,23 @@ async function procesarReportePagoCliente() {
     }
 
     const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const cliVinculado = (AppState.clientes || []).find(c => 
+        (usuario.clienteId && String(c.id).toUpperCase() === String(usuario.clienteId).toUpperCase()) ||
+        (c.cedula && String(c.cedula).toUpperCase() === String(usuario.cedula || usuario.id).toUpperCase()) ||
+        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (usuario.nombre && c.nombre && String(c.nombre).trim().toUpperCase() === String(usuario.nombre).trim().toUpperCase())
+    );
+
+    const idCliFinal = cliVinculado ? cliVinculado.id : String(usuario.cedula || usuario.id || '').trim();
+    const nomCliFinal = cliVinculado ? cliVinculado.nombre : String(usuario.nombre || usuario.cedula || 'Cliente').trim();
+    const cedCliFinal = String(usuario.cedula || usuario.id || (cliVinculado ? cliVinculado.cedula : '')).trim();
+
     const nuevoAbono = {
         id: `ABN_${Date.now()}`,
-        clienteId: String(usuario.cedula || usuario.id || '').trim(),
-        clienteNombre: String(usuario.nombre || usuario.cedula || 'Cliente').trim(),
-        clienteCedula: String(usuario.cedula || usuario.id || '').trim(),
+        clienteId: idCliFinal,
+        clienteNombre: nomCliFinal,
+        clienteCedula: cedCliFinal,
+        usuarioId: usuario.id || null,
         montoUSD: montoUSD,
         montoVES: montoVES,
         tasaMomento: tasa,

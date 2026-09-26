@@ -423,8 +423,16 @@ app.get('/api/account/status', (req, res) => {
     return res.status(400).json({ success: false, error: 'userId query parameter is required' });
   }
 
-  const userSales = serverSales.filter(s => s.clienteId === userId || s.clienteCedula === userId);
-  const userPayments = serverPayments.filter(p => (p.clienteId === userId || p.clienteCedula === userId) && (p.estado === 'Pago agregado' || p.estado === 'APROBADO' || !p.estado));
+  const uidLower = String(userId).trim().toLowerCase();
+  const userSales = serverSales.filter(s => 
+    s.clienteId === userId || 
+    s.clienteCedula === userId || 
+    (s.clienteNombre && String(s.clienteNombre).trim().toLowerCase() === uidLower)
+  );
+  const userPayments = serverPayments.filter(p => 
+    (p.clienteId === userId || p.clienteCedula === userId || (p.clienteNombre && String(p.clienteNombre).trim().toLowerCase() === uidLower)) && 
+    (p.estado === 'Pago agregado' || p.estado === 'APROBADO' || !p.estado)
+  );
 
   const totalCompradoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalCreditoUSD = userSales.filter(s => s.tipo === 'Crédito' || s.tipoPago === 'Crédito').reduce((acc, s) => acc + Number(s.total || 0), 0);

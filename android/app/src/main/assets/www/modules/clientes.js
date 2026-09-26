@@ -1,6 +1,6 @@
 /**
  * Regla Fundamental del Negocio: Todo usuario registrado/creado es automáticamente un cliente.
- * Sincroniza la lista de usuarios con la lista de clientes.
+ * Sincroniza la lista de usuarios con la lista de clientes y consolida registros duplicados.
  * sincronizarConNube es false por defecto para evitar bucles de escritura infinitos con listeners de Firestore.
  */
 function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
@@ -11,6 +11,51 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
     const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
     let huboCambios = false;
 
+    // 1. Fusionar registros duplicados históricos en AppState.clientes (ej: CLI-021 y 13054092 con mismo nombre)
+    const clientesMap = new Map();
+    const clientesADepurar = [];
+
+    AppState.clientes.forEach(c => {
+        if (!c || !c.id) return;
+        const nomNormalizado = String(c.nombre || '').trim().toUpperCase();
+        // Si ya existe un cliente con el mismo nombre exacto
+        if (nomNormalizado && clientesMap.has(nomNormalizado)) {
+            const existente = clientesMap.get(nomNormalizado);
+            // Fusionar datos conservando el código oficial (CLI-xxx) o la cédula
+            if (String(existente.id).startsWith('CLI-')) {
+                if (!existente.cedula) {
+                    existente.cedula = c.cedula || (!String(c.id).startsWith('CLI-') ? c.id : '');
+                }
+            } else if (String(c.id).startsWith('CLI-')) {
+                existente.codigoOficial = c.id;
+                if (!existente.cedula) existente.cedula = existente.id;
+            }
+            if (c.usuarioId && !existente.usuarioId) existente.usuarioId = c.usuarioId;
+            if (c.telefono && !existente.telefono) existente.telefono = c.telefono;
+            if (c.email && !existente.email) existente.email = c.email;
+            
+            const maxDeuda = Math.max(
+                Number(existente.deudaInicialUSD || existente.deudaUSD || 0),
+                Number(c.deudaInicialUSD || c.deudaUSD || 0)
+            );
+            if (maxDeuda > 0) {
+                existente.deudaInicialUSD = maxDeuda;
+                existente.deudaUSD = maxDeuda;
+            }
+            huboCambios = true;
+        } else {
+            if (nomNormalizado) clientesMap.set(nomNormalizado, c);
+            clientesADepurar.push(c);
+        }
+    });
+
+    if (clientesADepurar.length !== AppState.clientes.length) {
+        AppState.clientes = clientesADepurar;
+        if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+        huboCambios = true;
+    }
+
+    // 2. Sincronizar usuarios a clientes con vinculación total
     usuariosList.forEach(u => {
         const idCed = String(u.cedula || u.id || '').trim();
         if (!idCed) return;
@@ -22,39 +67,60 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         const estaEliminado = eliminadosList.some(ce => String(ce.id).trim().toUpperCase() === idUpper);
         if (estaEliminado) return;
 
-        // Si el usuario ya está vinculado a un cliente existente (por clienteId, usuarioId o cédula),
-        // no debemos crear un nuevo cliente duplicado. Buscamos primero si ya existe un cliente vinculado.
+        const uNom = String(u.nombre || '').trim().toUpperCase();
+        const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
+        const uCliId = String(u.clienteId || '').trim().toUpperCase();
+
+        // Buscar si coincide con la libreta de CLIENTES_OFICIALES
+        let coEncontrado = null;
+        if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+            coEncontrado = CLIENTES_OFICIALES.find(co => {
+                const coId = String(co.id || '').trim().toUpperCase();
+                const coNom = String(co.nombre || '').trim().toUpperCase();
+                return coId === uCliId || 
+                       (uNom && coNom === uNom) || 
+                       (uVin && coNom === uVin) ||
+                       (uNom.length >= 4 && (uNom.startsWith(coNom) || coNom.startsWith(uNom)));
+            });
+        }
+
+        // Buscar cliente existente por ID, cédula, usuarioId, clienteId o por NOMBRE coincidente
         let cliente = AppState.clientes.find(c => {
             const cId = String(c.id || '').trim().toUpperCase();
             const cCed = String(c.cedula || '').trim().toUpperCase();
             const cUid = String(c.usuarioId || '').trim().toUpperCase();
             const uId = String(u.id || '').trim().toUpperCase();
-            const uCliId = String(u.clienteId || '').trim().toUpperCase();
+            const cNom = String(c.nombre || '').trim().toUpperCase();
 
-            // 1. Coincidencia por id del cliente y cédula/id del usuario
             if (cId === idUpper) return true;
-            // 2. Coincidencia explícita si el usuario apunta al cliente vía u.clienteId
             if (uCliId && cId === uCliId) return true;
-            // 3. Coincidencia si el cliente guarda usuarioId y coincide con u.id
+            if (coEncontrado && cId === String(coEncontrado.id).trim().toUpperCase()) return true;
             if (cUid && uId && cUid === uId) return true;
-            // 4. Coincidencia si el cliente tiene campo cedula registrado
             if (cCed && cCed === idUpper) return true;
+            if (uNom && cNom && uNom === cNom) return true;
+            if (uVin && cNom && uVin === cNom) return true;
+            if (uNom && cNom && uNom.length >= 4 && (uNom.startsWith(cNom) || cNom.startsWith(uNom))) return true;
 
             return false;
         });
 
         if (!cliente) {
             cliente = {
-                id: idCed,
-                nombre: u.nombre || idCed,
+                id: coEncontrado ? coEncontrado.id : idCed,
+                cedula: idCed,
+                nombre: coEncontrado ? coEncontrado.nombre : (u.nombre || idCed),
                 telefono: u.telefono || '',
                 email: u.email || '',
-                usuarioId: u.id || null
+                usuarioId: u.id || null,
+                deudaUSD: coEncontrado ? Number(coEncontrado.deudaUSD || 0) : 0,
+                deudaInicialUSD: coEncontrado ? Number(coEncontrado.deudaInicialUSD || coEncontrado.deudaUSD || 0) : 0
             };
             AppState.clientes.push(cliente);
             huboCambios = true;
 
-            // Sincronizar en la nube en Firestore ÚNICAMENTE si se solicitó explícitamente fuera de listeners
+            u.clienteId = cliente.id;
+            u.clienteVinculado = cliente.nombre;
+
             if (sincronizarConNube && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
                 window.InventoryApp.Firebase.guardarCliente(cliente).catch(err => {
                     console.warn('[Sync Clientes] Error al persistir cliente en Firestore:', err);
@@ -62,17 +128,12 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             }
         } else {
             let actualizado = false;
-            // Asegurar que el cliente tenga las referencias de vinculación con el usuario
             if (u.id && (!cliente.usuarioId || cliente.usuarioId !== u.id)) {
                 cliente.usuarioId = u.id;
                 actualizado = true;
             }
-            if (u.cedula && (!cliente.cedula || cliente.cedula !== u.cedula)) {
-                cliente.cedula = u.cedula;
-                actualizado = true;
-            }
-            if (u.nombre && cliente.nombre !== u.nombre) {
-                cliente.nombre = u.nombre;
+            if (idCed && (!cliente.cedula || cliente.cedula !== idCed)) {
+                cliente.cedula = idCed;
                 actualizado = true;
             }
             if (u.telefono && cliente.telefono !== u.telefono) {
@@ -81,6 +142,16 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             }
             if (u.email && cliente.email !== u.email) {
                 cliente.email = u.email;
+                actualizado = true;
+            }
+            if (!u.clienteId || u.clienteId !== cliente.id) {
+                u.clienteId = cliente.id;
+                u.clienteVinculado = cliente.nombre;
+            }
+            // Si el cliente en la lista oficial tiene deuda inicial y cliente tiene 0, respaldar la deuda
+            if (coEncontrado && Number(coEncontrado.deudaUSD || 0) > 0 && Number(cliente.deudaUSD || 0) === 0 && Number(cliente.deudaInicialUSD || 0) === 0) {
+                cliente.deudaUSD = Number(coEncontrado.deudaUSD);
+                cliente.deudaInicialUSD = Number(coEncontrado.deudaInicialUSD || coEncontrado.deudaUSD);
                 actualizado = true;
             }
             if (actualizado) {
@@ -183,70 +254,246 @@ function actualizarSelectClientes() {
     }
 }
 
-function calcularEstadoFinancieroCliente(clienteId) {
-    if (!clienteId) return { totalCompradoUSD: 0, totalCompradoVES: 0, saldoDeudaUSD: 0, saldoDeudaVES: 0 };
-
-    const clientesList = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const clienteObj = clientesList.find(c => 
-        String(c.id).toUpperCase() === String(clienteId).toUpperCase() ||
-        (c.cedula && String(c.cedula).toUpperCase() === String(clienteId).toUpperCase()) ||
-        (c.usuarioId && String(c.usuarioId).toUpperCase() === String(clienteId).toUpperCase())
-    );
-
-    const keys = new Set();
-    keys.add(String(clienteId).toUpperCase());
-    if (clienteObj) {
-        if (clienteObj.id) keys.add(String(clienteObj.id).toUpperCase());
-        if (clienteObj.cedula) keys.add(String(clienteObj.cedula).toUpperCase());
-        if (clienteObj.usuarioId) keys.add(String(clienteObj.usuarioId).toUpperCase());
-        if (clienteObj.nombre) keys.add(String(clienteObj.nombre).trim().toUpperCase());
+function calcularEstadoFinancieroCliente(identificadorOEntidad) {
+    if (!identificadorOEntidad) {
+        return { 
+            totalCompradoUSD: 0, 
+            totalCompradoVES: 0, 
+            totalCreditoUSD: 0,
+            totalAbonadoUSD: 0, 
+            totalAbonadoVES: 0, 
+            saldoDeudaUSD: 0, 
+            saldoDeudaVES: 0,
+            ventasCliente: [],
+            abonosCliente: [],
+            esSolvente: true 
+        };
     }
 
+    const clientesList = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
     const ventasList = Array.isArray(ventas) ? ventas : (AppState.ventas || []);
     const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
 
-    const ventasCli = ventasList.filter(v => {
-        if (!v) return false;
-        const vCId = String(v.clienteId || '').toUpperCase();
-        const vCCed = String(v.clienteCedula || '').toUpperCase();
-        const vUId = String(v.usuarioId || '').toUpperCase();
-        return keys.has(vCId) || keys.has(vCCed) || keys.has(vUId);
-    });
+    // Determinar identificador string o entidad
+    let targetId = '';
+    let clienteObj = null;
+    let usuarioObj = null;
 
+    if (typeof identificadorOEntidad === 'object' && identificadorOEntidad !== null) {
+        if (identificadorOEntidad.rol || identificadorOEntidad.password) {
+            // Es un objeto usuario
+            usuarioObj = identificadorOEntidad;
+            targetId = String(usuarioObj.cedula || usuarioObj.id || '').trim();
+        } else {
+            // Es un objeto cliente
+            clienteObj = identificadorOEntidad;
+            targetId = String(clienteObj.id || clienteObj.cedula || '').trim();
+        }
+    } else {
+        targetId = String(identificadorOEntidad || '').trim();
+    }
+
+    const targetUpper = targetId.toUpperCase();
+
+    // Si aún no tenemos clienteObj, buscarlo
+    if (!clienteObj) {
+        clienteObj = clientesList.find(c => {
+            if (!c) return false;
+            const cId = String(c.id || '').trim().toUpperCase();
+            const cCed = String(c.cedula || '').trim().toUpperCase();
+            const cUid = String(c.usuarioId || '').trim().toUpperCase();
+            const cNom = String(c.nombre || '').trim().toUpperCase();
+            return cId === targetUpper || cCed === targetUpper || cUid === targetUpper || (targetUpper && cNom === targetUpper);
+        });
+    }
+
+    // Si aún no tenemos usuarioObj, buscarlo
+    if (!usuarioObj) {
+        usuarioObj = usuariosList.find(u => {
+            if (!u) return false;
+            const uId = String(u.id || '').trim().toUpperCase();
+            const uCed = String(u.cedula || '').trim().toUpperCase();
+            const uCliId = String(u.clienteId || '').trim().toUpperCase();
+            const uNom = String(u.nombre || '').trim().toUpperCase();
+            return uId === targetUpper || uCed === targetUpper || uCliId === targetUpper || (targetUpper && uNom === targetUpper);
+        });
+    }
+
+    // Si encontramos usuario pero no cliente, buscar cliente por el usuario
+    if (usuarioObj && !clienteObj) {
+        const uId = String(usuarioObj.id || '').trim().toUpperCase();
+        const uCed = String(usuarioObj.cedula || '').trim().toUpperCase();
+        const uCliId = String(usuarioObj.clienteId || '').trim().toUpperCase();
+        const uNom = String(usuarioObj.nombre || '').trim().toUpperCase();
+        const uVin = String(usuarioObj.clienteVinculado || '').trim().toUpperCase();
+
+        clienteObj = clientesList.find(c => {
+            if (!c) return false;
+            const cId = String(c.id || '').trim().toUpperCase();
+            const cCed = String(c.cedula || '').trim().toUpperCase();
+            const cUid = String(c.usuarioId || '').trim().toUpperCase();
+            const cNom = String(c.nombre || '').trim().toUpperCase();
+            return (uCliId && cId === uCliId) ||
+                   (uId && (cId === uId || cCed === uId || cUid === uId)) ||
+                   (uCed && (cId === uCed || cCed === uCed || cUid === uCed)) ||
+                   (uNom && cNom === uNom) ||
+                   (uVin && cNom === uVin) ||
+                   (uNom && cNom && uNom.length >= 4 && (uNom.startsWith(cNom) || cNom.startsWith(uNom)));
+        });
+    }
+
+    // Si encontramos cliente pero no usuario, buscar usuario por el cliente
+    if (clienteObj && !usuarioObj) {
+        const cId = String(clienteObj.id || '').trim().toUpperCase();
+        const cCed = String(clienteObj.cedula || '').trim().toUpperCase();
+        const cUid = String(clienteObj.usuarioId || '').trim().toUpperCase();
+        const cNom = String(clienteObj.nombre || '').trim().toUpperCase();
+
+        usuarioObj = usuariosList.find(u => {
+            if (!u) return false;
+            const uId = String(u.id || '').trim().toUpperCase();
+            const uCed = String(u.cedula || '').trim().toUpperCase();
+            const uCliId = String(u.clienteId || '').trim().toUpperCase();
+            const uNom = String(u.nombre || '').trim().toUpperCase();
+            const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
+            return (cUid && uId === cUid) ||
+                   (cCed && (uCed === cCed || uId === cCed)) ||
+                   (cId && (uCliId === cId || uId === cId || uCed === cId)) ||
+                   (cNom && (uNom === cNom || uVin === cNom)) ||
+                   (cNom && uNom && cNom.length >= 4 && (uNom.startsWith(cNom) || cNom.startsWith(uNom)));
+        });
+    }
+
+    // Respaldo de seguridad con la libreta de CLIENTES_OFICIALES
+    let oficialObj = null;
+    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        const nomABuscar = String(clienteObj?.nombre || usuarioObj?.nombre || targetId).trim().toUpperCase();
+        oficialObj = CLIENTES_OFICIALES.find(co => {
+            const coId = String(co.id || '').trim().toUpperCase();
+            const coNom = String(co.nombre || '').trim().toUpperCase();
+            return coId === targetUpper || 
+                   (clienteObj && coId === String(clienteObj.id).trim().toUpperCase()) ||
+                   (nomABuscar && coNom === nomABuscar) ||
+                   (nomABuscar.length >= 4 && (coNom.startsWith(nomABuscar) || nomABuscar.startsWith(coNom)));
+        });
+    }
+
+    // Recolectar TODAS las claves e identificadores posibles para este cliente
+    const keys = new Set();
+    const nombresNormalizados = new Set();
+
+    if (targetUpper) keys.add(targetUpper);
+    if (clienteObj) {
+        if (clienteObj.id) keys.add(String(clienteObj.id).trim().toUpperCase());
+        if (clienteObj.cedula) keys.add(String(clienteObj.cedula).trim().toUpperCase());
+        if (clienteObj.usuarioId) keys.add(String(clienteObj.usuarioId).trim().toUpperCase());
+        if (clienteObj.codigoOficial) keys.add(String(clienteObj.codigoOficial).trim().toUpperCase());
+        if (clienteObj.nombre) nombresNormalizados.add(String(clienteObj.nombre).trim().toUpperCase());
+    }
+    if (usuarioObj) {
+        if (usuarioObj.id) keys.add(String(usuarioObj.id).trim().toUpperCase());
+        if (usuarioObj.cedula) keys.add(String(usuarioObj.cedula).trim().toUpperCase());
+        if (usuarioObj.clienteId) keys.add(String(usuarioObj.clienteId).trim().toUpperCase());
+        if (usuarioObj.nombre) nombresNormalizados.add(String(usuarioObj.nombre).trim().toUpperCase());
+        if (usuarioObj.clienteVinculado) nombresNormalizados.add(String(usuarioObj.clienteVinculado).trim().toUpperCase());
+    }
+    if (oficialObj) {
+        if (oficialObj.id) keys.add(String(oficialObj.id).trim().toUpperCase());
+        if (oficialObj.nombre) nombresNormalizados.add(String(oficialObj.nombre).trim().toUpperCase());
+    }
+
+    // Función auxiliar para comprobar pertenencia de ventas o abonos a este cliente
+    const coincideConCliente = (ent) => {
+        if (!ent) return false;
+        const eCId = String(ent.clienteId || '').trim().toUpperCase();
+        const eCCed = String(ent.clienteCedula || '').trim().toUpperCase();
+        const eUId = String(ent.usuarioId || '').trim().toUpperCase();
+        const eNom = String(ent.clienteNombre || ent.nombreCliente || '').trim().toUpperCase();
+
+        if (eCId && keys.has(eCId)) return true;
+        if (eCCed && keys.has(eCCed)) return true;
+        if (eUId && keys.has(eUId)) return true;
+        if (eNom) {
+            if (nombresNormalizados.has(eNom)) return true;
+            for (const nom of nombresNormalizados) {
+                if (nom.length >= 4 && (eNom.startsWith(nom) || nom.startsWith(eNom))) return true;
+            }
+        }
+        return false;
+    };
+
+    // Filtrar ventas del cliente
+    const ventasCli = ventasList.filter(coincideConCliente);
+
+    // Filtrar abonos del cliente (solo abonos agregados, aprobados o confirmados)
     const abonosCli = abonosList.filter(a => {
-        if (!a) return false;
-        const aCId = String(a.clienteId || '').toUpperCase();
-        const aCCed = String(a.clienteCedula || '').toUpperCase();
-        const aUId = String(a.usuarioId || '').toUpperCase();
-        const coincide = keys.has(aCId) || keys.has(aCCed) || keys.has(aUId);
-        return coincide && (a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado);
+        if (!coincideConCliente(a)) return false;
+        const st = String(a.estado || '').toLowerCase();
+        // Excluir rechazados y cancelados
+        if (st === 'rechazado' || st === 'cancelado' || st === 'anulado') return false;
+        // Solo considerar confirmados / agregados / aprobados (o sin estado explícito)
+        return st === 'pago agregado' || st === 'confirmado' || st === 'aprobado' || !a.estado;
     });
 
-    const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || 0), 0);
-    const totalCreditoUSD = ventasCli.filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito').reduce((sum, v) => sum + Number(v.total || 0), 0);
-    
+    const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || v.totalUSD || 0), 0);
+    const totalCreditoVentas = ventasCli
+        .filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || String(v.metodoDetalle || '').toLowerCase().includes('crédito'))
+        .reduce((sum, v) => sum + Number(v.total || v.totalUSD || 0), 0);
+
+    // Sumar abonos sanitizados
     let totalAbonadoUSD = 0;
     abonosCli.forEach(a => {
         const { montoUSD } = typeof sanitizarAbonoMonedas === 'function'
-            ? sanitizarAbonoMonedas(a, tasaActiva)
-            : { montoUSD: Number(a.montoUSD || 0) };
+            ? sanitizarAbonoMonedas(a, tasa)
+            : { montoUSD: Number(a.montoUSD || a.monto || 0) };
         totalAbonadoUSD += montoUSD;
     });
+    totalAbonadoUSD = Number(totalAbonadoUSD.toFixed(2));
 
-    const deudaDirecta = Number(clienteObj?.deudaInicialUSD ?? clienteObj?.deudaUSD ?? 0);
-    const totalCreditoEfectivo = totalCreditoUSD > 0 ? totalCreditoUSD : deudaDirecta;
+    // Determinar deuda inicial registrada directamente
+    const deudaDirecta = Number(
+        clienteObj?.deudaInicialUSD ?? 
+        clienteObj?.deudaUSD ?? 
+        oficialObj?.deudaUSD ?? 
+        0
+    );
 
-    const saldoDeudaUSD = Math.max(0, totalCreditoEfectivo - totalAbonadoUSD);
+    // Verificar si ya existe una venta inicial de fiado en ventasCli (ej: V_FIADO_CLI-021)
+    const tieneVentaFiadoInicial = ventasCli.some(v => v.id && String(v.id).startsWith('V_FIADO_'));
+
+    let totalCreditoEfectivo = 0;
+    if (tieneVentaFiadoInicial) {
+        // La venta V_FIADO_ ya incluye la deuda inicial en totalCreditoVentas
+        totalCreditoEfectivo = totalCreditoVentas;
+    } else {
+        // Si no está como V_FIADO_ en ventas, sumamos la deuda directa + las compras a crédito nuevas
+        totalCreditoEfectivo = totalCreditoVentas + deudaDirecta;
+    }
+
+    const saldoDeudaUSD = Math.max(0, Number((totalCreditoEfectivo - totalAbonadoUSD).toFixed(2)));
+    const saldoDeudaVES = tasa > 0 ? Number((saldoDeudaUSD * tasa).toFixed(2)) : 0;
+    const totalCompradoTotalUSD = Math.max(totalCompradoUSD, totalCreditoEfectivo);
+    const totalCompradoVES = tasa > 0 ? Number((totalCompradoTotalUSD * tasa).toFixed(2)) : 0;
+    const totalAbonadoVES = tasa > 0 ? Number((totalAbonadoUSD * tasa).toFixed(2)) : 0;
 
     return {
-        totalCompradoUSD: Math.max(totalCompradoUSD, totalCreditoEfectivo),
-        totalCompradoVES: Math.max(totalCompradoUSD, totalCreditoEfectivo) * tasaActiva,
+        totalCompradoUSD: totalCompradoTotalUSD,
+        totalCompradoVES,
+        totalCreditoUSD: totalCreditoEfectivo,
         totalAbonadoUSD,
-        totalAbonadoVES: totalAbonadoUSD * tasaActiva,
+        totalAbonadoVES,
         saldoDeudaUSD,
-        saldoDeudaVES: saldoDeudaUSD * tasaActiva
+        saldoDeudaVES,
+        clienteObj,
+        usuarioObj,
+        ventasCliente: ventasCli,
+        abonosCliente: abonosCli,
+        esSolvente: saldoDeudaUSD <= 0.01
     };
 }
+window.calcularEstadoFinancieroCliente = calcularEstadoFinancieroCliente;
 
 let busquedaCliente = '';
 let filtroEstadoCliente = 'todos'; // 'todos' | 'deuda' | 'al-dia'

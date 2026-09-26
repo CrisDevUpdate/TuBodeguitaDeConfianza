@@ -604,6 +604,10 @@ async function procesarLoginGatewall(e) {
     // Autenticado
     AppState.usuarioActual = usuario;
 
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        try { asegurarSincronizacionUsuariosAClientes(); } catch (errSync) { console.warn('[Login Sync]', errSync); }
+    }
+
     if (window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -677,6 +681,12 @@ async function registrarUsuarioDesdeGatewall(e) {
         const estadoAsignado = 'PENDIENTE_APROBACION';
         const fechaAprobacion = null;
 
+        const clienteVincIdGw = document.getElementById('gw-reg-cliente-vincular')?.value;
+        let cliVinculadoGw = null;
+        if (clienteVincIdGw && Array.isArray(AppState.clientes)) {
+            cliVinculadoGw = AppState.clientes.find(c => String(c.id).toUpperCase() === String(clienteVincIdGw).toUpperCase());
+        }
+
         const nuevoUsuario = {
             id: cedula,
             cedula: cedula,
@@ -690,27 +700,61 @@ async function registrarUsuarioDesdeGatewall(e) {
             puntosCanjeados: 0,
             fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
             fechaAprobacion: fechaAprobacion,
-            motivoRechazo: null
+            motivoRechazo: null,
+            clienteId: cliVinculadoGw ? cliVinculadoGw.id : null,
+            clienteVinculado: cliVinculadoGw ? cliVinculadoGw.nombre : null
         };
 
         AppState.usuarios.push(nuevoUsuario);
 
-        // Regla de Negocio: Todo usuario creado es automáticamente un cliente
-        const nuevoCli = {
-            id: cedula,
-            nombre: nombre,
-            telefono: telefono,
-            email: email
-        };
-        if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
-        const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
-        if (idxCli === -1) {
-            AppState.clientes.push(nuevoCli);
+        if (cliVinculadoGw) {
+            // Sincronizar datos con el cliente existente seleccionado
+            cliVinculadoGw.cedula = cedula;
+            cliVinculadoGw.usuarioId = nuevoUsuario.id;
+            cliVinculadoGw.usuarioEmail = email;
+            if (telefono) cliVinculadoGw.telefono = telefono;
+            if (email) cliVinculadoGw.email = email;
+            if (nombre) cliVinculadoGw.nombre = nombre;
+
+            // Actualizar ventas y abonos del cliente para asociar la cédula y usuarioId
+            if (Array.isArray(AppState.ventas)) {
+                AppState.ventas.forEach(v => {
+                    if (v.clienteId === cliVinculadoGw.id || v.clienteId === cliVinculadoGw.nombre) {
+                        v.clienteCedula = cedula;
+                        v.usuarioId = nuevoUsuario.id;
+                    }
+                });
+            }
+            if (Array.isArray(AppState.abonos)) {
+                AppState.abonos.forEach(a => {
+                    if (a.clienteId === cliVinculadoGw.id || a.clienteId === cliVinculadoGw.nombre) {
+                        a.clienteCedula = cedula;
+                        a.usuarioId = nuevoUsuario.id;
+                    }
+                });
+            }
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(cliVinculadoGw).catch(() => {});
+            }
         } else {
-            AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
-        }
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-            window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+            // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente
+            const nuevoCli = {
+                id: cedula,
+                cedula: cedula,
+                nombre: nombre,
+                telefono: telefono,
+                email: email
+            };
+            if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+            const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+            if (idxCli === -1) {
+                AppState.clientes.push(nuevoCli);
+            } else {
+                AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
+            }
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+            }
         }
         if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
         if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
@@ -813,6 +857,177 @@ async function verificarEstadoAprobacionGatewall() {
 }
 
 /**
+ * Actualiza los selectores para vincular usuarios con clientes existentes de la libreta
+ */
+function actualizarSelectClientesParaVincular() {
+    const select = document.getElementById('reg-cliente-vincular');
+    const selectGw = document.getElementById('gw-reg-cliente-vincular');
+    if (!select && !selectGw) return;
+
+    if (typeof asegurarClientesOficiales === 'function') {
+        asegurarClientesOficiales();
+    }
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+
+    let optionsHTML = `<option value="">-- No sincronizar (Crear usuario nuevo sin historial previo) --</option>`;
+
+    lista.forEach(c => {
+        const estado = typeof calcularEstadoFinancieroCliente === 'function'
+            ? calcularEstadoFinancieroCliente(c.id)
+            : { saldoDeudaUSD: Number(c.deudaUSD || 0) };
+
+        // Verificar si ya tiene cuenta de usuario vinculada
+        const usuarioVinculado = usuariosList.find(u => 
+            u.clienteId === c.id || 
+            (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
+            (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
+            (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
+        );
+
+        const textoDeuda = estado.saldoDeudaUSD > 0
+            ? `• Deuda: $${estado.saldoDeudaUSD.toFixed(2)} USD`
+            : `• Al día ($0.00)`;
+
+        const badgeUser = usuarioVinculado ? ` [Cuenta ya asignada: ${usuarioVinculado.cedula || usuarioVinculado.id}]` : '';
+
+        optionsHTML += `<option value="${c.id}">
+            ${c.nombre} (${c.id}) ${textoDeuda}${badgeUser}
+        </option>`;
+    });
+
+    if (select) {
+        const val = select.value;
+        select.innerHTML = optionsHTML;
+        if (val) select.value = val;
+    }
+    if (selectGw) {
+        const valGw = selectGw.value;
+        selectGw.innerHTML = `<option value="">-- Soy un cliente nuevo --</option>` + optionsHTML.replace('<option value="">-- No sincronizar (Crear usuario nuevo sin historial previo) --</option>', '');
+        if (valGw) selectGw.value = valGw;
+    }
+}
+window.actualizarSelectClientesParaVincular = actualizarSelectClientesParaVincular;
+
+/**
+ * Gestiona la selección de un cliente existente en el formulario de registro de usuarios
+ */
+function alSeleccionarClienteVinculado(clienteId) {
+    const infoDiv = document.getElementById('reg-cliente-vincular-info');
+    const cedulaInput = document.getElementById('reg-cedula');
+    const nombreInput = document.getElementById('reg-nombre');
+    const telefonoInput = document.getElementById('reg-telefono');
+    const emailInput = document.getElementById('reg-email');
+    const rolSelect = document.getElementById('reg-rol');
+
+    if (!clienteId) {
+        if (infoDiv) {
+            infoDiv.style.display = 'none';
+            infoDiv.innerHTML = '';
+        }
+        return;
+    }
+
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
+    const cliente = lista.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+    if (!cliente) return;
+
+    const estado = typeof calcularEstadoFinancieroCliente === 'function'
+        ? calcularEstadoFinancieroCliente(cliente.id)
+        : { saldoDeudaUSD: Number(cliente.deudaUSD || 0), totalCompradoUSD: 0 };
+
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
+    const deudaVES = (estado.saldoDeudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    if (nombreInput) {
+        nombreInput.value = cliente.nombre || '';
+    }
+    if (telefonoInput && cliente.telefono && !telefonoInput.value) {
+        telefonoInput.value = cliente.telefono;
+    }
+    if (emailInput && cliente.email && !emailInput.value) {
+        emailInput.value = cliente.email;
+    }
+    if (rolSelect) {
+        rolSelect.value = 'cliente';
+    }
+
+    if (infoDiv) {
+        infoDiv.style.display = 'block';
+        const tieneDeuda = estado.saldoDeudaUSD > 0;
+        infoDiv.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <span style="font-weight:700; color:var(--text-main);">
+                        <i class="fas fa-user-check" style="color:#16a34a;"></i> Cliente Vinculado: <strong>${cliente.nombre}</strong> (${cliente.id})
+                    </span>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                        ${cliente.telefono ? `Teléfono: ${cliente.telefono} • ` : ''}Compras previas registradas: $${estado.totalCompradoUSD.toFixed(2)} USD
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--text-muted);">Deuda a Heredar:</div>
+                    <div style="font-size:1.1rem; font-weight:800; color:${tieneDeuda ? 'var(--danger)' : '#16a34a'};">
+                        $${estado.saldoDeudaUSD.toFixed(2)} USD <span style="font-size:0.8rem; font-weight:500;">(Bs. ${deudaVES})</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:6px; font-size:0.78rem; color:${tieneDeuda ? '#b45309' : '#15803d'}; display:flex; align-items:center; gap:5px;">
+                <i class="fas fa-check-circle"></i>
+                <span>Al registrar este usuario, quedará directamente enlazado con la deuda y compras de <strong>${cliente.nombre}</strong>.</span>
+            </div>
+        `;
+    }
+}
+window.alSeleccionarClienteVinculado = alSeleccionarClienteVinculado;
+
+/**
+ * Gestiona la selección de un cliente en el Gatewall
+ */
+function alSeleccionarClienteVinculadoGatewall(clienteId) {
+    const infoDiv = document.getElementById('gw-reg-cliente-vincular-info');
+    const nombreInput = document.getElementById('gw-reg-nombre');
+    const telefonoInput = document.getElementById('gw-reg-telefono');
+    const emailInput = document.getElementById('gw-reg-email');
+    const rolSelect = document.getElementById('gw-reg-rol');
+
+    if (!clienteId) {
+        if (infoDiv) {
+            infoDiv.style.display = 'none';
+            infoDiv.innerHTML = '';
+        }
+        return;
+    }
+
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
+    const cliente = lista.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+    if (!cliente) return;
+
+    const estado = typeof calcularEstadoFinancieroCliente === 'function'
+        ? calcularEstadoFinancieroCliente(cliente.id)
+        : { saldoDeudaUSD: Number(cliente.deudaUSD || 0), totalCompradoUSD: 0 };
+
+    if (nombreInput) nombreInput.value = cliente.nombre || '';
+    if (telefonoInput && cliente.telefono && !telefonoInput.value) telefonoInput.value = cliente.telefono;
+    if (emailInput && cliente.email && !emailInput.value) emailInput.value = cliente.email;
+    if (rolSelect) rolSelect.value = 'cliente';
+
+    if (infoDiv) {
+        infoDiv.style.display = 'block';
+        const tieneDeuda = estado.saldoDeudaUSD > 0;
+        infoDiv.innerHTML = `
+            <div style="font-weight:700; color:var(--text-main);">
+                <i class="fas fa-link" style="color:var(--primary-accent);"></i> Cliente Libreta: <strong>${cliente.nombre}</strong>
+            </div>
+            <div style="color:${tieneDeuda ? 'var(--danger)' : '#16a34a'}; font-weight:700; margin-top:2px;">
+                Deuda pendiente: $${estado.saldoDeudaUSD.toFixed(2)} USD
+            </div>
+        `;
+    }
+}
+window.alSeleccionarClienteVinculadoGatewall = alSeleccionarClienteVinculadoGatewall;
+
+/**
  * Registra un nuevo usuario en el sistema con estado predeterminado PENDIENTE_APROBACION
  */
 async function registrarUsuario(e) {
@@ -860,6 +1075,13 @@ async function registrarUsuario(e) {
         return;
     }
 
+    // Sincronización opcional con cliente existente
+    const clienteVincId = document.getElementById('reg-cliente-vincular')?.value;
+    let cliVinculado = null;
+    if (clienteVincId && Array.isArray(AppState.clientes)) {
+        cliVinculado = AppState.clientes.find(c => String(c.id).toUpperCase() === String(clienteVincId).toUpperCase());
+    }
+
     // Hash SHA-256
     const passwordHash = (window.InventoryApp.Helpers && typeof window.InventoryApp.Helpers.calcularHashSha256 === 'function')
         ? window.InventoryApp.Helpers.calcularHashSha256(password)
@@ -883,28 +1105,64 @@ async function registrarUsuario(e) {
         puntosCanjeados: 0,
         fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
         fechaAprobacion: fechaAprobacion,
-        motivoRechazo: null
+        motivoRechazo: null,
+        clienteId: cliVinculado ? cliVinculado.id : null,
+        clienteVinculado: cliVinculado ? cliVinculado.nombre : null
     };
 
     AppState.usuarios.push(nuevoUsuario);
 
-    // Regla de Negocio: Todo usuario creado es automáticamente un cliente
-    const nuevoCli = {
-        id: cedula,
-        nombre: nombre,
-        telefono: telefono,
-        email: email
-    };
-    if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
-    const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
-    if (idxCli === -1) {
-        AppState.clientes.push(nuevoCli);
+    if (cliVinculado) {
+        // Enlazar datos del cliente con este nuevo usuario
+        cliVinculado.cedula = cedula;
+        cliVinculado.usuarioId = nuevoUsuario.id;
+        cliVinculado.usuarioEmail = email;
+        if (telefono) cliVinculado.telefono = telefono;
+        if (email) cliVinculado.email = email;
+        if (nombre) cliVinculado.nombre = nombre;
+
+        // Actualizar ventas y abonos del cliente para asociar la cédula y usuarioId
+        if (Array.isArray(AppState.ventas)) {
+            AppState.ventas.forEach(v => {
+                if (v.clienteId === cliVinculado.id || v.clienteId === cliVinculado.nombre) {
+                    v.clienteCedula = cedula;
+                    v.usuarioId = nuevoUsuario.id;
+                }
+            });
+        }
+        if (Array.isArray(AppState.abonos)) {
+            AppState.abonos.forEach(a => {
+                if (a.clienteId === cliVinculado.id || a.clienteId === cliVinculado.nombre) {
+                    a.clienteCedula = cedula;
+                    a.usuarioId = nuevoUsuario.id;
+                }
+            });
+        }
+
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(cliVinculado).catch(() => {});
+        }
     } else {
-        AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
+        // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente
+        const nuevoCli = {
+            id: cedula,
+            cedula: cedula,
+            nombre: nombre,
+            telefono: telefono,
+            email: email
+        };
+        if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+        const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+        if (idxCli === -1) {
+            AppState.clientes.push(nuevoCli);
+        } else {
+            AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
+        }
+        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+        }
     }
-    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-        window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
-    }
+
     if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
     if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
     if (typeof renderizarClientes === 'function') renderizarClientes();
@@ -931,12 +1189,21 @@ async function registrarUsuario(e) {
         });
     }
 
-    // Limpiar formulario
+    // Limpiar formulario y selector de vinculación
     if (cedulaInput) cedulaInput.value = '';
     if (nombreInput) nombreInput.value = '';
     if (telefonoInput) telefonoInput.value = '';
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
+
+    const selVinc = document.getElementById('reg-cliente-vincular');
+    if (selVinc) selVinc.value = '';
+    const selVincInfo = document.getElementById('reg-cliente-vincular-info');
+    if (selVincInfo) {
+        selVincInfo.style.display = 'none';
+        selVincInfo.innerHTML = '';
+    }
+    actualizarSelectClientesParaVincular();
 
     mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
 
@@ -1140,9 +1407,11 @@ async function eliminarUsuario(cedula) {
     // 2. Eliminar del estado global local
     AppState.usuarios = (AppState.usuarios || []).filter(u => (u.cedula || u.id) !== cedula);
     if (Array.isArray(AppState.clientes)) {
+        // Si el cliente estaba vinculado (tenía otro id o compras), solo desvinculamos; solo si el cliente tiene id igual a cedula y fue creado por el usuario lo eliminamos
         AppState.clientes = AppState.clientes.filter(c => {
             const matchCed = (c.id || c.cedula) === cedula;
             if (usuario.clienteId && (c.id === usuario.clienteId || c.usuarioId === (usuario.id || cedula))) {
+                // Era un cliente existente vinculado, no lo borramos, solo removemos el enlace de usuario
                 delete c.usuarioId;
                 delete c.usuarioEmail;
                 return true;
@@ -1728,8 +1997,11 @@ function filtrarUsuariosPorEstado(estado) {
  * Renderiza la tabla de usuarios en la vista de Administrador
  */
 function renderizarUsuarios(busqueda = '') {
+    actualizarSelectClientesParaVincular();
+
     const tbody = document.getElementById('usuarios-body');
-    if (!tbody) return;
+    const mobileList = document.getElementById('usuarios-mobile-list');
+    if (!tbody && !mobileList) return;
 
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
 
@@ -1765,100 +2037,222 @@ function renderizarUsuarios(busqueda = '') {
     }
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">No se encontraron usuarios con los criterios especificados.</td></tr>`;
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">No se encontraron usuarios con los criterios especificados.</td></tr>`;
+        }
+        if (mobileList) {
+            mobileList.innerHTML = `<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-users-slash" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No se encontraron usuarios con los criterios especificados.</div>`;
+        }
         return;
     }
 
-    tbody.innerHTML = filtrados.map(u => {
-        const idCed = u.cedula || u.id;
-        const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
-        const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
-        const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+    if (tbody) {
+        tbody.innerHTML = filtrados.map(u => {
+            const idCed = u.cedula || u.id;
+            const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
+            const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
 
-        let badgeEstado = '';
-        if (u.estado === 'PENDIENTE_APROBACION') {
-            badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
-        } else if (u.estado === 'ACTIVO') {
-            badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
-        } else if (u.estado === 'RECHAZADO') {
-            badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
-        }
+            let badgeEstado = '';
+            if (u.estado === 'PENDIENTE_APROBACION') {
+                badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
+            } else if (u.estado === 'ACTIVO') {
+                badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
+            } else if (u.estado === 'RECHAZADO') {
+                badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
+            }
 
-        const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
-        const uAvatar = u.avatar || '';
-        let uAvatarHtml = '';
-        if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
-            const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
-            uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
-        } else if (uAvatar) {
-            uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
-        } else {
-            uAvatarHtml = `<span style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem;"><i class="fas fa-user"></i></span>`;
-        }
+            const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
+            const uAvatar = u.avatar || '';
+            let uAvatarHtml = '';
+            if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
+                const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+            } else if (uAvatar) {
+                uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
+            } else {
+                uAvatarHtml = `<span style="width:34px; height:34px; border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem;"><i class="fas fa-user"></i></span>`;
+            }
 
-        return `
-            <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
-                <td>
-                    <strong style="color:var(--primary-accent);">${idCed}</strong>
-                    ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
-                </td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        ${uAvatarHtml}
-                        <div>
-                            <div style="font-weight:600; color:var(--text-main);">${u.nombre}</div>
-                            <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+            const clienteVinculadoTag = u.clienteId ? `
+                <span class="badge" style="background:rgba(37,99,235,0.1); color:var(--primary-accent); font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:600;" title="Cliente vinculado: ${u.clienteVinculado || u.clienteId}">
+                    <i class="fas fa-link"></i> ${u.clienteVinculado || u.clienteId}
+                </span>
+            ` : '';
+
+            return `
+                <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
+                    <td>
+                        <strong style="color:var(--primary-accent);">${idCed}</strong>
+                        ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${uAvatarHtml}
+                            <div>
+                                <div style="font-weight:600; color:var(--text-main); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                    <span>${u.nombre}</span>
+                                    ${clienteVinculadoTag}
+                                </div>
+                                <div style="font-size:0.78rem; color:var(--text-muted);"><i class="far fa-envelope"></i> ${u.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span>${u.telefono || '—'}</span>
+                            ${waLink ? `<a href="${waLink}" target="_blank" class="btn-wa-icon" title="Enviar WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
+                            <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
+                            <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                            <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
+                            <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+                        </select>
+                    </td>
+                    <td>${badgeEstado}</td>
+                    <td class="num" style="color:var(--primary-accent); font-weight:700;">${puntos} pts</td>
+                    <td style="font-size:0.78rem; color:var(--text-muted);">${u.fechaRegistro || '—'}</td>
+                    <td>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            ${u.estado === 'PENDIENTE_APROBACION' ? `
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Aprobar usuario">
+                                    <i class="fas fa-check"></i> Aprobar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')" title="Rechazar solicitud">
+                                    <i class="fas fa-times"></i> Rechazar
+                                </button>
+                            ` : ''}
+                            ${u.estado === 'RECHAZADO' ? `
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Reactivar y Aprobar">
+                                    <i class="fas fa-rotate-left"></i> Reactivar
+                                </button>
+                            ` : ''}
+                            ${u.estado === 'ACTIVO' ? `
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')" title="Suspender o Rechazar acceso">
+                                    <i class="fas fa-user-slash"></i> Suspender
+                                </button>
+                            ` : ''}
+                            <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Usar esta sesión">
+                                <i class="fas fa-arrow-right-to-bracket"></i> Usar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (mobileList) {
+        mobileList.innerHTML = filtrados.map(u => {
+            const idCed = u.cedula || u.id;
+            const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
+            const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+
+            let badgeEstado = '';
+            if (u.estado === 'PENDIENTE_APROBACION') {
+                badgeEstado = `<span class="badge-status badge-pending"><i class="fas fa-clock fa-spin" style="font-size:0.75rem;"></i> Pendiente</span>`;
+            } else if (u.estado === 'ACTIVO') {
+                badgeEstado = `<span class="badge-status badge-active"><i class="fas fa-check-circle"></i> Activo</span>`;
+            } else if (u.estado === 'RECHAZADO') {
+                badgeEstado = `<span class="badge-status badge-rejected" title="${u.motivoRechazo || 'Rechazado'}"><i class="fas fa-ban"></i> Rechazado</span>`;
+            }
+
+            const esSesionActual = AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idCed;
+            const uAvatar = u.avatar || '';
+            let uAvatarHtml = '';
+            if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
+                const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" class="usuarios-item-avatar-img" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+            } else if (uAvatar) {
+                uAvatarHtml = `<span class="usuarios-item-avatar-txt">${uAvatar}</span>`;
+            } else {
+                const iniciales = (u.nombre || idCed || 'US').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+                uAvatarHtml = `<span class="usuarios-item-avatar-initials">${iniciales}</span>`;
+            }
+
+            const clienteVinculadoTag = u.clienteId ? `
+                <span class="badge" style="background:rgba(37,99,235,0.1); color:var(--primary-accent); font-size:0.7rem; padding:2px 5px; border-radius:4px; font-weight:600;" title="Cliente vinculado: ${u.clienteVinculado || u.clienteId}">
+                    <i class="fas fa-link"></i> ${u.clienteVinculado || u.clienteId}
+                </span>
+            ` : '';
+
+            return `
+                <div class="usuarios-item-card ${esSesionActual ? 'current-session' : ''}">
+                    <div class="usuarios-item-top">
+                        <div class="usuarios-item-avatar-wrap">
+                            ${uAvatarHtml}
+                        </div>
+                        <div class="usuarios-item-info">
+                            <div class="usuarios-item-name-row" style="flex-wrap:wrap; gap:4px;">
+                                <span class="usuarios-item-name">${u.nombre}</span>
+                                ${clienteVinculadoTag}
+                                ${esSesionActual ? '<span class="badge-pill you-badge">Tú</span>' : ''}
+                            </div>
+                            <div class="usuarios-item-meta">
+                                <span><i class="fas fa-id-card"></i> ${idCed}</span>
+                                <span><i class="far fa-envelope"></i> ${u.email || '—'}</span>
+                            </div>
+                        </div>
+                        <div class="usuarios-item-status">
+                            ${badgeEstado}
+                            <span class="usuarios-pts-pill"><i class="fas fa-coins"></i> ${puntos} pts</span>
                         </div>
                     </div>
-                </td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>${u.telefono || '—'}</span>
-                        ${waLink ? `<a href="${waLink}" target="_blank" class="btn-wa-icon" title="Enviar WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+
+                    <div class="usuarios-item-middle">
+                        <div class="usuarios-role-select-wrap">
+                            <label class="lbl">Rol:</label>
+                            <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)">
+                                <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
+                                <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
+                                <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio</option>
+                                <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
+                            </select>
+                        </div>
+                        ${waLink ? `
+                            <a href="${waLink}" target="_blank" class="btn-wa-pill" title="Contactar por WhatsApp">
+                                <i class="fab fa-whatsapp"></i> ${u.telefono || 'WhatsApp'}
+                            </a>
+                        ` : ''}
                     </div>
-                </td>
-                <td>
-                    <select class="form-select-sm" onchange="cambiarRolUsuario('${idCed}', this.value)" style="padding:4px 8px; font-size:0.8rem; border-radius:6px; border:1px solid var(--border);">
-                        <option value="cliente" ${u.rol === 'cliente' ? 'selected' : ''}>Cliente</option>
-                        <option value="vendedor" ${u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
-                        <option value="autoservicio" ${u.rol === 'autoservicio' || u.rol === 'kiosco' ? 'selected' : ''}>AutoServicio (Kiosco)</option>
-                        <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
-                    </select>
-                </td>
-                <td>${badgeEstado}</td>
-                <td class="num" style="color:var(--primary-accent); font-weight:700;">${puntos} pts</td>
-                <td style="font-size:0.78rem; color:var(--text-muted);">${u.fechaRegistro || '—'}</td>
-                <td>
-                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+
+                    <div class="usuarios-item-actions">
                         ${u.estado === 'PENDIENTE_APROBACION' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Aprobar usuario">
+                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')">
                                 <i class="fas fa-check"></i> Aprobar
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')" title="Rechazar solicitud">
+                            <button type="button" class="btn btn-sm btn-danger" onclick="abrirModalRechazarUsuario('${idCed}')">
                                 <i class="fas fa-times"></i> Rechazar
                             </button>
                         ` : ''}
                         ${u.estado === 'RECHAZADO' ? `
-                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Reactivar y Aprobar">
+                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')">
                                 <i class="fas fa-rotate-left"></i> Reactivar
                             </button>
                         ` : ''}
                         ${u.estado === 'ACTIVO' ? `
-                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')" title="Suspender o Rechazar acceso">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalRechazarUsuario('${idCed}')">
                                 <i class="fas fa-user-slash"></i> Suspender
                             </button>
                         ` : ''}
-                        <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Usar esta sesión">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="cambiarSesionUsuario('${idCed}')" title="Iniciar como este usuario">
                             <i class="fas fa-arrow-right-to-bracket"></i> Usar
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
-                            <i class="fas fa-trash"></i>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarUsuario('${idCed}')" title="Eliminar usuario">
+                            <i class="fas fa-trash-can"></i>
                         </button>
                     </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+                </div>
+            `;
+        }).join('');
+    }
 
     actualizarBadgesUsuarios();
 }
@@ -2137,3 +2531,14 @@ window.abrirModalEditarDatosGatewall = abrirModalEditarDatosGatewall;
 window.cerrarModalEditarDatosGatewall = cerrarModalEditarDatosGatewall;
 window.procesarEdicionDatosGatewall = procesarEdicionDatosGatewall;
 window.verificarEstadoAprobacionGatewall = verificarEstadoAprobacionGatewall;
+window.actualizarSelectClientesParaVincular = actualizarSelectClientesParaVincular;
+window.alSeleccionarClienteVinculado = alSeleccionarClienteVinculado;
+window.alSeleccionarClienteVinculadoGatewall = alSeleccionarClienteVinculadoGatewall;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(actualizarSelectClientesParaVincular, 400);
+    });
+} else {
+    setTimeout(actualizarSelectClientesParaVincular, 400);
+}

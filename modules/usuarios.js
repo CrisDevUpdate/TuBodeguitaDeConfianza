@@ -604,6 +604,10 @@ async function procesarLoginGatewall(e) {
     // Autenticado
     AppState.usuarioActual = usuario;
 
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        try { asegurarSincronizacionUsuariosAClientes(); } catch (errSync) { console.warn('[Login Sync]', errSync); }
+    }
+
     if (window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }

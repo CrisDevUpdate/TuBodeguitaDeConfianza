@@ -13,6 +13,7 @@
     let carritoKiosco = [];
     let categoriaKioscoActiva = 'TODOS';
     let busquedaKiosco = '';
+    let kioscoMostrarAgotados = false;
     let clienteKiosco = null; // { cedula, nombre, telefono, clienteObj, usuarioObj }
     let metodoModalidadKiosco = 'CREDITO'; // 'CREDITO' (por defecto) o 'CONTADO'
     let metodoPagoKiosco = 'PAGO_MOVIL'; // PAGO_MOVIL, EFECTIVO_USD, EFECTIVO_VES, PUNTO_VENTA
@@ -171,6 +172,9 @@
         if (!contenedor) return;
 
         const productos = Array.isArray(window.AppState?.productos) ? window.AppState.productos : [];
+        const totalAgotados = productos.filter(p => Number(p.stock || 0) <= 0).length;
+        const totalCombos = productos.filter(p => Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'))).length;
+
         const categoriasSet = new Set(['TODOS']);
         productos.forEach(p => {
             if (p && p.categoria && String(p.categoria).trim()) {
@@ -178,10 +182,23 @@
             }
         });
 
+        const iconoPorCategoria = (nombreCat) => {
+            const c = String(nombreCat || '').toLowerCase();
+            if (c === 'todos') return 'fa-th-large';
+            if (c.includes('bebida') || c.includes('refresco') || c.includes('jugo')) return 'fa-wine-bottle';
+            if (c.includes('dulce') || c.includes('caramelo')) return 'fa-candy-cane';
+            if (c.includes('snack') || c.includes('chuchería') || c.includes('chucheria') || c.includes('papas')) return 'fa-cookie-bite';
+            if (c.includes('galleta')) return 'fa-cookie';
+            if (c.includes('chocolate')) return 'fa-cubes';
+            if (c.includes('vívere') || c.includes('viveres') || c.includes('grano') || c.includes('harina')) return 'fa-wheat-awn';
+            if (c.includes('lácteo') || c.includes('lacteo') || c.includes('queso')) return 'fa-cheese';
+            return 'fa-tag';
+        };
+
         const categorias = Array.from(categoriasSet);
-        contenedor.innerHTML = categorias.map(cat => {
+        let html = categorias.map(cat => {
             const esActiva = (cat === categoriaKioscoActiva);
-            const icono = cat === 'TODOS' ? 'fa-th-large' : 'fa-tag';
+            const icono = iconoPorCategoria(cat);
             return `
                 <button type="button" class="kiosco-cat-chip ${esActiva ? 'active' : ''}" 
                         onclick="window.KioscoModule.seleccionarCategoria('${cat.replace(/'/g, "\\'")}')">
@@ -190,6 +207,46 @@
                 </button>
             `;
         }).join('');
+
+        if (totalCombos > 0 && !categoriasSet.has('Combos') && !categoriasSet.has('COMBOS')) {
+            const esCombosActiva = (categoriaKioscoActiva === 'COMBOS');
+            html += `
+                <button type="button" class="kiosco-cat-chip ${esCombosActiva ? 'active' : ''}" 
+                        onclick="window.KioscoModule.seleccionarCategoria('COMBOS')"
+                        style="${esCombosActiva ? '' : 'color:#ea580c; border-color:rgba(249,115,22,0.4); background:rgba(234,88,12,0.08);'}">
+                    <i class="fas fa-fire"></i>
+                    <span>Combos (${totalCombos})</span>
+                </button>
+            `;
+        }
+
+        // Chip dedicado para productos agotados (igual que en el punto de venta)
+        const isAgotadosActive = (categoriaKioscoActiva === 'AGOTADOS');
+        html += `
+            <button type="button" class="kiosco-cat-chip chip-filter-agotados ${isAgotadosActive ? 'active' : ''}" 
+                    onclick="window.KioscoModule.seleccionarCategoria('AGOTADOS')"
+                    style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(239,68,68,0.35); font-weight: 800;' : 'border-color: rgba(239, 68, 68, 0.45); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}"
+                    title="Ver productos actualmente agotados">
+                <i class="fas fa-ban"></i>
+                <span>🚫 Agotados (${totalAgotados})</span>
+            </button>
+        `;
+
+        contenedor.innerHTML = html;
+    }
+
+    /**
+     * Alterna la visibilidad de los productos agotados en el catálogo de Auto-servicio
+     */
+    function toggleMostrarAgotadosKiosco() {
+        kioscoMostrarAgotados = !kioscoMostrarAgotados;
+        renderizarCategoriasKiosco();
+        renderizarProductosKiosco();
+        if (typeof showCustomToast === 'function') {
+            showCustomToast(kioscoMostrarAgotados ? 'Mostrando todos los productos (incluyendo agotados)' : 'Ocultando productos agotados', 'info');
+        } else if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast(kioscoMostrarAgotados ? 'Mostrando productos agotados' : 'Ocultando productos agotados', 'info');
+        }
     }
 
     /**
@@ -201,13 +258,31 @@
 
         const productos = Array.isArray(window.AppState?.productos) ? window.AppState.productos : [];
         const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
+        const totalAgotados = productos.filter(p => Number(p.stock || 0) <= 0).length;
 
         const filtrados = productos.filter(p => {
             if (!p) return false;
-            // Filtro de categoría
-            if (categoriaKioscoActiva !== 'TODOS' && String(p.categoria || '').trim() !== categoriaKioscoActiva) {
-                return false;
+            const stock = Number(p.stock || 0);
+            const esAgotado = stock <= 0;
+
+            // Si la categoría seleccionada es AGOTADOS
+            if (categoriaKioscoActiva === 'AGOTADOS') {
+                if (!esAgotado) return false;
+            } else {
+                // Por defecto, productos agotados NO aparecen a menos que kioscoMostrarAgotados sea true
+                if (esAgotado && !kioscoMostrarAgotados) return false;
+
+                if (categoriaKioscoActiva !== 'TODOS') {
+                    if (categoriaKioscoActiva === 'COMBOS') {
+                        const esCombo = Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'));
+                        if (!esCombo) return false;
+                    } else {
+                        const catProd = String(p.categoria || '').trim().toLowerCase();
+                        if (catProd !== categoriaKioscoActiva.toLowerCase()) return false;
+                    }
+                }
             }
+
             // Filtro de búsqueda
             if (busquedaKiosco) {
                 const term = busquedaKiosco.toLowerCase().trim();
@@ -221,14 +296,100 @@
             return true;
         });
 
+        // Barra informativa y conmutador visual de agotados
+        let metaEl = document.getElementById('kiosco-catalog-meta');
+        if (!metaEl && grid.parentNode) {
+            metaEl = document.createElement('div');
+            metaEl.id = 'kiosco-catalog-meta';
+            metaEl.style.cssText = 'display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 14px; margin-bottom:12px; background:var(--bg-card, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:10px; font-size:0.84rem;';
+            grid.parentNode.insertBefore(metaEl, grid);
+        }
+
+        if (metaEl) {
+            if (categoriaKioscoActiva === 'AGOTADOS') {
+                metaEl.innerHTML = `
+                    <span style="color:#ef4444; font-weight:700;">
+                        <i class="fas fa-ban"></i> Viendo únicamente ${filtrados.length} ${filtrados.length === 1 ? 'producto agotado' : 'productos agotados'}
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="window.KioscoModule.seleccionarCategoria('TODOS')" style="font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:600;">
+                        <i class="fas fa-arrow-left"></i> Ver Disponibles
+                    </button>
+                `;
+            } else {
+                let infoTxt = `<span><strong>${filtrados.length}</strong> ${filtrados.length === 1 ? 'producto disponible' : 'productos disponibles'}</span>`;
+                if (totalAgotados > 0) {
+                    if (kioscoMostrarAgotados) {
+                        infoTxt += `
+                            <span style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="background:rgba(234,179,8,0.15); color:#ca8a04; border:1px solid rgba(234,179,8,0.3); border-radius:999px; padding:2px 8px; font-weight:700; font-size:0.74rem;">
+                                    <i class="fas fa-eye"></i> Mostrando agotados
+                                </span>
+                                <button type="button" onclick="window.KioscoModule.toggleMostrarAgotados()" style="background:none; border:none; color:var(--primary-accent, #0284c7); text-decoration:underline; font-size:0.75rem; cursor:pointer; font-weight:600;">
+                                    Ocultar agotados
+                                </button>
+                            </span>
+                        `;
+                    } else {
+                        infoTxt += `
+                            <span style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="color:var(--text-muted, #94a3b8); font-size:0.76rem;">(${totalAgotados} agotado${totalAgotados === 1 ? '' : 's'} oculto${totalAgotados === 1 ? '' : 's'})</span>
+                                <button type="button" onclick="window.KioscoModule.toggleMostrarAgotados()" style="background:none; border:none; color:var(--primary-accent, #0284c7); text-decoration:underline; font-size:0.75rem; cursor:pointer; font-weight:600;">
+                                    Ver agotados
+                                </button>
+                            </span>
+                        `;
+                    }
+                }
+                metaEl.innerHTML = infoTxt;
+            }
+        }
+
         if (filtrados.length === 0) {
-            grid.innerHTML = `
-                <div class="kiosco-empty-products">
-                    <i class="fas fa-box-open"></i>
-                    <p>No se encontraron productos disponibles</p>
-                    <small>Intenta con otra categoría o limpia el buscador</small>
-                </div>
-            `;
+            if (categoriaKioscoActiva === 'AGOTADOS') {
+                grid.innerHTML = `
+                    <div class="kiosco-empty-products" style="grid-column: 1 / -1; padding: 40px 16px; text-align: center;">
+                        <i class="fas fa-check-circle" style="font-size: 2.8rem; margin-bottom: 8px; color: #10b981;"></i>
+                        <h3 style="font-weight: 700; margin: 4px 0; color: #10b981;">¡Excelente! No hay productos agotados</h3>
+                        <p style="color: var(--text-muted, #64748b); font-size:0.9rem;">Todos los productos cuentan con existencias disponibles para la venta.</p>
+                        <div style="margin-top: 14px;">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="window.KioscoModule.seleccionarCategoria('TODOS')" style="font-size: 0.85rem; padding: 8px 16px; border-radius: 8px;">
+                                <i class="fas fa-arrow-left"></i> Volver a Disponibles
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const agotadosCoincidentes = productos.filter(p => {
+                    if (Number(p.stock || 0) > 0) return false;
+                    if (!busquedaKiosco) return false;
+                    const term = busquedaKiosco.toLowerCase().trim();
+                    const nom = String(p.nombre || '').toLowerCase();
+                    const cod = String(p.codigo || p.id || '').toLowerCase();
+                    const cat = String(p.categoria || '').toLowerCase();
+                    return nom.includes(term) || cod.includes(term) || cat.includes(term);
+                });
+
+                if (agotadosCoincidentes.length > 0) {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; padding: 36px 16px; text-align: center; background: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.35); border-radius: 12px;">
+                            <i class="fas fa-ban" style="font-size: 2.4rem; margin-bottom: 8px; color: #ef4444;"></i>
+                            <h3 style="font-weight: 700; margin: 4px 0; color: #ef4444;">${agotadosCoincidentes.length === 1 ? 'El producto coincide con un ítem agotado' : 'Los productos coincidentes están agotados'}</h3>
+                            <p style="margin-bottom: 12px; color: var(--text-muted, #64748b); font-size:0.88rem;">No aparece en el catálogo porque su existencia es 0.</p>
+                            <button type="button" class="btn btn-sm" onclick="window.KioscoModule.seleccionarCategoria('AGOTADOS')" style="background: #ef4444; color: #fff; font-weight: 700; border-radius: 8px; padding: 8px 16px; border: none; cursor: pointer;">
+                                <i class="fas fa-eye"></i> Ver en Agotados (${agotadosCoincidentes.length})
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = `
+                        <div class="kiosco-empty-products" style="grid-column: 1 / -1;">
+                            <i class="fas fa-box-open"></i>
+                            <p>No se encontraron productos disponibles</p>
+                            <small>Intenta con otra categoría o limpia el buscador</small>
+                        </div>
+                    `;
+                }
+            }
             return;
         }
 
@@ -997,11 +1158,28 @@
 
             // 3. Crear registro de venta confirmada
             const esCredito = (metodoModalidadKiosco === 'CREDITO');
+            const cedKiosco = String(clienteKiosco.cedula || '').trim();
+            const nomKiosco = String(clienteKiosco.nombre || '').trim();
+
+            const clienteExistente = (window.AppState?.clientes || []).find(c => {
+                if (!c) return false;
+                const cId = String(c.id || '').trim().toUpperCase();
+                const cCed = String(c.cedula || '').trim().toUpperCase();
+                const cNom = String(c.nombre || '').trim().toUpperCase();
+                return (cedKiosco && (cId === cedKiosco.toUpperCase() || cCed === cedKiosco.toUpperCase())) ||
+                       (nomKiosco && (cNom === nomKiosco.toUpperCase() || (nomKiosco.length >= 4 && (cNom.startsWith(nomKiosco.toUpperCase()) || nomKiosco.toUpperCase().startsWith(cNom)))));
+            });
+
+            const finalClienteId = clienteExistente ? clienteExistente.id : cedKiosco;
+            const finalClienteNombre = clienteExistente ? clienteExistente.nombre : nomKiosco;
+
             const nuevaVentaKiosco = {
                 id: pedidoId,
-                clienteId: clienteKiosco.cedula,
-                clienteNombre: clienteKiosco.nombre,
+                clienteId: finalClienteId,
+                clienteCedula: cedKiosco,
+                clienteNombre: finalClienteNombre,
                 clienteTelefono: clienteKiosco.telefono,
+                usuarioId: clienteExistente?.usuarioId || null,
                 vendedorId: 'AutoServicio',
                 vendedorNombre: 'Auto-servicio de Confianza',
                 fecha: fechaHora,
@@ -1026,7 +1204,6 @@
 
             // 4. Si es Crédito, asentar el monto adeudado en la cuenta corriente del cliente
             if (esCredito) {
-                const clienteExistente = window.AppState?.clientes?.find(c => String(c.id).toUpperCase() === clienteKiosco.cedula.toUpperCase());
                 if (clienteExistente) {
                     clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + totalUSD;
                     if (window.InventoryApp?.Firebase?.guardarCliente) {
@@ -1332,6 +1509,7 @@
     window.limpiarErrorClaveKiosco = limpiarErrorClaveKiosco;
     window.seleccionarModalidadKiosco = seleccionarModalidadKiosco;
     window.abrirModalContadoSiempre = abrirModalContadoSiempre;
+    window.toggleMostrarAgotadosKiosco = toggleMostrarAgotadosKiosco;
 
     window.KioscoModule = {
         init: initKiosco,
@@ -1339,6 +1517,7 @@
         renderHeader: renderizarHeaderKiosco,
         renderCategorias: renderizarCategoriasKiosco,
         renderProductos: renderizarProductosKiosco,
+        toggleMostrarAgotados: toggleMostrarAgotadosKiosco,
         agregarAlCarrito,
         modificarCantidad,
         vaciarCarrito,
