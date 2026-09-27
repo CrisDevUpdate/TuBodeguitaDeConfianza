@@ -60,6 +60,19 @@
     }
 
     /**
+     * Convierte cualquier código hexadecimal de color a formato ARGB estricto de 8 caracteres (AARRGGBB)
+     * requerido por el estándar OpenXML (ECMA-376) de Microsoft Excel para evitar alertas de reparación.
+     */
+    function toARGB(hex) {
+        if (!hex) return 'FF000000';
+        let h = String(hex).replace('#', '').trim().toUpperCase();
+        if (h.length === 6) return 'FF' + h;
+        if (h.length === 8) return h;
+        if (h.length === 3) return 'FF' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        return 'FF' + h.padStart(6, '0');
+    }
+
+    /**
      * Aplica el diseño ejecutivo sobrio, paleta azul marino/acero, formatos numéricos,
      * formato condicional y configuración de impresión a cualquier hoja.
      */
@@ -72,35 +85,34 @@
         const headerRow = config.headerRow !== undefined ? config.headerRow : 0;
         const totalRow = config.totalRow !== undefined ? config.totalRow : -1;
         const titleRow = config.titleRow !== undefined ? config.titleRow : -1;
-        const sheetIndex = config.sheetIndex !== undefined ? config.sheetIndex : 0;
 
         const thinBorder = {
-            top: { style: 'thin', color: { rgb: 'CBD5E1' } },
-            bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
-            left: { style: 'thin', color: { rgb: 'CBD5E1' } },
-            right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+            top: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            bottom: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }
         };
 
         const styleHeader = {
-            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
-            fill: { fgColor: { rgb: '1E3A8A' } }, // Azul Marino Ejecutivo
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: toARGB('FFFFFF') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } }, // Azul Marino Ejecutivo
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: {
-                top: { style: 'medium', color: { rgb: '0F172A' } },
-                bottom: { style: 'medium', color: { rgb: '0F172A' } },
-                left: { style: 'thin', color: { rgb: '3B82F6' } },
-                right: { style: 'thin', color: { rgb: '3B82F6' } }
+                top: { style: 'medium', color: { rgb: toARGB('0F172A') } },
+                bottom: { style: 'medium', color: { rgb: toARGB('0F172A') } },
+                left: { style: 'thin', color: { rgb: toARGB('3B82F6') } },
+                right: { style: 'thin', color: { rgb: toARGB('3B82F6') } }
             }
         };
 
         const styleTotal = {
-            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '0F172A' } },
-            fill: { fgColor: { rgb: 'E2E8F0' } }, // Acero claro
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: toARGB('0F172A') } },
+            fill: { fgColor: { rgb: toARGB('E2E8F0') } }, // Acero claro
             border: {
-                top: { style: 'thin', color: { rgb: '64748B' } },
-                bottom: { style: 'double', color: { rgb: '0F172A' } },
-                left: { style: 'thin', color: { rgb: 'CBD5E1' } },
-                right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+                top: { style: 'thin', color: { rgb: toARGB('64748B') } },
+                bottom: { style: 'double', color: { rgb: toARGB('0F172A') } },
+                left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+                right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }
             },
             alignment: { vertical: 'center' }
         };
@@ -122,8 +134,8 @@
 
                 if (R === titleRow) {
                     cell.s = {
-                        font: { name: 'Calibri', sz: 13, bold: true, color: { rgb: 'FFFFFF' } },
-                        fill: { fgColor: { rgb: '0F172A' } },
+                        font: { name: 'Calibri', sz: 13, bold: true, color: { rgb: toARGB('FFFFFF') } },
+                        fill: { fgColor: { rgb: toARGB('0F172A') } },
                         alignment: { horizontal: 'left', vertical: 'center' },
                         border: thinBorder
                     };
@@ -140,10 +152,10 @@
 
                 // Formatos de moneda y porcentaje uniformes
                 if (!cell.z) {
-                    if (cName.includes('($ USD)') || cName.includes('($)') || cName.includes('Costo') || cName.includes('Precio') || cName.includes('Ganancia') || cName.includes('Valor Total') || cName.includes('Impacto') || cName.includes('Pérdida')) {
+                    if (cName.includes('($ USD)') || cName.includes('($)') || cName.includes('Costo') || cName.includes('Precio') || cName.includes('Ganancia') || cName.includes('Valor Total') || cName.includes('Impacto') || cName.includes('Pérdida') || cName.includes('Cargo') || cName.includes('Abono') || cName.includes('Subtotal ($ USD)') || cName.includes('Total Venta ($ USD)') || cName.includes('Monto Abonado ($ USD)') || cName.includes('Saldo Resultante ($)')) {
                         cell.z = '$#,##0.00';
                         if (typeof cell.v === 'number') cell.t = 'n';
-                    } else if (cName.includes('(Bs)') || cName.includes('Estimado (Bs)') || cName.includes('Total Factura (Bs)') || cName.includes('Monto Abonado (Bs)') || cName.includes('Tasa')) {
+                    } else if (cName.includes('(Bs)') || cName.includes('(Bs. VES)') || cName.includes('Estimado (Bs)') || cName.includes('Total Factura (Bs)') || cName.includes('Monto Abonado (Bs)') || cName.includes('Tasa') || cName.includes('Subtotal (Bs. VES)') || cName.includes('Total Venta (Bs. VES)') || cName.includes('Monto en Bs (VES)') || cName.includes('Saldo Resultante (Bs)')) {
                         cell.z = 'Bs. #,##0.00';
                         if (typeof cell.v === 'number') cell.t = 'n';
                     } else if (cName.includes('(%)') || cName.includes('Margen') || cName.includes('Progreso')) {
@@ -168,26 +180,27 @@
 
                 // Celdas de datos con alternancia suave
                 const isEven = (R % 2 === 0);
-                let cellFill = isEven ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
-                let fontColor = { rgb: '0F172A' };
+                let cellFill = isEven ? { rgb: toARGB('FFFFFF') } : { rgb: toARGB('F8FAFC') };
+                let fontColor = { rgb: toARGB('0F172A') };
                 let bold = false;
                 let alignH = (cell.t === 'n' || cell.f) ? 'right' : ((cell.t === 's' && String(cell.v).length <= 16 && !cName.includes('Nombre') && !cName.includes('Detalle')) ? 'center' : 'left');
 
-                // Formato condicional
+                // Formato condicional con paleta ARGB de 8 dígitos
                 const valStr = String(cell.v || '').trim().toUpperCase();
-                if (valStr === 'AGOTADO' || valStr === 'STOCK BAJO' || valStr === 'INACTIVO' || valStr === 'CRÍTICO' || valStr === 'BLOQUEADO') {
-                    cellFill = { rgb: 'FEE2E2' };
-                    fontColor = { rgb: '991B1B' };
+                if (valStr === 'AGOTADO' || valStr === 'STOCK BAJO' || valStr === 'INACTIVO' || valStr === 'CRÍTICO' || valStr === 'BLOQUEADO' || valStr.includes('DEUDOR') || valStr.includes('CON SALDO PENDIENTE') || valStr.includes('CON DEUDA')) {
+                    const isDebt = valStr.includes('DEUDOR') || valStr.includes('CON SALDO PENDIENTE') || valStr.includes('CON DEUDA');
+                    cellFill = isDebt ? { rgb: toARGB('FFEDD5') } : { rgb: toARGB('FEE2E2') };
+                    fontColor = isDebt ? { rgb: toARGB('C2410C') } : { rgb: toARGB('991B1B') };
                     bold = true;
                     alignH = 'center';
-                } else if (valStr === 'CON SALDO PENDIENTE' || valStr === 'PENDIENTE') {
-                    cellFill = valStr === 'CON SALDO PENDIENTE' ? { rgb: 'FFEDD5' } : { rgb: 'FEF3C7' };
-                    fontColor = valStr === 'CON SALDO PENDIENTE' ? { rgb: 'C2410C' } : { rgb: '92400E' };
+                } else if (valStr === 'PENDIENTE' || valStr.includes('POR CONFIRMAR')) {
+                    cellFill = { rgb: toARGB('FEF3C7') };
+                    fontColor = { rgb: toARGB('92400E') };
                     bold = true;
                     alignH = 'center';
-                } else if (valStr === 'AL DÍA' || valStr === 'PAGADA' || valStr === 'DISPONIBLE' || valStr === 'ACTIVO' || valStr === 'CONFIRMADO' || valStr === 'ENTREGADO' || valStr === 'VERIFICADO') {
-                    cellFill = { rgb: 'DCFCE7' };
-                    fontColor = { rgb: '166534' };
+                } else if (valStr === 'AL DÍA' || valStr.includes('SOLVENTE') || valStr === 'PAGADA' || valStr === 'DISPONIBLE' || valStr === 'ACTIVO' || valStr === 'CONFIRMADO' || valStr === 'ENTREGADO' || valStr === 'VERIFICADO' || valStr === 'LIQUIDADO' || valStr.includes('CONTADO')) {
+                    cellFill = { rgb: toARGB('DCFCE7') };
+                    fontColor = { rgb: toARGB('166534') };
                     bold = true;
                     alignH = 'center';
                 }
@@ -201,7 +214,7 @@
             }
         }
 
-        // Configuración de impresión: Carta (Letter), 1 página ancho, títulos repetidos y pie de página
+        // Configuración de impresión: Carta (Letter), 1 página ancho y pie de página
         const numCols = range.e.c - range.s.c + 1;
         const orientacion = (numCols >= 7 || config.orientation === 'landscape') ? 'landscape' : 'portrait';
 
@@ -216,23 +229,14 @@
         ws['!margins'] = { left: 0.5, right: 0.5, top: 0.7, bottom: 0.7, header: 0.3, footer: 0.3 };
 
         const fechaStr = new Date().toLocaleDateString('es-VE');
+        const headerText = config.clientName ? `&L&BTu Bodeguita de Confianza&B&REstado de Cuenta - Cliente: ${config.clientName}` : '&L&BTu Bodeguita de Confianza&B&RReporte Ejecutivo';
+        const footerText = config.clientName ? `&LTu Bodeguita de Confianza - Ficha Oficial&CFecha: ${fechaStr}&RPágina &P de &N` : `&LTu Bodeguita de Confianza - Respaldo Oficial&CFecha: ${fechaStr}&RPágina &P de &N`;
         ws['!headerFooter'] = {
-            oddHeader: '&L&BTu Bodeguita de Confianza&B&RReporte Ejecutivo',
-            oddFooter: '&LTu Bodeguita de Confianza - Respaldo Oficial&CFecha: ' + fechaStr + '&RPágina &P de &N'
+            oddHeader: headerText,
+            oddFooter: footerText
         };
 
         ws['!views'] = [{ showGridLines: true }];
-
-        if (wb && headerRow >= 0) {
-            wb.Workbook = wb.Workbook || {};
-            wb.Workbook.Names = wb.Workbook.Names || [];
-            const rExcel = headerRow + 1;
-            wb.Workbook.Names.push({
-                Name: '_xlnm.Print_Titles',
-                Ref: `'${sheetName}'!$${rExcel}:$${rExcel}`,
-                Sheet: sheetIndex
-            });
-        }
     }
 
     /**
@@ -371,13 +375,13 @@
 
         // Estilos del Banner Superior
         ws['A1'].s = {
-            font: { name: 'Calibri', sz: 15, bold: true, color: { rgb: 'FFFFFF' } },
-            fill: { fgColor: { rgb: '1E3A8A' } },
+            font: { name: 'Calibri', sz: 15, bold: true, color: { rgb: toARGB('FFFFFF') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } },
             alignment: { horizontal: 'center', vertical: 'center' }
         };
         ws['A2'].s = {
-            font: { name: 'Calibri', sz: 10, bold: false, color: { rgb: 'E2E8F0' } },
-            fill: { fgColor: { rgb: '0F172A' } },
+            font: { name: 'Calibri', sz: 10, bold: false, color: { rgb: toARGB('E2E8F0') } },
+            fill: { fgColor: { rgb: toARGB('0F172A') } },
             alignment: { horizontal: 'center', vertical: 'center' }
         };
 
@@ -389,20 +393,20 @@
             { h: 'K4', c1: 'K', c2: 'L' }
         ];
         const cardHeaderStyle = {
-            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
-            fill: { fgColor: { rgb: '1E3A8A' } },
+            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: toARGB('FFFFFF') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } },
             alignment: { horizontal: 'center', vertical: 'center' }
         };
         const labelStyle = {
-            font: { name: 'Calibri', sz: 9, bold: false, color: { rgb: '475569' } },
-            fill: { fgColor: { rgb: 'F8FAFC' } },
-            border: { top: { style: 'thin', color: { rgb: 'CBD5E1' } }, bottom: { style: 'thin', color: { rgb: 'CBD5E1' } }, left: { style: 'thin', color: { rgb: 'CBD5E1' } }, right: { style: 'thin', color: { rgb: 'CBD5E1' } } }
+            font: { name: 'Calibri', sz: 9, bold: false, color: { rgb: toARGB('475569') } },
+            fill: { fgColor: { rgb: toARGB('F8FAFC') } },
+            border: { top: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, bottom: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } } }
         };
         const valStyle = {
-            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '1E3A8A' } },
-            fill: { fgColor: { rgb: 'FFFFFF' } },
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: toARGB('1E3A8A') } },
+            fill: { fgColor: { rgb: toARGB('FFFFFF') } },
             alignment: { horizontal: 'right', vertical: 'center' },
-            border: { top: { style: 'thin', color: { rgb: 'CBD5E1' } }, bottom: { style: 'thin', color: { rgb: 'CBD5E1' } }, left: { style: 'thin', color: { rgb: 'CBD5E1' } }, right: { style: 'thin', color: { rgb: 'CBD5E1' } } }
+            border: { top: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, bottom: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }, right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } } }
         };
 
         kpiCols.forEach(k => {
@@ -415,8 +419,8 @@
                     const isAlert = String(cV.v).includes('PENDIENTE') || (k.c2 === 'L' && (r === 5 || r === 6) && Number(cV.v) > 0);
                     cV.s = isAlert ? {
                         ...valStyle,
-                        font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '991B1B' } },
-                        fill: { fgColor: { rgb: 'FEE2E2' } }
+                        font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: toARGB('991B1B') } },
+                        fill: { fgColor: { rgb: toARGB('FEE2E2') } }
                     } : valStyle;
                 }
             }
@@ -1177,11 +1181,721 @@
         }
     }
 
+    /**
+     * Construye la hoja principal de Estado de Cuenta del Cliente con diseño ejecutivo,
+     * encabezados azul marino, fórmulas dinámicas nativas y formato condicional sobrio.
+     */
+    function construirHojaEstadoCuentaResumen(wb, ctx) {
+        const XLSX_LIB = (typeof XLSX !== 'undefined' ? XLSX : window.XLSX);
+        const {
+            nombreCliente,
+            cedulaCliente,
+            telefonoCliente,
+            emailCliente,
+            limiteCredito,
+            puntosCliente,
+            tasa,
+            fechaHoy,
+            totalCompradoUSD,
+            totalCompradoVES,
+            totalAbonadoUSD,
+            totalAbonadoVES,
+            saldoDeudaUSD,
+            saldoDeudaVES,
+            esSolvente,
+            ventas,
+            abonos,
+            totComprasRow,
+            totAbonosRow
+        } = ctx;
+
+        const dataResumen = [
+            ['TU BODEGUITA DE CONFIANZA', ''],
+            ['ESTADO DE CUENTA Y BALANCE FINANCIERO DEL CLIENTE', ''],
+            [`Fecha y Hora de Emisión: ${fechaHoy}   |   Tasa Oficial BCV: Bs. ${tasa.toFixed(2)} por USD   |   Documento Financiero Oficial`, ''],
+            ['', ''],
+            ['INFORMACIÓN DEL CLIENTE / TITULAR', ''],
+            ['Nombre Completo / Razón Social:', nombreCliente],
+            ['Cédula / Identificación / RIF:', cedulaCliente],
+            ['Teléfono de Contacto / WhatsApp:', telefonoCliente],
+            ['Correo Electrónico:', emailCliente],
+            ['Condición de Crédito / Plazo:', limiteCredito],
+            ['Tasa Oficial BCV de Referencia:', Number(tasa.toFixed(2))],
+            ['', ''],
+            ['RESUMEN FINANCIERO Y ESTADO DE LA DEUDA', ''],
+            ['Total Comprado a Crédito ($ USD):', Number(totalCompradoUSD.toFixed(2))],
+            ['Total Comprado a Crédito (Bs. VES):', Number(totalCompradoVES.toFixed(2))],
+            ['Total Pagado / Abonado ($ USD):', Number(totalAbonadoUSD.toFixed(2))],
+            ['Total Pagado / Abonado (Bs. VES):', Number(totalAbonadoVES.toFixed(2))],
+            ['SALDO TOTAL PENDIENTE ($ USD):', Number(saldoDeudaUSD.toFixed(2))],
+            ['SALDO TOTAL PENDIENTE (Bs. VES):', Number(saldoDeudaVES.toFixed(2))],
+            ['Condición Financiera:', esSolvente ? 'SOLVENTE / AL DÍA' : 'DEUDOR / PENDIENTE DE PAGO'],
+            ['Total de Compras y Pedidos Realizados:', ventas.length],
+            ['Total de Pagos y Abonos Reportados:', abonos.length],
+            ['Puntos de Fidelización Acumulados:', puntosCliente],
+            ['', ''],
+            ['Firma y Sello de la Administración', 'Conforme Cliente / Titular'],
+            ['_______________________________________', '_______________________________________'],
+            ['Tu Bodeguita de Confianza · RIF: J-50478921-0', 'Documento Oficial de Conciliación y Cobranza']
+        ];
+
+        const ws = XLSX_LIB.utils.aoa_to_sheet(dataResumen);
+
+        // Fórmulas nativas vinculadas
+        ws['B11'] = { t: 'n', v: Number(tasa.toFixed(2)), z: 'Bs. #,##0.00' };
+        ws['B14'] = { t: 'n', f: `Desglose_Compras!H${totComprasRow}`, v: Number(totalCompradoUSD.toFixed(2)), z: '$#,##0.00' };
+        ws['B15'] = { t: 'n', f: `Desglose_Compras!I${totComprasRow}`, v: Number(totalCompradoVES.toFixed(2)), z: 'Bs. #,##0.00' };
+        ws['B16'] = { t: 'n', f: `Pagos_y_Abonos!F${totAbonosRow}`, v: Number(totalAbonadoUSD.toFixed(2)), z: '$#,##0.00' };
+        ws['B17'] = { t: 'n', f: `Pagos_y_Abonos!G${totAbonosRow}`, v: Number(totalAbonadoVES.toFixed(2)), z: 'Bs. #,##0.00' };
+        ws['B18'] = { t: 'n', f: `B14-B16`, v: Number(saldoDeudaUSD.toFixed(2)), z: '$#,##0.00' };
+        ws['B19'] = { t: 'n', f: `B18*B11`, v: Number(saldoDeudaVES.toFixed(2)), z: 'Bs. #,##0.00' };
+        ws['B20'] = { t: 's', f: `IF(B18>0.01,"CON SALDO PENDIENTE","AL DIA")`, v: esSolvente ? 'SOLVENTE / AL DÍA' : 'DEUDOR / PENDIENTE DE PAGO' };
+        ws['B21'] = { t: 'n', v: ventas.length, z: '#,##0' };
+        ws['B22'] = { t: 'n', v: abonos.length, z: '#,##0' };
+        ws['B23'] = { t: 'n', v: puntosCliente, z: '#,##0' };
+
+        // Estructura de anchos generosos
+        ws['!cols'] = [{ wch: 44 }, { wch: 40 }];
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+            { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } },
+            { s: { r: 4, c: 0 }, e: { r: 4, c: 1 } },
+            { s: { r: 12, c: 0 }, e: { r: 12, c: 1 } }
+        ];
+
+        // Definiciones de bordes y estilos
+        const thinBorder = {
+            top: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            bottom: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+            right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }
+        };
+
+        // Banner Superior
+        const bannerTitleStyle = {
+            font: { name: 'Calibri', sz: 16, bold: true, color: { rgb: toARGB('FFFFFF') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+        };
+        const bannerSubStyle = {
+            font: { name: 'Calibri', sz: 11, bold: true, italic: true, color: { rgb: toARGB('DBEAFE') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+        };
+        const bannerMetaStyle = {
+            font: { name: 'Calibri', sz: 9.5, italic: true, color: { rgb: toARGB('94A3B8') } },
+            fill: { fgColor: { rgb: toARGB('0F172A') } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+        };
+
+        ws['A1'].s = bannerTitleStyle;
+        ws['B1'].s = bannerTitleStyle;
+        ws['A2'].s = bannerSubStyle;
+        ws['B2'].s = bannerSubStyle;
+        ws['A3'].s = bannerMetaStyle;
+        ws['B3'].s = bannerMetaStyle;
+
+        // Encabezados de Sección
+        const sectionHeaderStyle = {
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: toARGB('FFFFFF') } },
+            fill: { fgColor: { rgb: toARGB('1E3A8A') } },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: {
+                top: { style: 'medium', color: { rgb: toARGB('0F172A') } },
+                bottom: { style: 'medium', color: { rgb: toARGB('0F172A') } },
+                left: { style: 'thin', color: { rgb: toARGB('3B82F6') } },
+                right: { style: 'thin', color: { rgb: toARGB('3B82F6') } }
+            }
+        };
+        ws['A5'].s = sectionHeaderStyle;
+        ws['B5'].s = sectionHeaderStyle;
+        ws['A13'].s = sectionHeaderStyle;
+        ws['B13'].s = sectionHeaderStyle;
+
+        // Estilos de filas de datos
+        const labelStyle = {
+            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: toARGB('334155') } },
+            fill: { fgColor: { rgb: toARGB('F8FAFC') } },
+            alignment: { horizontal: 'left', vertical: 'center' },
+            border: thinBorder
+        };
+        const valTextStyle = {
+            font: { name: 'Calibri', sz: 10, bold: false, color: { rgb: toARGB('0F172A') } },
+            fill: { fgColor: { rgb: toARGB('FFFFFF') } },
+            alignment: { horizontal: 'left', vertical: 'center' },
+            border: thinBorder
+        };
+        const valNumStyle = {
+            font: { name: 'Calibri', sz: 10.5, bold: true, color: { rgb: toARGB('0F172A') } },
+            fill: { fgColor: { rgb: toARGB('FFFFFF') } },
+            alignment: { horizontal: 'right', vertical: 'center' },
+            border: thinBorder
+        };
+
+        // Sección 1: Ficha del cliente
+        for (let r = 6; r <= 11; r++) {
+            const cellA = ws['A' + r];
+            const cellB = ws['B' + r];
+            if (cellA) cellA.s = labelStyle;
+            if (cellB) cellB.s = (r === 11) ? valNumStyle : valTextStyle;
+        }
+
+        // Sección 2: Resumen financiero
+        for (let r = 14; r <= 23; r++) {
+            const cellA = ws['A' + r];
+            const cellB = ws['B' + r];
+            if (r === 18 || r === 19) {
+                // SALDO TOTAL PENDIENTE
+                const isDebt = saldoDeudaUSD > 0.01;
+                const fillBg = isDebt ? { rgb: toARGB('FEE2E2') } : { rgb: toARGB('DCFCE7') };
+                const textColor = isDebt ? { rgb: toARGB('991B1B') } : { rgb: toARGB('166534') };
+                const debtBorder = {
+                    top: { style: 'thin', color: isDebt ? { rgb: toARGB('F87171') } : { rgb: toARGB('86EFAC') } },
+                    bottom: (r === 19) ? { style: 'double', color: textColor } : { style: 'thin', color: isDebt ? { rgb: toARGB('F87171') } : { rgb: toARGB('86EFAC') } },
+                    left: { style: 'thin', color: { rgb: toARGB('CBD5E1') } },
+                    right: { style: 'thin', color: { rgb: toARGB('CBD5E1') } }
+                };
+                if (cellA) {
+                    cellA.s = {
+                        font: { name: 'Calibri', sz: 11, bold: true, color: textColor },
+                        fill: { fgColor: fillBg },
+                        alignment: { horizontal: 'left', vertical: 'center' },
+                        border: debtBorder
+                    };
+                }
+                if (cellB) {
+                    cellB.s = {
+                        font: { name: 'Calibri', sz: 12, bold: true, color: textColor },
+                        fill: { fgColor: fillBg },
+                        alignment: { horizontal: 'right', vertical: 'center' },
+                        border: debtBorder
+                    };
+                }
+            } else if (r === 20) {
+                // Condición Financiera
+                const isDebt = saldoDeudaUSD > 0.01;
+                if (cellA) cellA.s = labelStyle;
+                if (cellB) {
+                    cellB.s = {
+                        font: { name: 'Calibri', sz: 11, bold: true, color: isDebt ? { rgb: toARGB('C2410C') } : { rgb: toARGB('166534') } },
+                        fill: { fgColor: isDebt ? { rgb: toARGB('FFEDD5') } : { rgb: toARGB('DCFCE7') } },
+                        alignment: { horizontal: 'center', vertical: 'center' },
+                        border: {
+                            top: { style: 'medium', color: isDebt ? { rgb: toARGB('EA580C') } : { rgb: toARGB('16A34A') } },
+                            bottom: { style: 'medium', color: isDebt ? { rgb: toARGB('EA580C') } : { rgb: toARGB('16A34A') } },
+                            left: { style: 'medium', color: isDebt ? { rgb: toARGB('EA580C') } : { rgb: toARGB('16A34A') } },
+                            right: { style: 'medium', color: isDebt ? { rgb: toARGB('EA580C') } : { rgb: toARGB('16A34A') } }
+                        }
+                    };
+                }
+            } else {
+                if (cellA) cellA.s = labelStyle;
+                if (cellB) cellB.s = valNumStyle;
+            }
+        }
+
+        // Sección de Firmas (Filas 25 a 27)
+        for (let r = 25; r <= 27; r++) {
+            const cellA = ws['A' + r];
+            const cellB = ws['B' + r];
+            const sz = (r === 25) ? 10 : ((r === 26) ? 9 : 8.5);
+            const bold = (r === 25);
+            const italic = (r === 27);
+            const color = (r === 27) ? { rgb: toARGB('64748B') } : ((r === 26) ? { rgb: toARGB('94A3B8') } : { rgb: toARGB('334155') });
+            const sSign = {
+                font: { name: 'Calibri', sz, bold, italic, color },
+                fill: { fgColor: { rgb: toARGB('F8FAFC') } },
+                alignment: { horizontal: 'center', vertical: 'center' }
+            };
+            if (cellA) cellA.s = sSign;
+            if (cellB) cellB.s = sSign;
+        }
+
+        // Configuración de impresión
+        ws['!pageSetup'] = {
+            paperSize: 1, // Letter
+            orientation: 'portrait',
+            fitToWidth: 1,
+            fitToHeight: 0,
+            fitToPage: true
+        };
+        ws['!margins'] = { left: 0.6, right: 0.6, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 };
+        ws['!views'] = [{ showGridLines: true }];
+        ws['!headerFooter'] = {
+            oddHeader: `&L&BTu Bodeguita de Confianza&B&REstado de Cuenta Oficial - ${nombreCliente}`,
+            oddFooter: `&LTu Bodeguita de Confianza - Ficha Oficial&CFecha: ${fechaHoy.split(',')[0]}&RPágina &P de &N`
+        };
+
+        XLSX_LIB.utils.book_append_sheet(wb, ws, 'Estado_de_Cuenta');
+    }
+
+    /**
+     * Genera el libro Excel profesional del Estado de Cuenta del Cliente (4 hojas)
+     * optimizado para Microsoft Excel y Google Sheets con diseño ejecutivo y fórmulas dinámicas.
+     */
+    function exportarEstadoCuentaClienteCompleto(params = {}) {
+        const XLSX_LIB = (typeof XLSX !== 'undefined' ? XLSX : window.XLSX);
+        if (!XLSX_LIB) {
+            alert('La librería XLSX no se encuentra disponible.');
+            return false;
+        }
+
+        try {
+            const AppState = window.AppState || {};
+
+            // 1. Identificar cliente y usuario
+            let cliente = params.cliente || null;
+            let usuario = params.usuario || AppState.usuarioActual || null;
+            if (!cliente && !usuario && typeof obtenerUsuarioActual === 'function') {
+                usuario = obtenerUsuarioActual();
+            }
+
+            if (!cliente && usuario) {
+                const clientesLista = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+                const uId = String(usuario.id || '').toUpperCase();
+                const uCed = String(usuario.cedula || '').toUpperCase();
+                cliente = clientesLista.find(c => {
+                    const cId = String(c.id || '').toUpperCase();
+                    const cCed = String(c.cedula || '').toUpperCase();
+                    return (uCed && (cCed === uCed || cId === uCed)) || (uId && (cId === uId || cCed === uId));
+                }) || usuario;
+            }
+
+            if (!cliente && !usuario) {
+                alert('No se pudo identificar los datos del cliente para exportar.');
+                return false;
+            }
+
+            cliente = cliente || usuario || {};
+
+            // 2. Metadatos
+            const nombreCliente = String(cliente.nombre || usuario?.nombre || 'Cliente').trim();
+            const cedulaCliente = String(cliente.cedula || cliente.id || usuario?.cedula || usuario?.id || 'N/A').trim();
+            const telefonoCliente = String(cliente.telefono || cliente.tlf || cliente.phone || usuario?.telefono || 'No registrado').trim();
+            const emailCliente = String(cliente.email || usuario?.email || 'No registrado').trim();
+            const limiteCredito = cliente.limiteCredito ? `$${Number(cliente.limiteCredito).toFixed(2)} USD` : (cliente.condicion || 'Estándar');
+            const puntosCliente = Number(cliente.puntos || cliente.puntosAcumulados || usuario?.puntos || 0);
+
+            // 3. Tasa BCV
+            let tasa = Number(params.tasa || AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+            if (tasa <= 0) tasa = 1;
+
+            // 4. Ventas
+            let ventas = Array.isArray(params.ventas) ? params.ventas : null;
+            if (!ventas) {
+                const todasVentas = Array.isArray(AppState.ventas) ? AppState.ventas : [];
+                const cId = String(cliente.id || '').toUpperCase();
+                const cCed = String(cedulaCliente).toUpperCase();
+                const cNom = String(nombreCliente).toUpperCase();
+                ventas = todasVentas.filter(v => {
+                    if (!v) return false;
+                    const vCId = String(v.clienteId || '').toUpperCase();
+                    const vCCed = String(v.clienteCedula || v.cedula || '').toUpperCase();
+                    const vCNom = String(v.clienteNombre || v.cliente || '').toUpperCase();
+                    return (cId && vCId === cId) || (cCed && (vCCed === cCed || vCId === cCed)) || (cNom && vCNom === cNom);
+                });
+            }
+            ventas = ventas.slice().sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+
+            // 5. Abonos
+            let abonos = Array.isArray(params.abonos) ? params.abonos : null;
+            if (!abonos) {
+                const todosAbonos = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+                const cId = String(cliente.id || '').toUpperCase();
+                const cCed = String(cedulaCliente).toUpperCase();
+                const cNom = String(nombreCliente).toUpperCase();
+                abonos = todosAbonos.filter(a => {
+                    if (!a) return false;
+                    const aCId = String(a.clienteId || '').toUpperCase();
+                    const aCCed = String(a.clienteCedula || a.cedula || '').toUpperCase();
+                    const aCNom = String(a.clienteNombre || '').toUpperCase();
+                    const aUId = String(a.usuarioId || '').toUpperCase();
+                    return (cId && aCId === cId) || (cCed && (aCCed === cCed || aCId === cCed)) || (cNom && aCNom === cNom) || (cId && aUId === cId);
+                });
+            }
+            abonos = abonos.slice().sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+
+            // 6. Saldos y Estado Financiero
+            const estadoFin = params.estado || (typeof calcularEstadoFinancieroCliente === 'function' ? calcularEstadoFinancieroCliente(cliente.id || cliente) : null);
+            let totalCompradoUSD = estadoFin ? Number(estadoFin.totalCompradoUSD || 0) : ventas.reduce((s, v) => s + (v.tipo === 'Crédito' || !v.tipo ? Number(v.total || v.totalUSD || 0) : 0), 0);
+            let totalAbonadoUSD = estadoFin ? Number(estadoFin.totalAbonadoUSD || 0) : abonos.filter(a => a.estado === 'Pago agregado' || a.estado === 'Confirmado' || a.estado === 'CONFIRMADO' || !a.estado).reduce((s, a) => {
+                const { montoUSD } = typeof sanitizarAbonoMonedas === 'function' ? sanitizarAbonoMonedas(a, tasa) : { montoUSD: Number(a.montoUSD || 0) };
+                return s + montoUSD;
+            }, 0);
+            let saldoDeudaUSD = estadoFin ? Number(estadoFin.saldoDeudaUSD || 0) : Math.max(0, totalCompradoUSD - totalAbonadoUSD);
+            let saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : Number((saldoDeudaUSD * tasa).toFixed(2));
+            let totalCompradoVES = Number((totalCompradoUSD * tasa).toFixed(2));
+            let totalAbonadoVES = Number((totalAbonadoUSD * tasa).toFixed(2));
+            let esSolvente = saldoDeudaUSD <= 0.01;
+
+            const fechaHoy = new Date().toLocaleString('es-VE');
+            const fechaISO = new Date().toISOString().slice(0, 10);
+
+            const wb = XLSX_LIB.utils.book_new();
+
+            // Filas Totales anticipadas para fórmulas cruzadas
+            const totComprasRow = (ventas.length === 0) ? 3 : (ventas.length + 2);
+            const totAbonosRow = (abonos.length === 0) ? 3 : (abonos.length + 2);
+
+            // =========================================================
+            // HOJA 1: ESTADO DE CUENTA (RESUMEN EJECUTIVO)
+            // =========================================================
+            construirHojaEstadoCuentaResumen(wb, {
+                nombreCliente,
+                cedulaCliente,
+                telefonoCliente,
+                emailCliente,
+                limiteCredito,
+                puntosCliente,
+                tasa,
+                fechaHoy,
+                totalCompradoUSD,
+                totalCompradoVES,
+                totalAbonadoUSD,
+                totalAbonadoVES,
+                saldoDeudaUSD,
+                saldoDeudaVES,
+                esSolvente,
+                ventas,
+                abonos,
+                totComprasRow,
+                totAbonosRow
+            });
+
+            // =========================================================
+            // HOJA 2: DESGLOSE DE COMPRAS Y DEUDA
+            // =========================================================
+            const headerCompras = [
+                'N° Comprobante',
+                'Fecha',
+                'Tipo Operación',
+                'Motivo / Detalle de la Operación',
+                'Artículos Adquiridos',
+                'Cant. Total Ítems',
+                'Tasa BCV (Bs/USD)',
+                'Total Venta ($ USD)',
+                'Total Venta (Bs. VES)',
+                'Estado de Deuda',
+                'Referencia / Observaciones'
+            ];
+
+            let rowsCompras = [];
+            if (ventas.length === 0) {
+                rowsCompras.push([
+                    'SIN COMPRAS',
+                    fechaISO,
+                    'N/A',
+                    'No registra compras ni consumos a crédito en el período',
+                    'Sin artículos',
+                    0,
+                    Number(tasa.toFixed(2)),
+                    0,
+                    0,
+                    'AL DÍA',
+                    ''
+                ]);
+            } else {
+                ventas.forEach((v, idx) => {
+                    const esCredito = (v.tipo || 'Crédito') === 'Crédito';
+                    const totUSD = Number(v.total || v.totalUSD || 0);
+                    const tasaV = Number(v.tasa || tasa || 1);
+                    const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
+                    const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
+                    const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre} ($${Number(i.precio || 0).toFixed(2)})`).join(', ') || 'Productos varios';
+
+                    let motivo = 'Compra a crédito en tienda / Punto de Venta sin pago inmediato';
+                    if (v.id && String(v.id).startsWith('V_FIADO_')) {
+                        motivo = 'Saldo pendiente transferido de libreta de fiados histórica';
+                    } else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) {
+                        motivo = 'Pedido generado desde Auto-servicio / Catálogo';
+                    } else if (v.tipo === 'Contado') {
+                        motivo = 'Compra pagada de contado en caja';
+                    }
+
+                    let estadoTexto = esCredito ? (saldoDeudaUSD > 0.01 ? 'PENDIENTE' : 'LIQUIDADO') : 'CONTADO / PAGADO';
+                    if (v.estado === 'PENDIENTE_CONFIRMACION') estadoTexto = 'POR CONFIRMAR';
+
+                    rowsCompras.push([
+                        v.id || `VENTA-${idx + 1}`,
+                        v.fecha || fechaISO,
+                        v.tipo || 'Crédito',
+                        motivo,
+                        itemsDesc,
+                        itemsCount,
+                        Number(tasaV.toFixed(2)),
+                        totUSD,
+                        totVES,
+                        estadoTexto,
+                        v.referencia || v.nota || ''
+                    ]);
+                });
+            }
+
+            // Fila de totales en Desglose_Compras
+            const totCantItems = ventas.reduce((s, v) => s + ((v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0)), 0);
+            rowsCompras.push([
+                'TOTALES GENERALES',
+                '',
+                '',
+                '',
+                '',
+                totCantItems,
+                '',
+                totalCompradoUSD,
+                totalCompradoVES,
+                esSolvente ? 'AL DÍA' : 'CON SALDO PENDIENTE',
+                ''
+            ]);
+
+            const wsCompras = XLSX_LIB.utils.aoa_to_sheet([headerCompras, ...rowsCompras]);
+
+            // Inyectar fórmulas dinámicas en la fila de totales y celdas
+            const lastRowC = rowsCompras.length + 1;
+            for (let r = 2; r < lastRowC; r++) {
+                if (ventas.length > 0) {
+                    wsCompras[`I${r}`] = { t: 'n', f: `H${r}*G${r}`, v: Number(rowsCompras[r - 2][8]), z: 'Bs. #,##0.00' };
+                }
+            }
+            if (ventas.length > 0) {
+                wsCompras[`F${lastRowC}`] = { t: 'n', f: `SUM(F2:F${lastRowC - 1})`, v: totCantItems, z: '#,##0' };
+                wsCompras[`H${lastRowC}`] = { t: 'n', f: `SUM(H2:H${lastRowC - 1})`, v: totalCompradoUSD, z: '$#,##0.00' };
+                wsCompras[`I${lastRowC}`] = { t: 'n', f: `SUM(I2:I${lastRowC - 1})`, v: totalCompradoVES, z: 'Bs. #,##0.00' };
+            }
+
+            wsCompras['!cols'] = [
+                { wch: 18 }, // Nro
+                { wch: 18 }, // Fecha
+                { wch: 16 }, // Tipo
+                { wch: 44 }, // Motivo
+                { wch: 40 }, // Artículos
+                { wch: 16 }, // Cantidad
+                { wch: 20 }, // Tasa
+                { wch: 20 }, // Total USD
+                { wch: 22 }, // Total VES
+                { wch: 20 }, // Estado
+                { wch: 30 }  // Observaciones
+            ];
+            aplicarDisenoEjecutivo(wb, wsCompras, 'Desglose_Compras', { headerRow: 0, totalRow: lastRowC - 1, sheetIndex: 1, orientation: 'landscape', clientName: nombreCliente });
+            XLSX_LIB.utils.book_append_sheet(wb, wsCompras, 'Desglose_Compras');
+
+            // =========================================================
+            // HOJA 3: DETALLE ÍTEM POR ÍTEM
+            // =========================================================
+            const headerItems = [
+                'N° Comprobante',
+                'Fecha',
+                'Código / SKU',
+                'Producto / Concepto',
+                'Cantidad',
+                'Precio Unitario ($ USD)',
+                'Precio Unitario (Bs. VES)',
+                'Subtotal ($ USD)',
+                'Subtotal (Bs. VES)'
+            ];
+
+            let rowsItems = [];
+            ventas.forEach(v => {
+                const tasaV = Number(v.tasa || tasa || 1);
+                if (v.items && v.items.length > 0) {
+                    v.items.forEach(it => {
+                        const cant = Number(it.cantidad) || 1;
+                        const pUSD = Number(it.precio || it.precioUSD || 0);
+                        const subUSD = Number(it.subtotal || (cant * pUSD));
+                        const pVES = tasaV > 0 ? Number((pUSD * tasaV).toFixed(2)) : 0;
+                        const subVES = tasaV > 0 ? Number((subUSD * tasaV).toFixed(2)) : 0;
+                        rowsItems.push([
+                            v.id || 'N/A',
+                            v.fecha || fechaISO,
+                            it.codigo || it.sku || it.id || '-',
+                            it.nombre || 'Producto',
+                            cant,
+                            pUSD,
+                            pVES,
+                            subUSD,
+                            subVES
+                        ]);
+                    });
+                } else {
+                    const totUSD = Number(v.total || 0);
+                    const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
+                    rowsItems.push([
+                        v.id || 'N/A',
+                        v.fecha || fechaISO,
+                        '-',
+                        v.referencia || 'Compra de productos varios',
+                        1,
+                        totUSD,
+                        totVES,
+                        totUSD,
+                        totVES
+                    ]);
+                }
+            });
+
+            if (rowsItems.length === 0) {
+                rowsItems.push(['SIN ARTÍCULOS', fechaISO, '-', 'Sin productos facturados', 0, 0, 0, 0, 0]);
+            }
+
+            const totItemsCant = rowsItems.reduce((s, r) => s + Number(r[4] || 0), 0);
+            const totItemsUSD = rowsItems.reduce((s, r) => s + Number(r[7] || 0), 0);
+            const totItemsVES = rowsItems.reduce((s, r) => s + Number(r[8] || 0), 0);
+
+            rowsItems.push([
+                'TOTAL ARTÍCULOS',
+                '',
+                '',
+                '',
+                totItemsCant,
+                '',
+                '',
+                totItemsUSD,
+                totItemsVES
+            ]);
+
+            const wsItems = XLSX_LIB.utils.aoa_to_sheet([headerItems, ...rowsItems]);
+            const lastRowI = rowsItems.length + 1;
+            for (let r = 2; r < lastRowI; r++) {
+                if (rowsItems.length > 1) {
+                    wsItems[`H${r}`] = { t: 'n', f: `E${r}*F${r}`, v: Number(rowsItems[r - 2][7]), z: '$#,##0.00' };
+                    wsItems[`I${r}`] = { t: 'n', f: `E${r}*G${r}`, v: Number(rowsItems[r - 2][8]), z: 'Bs. #,##0.00' };
+                }
+            }
+            if (rowsItems.length > 1) {
+                wsItems[`E${lastRowI}`] = { t: 'n', f: `SUM(E2:E${lastRowI - 1})`, v: totItemsCant, z: '#,##0' };
+                wsItems[`H${lastRowI}`] = { t: 'n', f: `SUM(H2:H${lastRowI - 1})`, v: totItemsUSD, z: '$#,##0.00' };
+                wsItems[`I${lastRowI}`] = { t: 'n', f: `SUM(I2:I${lastRowI - 1})`, v: totItemsVES, z: 'Bs. #,##0.00' };
+            }
+
+            wsItems['!cols'] = [
+                { wch: 18 },
+                { wch: 18 },
+                { wch: 16 },
+                { wch: 38 },
+                { wch: 14 },
+                { wch: 22 },
+                { wch: 22 },
+                { wch: 20 },
+                { wch: 22 }
+            ];
+            aplicarDisenoEjecutivo(wb, wsItems, 'Detalle_Articulos', { headerRow: 0, totalRow: lastRowI - 1, sheetIndex: 2, orientation: 'landscape', clientName: nombreCliente });
+            XLSX_LIB.utils.book_append_sheet(wb, wsItems, 'Detalle_Articulos');
+
+            // =========================================================
+            // HOJA 4: HISTORIAL DE PAGOS Y ABONOS
+            // =========================================================
+            const headerAbonos = [
+                'N°',
+                'Fecha y Hora',
+                'N° Referencia',
+                'Método / Canal de Pago',
+                'Tasa BCV (Bs/USD)',
+                'Monto Abonado ($ USD)',
+                'Monto Abonado (Bs. VES)',
+                'Estado del Pago',
+                'Nota / Observación'
+            ];
+
+            let rowsAbonos = [];
+            if (abonos.length === 0) {
+                rowsAbonos.push([
+                    1,
+                    fechaISO,
+                    'N/A',
+                    'Sin pagos o abonos registrados',
+                    Number(tasa.toFixed(2)),
+                    0,
+                    0,
+                    'AL DÍA',
+                    ''
+                ]);
+            } else {
+                abonos.forEach((a, idx) => {
+                    const tasaA = Number(a.tasaMomento || a.tasa || tasa || 1);
+                    const { montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                        ? sanitizarAbonoMonedas(a, tasaA)
+                        : { montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+
+                    rowsAbonos.push([
+                        idx + 1,
+                        a.fecha || fechaISO,
+                        a.referencia || a.referenciaBancaria || 'Sin Ref',
+                        a.formaPago || a.metodo || 'Pago Móvil',
+                        Number(tasaA.toFixed(2)),
+                        Number((montoUSD || 0).toFixed(2)),
+                        Number((montoVES || 0).toFixed(2)),
+                        a.estado || 'CONFIRMADO',
+                        a.nota || a.observacion || ''
+                    ]);
+                });
+            }
+
+            rowsAbonos.push([
+                'TOTAL ABONOS',
+                '',
+                '',
+                '',
+                '',
+                totalAbonadoUSD,
+                totalAbonadoVES,
+                'CONFIRMADO',
+                ''
+            ]);
+
+            const wsAbonos = XLSX_LIB.utils.aoa_to_sheet([headerAbonos, ...rowsAbonos]);
+            const lastRowA = rowsAbonos.length + 1;
+            for (let r = 2; r < lastRowA; r++) {
+                if (abonos.length > 0) {
+                    wsAbonos[`G${r}`] = { t: 'n', f: `F${r}*E${r}`, v: Number(rowsAbonos[r - 2][6]), z: 'Bs. #,##0.00' };
+                }
+            }
+            if (abonos.length > 0) {
+                wsAbonos[`F${lastRowA}`] = { t: 'n', f: `SUM(F2:F${lastRowA - 1})`, v: totalAbonadoUSD, z: '$#,##0.00' };
+                wsAbonos[`G${lastRowA}`] = { t: 'n', f: `SUM(G2:G${lastRowA - 1})`, v: totalAbonadoVES, z: 'Bs. #,##0.00' };
+            }
+
+            wsAbonos['!cols'] = [
+                { wch: 8 },  // N°
+                { wch: 20 }, // Fecha
+                { wch: 20 }, // Ref
+                { wch: 26 }, // Metodo
+                { wch: 20 }, // Tasa
+                { wch: 22 }, // USD
+                { wch: 22 }, // VES
+                { wch: 18 }, // Estado
+                { wch: 35 }  // Obs
+            ];
+            aplicarDisenoEjecutivo(wb, wsAbonos, 'Pagos_y_Abonos', { headerRow: 0, totalRow: lastRowA - 1, sheetIndex: 3, orientation: 'landscape', clientName: nombreCliente });
+            XLSX_LIB.utils.book_append_sheet(wb, wsAbonos, 'Pagos_y_Abonos');
+
+            // =========================================================
+            // DESCARGA DEL LIBRO DE ESTADO DE CUENTA
+            // =========================================================
+            const safeName = nombreCliente.replace(/[^a-zA-Z0-9]/g, '_');
+            const nombreArchivo = `Estado_Cuenta_${safeName}_${fechaISO}.xlsx`;
+            XLSX_LIB.writeFile(wb, nombreArchivo);
+
+            if (typeof window.mostrarNotificacionToast === 'function') {
+                window.mostrarNotificacionToast(`✅ Estado de cuenta descargado con éxito (${nombreArchivo})`, 'success');
+            } else if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Estado de Cuenta Descargado', `Se ha generado y descargado exitosamente tu archivo Excel: "${nombreArchivo}"`, 'success');
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Error al exportar Estado de Cuenta del cliente:', e);
+            alert('Error al generar el Estado de Cuenta en Excel: ' + e.message);
+            return false;
+        }
+    }
+
     window.InventoryApp.ExcelExporter = {
         sanitizarValor,
         sanitizarDatos,
         calcularAnchos,
         aplicarDisenoEjecutivo,
-        exportarMasterExcelCompleto
+        exportarMasterExcelCompleto,
+        exportarEstadoCuentaClienteCompleto
     };
+    window.exportarEstadoCuentaClienteCompleto = exportarEstadoCuentaClienteCompleto;
 })();

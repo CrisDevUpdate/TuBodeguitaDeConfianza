@@ -2116,245 +2116,32 @@ function descargarHistorialDeudaClienteExcel() {
         return (cId && aCId === cId) || (uCed && (aCCed === uCed || aCId === uCed)) || (uId && aUId === uId) || (uNom && aNom === uNom);
     });
 
+    if (window.InventoryApp?.ExcelExporter?.exportarEstadoCuentaClienteCompleto) {
+        return window.InventoryApp.ExcelExporter.exportarEstadoCuentaClienteCompleto({
+            cliente: clienteObj,
+            usuario,
+            ventas,
+            abonos,
+            estado: estadoFin,
+            tasa
+        });
+    } else if (typeof window.exportarEstadoCuentaClienteCompleto === 'function') {
+        return window.exportarEstadoCuentaClienteCompleto({
+            cliente: clienteObj,
+            usuario,
+            ventas,
+            abonos,
+            estado: estadoFin,
+            tasa
+        });
+    }
+
     const fechaHoy = new Date().toLocaleString('es-VE');
     const fechaISO = new Date().toISOString().slice(0, 10);
     const formatVESNum = (v) => Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    if (typeof XLSX !== 'undefined') {
-        const wb = XLSX.utils.book_new();
-
-        const sanitizarCelda = (v) => {
-            if (v === null || v === undefined) return '';
-            if (typeof v === 'number' || typeof v === 'boolean') return v;
-            const s = String(v);
-            if (s.startsWith('data:')) return '[Archivo / Imagen Base64]';
-            return s.length > 32000 ? s.slice(0, 31980) + '... [TRUNCADO]' : s;
-        };
-        const sanitizarMatriz = (aoa) => (Array.isArray(aoa) ? aoa.map(r => Array.isArray(r) ? r.map(c => sanitizarCelda(c)) : r) : []);
-
-        // 1. Hoja Resumen Estado de Cuenta
-        const wsResumenData = [
-            ['TU BODEGUITA DE CONFIANZA - ESTADO DE CUENTA E HISTORIAL DE DEUDA'],
-            ['Fecha y Hora de Emisión:', fechaHoy],
-            ['Tasa Oficial BCV:', `Bs. ${tasa.toFixed(2)} por USD`],
-            [''],
-            ['DATOS DEL CLIENTE / TITULAR'],
-            ['Nombre Completo:', nombreCliente],
-            ['Cédula / Identificación:', cedulaCliente],
-            ['Teléfono de Contacto:', telefonoCliente],
-            ['Correo Electrónico:', emailCliente],
-            [''],
-            ['RESUMEN FINANCIERO Y ESTADO DE LA DEUDA'],
-            ['Total Comprado a Crédito ($ USD):', Number(totalCompradoUSD.toFixed(2))],
-            ['Total Comprado a Crédito (Bs. VES):', Number(totalCompradoVES.toFixed(2))],
-            ['Total Pagado / Abonado ($ USD):', Number(totalAbonadoUSD.toFixed(2))],
-            ['Total Pagado / Abonado (Bs. VES):', Number(totalAbonadoVES.toFixed(2))],
-            ['SALDO TOTAL PENDIENTE ($ USD):', Number(saldoDeudaUSD.toFixed(2))],
-            ['SALDO TOTAL PENDIENTE (Bs. VES):', Number(saldoDeudaVES.toFixed(2))],
-            ['Condición Financiera:', esSolvente ? 'SOLVENTE / AL DÍA' : 'DEUDOR / PENDIENTE DE PAGO'],
-            ['Total de Compras y Pedidos:', ventas.length],
-            ['Total de Pagos y Abonos Reportados:', abonos.length]
-        ];
-        const wsResumen = XLSX.utils.aoa_to_sheet(sanitizarMatriz(wsResumenData));
-        wsResumen['!cols'] = [{ wch: 38 }, { wch: 45 }];
-        XLSX.utils.book_append_sheet(wb, wsResumen, 'Estado_de_Cuenta');
-
-        // 2. Hoja Desglose de Compras y Deuda
-        const headerCompras = [
-            'N° Comprobante',
-            'Fecha',
-            'Tipo Operación',
-            'Motivo / Explicación de la Deuda',
-            'Artículos Adquiridos',
-            'Cant. Artículos',
-            'Tasa de Cambio (Bs/USD)',
-            'Total Venta ($ USD)',
-            'Total Venta (Bs. VES)',
-            'Estado de Deuda',
-            'Referencia / Observaciones'
-        ];
-        const rowsCompras = ventas.map(v => {
-            const esCredito = v.tipo === 'Crédito';
-            const totUSD = Number(v.total || 0);
-            const tasaV = Number(v.tasa || tasa || 1);
-            const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
-            const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
-            const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre} ($${Number(i.precio || 0).toFixed(2)})`).join(', ') || 'Productos varios';
-
-            let motivo = 'Compra a crédito en tienda / Punto de Venta sin pago inmediato';
-            if (v.id && String(v.id).startsWith('V_FIADO_')) {
-                motivo = 'Saldo pendiente transferido de libreta de fiados histórica';
-            } else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) {
-                motivo = 'Pedido a crédito generado en Auto-servicio';
-            } else if (v.tipo === 'Contado') {
-                motivo = 'Compra pagada de contado en caja';
-            }
-
-            let estadoTexto = esCredito ? (saldoDeudaUSD > 0.01 ? 'PENDIENTE' : 'LIQUIDADO') : 'CONTADO / PAGADO';
-            if (v.estado === 'PENDIENTE_CONFIRMACION') estadoTexto = 'POR CONFIRMAR';
-
-            return [
-                v.id,
-                v.fecha || 'N/A',
-                v.tipo || 'Crédito',
-                motivo,
-                itemsDesc,
-                itemsCount,
-                Number(tasaV.toFixed(2)),
-                Number(totUSD.toFixed(2)),
-                totVES,
-                estadoTexto,
-                v.referencia || v.nota || ''
-            ];
-        });
-
-        // Fila de Totales
-        const totCantArt = ventas.reduce((s, v) => s + ((v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0)), 0);
-        rowsCompras.push([
-            'TOTALES',
-            '',
-            '',
-            '',
-            '',
-            totCantArt,
-            '',
-            Number(totalCompradoUSD.toFixed(2)),
-            Number(totalCompradoVES.toFixed(2)),
-            esSolvente ? 'AL DÍA' : `DEUDA: $${saldoDeudaUSD.toFixed(2)} USD`,
-            ''
-        ]);
-
-        const wsCompras = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerCompras, ...rowsCompras]));
-        wsCompras['!cols'] = [
-            { wch: 18 }, // Nro
-            { wch: 18 }, // Fecha
-            { wch: 14 }, // Tipo
-            { wch: 45 }, // Motivo
-            { wch: 40 }, // Artículos
-            { wch: 14 }, // Cantidad
-            { wch: 22 }, // Tasa
-            { wch: 18 }, // Total USD
-            { wch: 20 }, // Total VES
-            { wch: 18 }, // Estado
-            { wch: 30 }  // Observaciones
-        ];
-        XLSX.utils.book_append_sheet(wb, wsCompras, 'Desglose_Compras');
-
-        // 3. Hoja Detalle Ítem por Ítem
-        const headerItems = [
-            'N° Comprobante',
-            'Fecha',
-            'Producto / Concepto',
-            'Cantidad',
-            'Precio Unitario ($ USD)',
-            'Precio Unitario (Bs. VES)',
-            'Subtotal ($ USD)',
-            'Subtotal (Bs. VES)'
-        ];
-        const rowsItems = [];
-        ventas.forEach(v => {
-            const tasaV = Number(v.tasa || tasa || 1);
-            if (v.items && v.items.length > 0) {
-                v.items.forEach(it => {
-                    const cant = Number(it.cantidad) || 1;
-                    const pUSD = Number(it.precio || it.precioUSD || 0);
-                    const subUSD = Number(it.subtotal || (cant * pUSD));
-                    const pVES = tasaV > 0 ? Number((pUSD * tasaV).toFixed(2)) : 0;
-                    const subVES = tasaV > 0 ? Number((subUSD * tasaV).toFixed(2)) : 0;
-                    rowsItems.push([
-                        v.id,
-                        v.fecha || 'N/A',
-                        it.nombre || 'Producto',
-                        cant,
-                        Number(pUSD.toFixed(2)),
-                        pVES,
-                        Number(subUSD.toFixed(2)),
-                        subVES
-                    ]);
-                });
-            } else {
-                const totUSD = Number(v.total || 0);
-                const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
-                rowsItems.push([
-                    v.id,
-                    v.fecha || 'N/A',
-                    v.referencia || 'Compra de productos',
-                    1,
-                    Number(totUSD.toFixed(2)),
-                    totVES,
-                    Number(totUSD.toFixed(2)),
-                    totVES
-                ]);
-            }
-        });
-        const wsItems = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerItems, ...rowsItems]));
-        wsItems['!cols'] = [
-            { wch: 18 },
-            { wch: 18 },
-            { wch: 40 },
-            { wch: 12 },
-            { wch: 22 },
-            { wch: 22 },
-            { wch: 18 },
-            { wch: 20 }
-        ];
-        XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle_Articulos');
-
-        // 4. Hoja Historial de Pagos y Abonos
-        const headerAbonos = [
-            'Fecha',
-            'N° Referencia',
-            'Método / Destino',
-            'Monto Pagado ($ USD)',
-            'Tasa BCV (Bs/USD)',
-            'Monto Pagado (Bs. VES)',
-            'Estado',
-            'Nota / Observación'
-        ];
-        const rowsAbonos = abonos.map(a => {
-            const tasaA = Number(a.tasaMomento || tasa || 1);
-            const { montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
-                ? sanitizarAbonoMonedas(a, tasaA)
-                : { montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
-
-            return [
-                a.fecha || 'N/A',
-                a.referencia || a.referenciaBancaria || 'Sin Ref',
-                a.formaPago || a.metodo || 'Pago Móvil',
-                Number((montoUSD || 0).toFixed(2)),
-                Number(tasaA.toFixed(2)),
-                Number((montoVES || 0).toFixed(2)),
-                a.estado || 'Confirmado',
-                a.nota || a.observacion || ''
-            ];
-        });
-        const wsAbonos = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerAbonos, ...rowsAbonos]));
-        wsAbonos['!cols'] = [
-            { wch: 18 },
-            { wch: 20 },
-            { wch: 25 },
-            { wch: 20 },
-            { wch: 18 },
-            { wch: 22 },
-            { wch: 16 },
-            { wch: 35 }
-        ];
-        XLSX.utils.book_append_sheet(wb, wsAbonos, 'Pagos_y_Abonos');
-
-        // Generar y descargar archivo
-        const safeName = nombreCliente.replace(/[^a-zA-Z0-9]/g, '_');
-        const filename = `Historial_Deuda_${safeName}_${fechaISO}.xlsx`;
-        XLSX.writeFile(wb, filename);
-
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Historial de Deuda Descargado', `Se ha generado y descargado exitosamente tu archivo Excel: "${filename}"`, 'success');
-        } else {
-            alert(`Historial de deuda descargado exitosamente: "${filename}"`);
-        }
-    } else {
-        // Fallback a CSV compatible con Microsoft Excel
-        descargarHistorialDeudaCSV(clienteObj, ventas, abonos, { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, tasa, fechaHoy, fechaISO, formatVESNum });
-    }
+    // Fallback a CSV compatible con Microsoft Excel
+    descargarHistorialDeudaCSV(clienteObj, ventas, abonos, { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, tasa, fechaHoy, fechaISO, formatVESNum });
 }
 window.descargarHistorialDeudaClienteExcel = descargarHistorialDeudaClienteExcel;
 

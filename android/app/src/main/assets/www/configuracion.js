@@ -149,7 +149,7 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
 
         <!-- MÓDULO 2: REINICIO GENERAL DE FÁBRICA (HARD-RESET EXCLUSIVO SUPERADMIN) -->
         ${esSuperAdmin ? `
-            <div class="card config-critical-zone" style="margin-bottom:20px; border: 2px solid #ef4444; background:#fef2f2;">
+            <div class="card config-critical-zone" style="display: none; margin-bottom:20px; border: 2px solid #ef4444; background:#fef2f2;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
                     <div style="flex:1; min-width:280px;">
                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">

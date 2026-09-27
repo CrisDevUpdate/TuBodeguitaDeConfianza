@@ -1675,6 +1675,23 @@ function descargarEstadoCuentaCliente() {
         alert('No se pudo cargar la información del cliente para la descarga.');
         return;
     }
+
+    if (window.InventoryApp?.ExcelExporter?.exportarEstadoCuentaClienteCompleto) {
+        return window.InventoryApp.ExcelExporter.exportarEstadoCuentaClienteCompleto({
+            cliente: ctx.cliente,
+            estado: ctx.estado,
+            tasa: ctx.tasa,
+            transacciones: ctx.transacciones
+        });
+    } else if (typeof window.exportarEstadoCuentaClienteCompleto === 'function') {
+        return window.exportarEstadoCuentaClienteCompleto({
+            cliente: ctx.cliente,
+            estado: ctx.estado,
+            tasa: ctx.tasa,
+            transacciones: ctx.transacciones
+        });
+    }
+
     const { cliente, emailCli, tasa, estado, transacciones } = ctx;
 
     if (typeof XLSX === 'undefined') {
