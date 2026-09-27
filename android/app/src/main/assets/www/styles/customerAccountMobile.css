@@ -548,3 +548,285 @@ body.rol-cliente .admin-only-control {
     padding-bottom: 40px;
   }
 }
+
+/* 🔍 6. TARJETAS EXPANDIBLES Y DESGLOSE INTERACTIVO DE DEUDA */
+.tx-card-expandable {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.tx-card-expandable:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  background: #ffffff;
+}
+
+.tx-card-expandable.tx-card-expanded {
+  border-color: #3b82f6;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.12);
+  background: #ffffff;
+}
+
+.tx-card-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.tx-chevron-wrap {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.tx-chevron {
+  font-size: 0.72rem;
+  color: #64748b;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+.tx-chevron-rotated {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+.tx-card-expandable.tx-card-expanded .tx-chevron-wrap {
+  background: #eff6ff;
+}
+
+.tx-expand-bar {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.tx-expand-hint {
+  font-size: 0.72rem;
+  color: #2563eb;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tx-card-expandable.tx-card-expanded .tx-expand-hint {
+  color: #64748b;
+}
+
+/* Panel Desglose */
+.tx-desglose-panel {
+  margin-top: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  animation: txSlideDown 0.25s ease-out;
+}
+
+@keyframes txSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Caja de Motivo / Explicación de la Deuda */
+.tx-desglose-motivo-box {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tx-desglose-motivo-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.tx-desglose-motivo-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.tx-desglose-motivo-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.tx-desglose-motivo-desc {
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: #334155;
+  margin: 0;
+}
+
+/* Tabla Desglose de Artículos */
+.tx-items-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tx-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.tx-items-table th {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tx-items-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.tx-items-table tr:last-child td {
+  border-bottom: none;
+}
+
+.tx-item-qty {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+
+/* Totales del Desglose */
+.tx-desglose-totales-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tx-totales-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.tx-totales-row.highlight {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #0f172a;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 6px;
+  margin-top: 3px;
+}
+
+/* Botones de Acción dentro del Desglose */
+.tx-desglose-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.btn-desglose-pagar {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-desglose-pagar:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.btn-desglose-cerrar {
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-desglose-cerrar:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+/* Botón Descargar en Excel para el Historial de Deuda */
+.customer-btn-excel {
+  background: #f0fdf4 !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+  font-weight: 700 !important;
+  padding: 5px 12px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 0.78rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+.customer-btn-excel:hover {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+}
+

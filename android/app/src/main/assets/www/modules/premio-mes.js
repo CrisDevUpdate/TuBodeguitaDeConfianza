@@ -1057,16 +1057,19 @@ function actualizarPreviewPremioAdmin() {
     }
 
     if (btnPausar) {
+        btnPausar.disabled = false;
         if (esInvierno) {
-            btnPausar.innerHTML = '<i class="fas fa-snowflake"></i> Modo Invierno';
-            btnPausar.disabled = true;
-            btnPausar.title = 'El desafío ha sido eliminado y el sistema está en invierno.';
+            btnPausar.innerHTML = '<i class="fas fa-snowflake" style="color:#0284c7;"></i> Modo Invierno (Activo)';
+            btnPausar.title = 'El sistema está en Modo Invierno. Haz clic para desactivar o reactivar.';
+            btnPausar.style.background = '#e0f2fe';
+            btnPausar.style.borderColor = '#38bdf8';
+            btnPausar.style.color = '#0369a1';
         } else {
-            btnPausar.disabled = false;
-            btnPausar.innerHTML = estado === 'PAUSADO' 
-                ? '<i class="fas fa-play"></i> Reactivar Desafío' 
-                : '<i class="fas fa-pause"></i> Pausar Desafío';
-            btnPausar.title = 'Pausar o reactivar el desafío actual';
+            btnPausar.innerHTML = '<i class="fas fa-snowflake" style="color:#0284c7;"></i> Modo Invierno';
+            btnPausar.title = 'Entrar en Modo Invierno y pausar el desafío';
+            btnPausar.style.background = '#ffffff';
+            btnPausar.style.borderColor = '#bae6fd';
+            btnPausar.style.color = '#0284c7';
         }
     }
 
@@ -1243,8 +1246,14 @@ function renderizarConfiguradorPremioAdmin() {
     // Renderizar presets en chips horizontales modernos
     const presetsContainer = document.getElementById('premio-presets-container') || document.getElementById('premio-admin-presets');
     if (presetsContainer) {
-        presetsContainer.innerHTML = PRESETS_PREMIOS.map((p, idx) => `
-            <div class="reward-preset-chip ${idx === 0 ? 'active' : ''}" onclick="aplicarPresetPremio(${idx})" title="Seleccionar: ${p.nombre}">
+        const nombreActual = (pm.nombre || '').toLowerCase().trim();
+        const ptsActuales = Number(pm.puntosRequeridos || 0);
+        presetsContainer.innerHTML = PRESETS_PREMIOS.map((p, idx) => {
+            const esActivo = nombreActual 
+                ? (p.nombre.toLowerCase().trim() === nombreActual || p.puntos === ptsActuales)
+                : idx === 0;
+            return `
+            <div class="reward-preset-chip ${esActivo ? 'active' : ''}" onclick="aplicarPresetPremio(${idx})" title="Seleccionar: ${p.nombre}">
                 <img src="${p.imagen}" alt="${p.nombre}" class="reward-preset-thumb" loading="lazy">
                 <div class="reward-preset-info">
                     <div class="reward-preset-name">${p.nombre}</div>
@@ -1253,10 +1262,10 @@ function renderizarConfiguradorPremioAdmin() {
                     </div>
                 </div>
                 <button type="button" class="reward-preset-apply-btn" onclick="event.stopPropagation(); aplicarPresetPremio(${idx});">
-                    ${idx === 0 ? 'Activo' : 'Usar'}
+                    ${esActivo ? 'Activo' : 'Usar'}
                 </button>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     // Configurar listeners de Drag & Drop para el Dropzone
@@ -1428,7 +1437,7 @@ function renderizarTablaCanjesAdmin() {
     }
 
     tbody.innerHTML = `
-        <div class="table-responsive">
+        <div class="table-responsive premio-canjes-table-desktop">
             <table>
                 <thead>
                     <tr>
@@ -1481,6 +1490,53 @@ function renderizarTablaCanjesAdmin() {
                     }).join('')}
                 </tbody>
             </table>
+        </div>
+
+        <div class="premio-canjes-mobile-list">
+            ${canjes.map(c => {
+                const esPendiente = c.estado === 'PENDIENTE_CONFIRMACION';
+                return `
+                    <div class="clientes-item-card">
+                        <div class="clientes-item-top">
+                            <div>
+                                <span style="font-weight:800; color:var(--primary-accent); font-size:0.85rem;">#${c.id}</span>
+                                <span class="clientes-item-name" style="margin-left:6px;">${c.clienteNombre}</span>
+                            </div>
+                            <span class="badge-status-pill badge-warning" style="font-size:0.75rem; font-weight:700;">
+                                <i class="fas fa-star" style="color:#eab308;"></i> ${c.puntos} pts
+                            </span>
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-gift" style="color:var(--primary-accent);"></i> ${c.premioNombre}</span>
+                            <span><i class="far fa-calendar-alt"></i> ${c.fecha}</span>
+                        </div>
+                        <div class="clientes-item-bottom">
+                            <div>
+                                ${esPendiente ? `
+                                    <span class="badge-status-pill badge-warning" style="background:#fef3c7; color:#b45309; padding:4px 8px; border-radius:12px; font-weight:700; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-clock"></i> Pendiente Entrega
+                                    </span>
+                                ` : `
+                                    <span class="badge-status badge-active" style="background:#dcfce7; color:#15803d; padding:4px 8px; border-radius:12px; font-weight:700; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-check-circle"></i> Entregado (#${c.cicloCompletado || 1})
+                                    </span>
+                                `}
+                            </div>
+                            <div>
+                                ${esPendiente ? `
+                                    <button type="button" class="btn btn-sm btn-success" onclick="confirmarGanadorPremio('${c.id}')" style="font-weight:700; padding:6px 12px; font-size:0.8rem;">
+                                        <i class="fas fa-crown"></i> Confirmar Ganador
+                                    </button>
+                                ` : `
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="confirmarGanadorPremio('${c.id}')" title="Reenviar WhatsApp" style="padding:6px 10px; font-size:0.8rem;">
+                                        <i class="fab fa-whatsapp"></i> Notificar
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
 }

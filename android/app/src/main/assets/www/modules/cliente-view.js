@@ -1708,7 +1708,13 @@ async function renderizarEstadoCuentaCliente() {
                         <i class="fas fa-bag-shopping" style="color:#2563eb;"></i>
                         <span>Mis Compras y Pedidos</span>
                     </h3>
-                    <span class="customer-section-badge">${ventasCliente.length} compras</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="customer-section-badge">${ventasCliente.length} compras</span>
+                        <button type="button" class="customer-section-action-btn customer-btn-excel" onclick="descargarHistorialDeudaClienteExcel()" title="Descargar estado de cuenta e historial de deuda en Excel (.xlsx)">
+                            <i class="fas fa-file-excel" style="color:#10b981;"></i>
+                            <span>Descargar Excel</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="cards-list-wrapper">
@@ -1719,7 +1725,8 @@ async function renderizarEstadoCuentaCliente() {
                         </div>
                     ` : (typeof window.ordenarListadoVentas === 'function' ? window.ordenarListadoVentas(ventasCliente, 'fecha', 'desc') : ventasCliente.slice().sort((a,b) => new Date(b.fecha || 0) - new Date(a.fecha || 0))).map(v => {
                         const totalUSD = Number(v.total || 0);
-                        const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+                        const tasaVenta = Number(v.tasa || tasa || 1);
+                        const totalVES = tasaVenta > 0 ? (totalUSD * tasaVenta) : (tasa > 0 ? totalUSD * tasa : 0);
                         const esCredito = v.tipo === 'Crédito';
                         const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
                         const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
@@ -1745,32 +1752,192 @@ async function renderizarEstadoCuentaCliente() {
                             }
                         }
 
+                        // Motivo explicativo de la deuda ("¿Por qué debo esto?")
+                        let motivoIcon = 'fa-hand-holding-dollar';
+                        let motivoColor = '#2563eb';
+                        let motivoBg = '#eff6ff';
+                        let motivoTitulo = 'Compra a Crédito (Fiado) en Tienda';
+                        let motivoDesc = `Esta compra fue registrada a crédito (fiado) en caja el ${v.fecha || 'la fecha indicada'}. Retiraste los productos detallados abajo sin pago de contado inmediato, cargándose el importe de $${totalUSD.toFixed(2)} USD a tu cuenta pendiente de pago.`;
+
+                        if (v.id && String(v.id).startsWith('V_FIADO_')) {
+                            motivoIcon = 'fa-book-bookmark';
+                            motivoColor = '#b45309';
+                            motivoBg = '#fef3c7';
+                            motivoTitulo = 'Saldo Deudor de Libreta Fiada Histórica';
+                            motivoDesc = `Este importe de $${totalUSD.toFixed(2)} USD proviene de la libreta física de cuentas fiadas de la bodega, transferida por la administración (Josna). Corresponde a compras previas pendientes de pago.`;
+                        } else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) {
+                            motivoIcon = 'fa-store';
+                            motivoColor = '#7c3aed';
+                            motivoBg = '#f5f3ff';
+                            motivoTitulo = 'Pedido a Crédito en Auto-servicio';
+                            motivoDesc = `Pedido solicitado a través de la plataforma de Auto-servicio con modalidad de pago a crédito/fiado pendiente de liquidación.`;
+                        } else if (!esCredito) {
+                            motivoIcon = 'fa-circle-check';
+                            motivoColor = '#15803d';
+                            motivoBg = '#f0fdf4';
+                            motivoTitulo = 'Compra de Contado (Saldada)';
+                            motivoDesc = `Esta compra fue cobrada y pagada en su totalidad de contado al momento de la entrega de la mercancía. No genera deuda pendiente.`;
+                        }
+
+                        // Filas de la tabla de artículos ("¿Qué debo exactamente?")
+                        const tieneItems = Array.isArray(v.items) && v.items.length > 0;
+                        const itemsRowsHtml = tieneItems ? v.items.map(it => {
+                            const cant = Number(it.cantidad) || 1;
+                            const pUSD = Number(it.precio || it.precioUSD || 0);
+                            const subUSD = Number(it.subtotal || (cant * pUSD));
+                            const pVES = tasaVenta > 0 ? (pUSD * tasaVenta) : 0;
+                            const subVES = tasaVenta > 0 ? (subUSD * tasaVenta) : 0;
+                            return `
+                                <tr>
+                                    <td>
+                                        <div style="font-weight:700; color:#0f172a;">${it.nombre || 'Producto'}</div>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <span class="tx-item-qty">${cant}x</span>
+                                    </td>
+                                    <td style="text-align:right;">
+                                        <div>$${pUSD.toFixed(2)}</div>
+                                        <div style="font-size:0.68rem; color:#64748b;">Bs. ${formatVES(pVES)}</div>
+                                    </td>
+                                    <td style="text-align:right; font-weight:700;">
+                                        <div>$${subUSD.toFixed(2)}</div>
+                                        <div style="font-size:0.68rem; color:#2563eb;">Bs. ${formatVES(subVES)}</div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('') : `
+                            <tr>
+                                <td>
+                                    <div style="font-weight:700; color:#0f172a;">${v.referencia || 'Compra de productos'}</div>
+                                </td>
+                                <td style="text-align:center;"><span class="tx-item-qty">1x</span></td>
+                                <td style="text-align:right;">$${totalUSD.toFixed(2)}</td>
+                                <td style="text-align:right; font-weight:700;">$${totalUSD.toFixed(2)}</td>
+                            </tr>
+                        `;
+
                         return `
-                            <div class="transaction-card">
-                                <div class="tx-left">
-                                    <div class="tx-icon-pill ${esCredito ? 'tx-icon-credit' : 'tx-icon-sale'}">
-                                        <i class="fas ${esCredito ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}"></i>
-                                    </div>
-                                    <div class="tx-details">
-                                        <div class="tx-ref">
-                                            <span>#${v.id}</span>
-                                            <span class="tx-type-tag">${v.tipo || 'Contado'}</span>
+                            <div class="transaction-card tx-card-expandable" id="tx-card-${v.id}" onclick="toggleDesgloseVentaCliente('${v.id}')" role="button" tabindex="0" title="Toca para desglosar qué debes exactamente y por qué">
+                                <div class="tx-card-main-row">
+                                    <div class="tx-left">
+                                        <div class="tx-icon-pill ${esCredito ? 'tx-icon-credit' : 'tx-icon-sale'}">
+                                            <i class="fas ${esCredito ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}"></i>
                                         </div>
-                                        <span class="tx-desc" title="${itemsDesc}">
-                                            ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
-                                        </span>
-                                        <span class="tx-date">
-                                            <i class="far fa-calendar-alt"></i> ${v.fecha || 'Fecha N/A'}
-                                        </span>
+                                        <div class="tx-details">
+                                            <div class="tx-ref">
+                                                <span>#${v.id}</span>
+                                                <span class="tx-type-tag">${v.tipo || 'Contado'}</span>
+                                            </div>
+                                            <span class="tx-desc" title="${itemsDesc}">
+                                                ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
+                                            </span>
+                                            <span class="tx-date">
+                                                <i class="far fa-calendar-alt"></i> ${v.fecha || 'Fecha N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="tx-right">
+                                        <span class="tx-amount">$${totalUSD.toFixed(2)}</span>
+                                        <span class="tx-amount-ves">Bs. ${formatVES(totalVES)}</span>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span class="tx-status-badge ${badgeClass}">
+                                                <i class="fas ${badgeIcon}"></i>
+                                                ${badgeText}
+                                            </span>
+                                            <span class="tx-chevron-wrap" id="chevron-wrap-${v.id}">
+                                                <i class="fas fa-chevron-down tx-chevron" id="chevron-${v.id}"></i>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="tx-right">
-                                    <span class="tx-amount">$${totalUSD.toFixed(2)}</span>
-                                    <span class="tx-amount-ves">Bs. ${formatVES(totalVES)}</span>
-                                    <span class="tx-status-badge ${badgeClass}">
-                                        <i class="fas ${badgeIcon}"></i>
-                                        ${badgeText}
+
+                                <div class="tx-expand-bar">
+                                    <span class="tx-expand-hint">
+                                        <i class="fas fa-list-check"></i> Toca para saber qué debes exactamente y por qué
                                     </span>
+                                    <span style="font-size:0.7rem; color:#94a3b8;">
+                                        ${itemsCount} ${itemsCount === 1 ? 'artículo' : 'artículos'}
+                                    </span>
+                                </div>
+
+                                <!-- Panel Desplegable de Desglose Exacto -->
+                                <div class="tx-desglose-panel" id="desglose-${v.id}" style="display:none;" onclick="event.stopPropagation()">
+                                    <!-- 1. Explicación de la Deuda (Por qué debo esto) -->
+                                    <div class="tx-desglose-motivo-box" style="background:${motivoBg}; border:1px solid ${motivoColor}33;">
+                                        <div class="tx-desglose-motivo-icon" style="color:${motivoColor};">
+                                            <i class="fas ${motivoIcon}"></i>
+                                        </div>
+                                        <div class="tx-desglose-motivo-content">
+                                            <h4 class="tx-desglose-motivo-title" style="color:${motivoColor};">
+                                                ¿Por qué debo esto? — ${motivoTitulo}
+                                            </h4>
+                                            <p class="tx-desglose-motivo-desc">
+                                                ${motivoDesc}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Desglose Ítem por Ítem (Qué debo exactamente) -->
+                                    <div style="font-size:0.78rem; font-weight:800; color:#1e293b; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                                        <i class="fas fa-list-check" style="color:#2563eb;"></i>
+                                        <span>Artículos Adquiridos en esta Operación:</span>
+                                    </div>
+
+                                    <div class="tx-items-table-wrapper">
+                                        <table class="tx-items-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Producto / Concepto</th>
+                                                    <th style="text-align:center;">Cant.</th>
+                                                    <th style="text-align:right;">Precio Unit.</th>
+                                                    <th style="text-align:right;">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${itemsRowsHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- 3. Resumen Financiero y Estado de Deuda de esta Compra -->
+                                    <div class="tx-desglose-totales-box">
+                                        <div class="tx-totales-row">
+                                            <span>Subtotal Artículos:</span>
+                                            <strong>$${totalUSD.toFixed(2)} USD</strong>
+                                        </div>
+                                        <div class="tx-totales-row">
+                                            <span>Tasa de Cambio Referencial:</span>
+                                            <span>Bs. ${formatVES(tasaVenta)} / USD</span>
+                                        </div>
+                                        <div class="tx-totales-row highlight">
+                                            <span>Total de la Compra:</span>
+                                            <span style="color:#2563eb;">$${totalUSD.toFixed(2)} USD ≈ Bs. ${formatVES(totalVES)}</span>
+                                        </div>
+                                        <div class="tx-totales-row" style="margin-top:4px;">
+                                            <span>Estado Financiero:</span>
+                                            <span>
+                                                ${esCredito 
+                                                    ? (saldoDeudaUSD > 0.01 
+                                                        ? `<strong style="color:#b45309;"><i class="fas fa-clock"></i> Pendiente por Pagar: $${totalUSD.toFixed(2)} USD</strong>`
+                                                        : `<strong style="color:#16a34a;"><i class="fas fa-circle-check"></i> Totalmente Liquidado</strong>`
+                                                      )
+                                                    : `<strong style="color:#16a34a;"><i class="fas fa-check"></i> Pagado de Contado</strong>`
+                                                }
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4. Botones de Acción -->
+                                    <div class="tx-desglose-actions">
+                                        ${(esCredito && saldoDeudaUSD > 0.01) ? `
+                                            <button type="button" class="btn-desglose-pagar" onclick="abrirModalReportarPagoCliente({ referenciaCompra: '${v.id}', montoUSD: ${totalUSD} })">
+                                                <i class="fas fa-credit-card"></i> Pagar / Abonar a esta Compra
+                                            </button>
+                                        ` : ''}
+                                        <button type="button" class="btn-desglose-cerrar" onclick="toggleDesgloseVentaCliente('${v.id}')">
+                                            <i class="fas fa-chevron-up"></i> Ocultar Desglose
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1870,9 +2037,368 @@ async function renderizarEstadoCuentaCliente() {
 }
 
 /**
+ * Alterna el panel de desglose detallado de una compra ("¿Qué debo exactamente y por qué?")
+ */
+function toggleDesgloseVentaCliente(vId) {
+    if (!vId) return;
+    const panel = document.getElementById(`desglose-${vId}`);
+    const card = document.getElementById(`tx-card-${vId}`);
+    const chevron = document.getElementById(`chevron-${vId}`);
+    if (!panel) return;
+
+    const estaAbierto = panel.style.display !== 'none';
+    if (estaAbierto) {
+        panel.style.display = 'none';
+        if (card) {
+            card.classList.remove('tx-card-expanded');
+            card.setAttribute('aria-expanded', 'false');
+        }
+        if (chevron) chevron.classList.remove('tx-chevron-rotated');
+    } else {
+        panel.style.display = 'block';
+        if (card) {
+            card.classList.add('tx-card-expanded');
+            card.setAttribute('aria-expanded', 'true');
+        }
+        if (chevron) chevron.classList.add('tx-chevron-rotated');
+    }
+}
+window.toggleDesgloseVentaCliente = toggleDesgloseVentaCliente;
+
+/**
+ * Descarga el historial completo de deuda y estado de cuenta del cliente en formato Excel (.xlsx)
+ */
+function descargarHistorialDeudaClienteExcel() {
+    const usuario = window.AppState?.usuarioActual || (typeof obtenerUsuarioActual === 'function' ? obtenerUsuarioActual() : null);
+    if (!usuario) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Sesión no encontrada', 'No se pudo identificar la sesión del cliente activo.', 'warning');
+        } else {
+            alert('No se pudo identificar la sesión del cliente activo.');
+        }
+        return;
+    }
+
+    if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
+        asegurarSincronizacionUsuariosAClientes();
+    }
+
+    const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'
+        ? calcularEstadoFinancieroCliente(usuario)
+        : null;
+
+    const clienteObj = estadoFin?.clienteObj || usuario;
+    const nombreCliente = String(clienteObj.nombre || usuario.nombre || 'Cliente').trim();
+    const cedulaCliente = String(usuario.cedula || usuario.id || clienteObj.cedula || clienteObj.id || 'N/A').trim();
+    const telefonoCliente = clienteObj.telefono || usuario.telefono || 'No registrado';
+    const emailCliente = clienteObj.email || usuario.email || 'No registrado';
+
+    const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
+    const saldoDeudaUSD = estadoFin ? Number(estadoFin.saldoDeudaUSD || 0) : 0;
+    const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
+    const totalCompradoUSD = estadoFin ? Number(estadoFin.totalCompradoUSD || 0) : 0;
+    const totalCompradoVES = estadoFin ? Number(estadoFin.totalCompradoVES || 0) : 0;
+    const totalAbonadoUSD = estadoFin ? Number(estadoFin.totalAbonadoUSD || 0) : 0;
+    const totalAbonadoVES = estadoFin ? Number(estadoFin.totalAbonadoVES || 0) : 0;
+    const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
+
+    const ventas = (estadoFin?.ventasCliente || []).slice().sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+    const abonos = (window.AppState?.abonos || []).filter(a => {
+        if (!a) return false;
+        const aCId = String(a.clienteId || '').toUpperCase();
+        const aCCed = String(a.clienteCedula || '').toUpperCase();
+        const aUId = String(a.usuarioId || '').toUpperCase();
+        const aNom = String(a.clienteNombre || '').toUpperCase();
+        const uCed = String(cedulaCliente || '').toUpperCase();
+        const uId = String(usuario.id || '').toUpperCase();
+        const uNom = String(usuario.nombre || '').toUpperCase();
+        const cId = clienteObj?.id ? String(clienteObj.id).toUpperCase() : '';
+        return (cId && aCId === cId) || (uCed && (aCCed === uCed || aCId === uCed)) || (uId && aUId === uId) || (uNom && aNom === uNom);
+    });
+
+    const fechaHoy = new Date().toLocaleString('es-VE');
+    const fechaISO = new Date().toISOString().slice(0, 10);
+    const formatVESNum = (v) => Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    if (typeof XLSX !== 'undefined') {
+        const wb = XLSX.utils.book_new();
+
+        // 1. Hoja Resumen Estado de Cuenta
+        const wsResumenData = [
+            ['TU BODEGUITA DE CONFIANZA - ESTADO DE CUENTA E HISTORIAL DE DEUDA'],
+            ['Fecha y Hora de Emisión:', fechaHoy],
+            ['Tasa Oficial BCV:', `Bs. ${tasa.toFixed(2)} por USD`],
+            [''],
+            ['DATOS DEL CLIENTE / TITULAR'],
+            ['Nombre Completo:', nombreCliente],
+            ['Cédula / Identificación:', cedulaCliente],
+            ['Teléfono de Contacto:', telefonoCliente],
+            ['Correo Electrónico:', emailCliente],
+            [''],
+            ['RESUMEN FINANCIERO Y ESTADO DE LA DEUDA'],
+            ['Total Comprado a Crédito ($ USD):', Number(totalCompradoUSD.toFixed(2))],
+            ['Total Comprado a Crédito (Bs. VES):', Number(totalCompradoVES.toFixed(2))],
+            ['Total Pagado / Abonado ($ USD):', Number(totalAbonadoUSD.toFixed(2))],
+            ['Total Pagado / Abonado (Bs. VES):', Number(totalAbonadoVES.toFixed(2))],
+            ['SALDO TOTAL PENDIENTE ($ USD):', Number(saldoDeudaUSD.toFixed(2))],
+            ['SALDO TOTAL PENDIENTE (Bs. VES):', Number(saldoDeudaVES.toFixed(2))],
+            ['Condición Financiera:', esSolvente ? 'SOLVENTE / AL DÍA' : 'DEUDOR / PENDIENTE DE PAGO'],
+            ['Total de Compras y Pedidos:', ventas.length],
+            ['Total de Pagos y Abonos Reportados:', abonos.length]
+        ];
+        const wsResumen = XLSX.utils.aoa_to_sheet(wsResumenData);
+        wsResumen['!cols'] = [{ wch: 38 }, { wch: 45 }];
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Estado_de_Cuenta');
+
+        // 2. Hoja Desglose de Compras y Deuda
+        const headerCompras = [
+            'N° Comprobante',
+            'Fecha',
+            'Tipo Operación',
+            'Motivo / Explicación de la Deuda',
+            'Artículos Adquiridos',
+            'Cant. Artículos',
+            'Tasa de Cambio (Bs/USD)',
+            'Total Venta ($ USD)',
+            'Total Venta (Bs. VES)',
+            'Estado de Deuda',
+            'Referencia / Observaciones'
+        ];
+        const rowsCompras = ventas.map(v => {
+            const esCredito = v.tipo === 'Crédito';
+            const totUSD = Number(v.total || 0);
+            const tasaV = Number(v.tasa || tasa || 1);
+            const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
+            const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
+            const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre} ($${Number(i.precio || 0).toFixed(2)})`).join(', ') || 'Productos varios';
+
+            let motivo = 'Compra a crédito en tienda / Punto de Venta sin pago inmediato';
+            if (v.id && String(v.id).startsWith('V_FIADO_')) {
+                motivo = 'Saldo pendiente transferido de libreta de fiados histórica';
+            } else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) {
+                motivo = 'Pedido a crédito generado en Auto-servicio';
+            } else if (v.tipo === 'Contado') {
+                motivo = 'Compra pagada de contado en caja';
+            }
+
+            let estadoTexto = esCredito ? (saldoDeudaUSD > 0.01 ? 'PENDIENTE' : 'LIQUIDADO') : 'CONTADO / PAGADO';
+            if (v.estado === 'PENDIENTE_CONFIRMACION') estadoTexto = 'POR CONFIRMAR';
+
+            return [
+                v.id,
+                v.fecha || 'N/A',
+                v.tipo || 'Crédito',
+                motivo,
+                itemsDesc,
+                itemsCount,
+                Number(tasaV.toFixed(2)),
+                Number(totUSD.toFixed(2)),
+                totVES,
+                estadoTexto,
+                v.referencia || v.nota || ''
+            ];
+        });
+
+        // Fila de Totales
+        const totCantArt = ventas.reduce((s, v) => s + ((v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0)), 0);
+        rowsCompras.push([
+            'TOTALES',
+            '',
+            '',
+            '',
+            '',
+            totCantArt,
+            '',
+            Number(totalCompradoUSD.toFixed(2)),
+            Number(totalCompradoVES.toFixed(2)),
+            esSolvente ? 'AL DÍA' : `DEUDA: $${saldoDeudaUSD.toFixed(2)} USD`,
+            ''
+        ]);
+
+        const wsCompras = XLSX.utils.aoa_to_sheet([headerCompras, ...rowsCompras]);
+        wsCompras['!cols'] = [
+            { wch: 18 }, // Nro
+            { wch: 18 }, // Fecha
+            { wch: 14 }, // Tipo
+            { wch: 45 }, // Motivo
+            { wch: 40 }, // Artículos
+            { wch: 14 }, // Cantidad
+            { wch: 22 }, // Tasa
+            { wch: 18 }, // Total USD
+            { wch: 20 }, // Total VES
+            { wch: 18 }, // Estado
+            { wch: 30 }  // Observaciones
+        ];
+        XLSX.utils.book_append_sheet(wb, wsCompras, 'Desglose_Compras');
+
+        // 3. Hoja Detalle Ítem por Ítem
+        const headerItems = [
+            'N° Comprobante',
+            'Fecha',
+            'Producto / Concepto',
+            'Cantidad',
+            'Precio Unitario ($ USD)',
+            'Precio Unitario (Bs. VES)',
+            'Subtotal ($ USD)',
+            'Subtotal (Bs. VES)'
+        ];
+        const rowsItems = [];
+        ventas.forEach(v => {
+            const tasaV = Number(v.tasa || tasa || 1);
+            if (v.items && v.items.length > 0) {
+                v.items.forEach(it => {
+                    const cant = Number(it.cantidad) || 1;
+                    const pUSD = Number(it.precio || it.precioUSD || 0);
+                    const subUSD = Number(it.subtotal || (cant * pUSD));
+                    const pVES = tasaV > 0 ? Number((pUSD * tasaV).toFixed(2)) : 0;
+                    const subVES = tasaV > 0 ? Number((subUSD * tasaV).toFixed(2)) : 0;
+                    rowsItems.push([
+                        v.id,
+                        v.fecha || 'N/A',
+                        it.nombre || 'Producto',
+                        cant,
+                        Number(pUSD.toFixed(2)),
+                        pVES,
+                        Number(subUSD.toFixed(2)),
+                        subVES
+                    ]);
+                });
+            } else {
+                const totUSD = Number(v.total || 0);
+                const totVES = tasaV > 0 ? Number((totUSD * tasaV).toFixed(2)) : 0;
+                rowsItems.push([
+                    v.id,
+                    v.fecha || 'N/A',
+                    v.referencia || 'Compra de productos',
+                    1,
+                    Number(totUSD.toFixed(2)),
+                    totVES,
+                    Number(totUSD.toFixed(2)),
+                    totVES
+                ]);
+            }
+        });
+        const wsItems = XLSX.utils.aoa_to_sheet([headerItems, ...rowsItems]);
+        wsItems['!cols'] = [
+            { wch: 18 },
+            { wch: 18 },
+            { wch: 40 },
+            { wch: 12 },
+            { wch: 22 },
+            { wch: 22 },
+            { wch: 18 },
+            { wch: 20 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle_Articulos');
+
+        // 4. Hoja Historial de Pagos y Abonos
+        const headerAbonos = [
+            'Fecha',
+            'N° Referencia',
+            'Método / Destino',
+            'Monto Pagado ($ USD)',
+            'Tasa BCV (Bs/USD)',
+            'Monto Pagado (Bs. VES)',
+            'Estado',
+            'Nota / Observación'
+        ];
+        const rowsAbonos = abonos.map(a => {
+            const tasaA = Number(a.tasaMomento || tasa || 1);
+            const { montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
+                ? sanitizarAbonoMonedas(a, tasaA)
+                : { montoUSD: Number(a.montoUSD || 0), montoVES: Number(a.montoVES || 0) };
+
+            return [
+                a.fecha || 'N/A',
+                a.referencia || a.referenciaBancaria || 'Sin Ref',
+                a.formaPago || a.metodo || 'Pago Móvil',
+                Number((montoUSD || 0).toFixed(2)),
+                Number(tasaA.toFixed(2)),
+                Number((montoVES || 0).toFixed(2)),
+                a.estado || 'Confirmado',
+                a.nota || a.observacion || ''
+            ];
+        });
+        const wsAbonos = XLSX.utils.aoa_to_sheet([headerAbonos, ...rowsAbonos]);
+        wsAbonos['!cols'] = [
+            { wch: 18 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 22 },
+            { wch: 16 },
+            { wch: 35 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsAbonos, 'Pagos_y_Abonos');
+
+        // Generar y descargar archivo
+        const safeName = nombreCliente.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `Historial_Deuda_${safeName}_${fechaISO}.xlsx`;
+        XLSX.writeFile(wb, filename);
+
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Historial de Deuda Descargado', `Se ha generado y descargado exitosamente tu archivo Excel: "${filename}"`, 'success');
+        } else {
+            alert(`Historial de deuda descargado exitosamente: "${filename}"`);
+        }
+    } else {
+        // Fallback a CSV compatible con Microsoft Excel
+        descargarHistorialDeudaCSV(clienteObj, ventas, abonos, { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, tasa, fechaHoy, fechaISO, formatVESNum });
+    }
+}
+window.descargarHistorialDeudaClienteExcel = descargarHistorialDeudaClienteExcel;
+
+/**
+ * Fallback de exportación en CSV con delimitador latinoamericano (;) y UTF-8 BOM
+ */
+function descargarHistorialDeudaCSV(cliente, ventas, abonos, datos) {
+    const sep = ';';
+    let csv = '\uFEFF';
+
+    csv += `TU BODEGUITA DE CONFIANZA - ESTADO DE CUENTA E HISTORIAL DE DEUDA\n`;
+    csv += `Fecha de Emisión:${sep}${datos.fechaHoy}\n`;
+    csv += `Cliente:${sep}${cliente.nombre || 'Cliente'}\n`;
+    csv += `Cédula / ID:${sep}${cliente.cedula || cliente.id || 'N/A'}\n`;
+    csv += `Tasa Oficial BCV:${sep}Bs. ${datos.tasa.toFixed(2)}\n`;
+    csv += `SALDO TOTAL DEUDA USD:${sep}$${datos.saldoDeudaUSD.toFixed(2)}\n`;
+    csv += `SALDO TOTAL DEUDA VES:${sep}Bs. ${datos.formatVESNum(datos.saldoDeudaVES)}\n`;
+    csv += `\n`;
+
+    csv += `DESGLOSE DE COMPRAS Y DEUDAS\n`;
+    csv += `N° Comprobante${sep}Fecha${sep}Tipo${sep}Motivo de la Deuda${sep}Artículos${sep}Total USD${sep}Total VES${sep}Estado\n`;
+
+    ventas.forEach(v => {
+        const totUSD = Number(v.total || 0);
+        const tasaV = Number(v.tasa || datos.tasa || 1);
+        const totVES = tasaV > 0 ? (totUSD * tasaV) : 0;
+        const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(' | ') || 'Productos';
+        let motivo = 'Compra a crédito en tienda sin pago inmediato';
+        if (v.id && String(v.id).startsWith('V_FIADO_')) motivo = 'Saldo inicial transferido de libreta fiada';
+        else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) motivo = 'Pedido a crédito Auto-servicio';
+        else if (v.tipo === 'Contado') motivo = 'Compra pagada de contado';
+
+        const estado = (v.tipo === 'Crédito') ? (datos.saldoDeudaUSD > 0.01 ? 'PENDIENTE' : 'LIQUIDADO') : 'CONTADO';
+        csv += `"${v.id}"${sep}"${v.fecha || ''}"${sep}"${v.tipo || 'Crédito'}"${sep}"${motivo}"${sep}"${itemsDesc}"${sep}${totUSD.toFixed(2)}${sep}${totVES.toFixed(2)}${sep}"${estado}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeName = (cliente.nombre || 'Cliente').replace(/[^a-zA-Z0-9]/g, '_');
+    link.href = url;
+    link.setAttribute('download', `Historial_Deuda_${safeName}_${datos.fechaISO}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+window.descargarHistorialDeudaCSV = descargarHistorialDeudaCSV;
+
+/**
  * Abre el Modal para que el Cliente reporte un Abono / Pago con selector dinámico de banco
  */
-function abrirModalReportarPagoCliente() {
+function abrirModalReportarPagoCliente(opciones = {}) {
     let modal = document.getElementById('modal-cliente-reportar-pago');
     if (!modal) {
         modal = document.createElement('div');
@@ -1960,6 +2486,24 @@ function abrirModalReportarPagoCliente() {
 
     modal.classList.add('active');
     actualizarCoordenadasModalAbono();
+
+    // Precargar datos si se suministraron opciones (ej: desde el desglose de una compra)
+    if (opciones) {
+        if (opciones.referenciaCompra) {
+            const inputNota = document.getElementById('abono-cli-nota');
+            if (inputNota) {
+                inputNota.value = `Abono a compra #${opciones.referenciaCompra}`;
+            }
+        }
+        if (typeof opciones.montoUSD === 'number' && opciones.montoUSD > 0) {
+            seleccionarMonedaAbonoCliente('USD');
+            const inputMonto = document.getElementById('abono-cli-monto');
+            if (inputMonto) {
+                inputMonto.value = Number(opciones.montoUSD).toFixed(2);
+                calcularEquivalenteAbonoCliente(inputMonto.value);
+            }
+        }
+    }
 }
 
 let monedaAbonoSeleccionada = 'VES';
@@ -2681,6 +3225,9 @@ window.ejecutarCompraConfirmadaCliente = ejecutarCompraConfirmadaCliente;
 window.cerrarModalConfirmacionPedido = cerrarModalConfirmacionPedido;
 window.procesarCompraCliente = procesarCompraCliente;
 window.renderizarEstadoCuentaCliente = renderizarEstadoCuentaCliente;
+window.toggleDesgloseVentaCliente = toggleDesgloseVentaCliente;
+window.descargarHistorialDeudaClienteExcel = descargarHistorialDeudaClienteExcel;
+window.descargarHistorialDeudaCSV = descargarHistorialDeudaCSV;
 window.abrirModalReportarPagoCliente = abrirModalReportarPagoCliente;
 window.cerrarModalReportarPagoCliente = cerrarModalReportarPagoCliente;
 window.procesarReportePagoCliente = procesarReportePagoCliente;

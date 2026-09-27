@@ -99,28 +99,6 @@ window.cargarClientesYDeudasOficiales = async function (forzar = false) {
         ventas = window.AppState.ventas;
     }
 
-    // Sincronizar usuarios clientes
-    if (!Array.isArray(window.AppState.usuarios)) {
-        window.AppState.usuarios = [];
-    }
-    clientesFinales.forEach(c => {
-        const existeU = window.AppState.usuarios.some(u => (u.cedula || u.id) === c.id);
-        if (!existeU) {
-            window.AppState.usuarios.push({
-                id: c.id,
-                cedula: c.id,
-                nombre: c.nombre,
-                telefono: c.telefono || '',
-                email: c.email || '',
-                rol: 'cliente',
-                estado: 'ACTIVO',
-                puntosAcumulados: 0,
-                puntosCanjeados: 0,
-                fechaRegistro: '2026-09-23 12:00'
-            });
-        }
-    });
-
     // Persistir en Firestore si el servicio está activo
     if (window.InventoryApp?.Firebase?.guardarCliente) {
         for (const c of clientesFinales) {

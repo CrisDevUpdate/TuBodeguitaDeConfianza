@@ -369,10 +369,14 @@ function renderizarHistorialVentasAdmin() {
     // El badge de la barra de navegación se actualiza a continuación con ventas no revisadas
     actualizarBadgeVentasHoy();
 
-    // 3. Renderizar Tabla de Ventas de Hoy
+    // 3. Renderizar Tabla y Mobile List de Ventas de Hoy
     const tbodyHoy = document.getElementById('ventas-hoy-body');
+    const mobileListHoy = document.getElementById('ventas-hoy-mobile-list');
+
+    const ventasHoyOrdenadas = (ventasHoy.length > 0) ? [...ventasHoy].sort(compararVentasMasNuevaAMasVieja) : [];
+
     if (tbodyHoy) {
-        if (ventasHoy.length === 0) {
+        if (ventasHoyOrdenadas.length === 0) {
             tbodyHoy.innerHTML = `
                 <tr>
                     <td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">
@@ -382,8 +386,6 @@ function renderizarHistorialVentasAdmin() {
                 </tr>
             `;
         } else {
-            // Ordenar estrictamente de más reciente a más antigua (más nueva a más vieja)
-            const ventasHoyOrdenadas = [...ventasHoy].sort(compararVentasMasNuevaAMasVieja);
             tbodyHoy.innerHTML = ventasHoyOrdenadas.map((v, idx) => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
@@ -451,8 +453,80 @@ function renderizarHistorialVentasAdmin() {
         }
     }
 
-    // 4. Renderizar Tabla de Historial General (con filtros y orden aplicados)
+    if (mobileListHoy) {
+        if (ventasHoyOrdenadas.length === 0) {
+            mobileListHoy.innerHTML = `
+                <div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);">
+                    <i class="fas fa-calendar-day" style="font-size:2rem; margin-bottom:8px; opacity:0.4; display:block;"></i>
+                    No se han procesado compras ni ventas el día de hoy (${fechaHoy}).
+                </div>
+            `;
+        } else {
+            mobileListHoy.innerHTML = ventasHoyOrdenadas.map(v => {
+                const totalUSD = Number(v.total || 0);
+                const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
+                const hora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
+                const metodo = v.tipo || v.tipoPago || 'Crédito';
+                const esCredito = (metodo === 'Crédito');
+                const badgeMetodo = esCredito
+                    ? '<span class="badge-status-pill badge-warning" style="font-size:0.72rem;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
+                    : `<span class="badge-status-pill badge-success" style="font-size:0.72rem;"><i class="fas fa-money-bill-wave"></i> ${metodo}</span>`;
+
+                const clienteNom = v.clienteNombre || (v.clienteId ? (AppState.clientes.find(c => c.id === v.clienteId)?.nombre || v.clienteId) : 'Cliente General');
+
+                const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+                    ? window.esVentaOTransaccionConfirmada(v)
+                    : (v.confirmada === true || (!['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'CONFIRMANDO', 'FALLIDO'].includes(String(v.estado || '').toUpperCase())));
+
+                return `
+                    <div class="ventas-item-card">
+                        <div class="ventas-item-top">
+                            <div class="ventas-item-id-time">
+                                <span class="ventas-item-id">#${v.id}</span>
+                                <span class="ventas-item-time"><i class="far fa-clock"></i> ${hora}</span>
+                            </div>
+                            <div class="ventas-item-amounts">
+                                <span class="ventas-item-usd">$${totalUSD.toFixed(2)}</span>
+                                <span class="ventas-item-ves">Bs. ${totalVES.toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div class="ventas-item-middle">
+                            <div class="ventas-item-client">
+                                <span class="ventas-item-client-name"><i class="fas fa-user"></i> ${clienteNom}</span>
+                                <span class="ventas-item-items-count">${itemsCount} unid.</span>
+                            </div>
+                            <div class="ventas-item-method">
+                                ${badgeMetodo}
+                            </div>
+                        </div>
+
+                        <div class="ventas-item-bottom">
+                            <div>
+                                ${esConf ? `
+                                    <span class="badge-status-pill badge-success" style="font-size:0.72rem; padding:3px 8px; font-weight:700;">
+                                        <i class="fas fa-check-circle"></i> Confirmado
+                                    </span>
+                                ` : `
+                                    <span class="badge-status-pill badge-warning" style="font-size:0.72rem; padding:3px 8px; font-weight:700;">
+                                        <i class="fas fa-clock"></i> Pendiente
+                                    </span>
+                                `}
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
+                                <i class="fas fa-eye"></i> Ver Detalle
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // 4. Renderizar Tabla y Mobile List de Historial General (con filtros y orden aplicados)
     const tbodyGeneral = document.getElementById('ventas-general-body');
+    const mobileListGeneral = document.getElementById('ventas-general-mobile-list');
     if (tbodyGeneral) {
         let filtradas = [...ventas];
 
@@ -591,6 +665,79 @@ function renderizarHistorialVentasAdmin() {
                     </tr>
                 `;
             }).join('');
+        }
+
+        // Renderizar mobile list de historial general
+        if (mobileListGeneral) {
+            if (filtradas.length === 0) {
+                mobileListGeneral.innerHTML = `
+                    <div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);">
+                        <i class="fas fa-search" style="font-size:2rem; margin-bottom:8px; opacity:0.4; display:block;"></i>
+                        No se encontraron registros de ventas con los filtros aplicados.
+                    </div>
+                `;
+            } else {
+                const ordenadas = ordenarListadoVentas(filtradas, ordenHistorialCampo, ordenHistorialDireccion);
+                mobileListGeneral.innerHTML = ordenadas.map(v => {
+                    const totalUSD = Number(v.total || 0);
+                    const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
+                    const fecha = v.fecha || '—';
+                    const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
+                    const metodo = v.tipo || v.tipoPago || 'Crédito';
+                    const esCredito = (metodo === 'Crédito');
+                    const badgeMetodo = esCredito
+                        ? '<span class="badge-status-pill badge-warning" style="font-size:0.72rem;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
+                        : `<span class="badge-status-pill badge-success" style="font-size:0.72rem;">${metodo}</span>`;
+
+                    const clienteNom = v.clienteNombre || (v.clienteId ? (AppState.clientes.find(c => c.id === v.clienteId)?.nombre || v.clienteId) : 'Cliente General');
+
+                    const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
+                        ? window.esVentaOTransaccionConfirmada(v)
+                        : (v.confirmada === true || (!['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'CONFIRMANDO', 'FALLIDO'].includes(String(v.estado || '').toUpperCase())));
+
+                    return `
+                        <div class="ventas-item-card">
+                            <div class="ventas-item-top">
+                                <div class="ventas-item-id-time">
+                                    <span class="ventas-item-id">#${v.id}</span>
+                                    <span class="ventas-item-time"><i class="far fa-calendar-alt"></i> ${fecha}</span>
+                                </div>
+                                <div class="ventas-item-amounts">
+                                    <span class="ventas-item-usd">$${totalUSD.toFixed(2)}</span>
+                                    <span class="ventas-item-ves">Bs. ${totalVES.toFixed(2)}</span>
+                                </div>
+                            </div>
+
+                            <div class="ventas-item-middle">
+                                <div class="ventas-item-client">
+                                    <span class="ventas-item-client-name"><i class="fas fa-user"></i> ${clienteNom}</span>
+                                    <span class="ventas-item-items-count">${itemsCount} unid.</span>
+                                </div>
+                                <div class="ventas-item-method">
+                                    ${badgeMetodo}
+                                </div>
+                            </div>
+
+                            <div class="ventas-item-bottom">
+                                <div>
+                                    ${esConf ? `
+                                        <span class="badge-status-pill badge-success" style="font-size:0.72rem; padding:3px 8px; font-weight:700;">
+                                            <i class="fas fa-check-circle"></i> Confirmado
+                                        </span>
+                                    ` : `
+                                        <span class="badge-status-pill badge-warning" style="font-size:0.72rem; padding:3px 8px; font-weight:700;">
+                                            <i class="fas fa-clock"></i> Pendiente
+                                        </span>
+                                    `}
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
+                                    <i class="fas fa-eye"></i> Ver Detalle
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         // Actualizar los iconos de orden en la cabecera

@@ -154,9 +154,6 @@ export default function CustomerSettings({
 
       setAvatarUrl(finalUrl);
 
-      // Guardar en caché local
-      localStorage.setItem(`app_avatar_${currentUser?.cedula || currentUser?.id}`, finalUrl);
-
       if (typeof onUpdateAvatar === 'function') {
         await onUpdateAvatar(finalUrl);
       }

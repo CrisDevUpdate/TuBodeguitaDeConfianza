@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 /**
  * /components/CustomerAccountView.jsx
@@ -8,8 +8,9 @@ import React, { useMemo } from 'react';
  * 1. Clean Hero Header: Avatar sutil, saludo en negrita, badge de puntos y píldora minimalista de tasa BCV.
  * 2. Hero Wallet Card: Billetera digital con gradiente elegante (índigo/esmeralda), saldo en USD/VES y botón CTA directo.
  * 3. 2x2 Grid Metrics: Cuadrícula compacta y limpia (Total Comprado, Total Abonado, Pedidos Activos, Puntos por Liberar).
- * 4. Card-Based Lists: Tarjetas de transacción sin tablas rígidas ni overflow horizontal roto.
- * 5. Cero ruido administrativo: Selector de tema visual trasladado a "Perfil" y padding-bottom seguro para barra móvil.
+ * 4. Card-Based Lists: Tarjetas de transacción expandibles con desglose detallado de qué se debe y por qué.
+ * 5. Exportación a Excel (.xlsx) del historial de deuda y estado de cuenta.
+ * 6. Cero ruido administrativo: Selector de tema visual trasladado a "Perfil" y padding-bottom seguro para barra móvil.
  */
 
 export default function CustomerAccountView({
@@ -19,6 +20,7 @@ export default function CustomerAccountView({
   exchangeRate = 0,
   onOpenPaymentModal
 }) {
+  const [expandedSaleId, setExpandedSaleId] = useState(null);
   const cedula = currentUser?.cedula || currentUser?.id || '';
   const tasa = Number(exchangeRate || 0);
 
@@ -196,9 +198,24 @@ export default function CustomerAccountView({
             <i className="fas fa-bag-shopping" style={{ color: '#2563eb' }} />
             <span>Mis Compras y Pedidos</span>
           </h3>
-          <span className="customer-section-badge">
-            {clientSales.length} compras
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="customer-section-badge">
+              {clientSales.length} compras
+            </span>
+            <button
+              type="button"
+              className="customer-section-action-btn customer-btn-excel"
+              onClick={() => {
+                if (typeof window.descargarHistorialDeudaClienteExcel === 'function') {
+                  window.descargarHistorialDeudaClienteExcel();
+                }
+              }}
+              title="Descargar estado de cuenta e historial de deuda en Excel (.xlsx)"
+            >
+              <i className="fas fa-file-excel" style={{ color: '#10b981' }} />
+              <span>Descargar Excel</span>
+            </button>
+          </div>
         </div>
 
         <div className="cards-list-wrapper">
@@ -210,11 +227,13 @@ export default function CustomerAccountView({
           ) : (
             clientSales.slice().reverse().map((sale) => {
               const totalUSD = Number(sale.total || 0);
-              const totalVES = tasa > 0 ? totalUSD * tasa : 0;
+              const tasaVenta = Number(sale.tasa || tasa || 1);
+              const totalVES = tasaVenta > 0 ? totalUSD * tasaVenta : 0;
               const esCredito = sale.tipo === 'Crédito' || sale.tipo === 'credito';
               const esPendiente = sale.estado === 'PENDIENTE_CONFIRMACION';
               const itemsCount = (sale.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
               const itemsDesc = (sale.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
+              const isExpanded = expandedSaleId === sale.id;
 
               let badgeClass = 'badge-approved';
               let badgeText = 'Contado';
@@ -236,34 +255,217 @@ export default function CustomerAccountView({
                 }
               }
 
+              // Motivo de la deuda
+              let motivoIcon = 'fa-hand-holding-dollar';
+              let motivoColor = '#2563eb';
+              let motivoBg = '#eff6ff';
+              let motivoTitulo = 'Compra a Crédito (Fiado) en Tienda';
+              let motivoDesc = `Esta compra fue registrada a crédito (fiado) en caja el ${sale.fecha || 'la fecha indicada'}. Retiraste los productos detallados sin pago de contado inmediato, cargándose el importe de $${totalUSD.toFixed(2)} USD a tu saldo pendiente.`;
+
+              if (sale.id && String(sale.id).startsWith('V_FIADO_')) {
+                motivoIcon = 'fa-book-bookmark';
+                motivoColor = '#b45309';
+                motivoBg = '#fef3c7';
+                motivoTitulo = 'Saldo Deudor de Libreta Fiada Histórica';
+                motivoDesc = `Este importe de $${totalUSD.toFixed(2)} USD proviene de la libreta física de cuentas fiadas de la bodega, transferida por administración (Josna). Corresponde a compras previas pendientes de liquidación.`;
+              } else if (sale.origen === 'Kiosco' || String(sale.id).startsWith('PED_')) {
+                motivoIcon = 'fa-store';
+                motivoColor = '#7c3aed';
+                motivoBg = '#f5f3ff';
+                motivoTitulo = 'Pedido a Crédito en Auto-servicio';
+                motivoDesc = `Pedido solicitado a través de la plataforma de Auto-servicio con despacho fiado pendiente de liquidación.`;
+              } else if (!esCredito) {
+                motivoIcon = 'fa-circle-check';
+                motivoColor = '#15803d';
+                motivoBg = '#f0fdf4';
+                motivoTitulo = 'Compra de Contado (Saldada)';
+                motivoDesc = `Esta compra fue pagada y cancelada de contado al momento de la entrega de la mercancía. No genera deuda pendiente.`;
+              }
+
               return (
-                <div className="transaction-card" key={sale.id || Math.random()}>
-                  <div className="tx-left">
-                    <div className={`tx-icon-pill ${esCredito ? 'tx-icon-credit' : 'tx-icon-sale'}`}>
-                      <i className={`fas ${esCredito ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}`} />
-                    </div>
-                    <div className="tx-details">
-                      <div className="tx-ref">
-                        <span>#{sale.id}</span>
-                        <span className="tx-type-tag">{sale.tipo || 'Contado'}</span>
+                <div 
+                  className={`transaction-card tx-card-expandable ${isExpanded ? 'tx-card-expanded' : ''}`} 
+                  key={sale.id || Math.random()}
+                  onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                  role="button"
+                  tabIndex={0}
+                  title="Toca para desglosar qué debes exactamente y por qué"
+                >
+                  <div className="tx-card-main-row">
+                    <div className="tx-left">
+                      <div className={`tx-icon-pill ${esCredito ? 'tx-icon-credit' : 'tx-icon-sale'}`}>
+                        <i className={`fas ${esCredito ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'}`} />
                       </div>
-                      <span className="tx-desc" title={itemsDesc}>
-                        {itemsCount > 0 ? `${itemsCount} art. • ` : ''}{itemsDesc}
-                      </span>
-                      <span className="tx-date">
-                        <i className="far fa-calendar-alt" /> {sale.fecha || 'Fecha N/A'}
-                      </span>
+                      <div className="tx-details">
+                        <div className="tx-ref">
+                          <span>#{sale.id}</span>
+                          <span className="tx-type-tag">{sale.tipo || 'Contado'}</span>
+                        </div>
+                        <span className="tx-desc" title={itemsDesc}>
+                          {itemsCount > 0 ? `${itemsCount} art. • ` : ''}{itemsDesc}
+                        </span>
+                        <span className="tx-date">
+                          <i className="far fa-calendar-alt" /> {sale.fecha || 'Fecha N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="tx-right">
+                      <span className="tx-amount">${totalUSD.toFixed(2)}</span>
+                      <span className="tx-amount-ves">Bs. {formatVES(totalVES)}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={`tx-status-badge ${badgeClass}`}>
+                          <i className={`fas ${badgeIcon}`} />
+                          {badgeText}
+                        </span>
+                        <span className="tx-chevron-wrap">
+                          <i className={`fas fa-chevron-down tx-chevron ${isExpanded ? 'tx-chevron-rotated' : ''}`} />
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="tx-right">
-                    <span className="tx-amount">${totalUSD.toFixed(2)}</span>
-                    <span className="tx-amount-ves">Bs. {formatVES(totalVES)}</span>
-                    <span className={`tx-status-badge ${badgeClass}`}>
-                      <i className={`fas ${badgeIcon}`} />
-                      {badgeText}
+                  <div className="tx-expand-bar">
+                    <span className="tx-expand-hint">
+                      <i className="fas fa-list-check" /> Toca para saber qué debes exactamente y por qué
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      {itemsCount} {itemsCount === 1 ? 'artículo' : 'artículos'}
                     </span>
                   </div>
+
+                  {/* Panel Desplegable de Desglose */}
+                  {isExpanded && (
+                    <div className="tx-desglose-panel" onClick={(e) => e.stopPropagation()}>
+                      {/* 1. Motivo de la deuda */}
+                      <div className="tx-desglose-motivo-box" style={{ background: motivoBg, border: `1px solid ${motivoColor}33` }}>
+                        <div className="tx-desglose-motivo-icon" style={{ color: motivoColor }}>
+                          <i className={`fas ${motivoIcon}`} />
+                        </div>
+                        <div className="tx-desglose-motivo-content">
+                          <h4 className="tx-desglose-motivo-title" style={{ color: motivoColor }}>
+                            ¿Por qué debo esto? — {motivoTitulo}
+                          </h4>
+                          <p className="tx-desglose-motivo-desc">
+                            {motivoDesc}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 2. Desglose Ítem por Ítem */}
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e293b', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <i className="fas fa-list-check" style={{ color: '#2563eb' }} />
+                        <span>Artículos Adquiridos en esta Operación:</span>
+                      </div>
+
+                      <div className="tx-items-table-wrapper">
+                        <table className="tx-items-table">
+                          <thead>
+                            <tr>
+                              <th>Producto / Concepto</th>
+                              <th style={{ textAlign: 'center' }}>Cant.</th>
+                              <th style={{ textAlign: 'right' }}>Precio Unit.</th>
+                              <th style={{ textAlign: 'right' }}>Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.isArray(sale.items) && sale.items.length > 0 ? (
+                              sale.items.map((it, idx) => {
+                                const cant = Number(it.cantidad) || 1;
+                                const pUSD = Number(it.precio || it.precioUSD || 0);
+                                const subUSD = Number(it.subtotal || (cant * pUSD));
+                                const pVES = tasaVenta > 0 ? (pUSD * tasaVenta) : 0;
+                                const subVES = tasaVenta > 0 ? (subUSD * tasaVenta) : 0;
+                                return (
+                                  <tr key={idx}>
+                                    <td>
+                                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{it.nombre || 'Producto'}</div>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span className="tx-item-qty">{cant}x</span>
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                      <div>${pUSD.toFixed(2)}</div>
+                                      <div style={{ fontSize: '0.68rem', color: '#64748b' }}>Bs. {formatVES(pVES)}</div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                                      <div>${subUSD.toFixed(2)}</div>
+                                      <div style={{ fontSize: '0.68rem', color: '#2563eb' }}>Bs. {formatVES(subVES)}</div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td>
+                                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{sale.referencia || 'Compra de productos'}</div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}><span className="tx-item-qty">1x</span></td>
+                                <td style={{ textAlign: 'right' }}>${totalUSD.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 700 }}>${totalUSD.toFixed(2)}</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* 3. Totales y resumen */}
+                      <div className="tx-desglose-totales-box">
+                        <div className="tx-totales-row">
+                          <span>Subtotal Artículos:</span>
+                          <strong>${totalUSD.toFixed(2)} USD</strong>
+                        </div>
+                        <div className="tx-totales-row">
+                          <span>Tasa de Cambio Referencial:</span>
+                          <span>Bs. {formatVES(tasaVenta)} / USD</span>
+                        </div>
+                        <div className="tx-totales-row highlight">
+                          <span>Total de la Compra:</span>
+                          <span style={{ color: '#2563eb' }}>${totalUSD.toFixed(2)} USD ≈ Bs. {formatVES(totalVES)}</span>
+                        </div>
+                        <div className="tx-totales-row" style={{ marginTop: '4px' }}>
+                          <span>Estado Financiero:</span>
+                          <span>
+                            {esCredito ? (
+                              saldoDeudaUSD > 0.01 ? (
+                                <strong style={{ color: '#b45309' }}><i className="fas fa-clock" /> Pendiente por Pagar: ${totalUSD.toFixed(2)} USD</strong>
+                              ) : (
+                                <strong style={{ color: '#16a34a' }}><i className="fas fa-circle-check" /> Totalmente Liquidado</strong>
+                              )
+                            ) : (
+                              <strong style={{ color: '#16a34a' }}><i className="fas fa-check" /> Pagado de Contado</strong>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4. Botones de acción */}
+                      <div className="tx-desglose-actions">
+                        {esCredito && saldoDeudaUSD > 0.01 && (
+                          <button
+                            type="button"
+                            className="btn-desglose-pagar"
+                            onClick={() => {
+                              if (typeof onOpenPaymentModal === 'function') {
+                                onOpenPaymentModal({ referenciaCompra: sale.id, montoUSD: totalUSD });
+                              } else if (typeof window.abrirModalReportarPagoCliente === 'function') {
+                                window.abrirModalReportarPagoCliente({ referenciaCompra: sale.id, montoUSD: totalUSD });
+                              }
+                            }}
+                          >
+                            <i className="fas fa-credit-card" /> Pagar / Abonar a esta Compra
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-desglose-cerrar"
+                          onClick={() => setExpandedSaleId(null)}
+                        >
+                          <i className="fas fa-chevron-up" /> Ocultar Desglose
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
