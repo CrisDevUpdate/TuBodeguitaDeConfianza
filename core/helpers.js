@@ -352,6 +352,14 @@ function switchTab(tabId) {
         targetView.style.display = 'block';
     }
 
+    // Gestionar visibilidad del footer: ocultar en vistas operacionales (POS, Kiosco, Catálogo)
+    document.body.setAttribute('data-active-tab', tabId);
+    const appFooter = document.getElementById('bodeguita-app-footer');
+    if (appFooter) {
+        const vistasSinFooter = ['pos', 'kiosco-view', 'cliente-catalogo'];
+        appFooter.style.display = vistasSinFooter.includes(tabId) ? 'none' : 'block';
+    }
+
     // Si salimos de la vista de auto-servicio, ocultar barra flotante y remover clase
     if (tabId !== 'kiosco-view') {
         document.body.classList.remove('modo-autoservicio');

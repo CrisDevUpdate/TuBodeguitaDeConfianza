@@ -3,7 +3,7 @@
  * Módulo de Cumplimiento Legal, Habeas Data, Transparencia en IA y Términos de Servicio
  * "Tu Bodeguita de Confianza"
  * 
- * Titular: Tu Bodeguita de Confianza / Cristhian (Cris.Dev)
+ * Titular: Tu Bodeguita de Confianza / Cristian Flores
  * Contacto: 04125363849 | Cris.Dev.Update@gmail.com
  */
 
@@ -207,7 +207,7 @@
                                 <div class="terminos-contact-info">
                                     <span class="label">Responsable / Titular</span>
                                     <span class="val">Tu Bodeguita de Confianza</span>
-                                    <small style="color:var(--text-muted); font-size:0.75rem;">Cristhian (Cris.Dev)</small>
+                                    <small style="display:block; color:var(--text-muted); font-size:0.78rem; margin-top:2px;">Cristian Flores</small>
                                 </div>
                             </div>
 
@@ -451,7 +451,7 @@
         imprimir: imprimirTerminosCondiciones,
         STORAGE_KEY: STORAGE_KEY_TERMINOS,
         TITULAR: 'Tu Bodeguita de Confianza',
-        RESPONSABLE: 'Cristhian (Cris.Dev)',
+        RESPONSABLE: 'Cristian Flores',
         TELEFONO: WHATSAPP_NUMERO,
         CORREO: CORREO_SOPORTE,
         HORARIO: HORARIO_ATENCION

@@ -295,7 +295,7 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
                         <i class="fas fa-user-tie" style="color:#7c3aed;"></i> Titular y Soporte Oficial
                     </strong>
                     <div style="font-size:0.82rem; color:var(--text-muted); margin-top:6px; line-height:1.45;">
-                        • <strong>Responsable:</strong> Tu Bodeguita de Confianza / Cristhian (Cris.Dev)<br>
+                        • <strong>Responsable:</strong> Tu Bodeguita de Confianza / Cristian Flores<br>
                         • <strong>WhatsApp:</strong> 0412-5363849<br>
                         • <strong>Email:</strong> Cris.Dev.Update@gmail.com
                     </div>

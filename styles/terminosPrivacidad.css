@@ -436,31 +436,37 @@
 
 /* 3. Footer Discreto en la Aplicación */
 .bodeguita-app-footer {
-    margin-top: 40px;
-    padding: 24px 16px calc(24px + var(--safe-bottom, 0px)) 16px;
+    display: none;
+    width: 100%;
+    clear: both;
+    margin-top: 28px;
+    padding: 14px 16px;
     border-top: 1px solid var(--border-light, #e2e8f0);
     text-align: center;
     color: var(--text-muted, #64748b);
-    font-size: 0.8rem;
-    line-height: 1.6;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    position: relative;
+    z-index: 5;
+    box-sizing: border-box;
+}
+
+/* Ocultar estrictamente en vistas de Punto de Venta, Kiosco y Catálogo para no obstaculizar terminales de cobro ni solaparse con productos */
+body[data-active-tab="pos"] #bodeguita-app-footer,
+body[data-active-tab="kiosco-view"] #bodeguita-app-footer,
+body[data-active-tab="cliente-catalogo"] #bodeguita-app-footer,
+#pos.active ~ #bodeguita-app-footer,
+#kiosco-view.active ~ #bodeguita-app-footer,
+#cliente-catalogo.active ~ #bodeguita-app-footer {
+    display: none !important;
 }
 
 .bodeguita-footer-content {
-    max-width: 900px;
+    max-width: 800px;
     margin: 0 auto;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 10px;
-}
-
-.bodeguita-footer-brand {
-    font-weight: 800;
-    color: var(--text-main, #1e293b);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9rem;
 }
 
 .bodeguita-footer-links {
@@ -468,7 +474,7 @@
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 6px 14px;
+    gap: 6px 12px;
 }
 
 .bodeguita-footer-link {
@@ -478,8 +484,9 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    transition: color 0.15s ease;
     cursor: pointer;
+    font-size: 0.78rem;
+    transition: color 0.15s ease;
 }
 
 .bodeguita-footer-link:hover {
@@ -494,6 +501,13 @@
 .bodeguita-footer-copy {
     font-size: 0.74rem;
     color: var(--text-muted, #94a3b8);
+}
+
+/* Modo Móvil: Ajuste de banners y modales */
+@media (max-width: 899px) {
+    .bodeguita-app-footer {
+        margin-bottom: 75px; /* Espacio para barra de navegación móvil */
+    }
 }
 
 /* Modo Móvil: Ajuste de banners y modales */
