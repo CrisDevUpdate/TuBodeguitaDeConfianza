@@ -270,6 +270,58 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
                 </div>
             </div>
         </div>
+
+        <!-- MÓDULO LEGAL: Términos, Habeas Data y Declaración de Inteligencia Artificial -->
+        <div class="card" style="margin-bottom:20px; border-left:4px solid #3b82f6;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-scale-balanced" style="color:#2563eb;"></i> Marco Legal, Términos & Transparencia en IA
+                    </h3>
+                    <p style="margin:2px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
+                        Titularidad del servicio, política de Habeas Data y declaración de uso ético de tecnologías de IA.
+                    </p>
+                </div>
+                <div>
+                    <span class="badge badge-active" style="font-size:0.82rem; padding:4px 10px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">
+                        <i class="fas fa-check-shield"></i> Conforme a Normativa
+                    </span>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:8px; padding:12px 14px;">
+                    <strong style="font-size:0.86rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-user-tie" style="color:#7c3aed;"></i> Titular y Soporte Oficial
+                    </strong>
+                    <div style="font-size:0.82rem; color:var(--text-muted); margin-top:6px; line-height:1.45;">
+                        • <strong>Responsable:</strong> Tu Bodeguita de Confianza / Cristhian (Cris.Dev)<br>
+                        • <strong>WhatsApp:</strong> 0412-5363849<br>
+                        • <strong>Email:</strong> Cris.Dev.Update@gmail.com
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:8px; padding:12px 14px;">
+                    <strong style="font-size:0.86rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-microchip" style="color:#0284c7;"></i> Alcance de la IA Integrada
+                    </strong>
+                    <div style="font-size:0.82rem; color:var(--text-muted); margin-top:6px; line-height:1.45;">
+                        • Lectura OCR de facturas y conciliación de stock.<br>
+                        • Cero almacenamiento de datos bancarios confidenciales.<br>
+                        • Supervisión y confirmación humana obligatoria.
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                <button type="button" class="btn btn-primary" onclick="abrirModalTerminosCondiciones()" style="font-weight:700; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fas fa-book-open"></i> Abrir Lector Completo de Términos y Privacidad
+                </button>
+                <button type="button" class="btn btn-outline" onclick="imprimirTerminosCondiciones()" style="font-weight:700; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fas fa-print"></i> Imprimir Documento Legal
+                </button>
+            </div>
+        </div>
     `;
 
     // Renderizar Gestor de WhatsApp Oficial para Clientes

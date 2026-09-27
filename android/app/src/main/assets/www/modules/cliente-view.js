@@ -2887,6 +2887,29 @@ function renderizarPerfilCliente() {
                 </p>
                 <div id="perfil-theme-selector-embed"></div>
             </div>
+
+            <!-- Privacidad, Habeas Data y Términos de Servicio -->
+            <div class="card" style="border-left: 4px solid #10b981;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                    <h3 style="margin:0; font-size: 1.15rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-shield-halved" style="color: #10b981;"></i> Privacidad, Habeas Data & Transparencia IA
+                    </h3>
+                    <span style="font-size:0.75rem; background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.35); padding:3px 10px; border-radius:12px; font-weight:700;">
+                        Tus Datos Están Protegidos
+                    </span>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.86rem; margin-bottom: 14px; line-height:1.55;">
+                    En <strong>Tu Bodeguita de Confianza</strong> tratamos tu información de contacto e historial únicamente para fines contables y de fidelización. Nunca comercializamos tus datos y garantizamos tu derecho de consulta, rectificación o eliminación.
+                </p>
+                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                    <button type="button" class="btn btn-outline" onclick="abrirModalTerminosCondiciones()" style="font-weight:700; font-size:0.84rem; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-file-contract" style="color:var(--primary-accent);"></i> Ver Términos y Política de Privacidad
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="solicitarHabeasDataWhatsApp('consulta')" style="font-weight:700; font-size:0.84rem; color:#16a34a; border-color:#86efac; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fab fa-whatsapp"></i> Ejercer Derechos de Habeas Data
+                    </button>
+                </div>
+            </div>
         </div>
     `;
 
