@@ -2123,6 +2123,15 @@ function descargarHistorialDeudaClienteExcel() {
     if (typeof XLSX !== 'undefined') {
         const wb = XLSX.utils.book_new();
 
+        const sanitizarCelda = (v) => {
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'number' || typeof v === 'boolean') return v;
+            const s = String(v);
+            if (s.startsWith('data:')) return '[Archivo / Imagen Base64]';
+            return s.length > 32000 ? s.slice(0, 31980) + '... [TRUNCADO]' : s;
+        };
+        const sanitizarMatriz = (aoa) => (Array.isArray(aoa) ? aoa.map(r => Array.isArray(r) ? r.map(c => sanitizarCelda(c)) : r) : []);
+
         // 1. Hoja Resumen Estado de Cuenta
         const wsResumenData = [
             ['TU BODEGUITA DE CONFIANZA - ESTADO DE CUENTA E HISTORIAL DE DEUDA'],
@@ -2146,7 +2155,7 @@ function descargarHistorialDeudaClienteExcel() {
             ['Total de Compras y Pedidos:', ventas.length],
             ['Total de Pagos y Abonos Reportados:', abonos.length]
         ];
-        const wsResumen = XLSX.utils.aoa_to_sheet(wsResumenData);
+        const wsResumen = XLSX.utils.aoa_to_sheet(sanitizarMatriz(wsResumenData));
         wsResumen['!cols'] = [{ wch: 38 }, { wch: 45 }];
         XLSX.utils.book_append_sheet(wb, wsResumen, 'Estado_de_Cuenta');
 
@@ -2215,7 +2224,7 @@ function descargarHistorialDeudaClienteExcel() {
             ''
         ]);
 
-        const wsCompras = XLSX.utils.aoa_to_sheet([headerCompras, ...rowsCompras]);
+        const wsCompras = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerCompras, ...rowsCompras]));
         wsCompras['!cols'] = [
             { wch: 18 }, // Nro
             { wch: 18 }, // Fecha
@@ -2278,7 +2287,7 @@ function descargarHistorialDeudaClienteExcel() {
                 ]);
             }
         });
-        const wsItems = XLSX.utils.aoa_to_sheet([headerItems, ...rowsItems]);
+        const wsItems = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerItems, ...rowsItems]));
         wsItems['!cols'] = [
             { wch: 18 },
             { wch: 18 },
@@ -2319,7 +2328,7 @@ function descargarHistorialDeudaClienteExcel() {
                 a.nota || a.observacion || ''
             ];
         });
-        const wsAbonos = XLSX.utils.aoa_to_sheet([headerAbonos, ...rowsAbonos]);
+        const wsAbonos = XLSX.utils.aoa_to_sheet(sanitizarMatriz([headerAbonos, ...rowsAbonos]));
         wsAbonos['!cols'] = [
             { wch: 18 },
             { wch: 20 },

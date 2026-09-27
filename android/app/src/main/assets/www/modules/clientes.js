@@ -1686,6 +1686,19 @@ function descargarEstadoCuentaCliente() {
     const { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalAbonadoUSD } = estado;
     const wb = XLSX.utils.book_new();
 
+    const sanitizarVal = (v) => {
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'number' || typeof v === 'boolean') return v;
+        const s = String(v);
+        if (s.startsWith('data:')) return '[Archivo / Imagen Base64]';
+        return s.length > 32000 ? s.slice(0, 31980) + '... [TRUNCADO]' : s;
+    };
+    const sanitizarLista = (lista) => lista.map(row => {
+        const obj = {};
+        for (const [k, val] of Object.entries(row)) obj[k] = sanitizarVal(val);
+        return obj;
+    });
+
     // Hoja 1: Resumen de la cuenta
     const datosResumen = [
         { 'Parámetro': 'Nombre del Cliente', 'Valor': cliente.nombre },
@@ -1701,7 +1714,7 @@ function descargarEstadoCuentaCliente() {
         { 'Parámetro': 'SALDO DEUDA ACTUAL (VES)', 'Valor': `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
         { 'Parámetro': 'Estado Financiero', 'Valor': saldoDeudaUSD > 0.01 ? 'DEUDOR / PENDIENTE' : 'SOLVENTE / AL DÍA' }
     ];
-    const wsResumen = XLSX.utils.json_to_sheet(datosResumen);
+    const wsResumen = XLSX.utils.json_to_sheet(sanitizarLista(datosResumen));
     wsResumen['!cols'] = [{ wch: 30 }, { wch: 45 }];
     XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen_Cliente');
 
@@ -1726,7 +1739,7 @@ function descargarEstadoCuentaCliente() {
         'Saldo Resultante (Bs)': Number((t.saldoVES || 0).toFixed(2))
     }));
 
-    const wsMovimientos = XLSX.utils.json_to_sheet(datosMovimientos);
+    const wsMovimientos = XLSX.utils.json_to_sheet(sanitizarLista(datosMovimientos));
     wsMovimientos['!cols'] = [
         { wch: 18 }, // Fecha
         { wch: 22 }, // Concepto

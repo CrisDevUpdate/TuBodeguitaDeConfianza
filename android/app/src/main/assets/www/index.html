@@ -41,8 +41,13 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
     <!-- Font Awesome para los íconos del BCV -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SheetJS para leer archivos Excel (.xlsx / .xls) en la carga masiva de referencias -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SheetJS con xlsx-js-style para exportación profesional con estilos, fórmulas y configuración de impresión -->
+    <script src="vendor/xlsx.bundle.js"></script>
+    <script>
+        if (typeof XLSX === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"><\/script>');
+        }
+    </script>
     <link rel="stylesheet" href="styles.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/themeEngine.css?v=20260916_v2">
@@ -6552,6 +6557,7 @@
 <script src="core/firebase-service.js?v=4.5.0_anti_dup"></script>
 <script src="core/image-cache-service.js?v=4.5.0_anti_dup"></script>
 <script src="core/google-drive-service.js?v=4.5.0_anti_dup"></script>
+<script src="core/excel-exporter.js?v=4.5.0_anti_dup"></script>
 <script src="core/persistence.js?v=4.5.0_anti_dup"></script>
 <script src="core/bcv.js?v=4.5.0_anti_dup"></script>
 <script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
