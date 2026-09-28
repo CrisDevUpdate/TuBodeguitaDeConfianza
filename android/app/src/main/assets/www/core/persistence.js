@@ -47,6 +47,7 @@ window.InventoryApp = window.InventoryApp || {};
         'conteosFisicos',
         'eliminaciones',
         'clientesEliminados',
+        'clientesFusionados',
         'usuarios',
         'premioMes',
         'canjesPremios',

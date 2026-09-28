@@ -28,6 +28,7 @@ const AppState = window.AppState = window.InventoryApp.state = {
     auditorias: [],
     eliminaciones: [],
     clientesEliminados: [],
+    clientesFusionados: [],
     usuarios: [
         {
             id: 'SuperAdmin',
@@ -88,7 +89,7 @@ const legacyGlobals = [
     'tasaActiva','tasaUSD_BCV','tasaEUR_BCV','fechaTasaBCV','monedaSeleccionada',
     'productos','clientes','ventas','abonos','transacciones','carrito',
     'clienteSeleccionadoId','productoImagenTemporal','conteosFisicos','auditorias',
-    'eliminaciones','clientesEliminados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
+    'eliminaciones','clientesEliminados','clientesFusionados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
     'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
     'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedores','proveedoresFrecuentes'
 ];

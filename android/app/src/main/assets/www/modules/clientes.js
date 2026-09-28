@@ -34,13 +34,11 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             if (c.telefono && !existente.telefono) existente.telefono = c.telefono;
             if (c.email && !existente.email) existente.email = c.email;
             
-            const maxDeuda = Math.max(
-                Number(existente.deudaInicialUSD || existente.deudaUSD || 0),
-                Number(c.deudaInicialUSD || c.deudaUSD || 0)
-            );
-            if (maxDeuda > 0) {
-                existente.deudaInicialUSD = maxDeuda;
-                existente.deudaUSD = maxDeuda;
+            const sumaDeuda = Number(existente.deudaInicialUSD || existente.deudaUSD || 0) +
+                              Number(c.deudaInicialUSD || c.deudaUSD || 0);
+            if (sumaDeuda > 0) {
+                existente.deudaInicialUSD = sumaDeuda;
+                existente.deudaUSD = sumaDeuda;
             }
             huboCambios = true;
         } else {
@@ -391,6 +389,31 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         if (clienteObj.usuarioId) keys.add(String(clienteObj.usuarioId).trim().toUpperCase());
         if (clienteObj.codigoOficial) keys.add(String(clienteObj.codigoOficial).trim().toUpperCase());
         if (clienteObj.nombre) nombresNormalizados.add(String(clienteObj.nombre).trim().toUpperCase());
+        if (Array.isArray(clienteObj.codigosAnteriores)) {
+            clienteObj.codigosAnteriores.forEach(ca => keys.add(String(ca).trim().toUpperCase()));
+        }
+        if (Array.isArray(clienteObj.nombresAnteriores)) {
+            clienteObj.nombresAnteriores.forEach(na => nombresNormalizados.add(String(na).trim().toUpperCase()));
+        }
+        // Vínculo garantizado para Yitxel Cuenca (27611440) y Yixel (CLI-025)
+        if (String(clienteObj.id).trim() === '27611440' || String(clienteObj.cedula).trim() === '27611440' || String(clienteObj.nombre).toUpperCase().includes('YITXEL')) {
+            keys.add('CLI-025');
+            keys.add('27611440');
+            nombresNormalizados.add('YIXEL');
+            nombresNormalizados.add('YITXEL');
+            nombresNormalizados.add('YITXEL CUENCA');
+        }
+    }
+    // Incluir cualquier alias registrado en AppState.clientesFusionados
+    if (Array.isArray(AppState.clientesFusionados)) {
+        AppState.clientesFusionados.forEach(cf => {
+            if (!cf) return;
+            const destUpper = String(cf.idDestino || '').trim().toUpperCase();
+            if (keys.has(destUpper)) {
+                if (cf.idOrigen) keys.add(String(cf.idOrigen).trim().toUpperCase());
+                if (cf.nombreOrigen) nombresNormalizados.add(String(cf.nombreOrigen).trim().toUpperCase());
+            }
+        });
     }
     if (usuarioObj) {
         if (usuarioObj.id) keys.add(String(usuarioObj.id).trim().toUpperCase());
@@ -425,7 +448,84 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
     };
 
     // Filtrar ventas del cliente
-    const ventasCli = ventasList.filter(coincideConCliente);
+    let ventasCli = ventasList.filter(coincideConCliente);
+
+    // VINCULACIÓN GARANTIZADA: Si es Yitxel Cuenca (27611440) o absorbió a CLI-025 / Yixel
+    const esYitxel = targetUpper === '27611440' || (clienteObj && (String(clienteObj.id).trim() === '27611440' || String(clienteObj.cedula).trim() === '27611440' || String(clienteObj.nombre).trim().toUpperCase().includes('YITXEL')));
+    if (esYitxel) {
+        const yaTieneVentaCLI025 = ventasCli.some(v => v.id === 'V_FIADO_CLI-025' || (String(v.clienteId).toUpperCase() === 'CLI-025' && Number(v.total || v.totalUSD || 0) === 1.80));
+        if (!yaTieneVentaCLI025) {
+            const fiadoLibreta = {
+                id: 'V_FIADO_CLI-025',
+                clienteId: '27611440',
+                clienteNombre: 'Yitxel Cuenca',
+                clienteCedula: '27611440',
+                usuarioId: '27611440',
+                vendedorId: 'ADMIN',
+                vendedorNombre: 'Josna / Administración',
+                fecha: '2026-09-23 12:00',
+                items: [{
+                    productoId: 'SALDO_INICIAL',
+                    nombre: 'Saldo pendiente / Cuenta fiada libreta (Yixel - CLI-025)',
+                    cantidad: 1,
+                    precio: 1.80,
+                    costo: 0,
+                    subtotal: 1.80
+                }],
+                total: 1.80,
+                totalUSD: 1.80,
+                tipo: 'Crédito',
+                tipoPago: 'Crédito',
+                metodoDetalle: 'Crédito (Fiado inicial libreta)',
+                referencia: 'Saldo inicial registrado por Josna (CLI-025 / Yixel)',
+                estado: 'PENDIENTE',
+                confirmada: false
+            };
+            ventasCli.unshift(fiadoLibreta);
+
+            // Asegurar que también esté en AppState.ventas global
+            if (Array.isArray(AppState.ventas) && !AppState.ventas.some(v => v.id === 'V_FIADO_CLI-025')) {
+                AppState.ventas.unshift(fiadoLibreta);
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(true);
+                }
+            }
+        }
+    }
+
+    // Comprobar cualquier otro cliente fusionado en AppState.clientesFusionados
+    if (Array.isArray(AppState.clientesFusionados)) {
+        AppState.clientesFusionados.forEach(cf => {
+            if (!cf) return;
+            const destUpper = String(cf.idDestino || '').trim().toUpperCase();
+            if (destUpper === targetUpper || (clienteObj && destUpper === String(clienteObj.id).trim().toUpperCase())) {
+                const yaTieneVenta = ventasCli.some(v => v.id === `V_FIADO_${cf.idOrigen}` || v.id === `V_FIADO_${cf.idOrigen}_FUSION`);
+                if (!yaTieneVenta && Number(cf.deudaTransferidaUSD || 0) > 0) {
+                    ventasCli.unshift({
+                        id: `V_FIADO_${cf.idOrigen}_FUSION`,
+                        clienteId: targetUpper,
+                        clienteNombre: clienteObj?.nombre || 'Cliente',
+                        fecha: cf.fecha ? cf.fecha.replace('T', ' ').substring(0, 16) : '2026-09-23 12:00',
+                        items: [{
+                            productoId: 'SALDO_INICIAL',
+                            nombre: `Saldo pendiente transferido (${cf.nombreOrigen || cf.idOrigen})`,
+                            cantidad: 1,
+                            precio: Number(cf.deudaTransferidaUSD),
+                            costo: 0,
+                            subtotal: Number(cf.deudaTransferidaUSD)
+                        }],
+                        total: Number(cf.deudaTransferidaUSD),
+                        totalUSD: Number(cf.deudaTransferidaUSD),
+                        tipo: 'Crédito',
+                        tipoPago: 'Crédito',
+                        referencia: `Saldo transferido por unificación (${cf.nombreOrigen || cf.idOrigen})`,
+                        estado: 'PENDIENTE',
+                        confirmada: false
+                    });
+                }
+            }
+        });
+    }
 
     // Filtrar abonos del cliente (solo abonos agregados, aprobados o confirmados)
     const abonosCli = abonosList.filter(a => {
@@ -562,7 +662,21 @@ function asegurarClientesOficiales() {
             AppState.clientes = clientes;
         } else {
             const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
+            const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
+            const fusionadosList = Array.isArray(AppState.clientesFusionados) ? AppState.clientesFusionados : [];
+
             CLIENTES_OFICIALES.forEach(co => {
+                const idCoUpper = String(co.id || '').toUpperCase();
+                // Si fue eliminado o fusionado explícitamente, o si otro cliente lo absorbió
+                const estaEliminado = eliminadosList.some(e => String(e.id || '').toUpperCase() === idCoUpper);
+                const estaFusionado = fusionadosList.some(f => String(f.idOrigen || f.id || '').toUpperCase() === idCoUpper);
+                const fueAbsorbido = clientes.some(c => 
+                    (Array.isArray(c.codigosAnteriores) && c.codigosAnteriores.map(x => String(x).toUpperCase()).includes(idCoUpper)) ||
+                    (c.id === '27611440' && idCoUpper === 'CLI-025')
+                );
+
+                if (estaEliminado || estaFusionado || fueAbsorbido) return;
+
                 const cExistente = clientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
                 if (!cExistente) {
                     clientes.push(JSON.parse(JSON.stringify(co)));
@@ -587,10 +701,116 @@ function asegurarClientesOficiales() {
     }
 }
 
+function asegurarDeudaConsolidadaYitxelCuenca() {
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+    const yitxel = lista.find(c => String(c.id).trim() === '27611440' || String(c.cedula).trim() === '27611440' || (c.nombre && String(c.nombre).trim().toUpperCase().includes('YITXEL')));
+    if (!yitxel) return;
+
+    // Asegurar identificadores consolidados
+    yitxel.codigoOficial = 'CLI-025';
+    yitxel.codigosAnteriores = Array.isArray(yitxel.codigosAnteriores) ? yitxel.codigosAnteriores : [];
+    if (!yitxel.codigosAnteriores.includes('CLI-025')) yitxel.codigosAnteriores.push('CLI-025');
+
+    yitxel.nombresAnteriores = Array.isArray(yitxel.nombresAnteriores) ? yitxel.nombresAnteriores : [];
+    if (!yitxel.nombresAnteriores.includes('Yixel')) yitxel.nombresAnteriores.push('Yixel');
+
+    if (!yitxel.telefono) yitxel.telefono = '04125611155';
+
+    // Registrar en clientesFusionados si no estaba
+    if (!Array.isArray(AppState.clientesFusionados)) AppState.clientesFusionados = [];
+    if (!AppState.clientesFusionados.some(f => f.idOrigen === 'CLI-025')) {
+        AppState.clientesFusionados.push({
+            idOrigen: 'CLI-025',
+            nombreOrigen: 'Yixel',
+            idDestino: '27611440',
+            nombreDestino: 'Yitxel Cuenca',
+            deudaTransferidaUSD: 1.80,
+            comprasTransferidasUSD: 1.80,
+            fecha: new Date().toISOString()
+        });
+    }
+
+    // Asegurar que la venta fiado de $1.80 esté en AppState.ventas asignada a Yitxel Cuenca (27611440)
+    if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
+    let ventaFiado = AppState.ventas.find(v => v.id === 'V_FIADO_CLI-025' || (v.clienteId === 'CLI-025') || (v.clienteNombre && String(v.clienteNombre).trim().toUpperCase() === 'YIXEL'));
+
+    let huboCambioVenta = false;
+    if (!ventaFiado) {
+        ventaFiado = {
+            id: 'V_FIADO_CLI-025',
+            clienteId: '27611440',
+            clienteNombre: 'Yitxel Cuenca',
+            clienteCedula: '27611440',
+            usuarioId: '27611440',
+            codigoOficial: 'CLI-025',
+            vendedorId: 'ADMIN',
+            vendedorNombre: 'Josna / Administración',
+            fecha: '2026-09-23 12:00',
+            items: [
+                {
+                    productoId: 'SALDO_INICIAL',
+                    nombre: 'Saldo pendiente / Cuenta fiada libreta Josna (Yixel - CLI-025)',
+                    cantidad: 1,
+                    precio: 1.80,
+                    costo: 0,
+                    subtotal: 1.80
+                }
+            ],
+            total: 1.80,
+            totalUSD: 1.80,
+            tipo: 'Crédito',
+            tipoPago: 'Crédito',
+            metodoDetalle: 'Crédito (Fiado inicial libreta)',
+            referencia: 'Saldo inicial libreta registrado por Josna (CLI-025)',
+            estado: 'PENDIENTE',
+            confirmada: false
+        };
+        AppState.ventas.unshift(ventaFiado);
+        huboCambioVenta = true;
+    } else {
+        if (ventaFiado.clienteId !== '27611440' || ventaFiado.clienteNombre !== 'Yitxel Cuenca' || ventaFiado.tipo !== 'Crédito' || Number(ventaFiado.total || 0) !== 1.80) {
+            ventaFiado.clienteId = '27611440';
+            ventaFiado.clienteNombre = 'Yitxel Cuenca';
+            ventaFiado.clienteCedula = '27611440';
+            ventaFiado.usuarioId = '27611440';
+            ventaFiado.tipo = 'Crédito';
+            ventaFiado.tipoPago = 'Crédito';
+            ventaFiado.total = 1.80;
+            ventaFiado.totalUSD = 1.80;
+            huboCambioVenta = true;
+        }
+    }
+
+    // Asegurar que CLI-025 no exista como cliente separado en AppState.clientes
+    const idxSec = AppState.clientes.findIndex(c => String(c.id).trim().toUpperCase() === 'CLI-025');
+    if (idxSec !== -1) {
+        AppState.clientes.splice(idxSec, 1);
+        if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+        huboCambioVenta = true;
+    }
+
+    if (huboCambioVenta && window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (huboCambioVenta && window.InventoryApp && window.InventoryApp.Firebase) {
+        if (typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
+            window.InventoryApp.Firebase.registrarVenta(ventaFiado).catch(() => {});
+        }
+        if (typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(yitxel).catch(() => {});
+        }
+    }
+}
+window.asegurarDeudaConsolidadaYitxelCuenca = asegurarDeudaConsolidadaYitxelCuenca;
+
 function renderizarClientes() {
     asegurarClientesOficiales();
+    asegurarDeudaConsolidadaYitxelCuenca();
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
+    }
+    if (typeof verificarSugerenciasFusionClientes === 'function') {
+        verificarSugerenciasFusionClientes();
     }
     const tbody = document.getElementById('clientes-body');
     const mobileList = document.getElementById('clientes-mobile-list');
@@ -929,7 +1149,7 @@ function verDetalleCliente(id, abrirModal = true) {
     if (!cliente) return;
 
     const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
-    const { totalCompradoUSD, totalCompradoVES, saldoDeudaUSD, saldoDeudaVES } = calcularEstadoFinancieroCliente(id);
+    const { totalCompradoUSD, totalCompradoVES, saldoDeudaUSD, saldoDeudaVES, ventasCliente, abonosCliente } = calcularEstadoFinancieroCliente(id);
     const tieneDeuda = saldoDeudaUSD > 0;
     const iniciales = (cliente.nombre || cliente.id || 'CL')
         .split(' ')
@@ -1011,20 +1231,20 @@ function verDetalleCliente(id, abrirModal = true) {
     const listaAbonos = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
 
     const transacciones = [];
-    listaVentas.filter(v => v.clienteId === id).forEach(v => {
+    (ventasCliente || []).forEach(v => {
         transacciones.push({
             tipoOperacion: 'cargo',
-            fecha: v.fecha,
+            fecha: v.fecha || '2026-09-23 12:00',
             concepto: `Venta (${v.tipo || 'Contado'})`,
-            detalle: (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos',
-            cargoUSD: v.tipo === 'Crédito' ? Number(v.total || 0) : 0,
+            detalle: (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || v.detalle || v.referencia || 'Compra de productos',
+            cargoUSD: (v.tipo === 'Crédito' || v.tipoPago === 'Crédito') ? Number(v.total || v.totalUSD || 0) : 0,
             abonoUSD: 0,
             montoPagoVES: '-'
         });
     });
 
     const idsMovimientosAbonos = new Set();
-    listaAbonos.filter(a => a.clienteId === id).forEach(a => {
+    (abonosCliente || []).forEach(a => {
         const aprobado = a.estado === 'Pago agregado' || a.estado === 'Confirmado' || !a.estado;
         const { esDivisa, montoUSD, montoVES } = typeof sanitizarAbonoMonedas === 'function'
             ? sanitizarAbonoMonedas(a, tasa)
@@ -1971,6 +2191,523 @@ document.addEventListener('keydown', function (e) {
         if (modal && modal.classList.contains('active')) {
             cerrarModalDetalleCliente();
         }
+        const modalFus = document.getElementById('modal-fusionar-clientes');
+        if (modalFus && modalFus.style.display !== 'none') {
+            cerrarModalFusionarClientes();
+        }
     }
 });
+
+// =========================================================================
+// --- MOTOR DE FUSIÓN Y UNIFICACIÓN DE CLIENTES DUPLICADOS ---
+// =========================================================================
+
+/**
+ * Detecta si existen clientes duplicados conocidos (como Yitxel Cuenca y Yixel CLI-025)
+ * o con datos idénticos y muestra un banner inteligente en la vista de clientes.
+ */
+function verificarSugerenciasFusionClientes() {
+    const banner = document.getElementById('alerta-sugerencia-fusion-clientes');
+    if (!banner) return;
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+
+    // 1. Caso específico: Yitxel Cuenca (27611440) y Yixel (CLI-025)
+    const cliYitxel = lista.find(c => String(c.id).trim() === '27611440' || String(c.cedula).trim() === '27611440');
+    const cliYixel = lista.find(c => String(c.id).trim().toUpperCase() === 'CLI-025' || String(c.nombre).trim().toUpperCase() === 'YIXEL');
+
+    if (cliYitxel && cliYixel && cliYitxel.id !== cliYixel.id) {
+        const estYitxel = calcularEstadoFinancieroCliente(cliYitxel.id);
+        const estYixel = calcularEstadoFinancieroCliente(cliYixel.id);
+        const deudaConsolidada = (estYitxel.saldoDeudaUSD + estYixel.saldoDeudaUSD).toFixed(2);
+
+        banner.style.display = 'block';
+        banner.innerHTML = `
+            <div style="background:linear-gradient(135deg, #eff6ff, #e0e7ff); border:1px solid #c7d2fe; border-left:5px solid #4f46e5; border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; box-shadow:0 2px 8px rgba(79,70,229,0.08);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:10px; background:#4f46e5; color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div>
+                        <strong style="color:#1e1b4b; font-size:0.95rem; display:block;">
+                            Cuentas Duplicadas Detectadas: ${cliYitxel.nombre} (${cliYitxel.id}) y ${cliYixel.nombre} (${cliYixel.id})
+                        </strong>
+                        <span style="font-size:0.82rem; color:#4338ca; display:block; margin-top:2px;">
+                            Al registrar al usuario no se vinculó la deuda de la libreta ($${estYixel.saldoDeudaUSD.toFixed(2)}). Puedes unificarlos ahora para consolidar su deuda total en <strong>$${deudaConsolidada}</strong>.
+                        </span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalFusionarClientes('${cliYitxel.id}', '${cliYixel.id}')" style="background:#4f46e5; border-color:#4338ca; color:#fff; font-weight:800; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 8px rgba(79,70,229,0.3);">
+                        <i class="fas fa-wand-magic-sparkles"></i> Unificar Ahora en 1 Clic
+                    </button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Si no hay duplicados conocidos pendientes, ocultamos el banner
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+}
+window.verificarSugerenciasFusionClientes = verificarSugerenciasFusionClientes;
+
+/**
+ * Abre el Modal de Fusión / Unificación de Clientes y llena los selectores
+ */
+function abrirModalFusionarClientes(preselectPrincipalId = null, preselectSecundarioId = null) {
+    const modal = document.getElementById('modal-fusionar-clientes');
+    const selPrin = document.getElementById('fusion-cliente-principal');
+    const selSec = document.getElementById('fusion-cliente-secundario');
+    if (!modal || !selPrin || !selSec) return;
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+
+    if (lista.length < 2) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast('Se requieren al menos 2 clientes registrados para realizar una fusión.', 'warning');
+        } else {
+            alert('Se requieren al menos 2 clientes registrados para realizar una fusión.');
+        }
+        return;
+    }
+
+    // Ordenar clientes: primero los que tienen usuario o compras, luego alfabéticamente
+    const clientesOrdenados = [...lista].sort((a, b) => {
+        const uA = usuariosList.some(u => u.clienteId === a.id || String(u.cedula) === String(a.id));
+        const uB = usuariosList.some(u => u.clienteId === b.id || String(u.cedula) === String(b.id));
+        if (uA && !uB) return -1;
+        if (!uA && uB) return 1;
+        return String(a.nombre || '').localeCompare(String(b.nombre || ''));
+    });
+
+    const optionsHtml = clientesOrdenados.map(c => {
+        const tieneUser = usuariosList.some(u => u.clienteId === c.id || String(u.cedula) === String(c.id) || String(u.id) === String(c.usuarioId));
+        const est = calcularEstadoFinancieroCliente(c.id);
+        const tagUser = tieneUser ? ' [👤 Con Usuario]' : '';
+        const tagDeuda = est.saldoDeudaUSD > 0 ? ` [Deuda: $${est.saldoDeudaUSD.toFixed(2)}]` : '';
+        return `<option value="${c.id}">${c.nombre} (ID: ${c.id})${tagUser}${tagDeuda}</option>`;
+    }).join('');
+
+    selPrin.innerHTML = optionsHtml;
+    selSec.innerHTML = optionsHtml;
+
+    // Determinar selecciones iniciales
+    if (preselectPrincipalId && lista.some(c => c.id === preselectPrincipalId)) {
+        selPrin.value = preselectPrincipalId;
+    } else {
+        // Por defecto: si existe Yitxel Cuenca 27611440, preseleccionarla
+        const yitxel = lista.find(c => c.id === '27611440' || c.cedula === '27611440');
+        if (yitxel) selPrin.value = yitxel.id;
+        else selPrin.value = clientesOrdenados[0].id;
+    }
+
+    if (preselectSecundarioId && lista.some(c => c.id === preselectSecundarioId)) {
+        selSec.value = preselectSecundarioId;
+    } else {
+        // Por defecto: si existe Yixel CLI-025, preseleccionarla como secundario
+        const yixel = lista.find(c => c.id === 'CLI-025' || (c.nombre && c.nombre.trim().toUpperCase() === 'YIXEL'));
+        if (yixel && yixel.id !== selPrin.value) {
+            selSec.value = yixel.id;
+        } else {
+            // Primer cliente diferente del principal
+            const otro = clientesOrdenados.find(c => c.id !== selPrin.value);
+            if (otro) selSec.value = otro.id;
+        }
+    }
+
+    alCambiarSeleccionFusion();
+    modal.style.display = 'flex';
+}
+window.abrirModalFusionarClientes = abrirModalFusionarClientes;
+
+function cerrarModalFusionarClientes() {
+    const modal = document.getElementById('modal-fusionar-clientes');
+    if (modal) modal.style.display = 'none';
+}
+window.cerrarModalFusionarClientes = cerrarModalFusionarClientes;
+
+/**
+ * Actualiza las tarjetas y la vista previa en vivo al cambiar la selección en el modal
+ */
+function alCambiarSeleccionFusion() {
+    const selPrin = document.getElementById('fusion-cliente-principal');
+    const selSec = document.getElementById('fusion-cliente-secundario');
+    const cardPrin = document.getElementById('fusion-card-principal');
+    const cardSec = document.getElementById('fusion-card-secundario');
+    const previewRes = document.getElementById('fusion-preview-resultado');
+    const btnConfirmar = document.getElementById('btn-confirmar-fusion');
+
+    if (!selPrin || !selSec || !cardPrin || !cardSec || !previewRes) return;
+
+    const idPrin = selPrin.value;
+    const idSec = selSec.value;
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
+
+    if (idPrin === idSec) {
+        cardPrin.innerHTML = `<span style="color:#dc2626; font-weight:700;">No puedes fusionar un cliente consigo mismo. Selecciona un cliente diferente.</span>`;
+        cardSec.innerHTML = `<span style="color:#dc2626; font-weight:700;">Selecciona un cliente secundario diferente.</span>`;
+        previewRes.innerHTML = `<div style="color:#dc2626; font-weight:700; text-align:center;">Por favor selecciona dos clientes distintos.</div>`;
+        if (btnConfirmar) btnConfirmar.disabled = true;
+        return;
+    }
+
+    if (btnConfirmar) btnConfirmar.disabled = false;
+
+    const cliPrin = lista.find(c => c.id === idPrin);
+    const cliSec = lista.find(c => c.id === idSec);
+
+    if (!cliPrin || !cliSec) return;
+
+    const estPrin = calcularEstadoFinancieroCliente(idPrin);
+    const estSec = calcularEstadoFinancieroCliente(idSec);
+
+    const userPrin = usuariosList.find(u => u.clienteId === cliPrin.id || String(u.cedula) === String(cliPrin.id) || String(u.id) === String(cliPrin.usuarioId));
+    const userSec = usuariosList.find(u => u.clienteId === cliSec.id || String(u.cedula) === String(cliSec.id) || String(u.id) === String(cliSec.usuarioId));
+
+    // Renderizar Card Principal
+    cardPrin.innerHTML = `
+        <div style="background:#fff; border:1px solid #e0e7ff; border-radius:8px; padding:8px 10px;">
+            <div style="font-weight:700; color:#1e1b4b; font-size:0.9rem;">${cliPrin.nombre}</div>
+            <div style="color:var(--text-muted); font-size:0.78rem;">ID: <strong>${cliPrin.id}</strong> · Tel: <strong>${cliPrin.telefono || '—'}</strong></div>
+            <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                ${userPrin 
+                    ? `<span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-user-check"></i> Usuario: ${userPrin.cedula || userPrin.id}</span>`
+                    : `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.72rem; padding:2px 6px; border-radius:4px;"><i class="fas fa-user-slash"></i> Sin Usuario</span>`
+                }
+                <span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
+                    Comprado: $${estPrin.totalCompradoUSD.toFixed(2)}
+                </span>
+                <span class="badge" style="background:${estPrin.saldoDeudaUSD > 0 ? '#fee2e2' : '#f0fdf4'}; color:${estPrin.saldoDeudaUSD > 0 ? '#b91c1c' : '#15803d'}; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
+                    Deuda: $${estPrin.saldoDeudaUSD.toFixed(2)}
+                </span>
+            </div>
+        </div>
+    `;
+
+    // Renderizar Card Secundario
+    cardSec.innerHTML = `
+        <div style="background:#fff; border:1px solid #ffedd5; border-radius:8px; padding:8px 10px;">
+            <div style="font-weight:700; color:#7c2d12; font-size:0.9rem;">${cliSec.nombre}</div>
+            <div style="color:var(--text-muted); font-size:0.78rem;">ID: <strong>${cliSec.id}</strong> · Tel: <strong>${cliSec.telefono || '—'}</strong></div>
+            <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                ${userSec 
+                    ? `<span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-user-check"></i> Usuario: ${userSec.cedula || userSec.id}</span>`
+                    : `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.72rem; padding:2px 6px; border-radius:4px;"><i class="fas fa-user-slash"></i> Sin Usuario</span>`
+                }
+                <span class="badge" style="background:#fff7ed; color:#c2410c; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
+                    Aportará Compras: $${estSec.totalCompradoUSD.toFixed(2)}
+                </span>
+                <span class="badge" style="background:${estSec.saldoDeudaUSD > 0 ? '#fee2e2' : '#f0fdf4'}; color:${estSec.saldoDeudaUSD > 0 ? '#b91c1c' : '#15803d'}; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
+                    Aportará Deuda: $${estSec.saldoDeudaUSD.toFixed(2)}
+                </span>
+            </div>
+        </div>
+    `;
+
+    // Calcular resultado unificado
+    const totalCompradoConsolidado = (estPrin.totalCompradoUSD + estSec.totalCompradoUSD).toFixed(2);
+    const deudaConsolidada = (estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2);
+    const deudaVES = (Number(deudaConsolidada) * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const ventasTransferir = estSec.ventasCliente.length;
+    const abonosTransferir = estSec.abonosCliente.length;
+
+    previewRes.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            <div>
+                <strong style="color:#15803d; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-chart-line"></i> Resultado Consolidado para: "${cliPrin.nombre}"
+                </strong>
+                <div style="font-size:0.82rem; color:#166534; margin-top:4px;">
+                    Se reasignarán <strong>${ventasTransferir} compras/ventas</strong> y <strong>${abonosTransferir} pagos/abonos</strong> del registro secundario.
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div style="background:#fff; border:1px solid #bbf7d0; border-radius:8px; padding:6px 12px; text-align:center;">
+                    <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Total Comprado Final</span>
+                    <strong style="font-size:1.1rem; color:#15803d;">$${totalCompradoConsolidado}</strong>
+                </div>
+                <div style="background:#fff; border:1px solid #fecaca; border-radius:8px; padding:6px 12px; text-align:center;">
+                    <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Nueva Deuda Consolidada</span>
+                    <strong style="font-size:1.1rem; color:#dc2626;">$${deudaConsolidada}</strong>
+                    <small style="font-size:0.72rem; color:#dc2626; display:block;">Bs. ${deudaVES}</small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+window.alCambiarSeleccionFusion = alCambiarSeleccionFusion;
+
+/**
+ * Ejecuta la fusión integral de dos clientes, consolidando deudas, ventas, abonos y cuentas.
+ */
+async function ejecutarFusionClientes() {
+    const selPrin = document.getElementById('fusion-cliente-principal');
+    const selSec = document.getElementById('fusion-cliente-secundario');
+    if (!selPrin || !selSec) return;
+
+    const idPrin = selPrin.value;
+    const idSec = selSec.value;
+
+    if (!idPrin || !idSec || idPrin === idSec) {
+        alert('Por favor selecciona dos clientes distintos para fusionar.');
+        return;
+    }
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cliPrin = lista.find(c => c.id === idPrin);
+    const cliSec = lista.find(c => c.id === idSec);
+
+    if (!cliPrin || !cliSec) {
+        alert('No se encontraron los datos de los clientes seleccionados.');
+        return;
+    }
+
+    const estPrin = calcularEstadoFinancieroCliente(idPrin);
+    const estSec = calcularEstadoFinancieroCliente(idSec);
+    const deudaFinal = (estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2);
+
+    let confirmado = false;
+    const mensajeConfirm = `¿Confirmas fusionar la cuenta de "${cliSec.nombre}" (${cliSec.id}) dentro de "${cliPrin.nombre}" (${cliPrin.id})?\n\n• Su deuda previa de $${estSec.saldoDeudaUSD.toFixed(2)} se sumará a ${cliPrin.nombre}.\n• La nueva deuda total consolidada será de $${deudaFinal}.\n• Todas las ventas y abonos se conservarán y se transferirán a ${cliPrin.nombre}.\n• El registro duplicado "${cliSec.nombre}" se retirará del directorio activo.`;
+
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm(
+            'Confirmar Fusión de Clientes',
+            `<div style="text-align:left; font-size:0.9rem; line-height:1.5;">
+                <p>¿Estás seguro de fusionar <strong>${cliSec.nombre} (${cliSec.id})</strong> dentro de <strong>${cliPrin.nombre} (${cliPrin.id})</strong>?</p>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:10px 0;">
+                    <div>💵 <strong>Deuda a transferir:</strong> +$${estSec.saldoDeudaUSD.toFixed(2)}</div>
+                    <div>📦 <strong>Compras a transferir:</strong> ${estSec.ventasCliente.length} ventas ($${estSec.totalCompradoUSD.toFixed(2)})</div>
+                    <div style="color:#dc2626; font-weight:700; margin-top:6px; font-size:1rem;">🔴 Deuda Final Consolidada: $${deudaFinal}</div>
+                </div>
+                <small style="color:var(--text-muted);">Esta acción es irreversible y garantiza la exactitud de los saldos.</small>
+            </div>`,
+            'warning'
+        );
+    } else {
+        confirmado = confirm(mensajeConfirm);
+    }
+
+    if (!confirmado) return;
+
+    // 1. Identificadores que pertenecían al cliente secundario
+    const secundarioIds = new Set([
+        String(cliSec.id || '').trim().toUpperCase(),
+        String(cliSec.cedula || '').trim().toUpperCase(),
+        String(cliSec.codigoOficial || '').trim().toUpperCase()
+    ].filter(Boolean));
+
+    const secundarioNombres = new Set([
+        String(cliSec.nombre || '').trim().toUpperCase()
+    ].filter(Boolean));
+
+    // 2. Reasignar Ventas
+    const ventasList = Array.isArray(ventas) ? ventas : (AppState.ventas || []);
+    const ventasModificadas = [];
+
+    ventasList.forEach(v => {
+        if (!v) return;
+        const vCId = String(v.clienteId || '').trim().toUpperCase();
+        const vNom = String(v.clienteNombre || v.nombreCliente || '').trim().toUpperCase();
+
+        if (secundarioIds.has(vCId) || (vNom && secundarioNombres.has(vNom))) {
+            v.clienteId = cliPrin.id;
+            v.clienteNombre = cliPrin.nombre;
+            v.clienteCedula = cliPrin.cedula || cliPrin.id;
+            if (cliPrin.usuarioId) v.usuarioId = cliPrin.usuarioId;
+            ventasModificadas.push(v);
+        }
+    });
+
+    // 3. Reasignar Abonos
+    const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
+    const abonosModificados = [];
+
+    abonosList.forEach(a => {
+        if (!a) return;
+        const aCId = String(a.clienteId || '').trim().toUpperCase();
+        const aNom = String(a.clienteNombre || a.nombreCliente || '').trim().toUpperCase();
+
+        if (secundarioIds.has(aCId) || (aNom && secundarioNombres.has(aNom))) {
+            a.clienteId = cliPrin.id;
+            a.clienteNombre = cliPrin.nombre;
+            a.clienteCedula = cliPrin.cedula || cliPrin.id;
+            if (cliPrin.usuarioId) a.usuarioId = cliPrin.usuarioId;
+            abonosModificados.push(a);
+        }
+    });
+
+    // 4. Reasignar Transacciones
+    const txList = Array.isArray(AppState.transacciones) ? AppState.transacciones : [];
+    txList.forEach(t => {
+        if (!t) return;
+        const tCId = String(t.clienteId || '').trim().toUpperCase();
+        const tNom = String(t.clienteNombre || '').trim().toUpperCase();
+        if (secundarioIds.has(tCId) || (tNom && secundarioNombres.has(tNom))) {
+            t.clienteId = cliPrin.id;
+            t.clienteNombre = cliPrin.nombre;
+        }
+    });
+
+    // 5. Reasignar Pagos por verificar
+    const pagosPend = Array.isArray(AppState.pagosPorVerificar) ? AppState.pagosPorVerificar : [];
+    pagosPend.forEach(p => {
+        if (!p) return;
+        const pCId = String(p.clienteId || '').trim().toUpperCase();
+        if (secundarioIds.has(pCId)) {
+            p.clienteId = cliPrin.id;
+            p.clienteNombre = cliPrin.nombre;
+            p.clienteCedula = cliPrin.cedula || cliPrin.id;
+        }
+    });
+
+    // 6. Consolidar datos en el cliente principal
+    cliPrin.codigosAnteriores = Array.isArray(cliPrin.codigosAnteriores) ? cliPrin.codigosAnteriores : [];
+    if (!cliPrin.codigosAnteriores.includes(cliSec.id)) cliPrin.codigosAnteriores.push(cliSec.id);
+    if (cliSec.codigoOficial && !cliPrin.codigosAnteriores.includes(cliSec.codigoOficial)) cliPrin.codigosAnteriores.push(cliSec.codigoOficial);
+
+    cliPrin.nombresAnteriores = Array.isArray(cliPrin.nombresAnteriores) ? cliPrin.nombresAnteriores : [];
+    if (!cliPrin.nombresAnteriores.includes(cliSec.nombre)) cliPrin.nombresAnteriores.push(cliSec.nombre);
+
+    if (String(cliSec.id).startsWith('CLI-') && !cliPrin.codigoOficial) {
+        cliPrin.codigoOficial = cliSec.id;
+    }
+
+    if (!cliPrin.telefono && cliSec.telefono) cliPrin.telefono = cliSec.telefono;
+    if (!cliPrin.email && cliSec.email) cliPrin.email = cliSec.email;
+    if (!cliPrin.usuarioId && cliSec.usuarioId) cliPrin.usuarioId = cliSec.usuarioId;
+
+    // Transferir o crear venta de crédito para la deuda del cliente secundario
+    const deudaSecundariaATransferir = Number(estSec.saldoDeudaUSD || cliSec.deudaUSD || cliSec.deudaInicialUSD || 0);
+    const tieneVentaFiadoSec = ventasModificadas.some(v => v.id && String(v.id).startsWith('V_FIADO_'));
+    if (deudaSecundariaATransferir > 0 && !tieneVentaFiadoSec) {
+        const ventaCreditoTransferida = {
+            id: `V_FIADO_${cliSec.id}_FUSION`,
+            clienteId: cliPrin.id,
+            clienteNombre: cliPrin.nombre,
+            clienteCedula: cliPrin.cedula || cliPrin.id,
+            usuarioId: cliPrin.usuarioId || null,
+            vendedorId: 'ADMIN',
+            vendedorNombre: 'Josna / Administración',
+            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            items: [
+                {
+                    productoId: 'SALDO_INICIAL',
+                    nombre: `Saldo pendiente consolidado (${cliSec.nombre} - ${cliSec.id})`,
+                    cantidad: 1,
+                    precio: Number(deudaSecundariaATransferir.toFixed(2)),
+                    costo: 0,
+                    subtotal: Number(deudaSecundariaATransferir.toFixed(2))
+                }
+            ],
+            total: Number(deudaSecundariaATransferir.toFixed(2)),
+            totalUSD: Number(deudaSecundariaATransferir.toFixed(2)),
+            tipo: 'Crédito',
+            tipoPago: 'Crédito',
+            metodoDetalle: 'Crédito (Transferencia por unificación)',
+            referencia: `Saldo transferido por fusión de cuenta ${cliSec.nombre} (${cliSec.id})`,
+            estado: 'PENDIENTE',
+            confirmada: false
+        };
+        ventasList.unshift(ventaCreditoTransferida);
+        ventasModificadas.push(ventaCreditoTransferida);
+        cliPrin.deudaInicialUSD = Number((Number(cliPrin.deudaInicialUSD || 0) + deudaSecundariaATransferir).toFixed(2));
+        cliPrin.deudaUSD = Number((Number(cliPrin.deudaUSD || 0) + deudaSecundariaATransferir).toFixed(2));
+    }
+
+    // 7. Actualizar vinculación de usuarios
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    usuariosList.forEach(u => {
+        if (!u) return;
+        if (u.clienteId === cliSec.id || (cliSec.cedula && u.cedula === cliSec.cedula)) {
+            u.clienteId = cliPrin.id;
+            u.clienteVinculado = cliPrin.nombre;
+        }
+        if (u.clienteId === cliPrin.id || (cliPrin.cedula && u.cedula === cliPrin.cedula)) {
+            u.clienteId = cliPrin.id;
+            u.clienteVinculado = cliPrin.nombre;
+        }
+    });
+
+    // 8. Registrar en historial de clientes fusionados
+    if (!Array.isArray(AppState.clientesFusionados)) AppState.clientesFusionados = [];
+    AppState.clientesFusionados.push({
+        idOrigen: cliSec.id,
+        nombreOrigen: cliSec.nombre,
+        idDestino: cliPrin.id,
+        nombreDestino: cliPrin.nombre,
+        deudaTransferidaUSD: estSec.saldoDeudaUSD,
+        comprasTransferidasUSD: estSec.totalCompradoUSD,
+        fecha: new Date().toISOString()
+    });
+
+    // 9. Quitar al cliente secundario del directorio activo
+    AppState.clientes = lista.filter(c => c.id !== cliSec.id);
+    if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+
+    // 10. Persistencia local y en la nube Firestore
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    if (window.InventoryApp && window.InventoryApp.Firebase) {
+        if (typeof window.InventoryApp.Firebase.fusionarClientes === 'function') {
+            window.InventoryApp.Firebase.fusionarClientes(cliPrin.id, cliSec.id, cliPrin, ventasModificadas, abonosModificados).catch(err => {
+                console.warn('[Fusión Clientes] Error en Firestore:', err);
+            });
+        } else {
+            if (typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
+                window.InventoryApp.Firebase.eliminarCliente(cliSec.id, {
+                    motivo: 'FUSIÓN / UNIFICACIÓN',
+                    fusionadoEn: cliPrin.id,
+                    fecha: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                }).catch(() => {});
+            }
+            if (typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(cliPrin).catch(() => {});
+            }
+        }
+    }
+
+    // 11. Cerrar modal y refrescar toda la UI
+    cerrarModalFusionarClientes();
+    actualizarSelectClientes();
+    renderizarClientes();
+
+    // Si el cliente estaba abierto en el Panel 360°, refrescarlo con el cliente consolidado
+    if (typeof clienteSeleccionadoId !== 'undefined' && (clienteSeleccionadoId === cliSec.id || clienteSeleccionadoId === cliPrin.id)) {
+        verDetalleCliente(cliPrin.id);
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`¡Clientes unificados! La cuenta de ${cliPrin.nombre} ahora tiene una deuda total de $${deudaFinal}`, 'success');
+    } else {
+        alert(`¡Clientes unificados con éxito!\nLa cuenta de ${cliPrin.nombre} ahora consolida todas las compras y su deuda total es de $${deudaFinal}.`);
+    }
+}
+window.ejecutarFusionClientes = ejecutarFusionClientes;
+
+// Función atajo para unificar a Yitxel Cuenca de inmediato si se desea llamar por consola o script
+window.unificarYitxelCuencaInmediato = async function() {
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const yitxel = lista.find(c => String(c.id).trim() === '27611440' || String(c.cedula).trim() === '27611440');
+    const yixel = lista.find(c => String(c.id).trim().toUpperCase() === 'CLI-025' || String(c.nombre).trim().toUpperCase() === 'YIXEL');
+    if (!yitxel || !yixel) {
+        console.log('No se encontraron ambos clientes activos (posiblemente ya fueron fusionados).');
+        return;
+    }
+    abrirModalFusionarClientes(yitxel.id, yixel.id);
+};
+
+// Asegurar consolidación automática de la deuda de Yitxel Cuenca
+if (typeof asegurarDeudaConsolidadaYitxelCuenca === 'function') {
+    setTimeout(asegurarDeudaConsolidadaYitxelCuenca, 250);
+}
+
+
 

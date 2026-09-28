@@ -29,7 +29,7 @@ const CLIENTES_OFICIALES = [
     { id: 'CLI-022', nombre: 'Sr Aguilar', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
     { id: 'CLI-023', nombre: 'Sr Torrealba', telefono: '', email: '', deudaUSD: 3.90, deudaInicialUSD: 3.90 },
     { id: 'CLI-024', nombre: 'Yetsy', telefono: '', email: '', deudaUSD: 7.80, deudaInicialUSD: 7.80 },
-    { id: 'CLI-025', nombre: 'Yixel', telefono: '', email: '', deudaUSD: 1.80, deudaInicialUSD: 1.80 }
+    { id: 'CLI-025', nombre: 'Yitxel Cuenca', cedula: '27611440', telefono: '04125611155', email: '', deudaUSD: 1.80, deudaInicialUSD: 1.80 }
 ];
 
 // Generar ventas a crédito (fiados iniciales) para los clientes que tienen deudas > 0
@@ -37,8 +37,10 @@ const VENTAS_INICIALES_FIADOS = CLIENTES_OFICIALES
     .filter(c => c.deudaUSD > 0)
     .map((c, idx) => ({
         id: `V_FIADO_${c.id}`,
-        clienteId: c.id,
+        clienteId: c.cedula || c.id,
+        clienteCedula: c.cedula || c.id,
         clienteNombre: c.nombre,
+        codigoOficial: c.id,
         vendedorId: 'ADMIN',
         vendedorNombre: 'Josna / Administración',
         fecha: '2026-09-23 12:00',
@@ -53,6 +55,7 @@ const VENTAS_INICIALES_FIADOS = CLIENTES_OFICIALES
             }
         ],
         total: Number(c.deudaUSD.toFixed(2)),
+        totalUSD: Number(c.deudaUSD.toFixed(2)),
         tipo: 'Crédito',
         tipoPago: 'Crédito',
         metodoDetalle: 'Crédito (Fiado inicial)',

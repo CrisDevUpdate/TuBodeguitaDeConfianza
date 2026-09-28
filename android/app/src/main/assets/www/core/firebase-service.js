@@ -378,6 +378,7 @@ window.InventoryApp = window.InventoryApp || {};
         SESIONES_CONTEO: 'sesiones_conteo',
         ELIMINACIONES: 'eliminaciones',
         CLIENTES_ELIMINADOS: 'clientesEliminados',
+        CLIENTES_FUSIONADOS: 'clientesFusionados',
         USUARIOS: 'usuarios',
         CANJES: 'canjesPremios',
         CONFIG: 'config',
@@ -771,7 +772,7 @@ window.InventoryApp = window.InventoryApp || {};
                         .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
                     if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
                         VENTAS_INICIALES_FIADOS.forEach(vf => {
-                            const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                            const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
                             if (!exists) {
                                 AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
                                 registrarVentaCloud(vf, vf.items || []).catch(() => {});
@@ -1314,7 +1315,7 @@ window.InventoryApp = window.InventoryApp || {};
                     .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
                 if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
                     VENTAS_INICIALES_FIADOS.forEach(vf => {
-                        const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && v.tipo === 'Crédito'));
+                        const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
                         if (!exists) {
                             newVentas.push(JSON.parse(JSON.stringify(vf)));
                             registrarVentaCloud(vf, vf.items || []).catch(() => {});
@@ -2224,6 +2225,87 @@ window.InventoryApp = window.InventoryApp || {};
                 console.error('[Firebase] Error al eliminar cliente en Firestore:', error);
                 actualizarUIEstadoNube('offline', 'Cliente eliminado localmente (Offline)');
             }
+            return true;
+        }
+    }
+
+    /**
+     * CRUD: Fusionar y Unificar dos clientes en Firestore (Transfiere compras, abonos y deudas)
+     */
+    async function fusionarClientesCloud(idPrincipal, idSecundario, clientePrincipalData, ventasModificadas = [], abonosModificados = []) {
+        if (!idPrincipal || !idSecundario) return false;
+
+        if (window.InventoryApp && window.InventoryApp.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        if (isQuotaExhausted) {
+            actualizarUIEstadoNube('offline', 'Clientes fusionados localmente (Cuota Firestore)');
+            return true;
+        }
+
+        actualizarUIEstadoNube('sincronizando', 'Unificando clientes y cuentas en Firestore...');
+
+        try {
+            if (db) {
+                const batch = db.batch();
+
+                // 1. Eliminar cliente secundario de colección activa
+                const secRef = db.collection(COLLECTIONS.CLIENTES).doc(String(idSecundario));
+                batch.delete(secRef);
+
+                // 2. Guardar registro en clientes fusionados y eliminados
+                const fusRef = db.collection(COLLECTIONS.CLIENTES_FUSIONADOS).doc(String(idSecundario));
+                batch.set(fusRef, {
+                    idOrigen: String(idSecundario),
+                    idDestino: String(idPrincipal),
+                    fecha: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                const elimRef = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).doc(String(idSecundario));
+                batch.set(elimRef, {
+                    id: String(idSecundario),
+                    nombre: clientePrincipalData?.nombre || 'Cliente Fusionado',
+                    motivo: 'FUSIÓN / UNIFICACIÓN',
+                    comentario: `Fusionado en el cliente ${idPrincipal} (${clientePrincipalData?.nombre || ''})`,
+                    fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                    fusionadoEn: String(idPrincipal),
+                    deletedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                // 3. Actualizar cliente principal consolidado
+                const prinRef = db.collection(COLLECTIONS.CLIENTES).doc(String(idPrincipal));
+                const prinData = sanitizarObjetoParaFirestore({
+                    ...clientePrincipalData,
+                    id: String(idPrincipal),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }) || {};
+                batch.set(prinRef, prinData, { merge: true });
+
+                // 4. Actualizar ventas reasignadas
+                (ventasModificadas || []).forEach(v => {
+                    if (v && v.id) {
+                        const vRef = db.collection(COLLECTIONS.VENTAS).doc(String(v.id));
+                        batch.set(vRef, sanitizarObjetoParaFirestore(v), { merge: true });
+                    }
+                });
+
+                // 5. Actualizar abonos reasignados
+                (abonosModificados || []).forEach(a => {
+                    if (a && a.id) {
+                        const aRef = db.collection(COLLECTIONS.ABONOS).doc(String(a.id));
+                        batch.set(aRef, sanitizarObjetoParaFirestore(a), { merge: true });
+                    }
+                });
+
+                await batch.commit();
+            }
+
+            actualizarUIEstadoNube('conectado', 'Clientes unificados con éxito en Firestore');
+            return true;
+        } catch (error) {
+            console.warn('[Firebase] Error al fusionar clientes en Firestore:', error);
+            actualizarUIEstadoNube('offline', 'Fusión guardada localmente (Offline)');
             return true;
         }
     }
@@ -3571,6 +3653,7 @@ window.InventoryApp = window.InventoryApp || {};
         eliminarVentas: eliminarVentasCloud,
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,
+        fusionarClientes: fusionarClientesCloud,
         guardarAbono: guardarAbonoCloud,
         eliminarAbono: eliminarAbonoCloud,
         guardarTransaccion: guardarTransaccionCloud,
