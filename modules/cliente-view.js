@@ -320,25 +320,20 @@ function renderizarCatalogoCliente() {
         prods = prods.filter(p => !esComboHelper(p));
     }
 
+    if (clienteFiltroCategoria === 'AGOTADOS' || clienteFiltroCategoria === 'STOCK_BAJO') {
+        clienteFiltroCategoria = 'TODAS';
+    }
+
     // Filtros de búsqueda y categorías
     if (clienteBusqueda) {
         const q = clienteBusqueda.toLowerCase();
         prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
     }
-    if (clienteFiltroCategoria === 'AGOTADOS') {
-        prods = prods.filter(p => Number(p.stock || 0) <= 0);
-    } else if (clienteFiltroCategoria === 'STOCK_BAJO') {
-        const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
-        prods = prods.filter(p => {
-            const s = Number(p.stock || 0);
-            return s > 0 && s <= umbralBajo;
-        });
-    } else {
-        // Por defecto los productos agotados no aparecen en el catálogo de clientes
-        prods = prods.filter(p => Number(p.stock || 0) > 0);
-        if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
-            prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
-        }
+    
+    // Para clientes, únicamente productos disponibles en inventario
+    prods = prods.filter(p => Number(p.stock || 0) > 0);
+    if (clienteFiltroCategoria && clienteFiltroCategoria !== 'TODAS' && clienteFiltroCategoria !== 'COMBOS') {
+        prods = prods.filter(p => (p.categoria || 'General').trim().toUpperCase() === clienteFiltroCategoria.trim().toUpperCase());
     }
 
     // Ordenamiento por Stock, Puntos y Alfabético
@@ -468,22 +463,6 @@ function renderizarCategoriasCatalogo() {
         </button>
     `;
 
-    const umbralBajoCli = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
-    const totalStockBajoCli = (AppState.productos || []).filter(p => {
-        const s = Number(p.stock || 0);
-        return s > 0 && s <= umbralBajoCli;
-    }).length;
-    const isStockBajoCliActive = clienteFiltroCategoria === 'STOCK_BAJO';
-    html += `
-        <button type="button" class="chip-filter ${isStockBajoCliActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('STOCK_BAJO')" 
-                style="${isStockBajoCliActive 
-                    ? 'background: #f59e0b !important; border-color: #d97706 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(245,158,11,0.35); font-weight: 800;' 
-                    : 'border-color: rgba(245, 158, 11, 0.45); color: #d97706; background: rgba(245, 158, 11, 0.08); font-weight: 700;'}"
-                title="Filtrar productos con existencia &le; ${umbralBajoCli}">
-            ⚠️ Stock &le; ${umbralBajoCli} (${totalStockBajoCli})
-        </button>
-    `;
-
     if (totalCombos > 0) {
         html += `
             <button type="button" class="chip-filter ${clienteFiltroCategoria === 'COMBOS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('COMBOS')" style="background: linear-gradient(135deg, rgba(234,88,12,0.18), rgba(245,158,11,0.22)); border-color: rgba(249,115,22,0.45); color: #ea580c; font-weight: 800;">
@@ -512,14 +491,6 @@ function renderizarCategoriasCatalogo() {
             </button>
         `;
     }).join('');
-
-    const totalAgotadosCli = (AppState.productos || []).filter(p => Number(p.stock || 0) <= 0).length;
-    const isAgotadosActive = clienteFiltroCategoria === 'AGOTADOS';
-    html += `
-        <button type="button" class="chip-filter ${isAgotadosActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('AGOTADOS')" style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; font-weight:800;' : 'border-color: rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}" title="Ver productos agotados">
-            🚫 Agotados (${totalAgotadosCli})
-        </button>
-    `;
 
     container.innerHTML = html;
     if (typeof inicializarScrollHorizontalInteractivo === 'function') {

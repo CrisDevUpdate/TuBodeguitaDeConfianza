@@ -212,42 +212,13 @@
             const esCombosActiva = (categoriaKioscoActiva === 'COMBOS');
             html += `
                 <button type="button" class="kiosco-cat-chip ${esCombosActiva ? 'active' : ''}" 
-                        onclick="window.KioscoModule.seleccionarCategoria('COMBOS')"
+                        onclick="window.KioscoModule.seleccionarCategoria('COMBOS')" 
                         style="${esCombosActiva ? '' : 'color:#ea580c; border-color:rgba(249,115,22,0.4); background:rgba(234,88,12,0.08);'}">
                     <i class="fas fa-fire"></i>
                     <span>Combos (${totalCombos})</span>
                 </button>
             `;
         }
-
-        // Chip dedicado para productos con Stock Bajo (Amarillo)
-        const umbralBajoKiosco = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
-        const totalStockBajoKiosco = productos.filter(p => {
-            const s = Number(p.stock || 0);
-            return s > 0 && s <= umbralBajoKiosco;
-        }).length;
-        const isStockBajoKioscoActive = (categoriaKioscoActiva === 'STOCK_BAJO');
-        html += `
-            <button type="button" class="kiosco-cat-chip chip-filter-stock-bajo ${isStockBajoKioscoActive ? 'active' : ''}" 
-                    onclick="window.KioscoModule.seleccionarCategoria('STOCK_BAJO')"
-                    style="${isStockBajoKioscoActive ? 'background: #f59e0b !important; border-color: #d97706 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(245,158,11,0.35); font-weight: 800;' : 'border-color: rgba(245, 158, 11, 0.45); color: #d97706; background: rgba(245, 158, 11, 0.08); font-weight: 700;'}"
-                    title="Ver productos con stock bajo (&le; ${umbralBajoKiosco})">
-                <i class="fas fa-triangle-exclamation"></i>
-                <span>Stock &le; ${umbralBajoKiosco} (${totalStockBajoKiosco})</span>
-            </button>
-        `;
-
-        // Chip dedicado para productos agotados (igual que en el punto de venta)
-        const isAgotadosActive = (categoriaKioscoActiva === 'AGOTADOS');
-        html += `
-            <button type="button" class="kiosco-cat-chip chip-filter-agotados ${isAgotadosActive ? 'active' : ''}" 
-                    onclick="window.KioscoModule.seleccionarCategoria('AGOTADOS')"
-                    style="${isAgotadosActive ? 'background: #ef4444 !important; border-color: #dc2626 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(239,68,68,0.35); font-weight: 800;' : 'border-color: rgba(239, 68, 68, 0.45); color: #ef4444; background: rgba(239, 68, 68, 0.08); font-weight: 700;'}"
-                    title="Ver productos actualmente agotados">
-                <i class="fas fa-ban"></i>
-                <span>🚫 Agotados (${totalAgotados})</span>
-            </button>
-        `;
 
         contenedor.innerHTML = html;
     }
