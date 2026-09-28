@@ -805,8 +805,12 @@ class TreeGamificationWidget {
             `_Por favor confirmar la entrega en el panel administrativo para entregar el premio e iniciar el nuevo ciclo del cliente._`
         );
 
-        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoBodega}&text=${msgWhatsApp}`;
-        window.open(urlWhatsApp, '_blank');
+        if (typeof abrirWhatsAppEnlace === 'function') {
+            abrirWhatsAppEnlace({ telefono: telefonoBodega, mensaje: decodeURIComponent(msgWhatsApp), app: 'normal' });
+        } else {
+            const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoBodega}&text=${msgWhatsApp}&app=normal`;
+            window.open(urlWhatsApp, '_blank');
+        }
 
         if (window.InventoryApp.Modal?.alert) {
             window.InventoryApp.Modal.alert(

@@ -978,28 +978,23 @@ function abrirWhatsAppComprobante(datosPedido = null) {
         : '584125363849';
 
     const textoPlano = generarMensajeWhatsApp(datosPedido);
-    let textoCodificado = '';
-    try {
-        const dec = decodeURIComponent(textoPlano);
-        textoCodificado = encodeURIComponent(dec);
-    } catch (e) {
-        textoCodificado = encodeURIComponent(textoPlano);
-    }
 
-    // Usar la URL oficial de la API de WhatsApp sin redirecciones propensas a errores 404
-    const url = `https://api.whatsapp.com/send?phone=${numeroWhatsApp}&text=${textoCodificado}`;
-
-    const nuevaVentana = window.open(url, '_blank');
-    if (!nuevaVentana || nuevaVentana.closed || typeof nuevaVentana.closed === 'undefined') {
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-            if (document.body.contains(a)) document.body.removeChild(a);
-        }, 300);
+    if (typeof abrirWhatsAppEnlace === 'function') {
+        abrirWhatsAppEnlace({ telefono: numeroWhatsApp, mensaje: textoPlano, app: 'normal' });
+    } else {
+        const url = `https://api.whatsapp.com/send?phone=${numeroWhatsApp}&text=${encodeURIComponent(textoPlano)}&app=normal`;
+        const nuevaVentana = window.open(url, '_blank');
+        if (!nuevaVentana || nuevaVentana.closed || typeof nuevaVentana.closed === 'undefined') {
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                if (document.body.contains(a)) document.body.removeChild(a);
+            }, 300);
+        }
     }
 }
 

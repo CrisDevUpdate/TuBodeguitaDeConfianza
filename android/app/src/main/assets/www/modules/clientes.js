@@ -1424,19 +1424,23 @@ function ejecutarEnvioInfoWhatsapp() {
     }
 
     const texto = generarTextoEstadoCuentaEnvio(ctx, true);
-    const urlWa = `https://wa.me/${phoneClean}?text=${encodeURIComponent(texto)}`;
 
     if (typeof showToast === 'function') {
         showToast('Abriendo WhatsApp para enviar información...', 'success');
     }
 
-    const link = document.createElement('a');
-    link.href = urlWa;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => link.remove(), 200);
+    if (typeof abrirWhatsAppEnlace === 'function') {
+        abrirWhatsAppEnlace({ telefono: phoneClean, mensaje: texto });
+    } else {
+        const urlWa = `https://wa.me/${phoneClean}?text=${encodeURIComponent(texto)}&app=normal`;
+        const link = document.createElement('a');
+        link.href = urlWa;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => link.remove(), 200);
+    }
 }
 window.ejecutarEnvioInfoWhatsapp = ejecutarEnvioInfoWhatsapp;
 
@@ -1606,8 +1610,12 @@ function enviarWhatsappCliente() {
         mensaje += `¡Muchas gracias por su confianza y lealtad con nosotros! 🎉`;
     }
 
-    const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, '_blank');
+    if (typeof abrirWhatsAppEnlace === 'function') {
+        abrirWhatsAppEnlace({ telefono: tel, mensaje });
+    } else {
+        const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}&app=normal`;
+        window.open(url, '_blank');
+    }
 }
 window.enviarWhatsappCliente = enviarWhatsappCliente;
 

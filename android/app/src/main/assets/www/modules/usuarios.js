@@ -251,10 +251,16 @@ function renderizarDetalleGatewallPendiente(usuario) {
     if (fechaEl) fechaEl.textContent = usuario.fechaRegistro || new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     if (waBtn) {
-        const msg = encodeURIComponent(`Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id}). Acabo de registrarme y solicito la aprobación de mi cuenta.`);
+        const msgTexto = `Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id}). Acabo de registrarme y solicito la aprobación de mi cuenta.`;
         const rawTel = (typeof AppState !== 'undefined' && AppState.telefonoWhatsApp) || '0412-5363849';
         const telAdmin = (typeof normalizarNumeroWhatsApp === 'function') ? normalizarNumeroWhatsApp(rawTel) : '584125363849';
-        waBtn.href = `https://api.whatsapp.com/send?phone=${telAdmin}&text=${msg}`;
+        waBtn.href = `https://api.whatsapp.com/send?phone=${telAdmin}&text=${encodeURIComponent(msgTexto)}&app=normal`;
+        waBtn.onclick = (e) => {
+            if (typeof abrirWhatsAppEnlace === 'function') {
+                e.preventDefault();
+                abrirWhatsAppEnlace({ telefono: telAdmin, mensaje: msgTexto, app: 'normal' });
+            }
+        };
     }
 }
 

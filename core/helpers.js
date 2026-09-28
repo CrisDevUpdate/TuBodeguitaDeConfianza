@@ -561,9 +561,114 @@ function fijarUmbralStockBajo(nuevoUmbral) {
 
 window.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
 window.fijarUmbralStockBajo = fijarUmbralStockBajo;
+
+function obtenerAppWhatsAppPreferida() {
+    try {
+        return localStorage.getItem('whatsapp_app_preferida') || 'normal';
+    } catch (_) {
+        return 'normal';
+    }
+}
+
+function fijarAppWhatsAppPreferida(pref) {
+    try {
+        localStorage.setItem('whatsapp_app_preferida', pref);
+    } catch (_) {}
+    return pref;
+}
+
+function abrirWhatsAppEnlace({ telefono, mensaje, app = null }) {
+    let tel = String(telefono || '').replace(/[^0-9]/g, '');
+    if (tel.startsWith('0')) {
+        tel = '58' + tel.substring(1);
+    } else if (tel.length === 10 && !tel.startsWith('58')) {
+        tel = '58' + tel;
+    }
+
+    const appPref = app || obtenerAppWhatsAppPreferida();
+
+    if (appPref === 'preguntar') {
+        mostrarModalSeleccionWhatsApp({ telefono: tel, mensaje });
+        return;
+    }
+
+    const textoCodificado = encodeURIComponent(mensaje || '');
+    // El parámetro &app=normal (o &app=business) permite a la app nativa y a los scripts enrutar al paquete correcto
+    const urlWeb = `https://wa.me/${tel}?text=${textoCodificado}&app=${appPref}`;
+
+    const link = document.createElement('a');
+    link.href = urlWeb;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => link.remove(), 300);
+}
+
+function mostrarModalSeleccionWhatsApp({ telefono, mensaje }) {
+    const modalId = 'modal-seleccion-whatsapp-dinamico';
+    let modal = document.getElementById(modalId);
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modal active';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
+
+    modal.innerHTML = `
+        <div style="background:var(--bg-card, #ffffff); border-radius:16px; width:100%; max-width:380px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.3); border:1px solid var(--border-light, #e2e8f0); text-align:center;">
+            <div style="font-size:2.5rem; margin-bottom:10px;">💬</div>
+            <h3 style="margin:0 0 8px 0; font-size:1.15rem; color:var(--text-main, #1e293b); font-weight:800;">¿Con cuál WhatsApp deseas enviar?</h3>
+            <p style="margin:0 0 18px 0; font-size:0.85rem; color:var(--text-muted, #64748b);">Selecciona la aplicación de WhatsApp que tiene tu número comercial registrado.</p>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" id="btn-wa-opt-normal" style="background:#25d366; color:#ffffff; border:none; border-radius:10px; padding:12px 16px; font-size:0.95rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 3px 8px rgba(37,211,102,0.3);">
+                    <i class="fab fa-whatsapp" style="font-size:1.2rem;"></i> WhatsApp Normal (Messenger)
+                </button>
+                <button type="button" id="btn-wa-opt-business" style="background:#128c7e; color:#ffffff; border:none; border-radius:10px; padding:12px 16px; font-size:0.95rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 3px 8px rgba(18,140,126,0.3);">
+                    <i class="fas fa-briefcase" style="font-size:1.1rem;"></i> WhatsApp Business
+                </button>
+            </div>
+
+            <div style="margin-top:14px; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <input type="checkbox" id="chk-recordar-wa-app" checked style="cursor:pointer; width:16px; height:16px;">
+                <label for="chk-recordar-wa-app" style="font-size:0.8rem; color:var(--text-muted, #64748b); cursor:pointer;">Recordar mi elección</label>
+            </div>
+
+            <button type="button" id="btn-wa-opt-cancel" style="margin-top:14px; background:none; border:none; color:var(--text-muted, #94a3b8); font-size:0.82rem; cursor:pointer; text-decoration:underline;">
+                Cancelar
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const ejecutarEleccion = (tipo) => {
+        const recordar = document.getElementById('chk-recordar-wa-app')?.checked;
+        if (recordar) {
+            fijarAppWhatsAppPreferida(tipo);
+        }
+        modal.remove();
+        abrirWhatsAppEnlace({ telefono, mensaje, app: tipo });
+    };
+
+    document.getElementById('btn-wa-opt-normal').onclick = () => ejecutarEleccion('normal');
+    document.getElementById('btn-wa-opt-business').onclick = () => ejecutarEleccion('business');
+    document.getElementById('btn-wa-opt-cancel').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+window.obtenerAppWhatsAppPreferida = obtenerAppWhatsAppPreferida;
+window.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
+window.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
+window.mostrarModalSeleccionWhatsApp = mostrarModalSeleccionWhatsApp;
+
 if (window.InventoryApp) {
     window.InventoryApp.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
     window.InventoryApp.fijarUmbralStockBajo = fijarUmbralStockBajo;
+    window.InventoryApp.obtenerAppWhatsAppPreferida = obtenerAppWhatsAppPreferida;
+    window.InventoryApp.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
+    window.InventoryApp.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
 }
 
 window.switchTab = switchTab;

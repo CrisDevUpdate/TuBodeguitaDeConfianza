@@ -437,8 +437,12 @@
             texto += ' Deseo realizar una consulta sobre mi estado de cuenta y datos personales.';
         }
 
-        const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`;
-        window.open(url, '_blank');
+        if (typeof abrirWhatsAppEnlace === 'function') {
+            abrirWhatsAppEnlace({ telefono: WHATSAPP_NUMERO, mensaje: texto, app: 'normal' });
+        } else {
+            const url = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}&app=normal`;
+            window.open(url, '_blank');
+        }
     }
 
     /**

@@ -484,8 +484,12 @@ function abrirWhatsAppMarketing(elementId) {
     const telefonoOficial = (typeof normalizarNumeroWhatsApp === 'function') 
         ? normalizarNumeroWhatsApp(rawTel) 
         : '584125363849';
-    const url = `https://api.whatsapp.com/send?phone=${telefonoOficial}&text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+    if (typeof abrirWhatsAppEnlace === 'function') {
+        abrirWhatsAppEnlace({ telefono: telefonoOficial, mensaje: texto });
+    } else {
+        const url = `https://api.whatsapp.com/send?phone=${telefonoOficial}&text=${encodeURIComponent(texto)}&app=normal`;
+        window.open(url, '_blank');
+    }
 }
 
 /**
@@ -1431,6 +1435,7 @@ function renderizarGestionWhatsAppAdmin() {
 
     const telActual = AppState.telefonoWhatsApp || '';
     const telLimpio = typeof normalizarNumeroWhatsApp === 'function' ? normalizarNumeroWhatsApp(telActual) : '';
+    const appActualWa = typeof obtenerAppWhatsAppPreferida === 'function' ? obtenerAppWhatsAppPreferida() : (localStorage.getItem('whatsapp_app_preferida') || 'normal');
 
     box.innerHTML = `
         <div class="card" style="margin-bottom:20px; border-left:4px solid #22c55e;">
@@ -1486,7 +1491,7 @@ function renderizarGestionWhatsAppAdmin() {
                     </button>
                     <a 
                         id="link-test-whatsapp-admin"
-                        href="https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent('¡Hola! Mensaje de prueba desde la configuración de Tu Bodeguita.')}" 
+                        href="https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent('¡Hola! Mensaje de prueba desde la configuración de Tu Bodeguita.')}&app=${appActualWa}" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         class="btn btn-outline" 
@@ -1497,6 +1502,33 @@ function renderizarGestionWhatsAppAdmin() {
                 </div>
             </form>
             <div id="msg-config-whatsapp-feedback" style="margin-top:10px; font-size:0.85rem;"></div>
+
+            <!-- Selector de Aplicación de WhatsApp (Normal vs Business) -->
+            <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light, #e2e8f0);">
+                <label style="font-weight:700; font-size:0.9rem; color:var(--text-main); display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                    <i class="fab fa-whatsapp" style="color:#22c55e; font-size:1.1rem;"></i> Aplicación de WhatsApp para Envíos y Notificaciones:
+                </label>
+                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                    <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.86rem; font-weight:700; padding:10px 14px; border-radius:10px; border:2px solid ${appActualWa === 'normal' ? '#22c55e' : 'var(--border-light, #cbd5e1)'}; background:${appActualWa === 'normal' ? '#f0fdf4' : 'var(--bg-card, #ffffff)'}; color:var(--text-main);">
+                        <input type="radio" name="config-whatsapp-app" value="normal" ${appActualWa === 'normal' ? 'checked' : ''} onchange="cambiarAppWhatsAppConfig('normal')">
+                        <span>💬 WhatsApp Normal (Messenger)</span>
+                        <span style="background:#dcfce7; color:#16a34a; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:800;">Recomendado</span>
+                    </label>
+
+                    <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.86rem; font-weight:700; padding:10px 14px; border-radius:10px; border:2px solid ${appActualWa === 'business' ? '#128c7e' : 'var(--border-light, #cbd5e1)'}; background:${appActualWa === 'business' ? '#f0fdfa' : 'var(--bg-card, #ffffff)'}; color:var(--text-main);">
+                        <input type="radio" name="config-whatsapp-app" value="business" ${appActualWa === 'business' ? 'checked' : ''} onchange="cambiarAppWhatsAppConfig('business')">
+                        <span>🏢 WhatsApp Business</span>
+                    </label>
+
+                    <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.86rem; font-weight:600; padding:10px 14px; border-radius:10px; border:2px solid ${appActualWa === 'preguntar' ? '#3b82f6' : 'var(--border-light, #cbd5e1)'}; background:${appActualWa === 'preguntar' ? '#eff6ff' : 'var(--bg-card, #ffffff)'}; color:var(--text-main);">
+                        <input type="radio" name="config-whatsapp-app" value="preguntar" ${appActualWa === 'preguntar' ? 'checked' : ''} onchange="cambiarAppWhatsAppConfig('preguntar')">
+                        <span>❓ Preguntar siempre</span>
+                    </label>
+                </div>
+                <small style="color:var(--text-muted); font-size:0.78rem; display:block; margin-top:8px; line-height:1.4;">
+                    Si tienes instaladas ambas versiones en tu teléfono, esta opción obliga a la app a enviar tus notificaciones y estados de cuenta desde <b>WhatsApp Normal</b> para evitar que Android se desvíe a WhatsApp Business.
+                </small>
+            </div>
         </div>
     `;
 }
@@ -1569,4 +1601,17 @@ function guardarUmbralStockConfig(val) {
     }
 }
 window.guardarUmbralStockConfig = guardarUmbralStockConfig;
+
+function cambiarAppWhatsAppConfig(val) {
+    if (typeof fijarAppWhatsAppPreferida === 'function') {
+        fijarAppWhatsAppPreferida(val);
+    } else {
+        try { localStorage.setItem('whatsapp_app_preferida', val); } catch (_) {}
+    }
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Preferencia guardada: ${val === 'normal' ? 'WhatsApp Normal' : (val === 'business' ? 'WhatsApp Business' : 'Preguntar siempre')}`, 'success');
+    }
+    renderizarGestionWhatsAppAdmin();
+}
+window.cambiarAppWhatsAppConfig = cambiarAppWhatsAppConfig;
 

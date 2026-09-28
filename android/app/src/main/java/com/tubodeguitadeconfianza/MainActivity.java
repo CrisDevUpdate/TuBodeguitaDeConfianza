@@ -205,7 +205,29 @@ public class MainActivity extends ComponentActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if (uri == null) return false;
+                String url = uri.toString();
                 String scheme = uri.getScheme();
+
+                if (scheme == null) return false;
+
+                // 1. Manejo específico de WhatsApp (wa.me, api.whatsapp.com, whatsapp://, intent://)
+                if (url.contains("wa.me") || url.contains("api.whatsapp.com") || "whatsapp".equalsIgnoreCase(scheme) || url.startsWith("intent:")) {
+                    return handleWhatsAppOrExternalUrl(url, uri);
+                }
+
+                // 2. Manejo de esquemas comunes (tel:, mailto:, sms:)
+                if ("tel".equalsIgnoreCase(scheme) || "mailto".equalsIgnoreCase(scheme) || "sms".equalsIgnoreCase(scheme)) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "Error abriendo esquema " + scheme, e);
+                        return true;
+                    }
+                }
+
                 return !("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme));
             }
 
@@ -228,6 +250,100 @@ public class MainActivity extends ComponentActivity {
                 }
             }
         });
+    }
+
+    /**
+     * Enruta enlaces de WhatsApp asegurando que abran la aplicación de WhatsApp Normal (com.whatsapp)
+     * por defecto, o según la preferencia elegida por el usuario.
+     */
+    private boolean handleWhatsAppOrExternalUrl(String url, Uri uri) {
+        try {
+            // Si viene con formato intent:// explícito
+            if (url.startsWith("intent:")) {
+                try {
+                    Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                    if (intent != null) {
+                        startActivity(intent);
+                        return true;
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Extraer teléfono y mensaje si vienen en wa.me, api.whatsapp.com o whatsapp://
+            String phone = null;
+            String text = null;
+
+            if (url.contains("wa.me/")) {
+                phone = uri.getPath();
+                if (phone != null && phone.startsWith("/")) {
+                    phone = phone.substring(1);
+                }
+                text = uri.getQueryParameter("text");
+            } else if (url.contains("api.whatsapp.com/send") || "whatsapp".equalsIgnoreCase(uri.getScheme())) {
+                phone = uri.getQueryParameter("phone");
+                text = uri.getQueryParameter("text");
+            }
+
+            // Verificar si el enlace trae parámetro para forzar la app específica
+            String targetAppParam = uri.getQueryParameter("app");
+            boolean forceBusiness = "business".equalsIgnoreCase(targetAppParam) || "com.whatsapp.w4b".equalsIgnoreCase(targetAppParam);
+            boolean forceChooser = "preguntar".equalsIgnoreCase(targetAppParam) || "chooser".equalsIgnoreCase(targetAppParam);
+
+            String preferredPackage = forceBusiness ? "com.whatsapp.w4b" : "com.whatsapp";
+
+            // Construir Intent directo a WhatsApp
+            Intent waIntent = new Intent(Intent.ACTION_VIEW);
+            StringBuilder sb = new StringBuilder("whatsapp://send");
+            boolean hasParam = false;
+            if (phone != null && !phone.isEmpty()) {
+                sb.append("?phone=").append(phone);
+                hasParam = true;
+            }
+            if (text != null && !text.isEmpty()) {
+                sb.append(hasParam ? "&text=" : "?text=").append(Uri.encode(text));
+            }
+            waIntent.setData(Uri.parse(sb.toString()));
+
+            if (forceChooser) {
+                Intent chooser = Intent.createChooser(waIntent, "Selecciona WhatsApp");
+                startActivity(chooser);
+                return true;
+            }
+
+            // Intentar primero con la aplicación seleccionada (por defecto WhatsApp Normal: com.whatsapp)
+            try {
+                getPackageManager().getPackageInfo(preferredPackage, 0);
+                waIntent.setPackage(preferredPackage);
+                startActivity(waIntent);
+                return true;
+            } catch (Exception notFound) {
+                // Si la preferida no está instalada, intentar con la alternativa
+                String altPackage = "com.whatsapp".equals(preferredPackage) ? "com.whatsapp.w4b" : "com.whatsapp";
+                try {
+                    getPackageManager().getPackageInfo(altPackage, 0);
+                    waIntent.setPackage(altPackage);
+                    startActivity(waIntent);
+                    return true;
+                } catch (Exception notFoundAlt) {
+                    // Si ninguna específica está instalada, abrir selector o navegador
+                    waIntent.setPackage(null);
+                    try {
+                        startActivity(Intent.createChooser(waIntent, "Enviar con"));
+                    } catch (Exception browserFallback) {
+                        Intent browser = new Intent(Intent.ACTION_VIEW, uri);
+                        startActivity(browser);
+                    }
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Error procesando WhatsApp URL: " + url, e);
+            try {
+                Intent browser = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(browser);
+            } catch (Exception ignored) {}
+            return true;
+        }
     }
 
     private View createSplashView() {
