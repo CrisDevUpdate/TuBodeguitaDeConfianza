@@ -73,6 +73,13 @@ function renderizarAuditoria(filtro = "") {
     const mobileList = document.getElementById('auditoria-mobile-list');
     if (!tbody && !mobileList) return;
 
+    if (typeof inicializarSesionConteoActual === 'function') {
+        inicializarSesionConteoActual();
+    }
+    if (typeof renderizarHistorialSesionesConteo === 'function') {
+        renderizarHistorialSesionesConteo();
+    }
+
     // Asegurar conteos de sesión
     if (Object.keys(conteosFisicos).length === 0) {
         cargarConteosSesion();
@@ -844,7 +851,7 @@ async function confirmarAjusteAuditoria() {
     }
 
     const usuarioNombre = AppState.usuarioActual?.nombre || AppState.usuarioActual?.id || 'SuperAdmin';
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const timestamp = typeof obtenerFechaSeleccionadaConteo === 'function' ? obtenerFechaSeleccionadaConteo() : new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     // Deja registro en el historial de auditoría con el motivo obligatorio
     const registroAuditoria = {
@@ -1013,7 +1020,7 @@ async function aplicarTodosLosAjustes() {
         const stockAnterior = Number(p.stock || 0);
 
         if (InventoryApp.StockService.ajuste(productoId, stockFisico)) {
-            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            const timestamp = typeof obtenerFechaSeleccionadaConteo === 'function' ? obtenerFechaSeleccionadaConteo() : new Date().toISOString().replace('T', ' ').substring(0, 16);
             const registroAuditoria = {
                 id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
                 fecha: timestamp,
@@ -1122,6 +1129,703 @@ window.reiniciarTomaInventario = reiniciarTomaInventario;
 window.cargarConteosSesion = cargarConteosSesion;
 window.guardarConteosSesion = guardarConteosSesion;
 
+// =========================================================================
+// --- GESTIÓN DE SESIONES Y TOMAS DE CONTEO FÍSICO CON FECHA SELECCIONABLE ---
+// =========================================================================
+
+const SESIONES_CONTEO_STORAGE_KEY = 'bodeguita_sesiones_conteo_v1';
+
+function obtenerSesionesConteo() {
+    if (!Array.isArray(AppState.sesionesConteo)) {
+        try {
+            const raw = localStorage.getItem(SESIONES_CONTEO_STORAGE_KEY);
+            AppState.sesionesConteo = raw ? JSON.parse(raw) : [];
+        } catch (_) {
+            AppState.sesionesConteo = [];
+        }
+    }
+    return AppState.sesionesConteo;
+}
+
+function guardarSesionesConteo(sesiones) {
+    AppState.sesionesConteo = sesiones || [];
+    try {
+        localStorage.setItem(SESIONES_CONTEO_STORAGE_KEY, JSON.stringify(AppState.sesionesConteo));
+    } catch (_) {}
+}
+
+function obtenerFechaSeleccionadaConteo() {
+    const el = document.getElementById('auditoria-session-fecha');
+    if (el && el.value) {
+        return el.value.replace('T', ' ');
+    }
+    return new Date().toISOString().replace('T', ' ').substring(0, 16);
+}
+
+function alCambiarFechaSesionConteo(val) {
+    if (!val) return;
+    if (typeof showCustomToast === 'function') {
+        const d = new Date(val);
+        const fStr = isNaN(d.getTime()) ? val : d.toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' });
+        showCustomToast(`Fecha del conteo fijada: ${fStr}`, 'info');
+    }
+}
+
+let sesionConteoIniciada = false;
+function inicializarSesionConteoActual() {
+    const inputFecha = document.getElementById('auditoria-session-fecha');
+    if (inputFecha && !inputFecha.value) {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now.getTime() - offset)).toISOString().slice(0, 16);
+        inputFecha.value = localISOTime;
+    }
+
+    const inputUser = document.getElementById('auditoria-session-usuario');
+    if (inputUser && !inputUser.value) {
+        inputUser.value = AppState.usuarioActual?.nombre || 'Administrador';
+    }
+
+    const badgeTotal = document.getElementById('badge-total-sesiones-conteo');
+    if (badgeTotal) {
+        const sesiones = obtenerSesionesConteo();
+        badgeTotal.textContent = sesiones.length;
+    }
+}
+
+/**
+ * Guarda y registra formalmente una sesión de conteo físico con su fecha,
+ * productos contados, detalle y balance de faltantes/sobrantes.
+ */
+async function guardarYRegistrarSesionConteo(autoAjustar = false) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const contadosIds = Object.keys(conteosFisicos).filter(id => {
+        const val = conteosFisicos[id];
+        return val !== '' && val !== null && val !== undefined;
+    });
+
+    if (contadosIds.length === 0) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Sin Productos Contados', 'Ingresa el conteo físico de al menos 1 producto en la tabla antes de guardar el registro.', 'warning');
+        } else {
+            alert('Ingresa el conteo físico de al menos 1 producto antes de guardar el registro.');
+        }
+        return;
+    }
+
+    const fechaSeleccionada = obtenerFechaSeleccionadaConteo();
+    const tituloInput = document.getElementById('auditoria-session-titulo')?.value?.trim();
+    const usuarioInput = document.getElementById('auditoria-session-usuario')?.value?.trim() || AppState.usuarioActual?.nombre || 'Administrador';
+
+    let conformes = 0;
+    let sobrantesProds = 0;
+    let sobrantesUnds = 0;
+    let faltantesProds = 0;
+    let faltantesUnds = 0;
+    let perdidaTotalUSD = 0;
+
+    const productosDetalle = [];
+
+    contadosIds.forEach(id => {
+        const p = prods.find(item => item.id === id);
+        if (!p) return;
+
+        const stockDigital = Number(p.stock || 0);
+        const stockFisico = Number(conteosFisicos[id]);
+        const diferencia = stockFisico - stockDigital;
+        const costo = Number(p.costo || 0);
+        const precio = Number(p.precio || 0);
+
+        let estado = 'CONFORME';
+        let perdidaUSD = 0;
+
+        if (diferencia > 0) {
+            estado = 'SOBRANTE';
+            sobrantesProds++;
+            sobrantesUnds += diferencia;
+        } else if (diferencia < 0) {
+            estado = 'FALTANTE';
+            faltantesProds++;
+            faltantesUnds += Math.abs(diferencia);
+            perdidaUSD = Math.abs(diferencia) * costo;
+            perdidaTotalUSD += perdidaUSD;
+        } else {
+            conformes++;
+        }
+
+        productosDetalle.push({
+            productoId: p.id,
+            codigo: p.codigo || p.id,
+            nombre: p.nombre,
+            categoria: p.categoria || 'General',
+            stockDigital: stockDigital,
+            stockFisico: stockFisico,
+            diferencia: diferencia,
+            estado: estado,
+            costo: costo,
+            precio: precio,
+            perdidaUSD: perdidaUSD
+        });
+    });
+
+    const tituloFinal = tituloInput || `Conteo de ${productosDetalle.length} productos`;
+    const nuevaSesion = {
+        id: `CONTEO-${Date.now()}`,
+        fecha: fechaSeleccionada,
+        titulo: tituloFinal,
+        usuario: usuarioInput,
+        totalContados: productosDetalle.length,
+        conformes: conformes,
+        sobrantesProductos: sobrantesProds,
+        sobrantesUnidades: sobrantesUnds,
+        faltantesProductos: faltantesProds,
+        faltantesUnidades: faltantesUnds,
+        perdidaTotalUSD: perdidaTotalUSD,
+        productos: productosDetalle,
+        ajustado: false,
+        fechaCreacion: new Date().toISOString()
+    };
+
+    const sesiones = obtenerSesionesConteo();
+    sesiones.unshift(nuevaSesion);
+    guardarSesionesConteo(sesiones);
+
+    // Sincronizar en la nube Firestore
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarSesionConteo === 'function') {
+        window.InventoryApp.Firebase.guardarSesionConteo(nuevaSesion).catch(err => {
+            console.warn('[Auditoría] Error sincronizando sesión en la nube:', err);
+        });
+    }
+
+    renderizarHistorialSesionesConteo();
+
+    const badgeTotal = document.getElementById('badge-total-sesiones-conteo');
+    if (badgeTotal) badgeTotal.textContent = sesiones.length;
+
+    const discrepancias = sobrantesProds + faltantesProds;
+    let mensajeConfirmacion = `
+        <div style="text-align:left; font-size:0.9rem; line-height:1.5;">
+            <p>Se ha guardado el registro del conteo <strong>"${tituloFinal}"</strong> con fecha <strong>${fechaSeleccionada}</strong>.</p>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0;">
+                <div>📦 <strong>Total contados:</strong> ${productosDetalle.length} productos</div>
+                <div style="color:#16a34a;">🟢 <strong>Conformes:</strong> ${conformes} productos</div>
+                <div style="color:#d97706;">🟡 <strong>Sobrantes:</strong> ${sobrantesProds} productos (+${sobrantesUnds} unds)</div>
+                <div style="color:#dc2626;">🔴 <strong>Faltantes:</strong> ${faltantesProds} productos (-${faltantesUnds} unds)</div>
+            </div>
+            ${discrepancias > 0 
+                ? '<p>¿Deseas aplicar los ajustes contables de inventario de este conteo ahora mismo?</p>'
+                : '<p style="color:#16a34a; font-weight:700;">¡Todos los productos contados coinciden exactamente con el sistema!</p>'
+            }
+        </div>
+    `;
+
+    if (discrepancias > 0 && !autoAjustar) {
+        let aplicarAhora = false;
+        if (typeof showCustomConfirm === 'function') {
+            aplicarAhora = await showCustomConfirm('Conteo Registrado con Éxito', mensajeConfirmacion, 'question');
+        } else {
+            aplicarAhora = confirm(`Conteo registrado con éxito. ¿Deseas aplicar los ajustes contables ahora?`);
+        }
+
+        if (aplicarAhora) {
+            nuevaSesion.ajustado = true;
+            guardarSesionesConteo(sesiones);
+            await aplicarTodosLosAjustes();
+            renderizarHistorialSesionesConteo();
+            return;
+        }
+    } else if (autoAjustar) {
+        nuevaSesion.ajustado = true;
+        guardarSesionesConteo(sesiones);
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Registro de conteo guardado: ${productosDetalle.length} productos auditados`, 'success');
+    }
+}
+
+/**
+ * Renderiza la lista/tarjetas de sesiones de conteo tanto en el dashboard como en el modal
+ */
+function renderizarHistorialSesionesConteo() {
+    const contenedorDashboard = document.getElementById('auditoria-sesiones-lista');
+    const contenedorModal = document.getElementById('modal-sesiones-conteo-lista-body');
+    const badgeTotal = document.getElementById('badge-total-sesiones-conteo');
+
+    const sesiones = obtenerSesionesConteo();
+    if (badgeTotal) badgeTotal.textContent = sesiones.length;
+
+    if (!contenedorDashboard && !contenedorModal) return;
+
+    if (sesiones.length === 0) {
+        const vacioHtml = `
+            <div style="text-align:center; padding:32px 16px; color:var(--text-muted); background:var(--bg-card, #ffffff); border-radius:12px; border:1px dashed var(--border-light, #e2e8f0);">
+                <i class="fas fa-boxes-stacked" style="font-size:2.2rem; color:#94a3b8; margin-bottom:10px; opacity:0.6;"></i>
+                <div style="font-weight:700; font-size:1rem; margin-bottom:4px; color:var(--text-main);">No hay tomas de inventario registradas aún</div>
+                <p style="font-size:0.84rem; margin:0 auto; max-width:440px;">
+                    Cuando cuentes tus productos, presiona el botón <strong>"Guardar Registro de este Conteo"</strong> arriba para archivar el informe de ese día con su balance de faltantes y sobrantes.
+                </p>
+            </div>
+        `;
+        if (contenedorDashboard) contenedorDashboard.innerHTML = vacioHtml;
+        if (contenedorModal) contenedorModal.innerHTML = vacioHtml;
+        return;
+    }
+
+    const cardsHtml = sesiones.map(s => {
+        const fechaFormateada = s.fecha || 'Fecha no registrada';
+        const estadoAjusteHtml = s.ajustado 
+            ? `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.75rem; padding:3px 8px; border-radius:6px; font-weight:800;"><i class="fas fa-check-double"></i> Ajustes Aplicados</span>`
+            : `<span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.75rem; padding:3px 8px; border-radius:6px; font-weight:800;"><i class="fas fa-hourglass-half"></i> Pendiente de Ajuste</span>`;
+
+        return `
+            <div class="card" style="margin-bottom:12px; border:1px solid var(--border-light, #e2e8f0); border-radius:12px; padding:16px; background:var(--bg-card, #ffffff); box-shadow:0 1px 4px rgba(0,0,0,0.03); transition:transform 0.15s ease, box-shadow 0.15s ease;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <strong style="font-size:1rem; color:var(--text-main);">${s.titulo || 'Conteo de inventario'}</strong>
+                            ${estadoAjusteHtml}
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--text-muted); display:flex; align-items:center; gap:12px; margin-top:4px; flex-wrap:wrap;">
+                            <span><i class="fas fa-calendar-day" style="color:#2563eb;"></i> <strong>Fecha:</strong> ${fechaFormateada}</span>
+                            <span><i class="fas fa-user" style="color:#64748b;"></i> <strong>Auditor:</strong> ${s.usuario || 'Administrador'}</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="verDetalleSesionConteo('${s.id}')" style="font-weight:700; font-size:0.82rem;" title="Ver lista de productos contados">
+                            <i class="fas fa-eye" style="color:#2563eb;"></i> Ver Detalle
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="imprimirActaSesionConteo('${s.id}')" style="font-weight:700; font-size:0.82rem;" title="Imprimir informe oficial">
+                            <i class="fas fa-print"></i> Imprimir Acta
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="cargarSesionConteoEnMesa('${s.id}')" style="font-weight:700; font-size:0.82rem; color:#0284c7; border-color:#bae6fd;" title="Cargar estos conteos en la tabla para seguir trabajando">
+                            <i class="fas fa-rotate"></i> Cargar Conteo
+                        </button>
+                        <button type="button" class="btn btn-sm" onclick="eliminarSesionConteo('${s.id}')" style="background:none; border:none; color:#ef4444; padding:4px 8px; cursor:pointer;" title="Eliminar registro">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Métricas Resumen del Conteo -->
+                <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-top:10px; border-top:1px dashed var(--border-light, #f1f5f9); font-size:0.82rem;">
+                    <span style="background:#f1f5f9; color:#334155; padding:3px 10px; border-radius:6px; font-weight:700;">
+                        📦 <strong>${s.totalContados}</strong> contados
+                    </span>
+                    <span style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; padding:3px 10px; border-radius:6px; font-weight:700;">
+                        🟢 <strong>${s.conformes}</strong> conformes
+                    </span>
+                    ${s.sobrantesProductos > 0 ? `
+                        <span style="background:#fffbeb; color:#92400e; border:1px solid #fde68a; padding:3px 10px; border-radius:6px; font-weight:700;">
+                            🟡 <strong>+${s.sobrantesUnidades}</strong> sobrantes (${s.sobrantesProductos} prods)
+                        </span>
+                    ` : ''}
+                    ${s.faltantesProductos > 0 ? `
+                        <span style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:3px 10px; border-radius:6px; font-weight:700;">
+                            🔴 <strong>-${s.faltantesUnidades}</strong> faltantes (${s.faltantesProductos} prods)
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (contenedorDashboard) {
+        // En el dashboard mostramos las últimas 5 sesiones para no saturar la vista
+        const primeras5 = sesiones.slice(0, 5);
+        let previewHtml = cardsHtml;
+        if (sesiones.length > 5) {
+            previewHtml = primeras5.map(s => {
+                const sItem = sesiones.find(x => x.id === s.id) || s;
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--border-light, #f1f5f9); gap:10px; flex-wrap:wrap;">
+                        <div>
+                            <strong style="font-size:0.92rem; color:var(--text-main);">${s.titulo}</strong>
+                            <div style="font-size:0.78rem; color:var(--text-muted); display:flex; gap:10px;">
+                                <span>📅 ${s.fecha}</span>
+                                <span>👤 ${s.usuario}</span>
+                                <span>📦 ${s.totalContados} contados</span>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="verDetalleSesionConteo('${s.id}')">
+                                <i class="fas fa-eye"></i> Detalle
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="imprimirActaSesionConteo('${s.id}')">
+                                <i class="fas fa-print"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            previewHtml += `
+                <div style="text-align:center; padding-top:12px;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalHistorialSesionesConteo()" style="font-weight:700;">
+                        Ver los ${sesiones.length} conteos completos...
+                    </button>
+                </div>
+            `;
+        }
+        contenedorDashboard.innerHTML = previewHtml;
+    }
+
+    if (contenedorModal) {
+        contenedorModal.innerHTML = cardsHtml;
+    }
+}
+
+function abrirModalHistorialSesionesConteo() {
+    renderizarHistorialSesionesConteo();
+    const modal = document.getElementById('modal-historial-sesiones-conteo');
+    if (modal) modal.style.display = 'flex';
+}
+
+function cerrarModalHistorialSesionesConteo() {
+    const modal = document.getElementById('modal-historial-sesiones-conteo');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Muestra el detalle producto por producto de una sesión de conteo guardada
+ */
+function verDetalleSesionConteo(sesionId) {
+    const sesiones = obtenerSesionesConteo();
+    const s = sesiones.find(x => x.id === sesionId);
+    if (!s) return;
+
+    const modal = document.getElementById('modal-detalle-sesion-conteo');
+    if (!modal) return;
+
+    const titEl = document.getElementById('detalle-sesion-titulo-hdr');
+    if (titEl) {
+        titEl.innerHTML = `<i class="fas fa-clipboard-check" style="color:#2563eb;"></i> ${s.titulo || 'Detalle del Conteo'}`;
+    }
+
+    const subEl = document.getElementById('detalle-sesion-subtitulo-hdr');
+    if (subEl) {
+        subEl.textContent = `Fecha: ${s.fecha} · Responsable: ${s.usuario || 'Administrador'} · ${s.totalContados} productos registrados`;
+    }
+
+    const bodyEl = document.getElementById('detalle-sesion-body-content');
+    if (bodyEl) {
+        const productosRows = (s.productos || []).map(p => {
+            const dif = Number(p.diferencia || 0);
+            let difBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-weight:700;">0 (Exacto)</span>`;
+            if (dif > 0) {
+                difBadge = `<span class="badge" style="background:#fef3c7; color:#92400e; font-weight:800; border:1px solid #fde68a;">+${dif} (Sobrante)</span>`;
+            } else if (dif < 0) {
+                difBadge = `<span class="badge" style="background:#fee2e2; color:#dc2626; font-weight:800; border:1px solid #fca5a5;">${dif} (Faltante)</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><code>${p.codigo || p.productoId}</code></td>
+                    <td>
+                        <strong style="color:var(--text-main);">${p.nombre}</strong>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${p.categoria || 'General'}</div>
+                    </td>
+                    <td class="text-center" style="font-weight:600;">${p.stockDigital}</td>
+                    <td class="text-center" style="font-weight:700; color:#2563eb;">${p.stockFisico}</td>
+                    <td class="text-center">${difBadge}</td>
+                    <td class="text-right" style="font-weight:600;">
+                        ${p.perdidaUSD > 0 ? `<span style="color:#dc2626;">-$${p.perdidaUSD.toFixed(2)}</span>` : '<span style="color:var(--text-muted);">$0.00</span>'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        bodyEl.innerHTML = `
+            <!-- Strip resumen del resultado -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:16px;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px; text-align:center;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); display:block;">Total Contados</span>
+                    <strong style="font-size:1.2rem; color:#2563eb;">${s.totalContados}</strong>
+                </div>
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px; text-align:center;">
+                    <span style="font-size:0.75rem; color:#15803d; display:block;">Conformes</span>
+                    <strong style="font-size:1.2rem; color:#15803d;">${s.conformes}</strong>
+                </div>
+                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px; text-align:center;">
+                    <span style="font-size:0.75rem; color:#92400e; display:block;">Sobrantes</span>
+                    <strong style="font-size:1.2rem; color:#92400e;">+${s.sobrantesUnidades || 0}</strong>
+                </div>
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px; text-align:center;">
+                    <span style="font-size:0.75rem; color:#b91c1c; display:block;">Faltantes</span>
+                    <strong style="font-size:1.2rem; color:#b91c1c;">-${s.faltantesUnidades || 0}</strong>
+                </div>
+            </div>
+
+            <!-- Tabla detallada -->
+            <div style="max-height:55vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+                <table class="table" style="width:100%; margin:0; font-size:0.86rem;">
+                    <thead style="position:sticky; top:0; background:#f8fafc; border-bottom:1px solid #e2e8f0; z-index:2;">
+                        <tr>
+                            <th style="width:110px;">Código</th>
+                            <th>Producto</th>
+                            <th class="text-center" style="width:110px;">Stock Teórico</th>
+                            <th class="text-center" style="width:110px;">Stock Físico</th>
+                            <th class="text-center" style="width:130px;">Diferencia</th>
+                            <th class="text-right" style="width:100px;">Impacto ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${productosRows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    const btnImp = document.getElementById('btn-imprimir-acta-detalle');
+    if (btnImp) {
+        btnImp.onclick = () => imprimirActaSesionConteo(sesionId);
+    }
+
+    const footerLeft = document.getElementById('detalle-sesion-footer-left');
+    if (footerLeft) {
+        if (!s.ajustado) {
+            footerLeft.innerHTML = `
+                <button type="button" class="btn btn-warning" onclick="aplicarAjustesDesdeSesion('${s.id}')" style="font-weight:700; font-size:0.85rem;">
+                    <i class="fas fa-rotate"></i> Aplicar Ajustes Contables de este Conteo
+                </button>
+            `;
+        } else {
+            footerLeft.innerHTML = `
+                <span style="font-size:0.82rem; color:#15803d; font-weight:700;">
+                    <i class="fas fa-check-circle"></i> Los ajustes contables ya fueron aplicados a este inventario.
+                </span>
+            `;
+        }
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalDetalleSesionConteo() {
+    const modal = document.getElementById('modal-detalle-sesion-conteo');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Carga los conteos físicos de una sesión específica en la mesa de trabajo activa
+ */
+function cargarSesionConteoEnMesa(sesionId) {
+    const sesiones = obtenerSesionesConteo();
+    const s = sesiones.find(x => x.id === sesionId);
+    if (!s) return;
+
+    if (!Array.isArray(s.productos) || s.productos.length === 0) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast('La sesión seleccionada no contiene productos para cargar.', 'warning');
+        }
+        return;
+    }
+
+    s.productos.forEach(item => {
+        conteosFisicos[item.productoId] = Number(item.stockFisico);
+    });
+
+    guardarConteosSesion();
+
+    const inputFecha = document.getElementById('auditoria-session-fecha');
+    if (inputFecha && s.fecha) {
+        try {
+            inputFecha.value = s.fecha.replace(' ', 'T').slice(0, 16);
+        } catch (_) {}
+    }
+
+    const inputTitulo = document.getElementById('auditoria-session-titulo');
+    if (inputTitulo) inputTitulo.value = s.titulo || '';
+
+    const inputUsuario = document.getElementById('auditoria-session-usuario');
+    if (inputUsuario) inputUsuario.value = s.usuario || '';
+
+    renderizarAuditoria();
+    cerrarModalHistorialSesionesConteo();
+    cerrarModalDetalleSesionConteo();
+
+    // Scroll hacia la tabla
+    const tabla = document.querySelector('.audit-table-card');
+    if (tabla) {
+        tabla.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Se cargaron los ${s.productos.length} productos del conteo "${s.titulo}" en la mesa de trabajo.`, 'success');
+    }
+}
+
+/**
+ * Genera un acta oficial de conteo físico para imprimir
+ */
+function imprimirActaSesionConteo(sesionId) {
+    const sesiones = obtenerSesionesConteo();
+    const s = sesiones.find(x => x.id === sesionId);
+    if (!s) return;
+
+    const nombreBodega = AppState.config?.nombreComercial || 'Tu Bodeguita de Confianza';
+    const fechaHora = s.fecha || new Date().toLocaleString('es-VE');
+    const auditor = s.usuario || 'Administrador';
+
+    const filasHtml = (s.productos || []).map((p, idx) => {
+        const dif = Number(p.diferencia || 0);
+        const difTexto = dif > 0 ? `+${dif}` : (dif < 0 ? `${dif}` : '0');
+        const colorDif = dif > 0 ? '#b45309' : (dif < 0 ? '#b91c1c' : '#15803d');
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+                <td style="padding: 6px 8px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 6px 8px;"><strong>${p.codigo || ''}</strong></td>
+                <td style="padding: 6px 8px;">${p.nombre}</td>
+                <td style="padding: 6px 8px; text-align: center;">${p.stockDigital}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold;">${p.stockFisico}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: ${colorDif};">${difTexto}</td>
+                <td style="padding: 6px 8px; text-align: center;">${p.estado}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const ventanaPrint = window.open('', '_blank', 'width=800,height=900');
+    if (!ventanaPrint) {
+        alert('Por favor habilita las ventanas emergentes para imprimir el acta de conteo.');
+        return;
+    }
+
+    ventanaPrint.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Acta Oficial de Conteo Físico - ${s.titulo}</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; padding: 24px; margin: 0; }
+                h1, h2, h3, p { margin: 0 0 6px 0; }
+                .header-acta { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+                .kpi-box { display: inline-block; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 14px; margin-right: 8px; font-size: 12px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+                th { background: #f1f5f9; padding: 8px; font-size: 11px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+                .firmas { margin-top: 50px; display: flex; justify-content: space-around; text-align: center; }
+                .firma-linea { border-top: 1px solid #334155; width: 220px; padding-top: 6px; font-size: 12px; font-weight: bold; }
+                @media print { body { padding: 10px; } }
+            </style>
+        </head>
+        <body>
+            <div class="header-acta">
+                <div>
+                    <h2>${nombreBodega}</h2>
+                    <h3 style="color:#2563eb; font-size:16px;">ACTA OFICIAL DE TOMA DE INVENTARIO FÍSICO</h3>
+                    <p style="font-size:12px; color:#64748b;">Referencia: <strong>${s.titulo}</strong></p>
+                </div>
+                <div style="text-align: right; font-size: 12px;">
+                    <p><strong>Fecha del Conteo:</strong> ${fechaHora}</p>
+                    <p><strong>Auditor / Responsable:</strong> ${auditor}</p>
+                    <p><strong>Estado:</strong> ${s.ajustado ? 'Ajustes Aplicados en Sistema' : 'Registro de Conteo Físico'}</p>
+                </div>
+            </div>
+
+            <div>
+                <div class="kpi-box">Total Contados: <strong>${s.totalContados}</strong></div>
+                <div class="kpi-box">Conformes: <strong style="color:#15803d;">${s.conformes}</strong></div>
+                <div class="kpi-box">Sobrantes: <strong style="color:#b45309;">+${s.sobrantesUnidades || 0}</strong></div>
+                <div class="kpi-box">Faltantes: <strong style="color:#b91c1c;">-${s.faltantesUnidades || 0}</strong></div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30px; text-align: center;">#</th>
+                        <th style="width: 90px;">Código</th>
+                        <th>Producto</th>
+                        <th style="width: 80px; text-align: center;">Stock Digital</th>
+                        <th style="width: 80px; text-align: center;">Stock Físico</th>
+                        <th style="width: 80px; text-align: center;">Diferencia</th>
+                        <th style="width: 90px; text-align: center;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filasHtml}
+                </tbody>
+            </table>
+
+            <div class="firmas">
+                <div>
+                    <div class="firma-linea">Firma del Auditor / Responsable<br><small style="font-weight:normal; font-size:10px;">${auditor}</small></div>
+                </div>
+                <div>
+                    <div class="firma-linea">Firma del Gerente / Administrador<br><small style="font-weight:normal; font-size:10px;">Conforme y Aprobado</small></div>
+                </div>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    window.print();
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    ventanaPrint.document.close();
+}
+
+/**
+ * Elimina un registro de sesión de conteo con confirmación
+ */
+async function eliminarSesionConteo(sesionId) {
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Eliminar Registro', '¿Seguro que deseas eliminar este registro de conteo físico? Esta acción no altera el inventario actual.', 'warning');
+    } else {
+        confirmado = confirm('¿Eliminar este registro de conteo físico?');
+    }
+
+    if (!confirmado) return;
+
+    let sesiones = obtenerSesionesConteo();
+    sesiones = sesiones.filter(s => s.id !== sesionId);
+    guardarSesionesConteo(sesiones);
+
+    renderizarHistorialSesionesConteo();
+    cerrarModalDetalleSesionConteo();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast('Registro de conteo eliminado.', 'info');
+    }
+}
+
+/**
+ * Aplica los ajustes contables directamente desde una sesión previamente guardada
+ */
+async function aplicarAjustesDesdeSesion(sesionId) {
+    const sesiones = obtenerSesionesConteo();
+    const s = sesiones.find(x => x.id === sesionId);
+    if (!s) return;
+
+    // Cargar los productos de la sesión a la mesa y ejecutar el ajuste masivo
+    cargarSesionConteoEnMesa(sesionId);
+    s.ajustado = true;
+    guardarSesionesConteo(sesiones);
+
+    await aplicarTodosLosAjustes();
+    verDetalleSesionConteo(sesionId);
+}
+
+// Exponer en window para llamadas inline HTML
+window.obtenerSesionesConteo = obtenerSesionesConteo;
+window.guardarSesionesConteo = guardarSesionesConteo;
+window.obtenerFechaSeleccionadaConteo = obtenerFechaSeleccionadaConteo;
+window.alCambiarFechaSesionConteo = alCambiarFechaSesionConteo;
+window.inicializarSesionConteoActual = inicializarSesionConteoActual;
+window.guardarYRegistrarSesionConteo = guardarYRegistrarSesionConteo;
+window.renderizarHistorialSesionesConteo = renderizarHistorialSesionesConteo;
+window.abrirModalHistorialSesionesConteo = abrirModalHistorialSesionesConteo;
+window.cerrarModalHistorialSesionesConteo = cerrarModalHistorialSesionesConteo;
+window.verDetalleSesionConteo = verDetalleSesionConteo;
+window.cerrarModalDetalleSesionConteo = cerrarModalDetalleSesionConteo;
+window.imprimirActaSesionConteo = imprimirActaSesionConteo;
+window.cargarSesionConteoEnMesa = cargarSesionConteoEnMesa;
+window.eliminarSesionConteo = eliminarSesionConteo;
+window.aplicarAjustesDesdeSesion = aplicarAjustesDesdeSesion;
+
 // Calcula la pérdida pendiente real, compensando faltantes con sobrantes/reposiciones
 // posteriores del mismo producto. Se procesa en orden cronológico y cada sobrante
 // reduce primero los faltantes pendientes (FIFO), para que una corrección sí quite la deuda.
+

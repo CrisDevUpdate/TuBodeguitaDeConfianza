@@ -375,6 +375,7 @@ window.InventoryApp = window.InventoryApp || {};
         ABONOS: 'abonos',
         TRANSACCIONES: 'transacciones',
         AUDITORIAS: 'auditorias',
+        SESIONES_CONTEO: 'sesiones_conteo',
         ELIMINACIONES: 'eliminaciones',
         CLIENTES_ELIMINADOS: 'clientesEliminados',
         USUARIOS: 'usuarios',
@@ -2772,6 +2773,32 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Guardar Sesión de Conteo / Toma de Inventario en Firestore
+     */
+    async function guardarSesionConteoCloud(sesion) {
+        if (!sesion) return false;
+        try {
+            if (window.InventoryApp && window.InventoryApp.Persistence) {
+                window.InventoryApp.Persistence.guardar(true);
+            }
+            if (db) {
+                const sid = sesion.id || `CONTEO-${Date.now()}`;
+                const ref = db.collection(COLLECTIONS.SESIONES_CONTEO).doc(String(sid));
+                const payload = sanitizarObjetoParaFirestore({
+                    ...sesion,
+                    id: sid,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }) || {};
+                await ref.set(payload, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error guardando sesión de conteo:', e);
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Registrar Factura de Compra y Actualización de Costos en Firestore
      */
     async function guardarFacturaCompraCloud(registroFactura, itemsKardex = []) {
@@ -3552,6 +3579,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarPagoPorVerificar: guardarPagoPorVerificarCloud,
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,
+        guardarSesionConteo: guardarSesionConteoCloud,
         guardarFacturaCompra: guardarFacturaCompraCloud,
         guardarProveedor: guardarProveedorCloud,
         eliminarProveedor: eliminarProveedorCloud,
