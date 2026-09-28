@@ -315,19 +315,26 @@
     }
 
     /**
-     * Verifica si el usuario ya aceptó los términos previamente en localStorage
+     * Verifica si el usuario ya aceptó los términos previamente en localStorage o en su perfil
      */
     function verificarBannerPrimeraVisita() {
         try {
             const aceptado = localStorage.getItem(STORAGE_KEY_TERMINOS);
-            if (!aceptado) {
-                setTimeout(() => {
-                    const banner = document.getElementById('banner-terminos-privacidad');
-                    if (banner) {
-                        banner.classList.add('visible');
-                    }
-                }, 1200);
+            const usuario = window.AppState?.usuarioActual;
+            if (aceptado === 'true' || (usuario && usuario.terminosAceptados === true)) {
+                return;
             }
+            setTimeout(() => {
+                const recheckAceptado = localStorage.getItem(STORAGE_KEY_TERMINOS);
+                const recheckUsuario = window.AppState?.usuarioActual;
+                if (recheckAceptado === 'true' || (recheckUsuario && recheckUsuario.terminosAceptados === true)) {
+                    return;
+                }
+                const banner = document.getElementById('banner-terminos-privacidad');
+                if (banner) {
+                    banner.classList.add('visible');
+                }
+            }, 1200);
         } catch (e) {
             console.warn('Error al verificar almacenamiento de términos:', e);
         }
@@ -387,6 +394,16 @@
         try {
             localStorage.setItem(STORAGE_KEY_TERMINOS, 'true');
             localStorage.setItem(STORAGE_KEY_TERMINOS + '_timestamp', new Date().toISOString());
+
+            if (window.AppState?.usuarioActual) {
+                window.AppState.usuarioActual.terminosAceptados = true;
+                if (window.InventoryApp?.Persistence?.guardar) {
+                    window.InventoryApp.Persistence.guardar(true);
+                }
+                if (window.InventoryApp?.Firebase?.guardarUsuario) {
+                    window.InventoryApp.Firebase.guardarUsuario(window.AppState.usuarioActual).catch(() => {});
+                }
+            }
         } catch (e) {
             console.warn('No se pudo guardar la aceptación de términos en localStorage:', e);
         }

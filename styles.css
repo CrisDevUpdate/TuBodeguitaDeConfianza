@@ -4658,8 +4658,11 @@ header.bodeguita-main-header .widget-user-rate-box {
 header.bodeguita-main-header .user-session-badge {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 header.bodeguita-main-header .user-avatar-mini {
@@ -4673,18 +4676,24 @@ header.bodeguita-main-header .user-avatar-mini {
     justify-content: center;
     font-size: 0.9rem;
     box-shadow: 0 0 8px rgba(0, 136, 255, 0.4);
+    flex-shrink: 0;
 }
 
 header.bodeguita-main-header .user-info-mini {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 header.bodeguita-main-header .user-name-txt {
     font-size: 0.82rem;
     font-weight: 700;
     color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 header.bodeguita-main-header .badge-status-pill {
@@ -4709,6 +4718,7 @@ header.bodeguita-main-header .btn-icon-tasa {
     justify-content: center;
     cursor: pointer;
     font-size: 0.8rem;
+    flex-shrink: 0;
     transition: all 0.2s ease;
 }
 
