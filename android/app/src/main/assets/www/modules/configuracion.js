@@ -181,6 +181,28 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
             </div>
         ` : ''}
 
+        <!-- AJUSTES DE STOCK: ALERTA DE STOCK BAJO (INDICADOR AMARILLO) -->
+        <div class="card" style="margin-bottom:20px; border-left:4px solid #f59e0b;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-triangle-exclamation" style="color:#d97706;"></i> Umbral de Alerta de Stock Bajo (Indicador Amarillo)
+                    </h3>
+                    <p style="margin:4px 0 0 0; font-size:0.84rem; color:var(--text-muted); line-height:1.45;">
+                        Define la cantidad máxima para que un producto se marque en <span style="background:#fef3c7; color:#d97706; padding:1px 6px; border-radius:4px; font-weight:700;">Amarillo</span> en el POS, Inventario y Catálogos.
+                    </p>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">Alerta si Stock &le;</span>
+                    <input type="number" id="config-umbral-stock-input" value="${typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5}" min="0" max="999" step="1" 
+                           oninput="guardarUmbralStockConfig(this.value)" 
+                           style="width:75px; text-align:center; padding:6px 10px; font-size:1.05rem; font-weight:800; border:2px solid #f59e0b; border-radius:8px; background:var(--card-bg, #ffffff); color:var(--text-main, #1e293b);" 
+                           title="Ingresa la cantidad umbral">
+                    <span style="font-size:0.85rem; font-weight:700; color:#d97706;">unidades</span>
+                </div>
+            </div>
+        </div>
+
         <!-- GESTIÓN EXCLUSIVA: RESPALDOS Y EXPORTACIÓN INTEGRAL DE DATOS -->
         <div class="card" style="margin-bottom:20px; border-top: 4px solid #16a34a;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
@@ -1534,4 +1556,17 @@ window.guardarCuentaBancariaAdmin = guardarCuentaBancariaAdmin;
 window.toggleActivarCuentaBancaria = toggleActivarCuentaBancaria;
 window.eliminarCuentaBancaria = eliminarCuentaBancaria;
 window.copiarCoordenadasCuenta = copiarCoordenadasCuenta;
+
+function guardarUmbralStockConfig(val) {
+    if (typeof fijarUmbralStockBajo === 'function') {
+        const nuevo = fijarUmbralStockBajo(val);
+        const invInput = document.getElementById('inv-stock-cantidad-input');
+        if (invInput) invInput.value = nuevo;
+
+        if (typeof renderizarCatalogoPOS === 'function') renderizarCatalogoPOS();
+        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+        if (typeof renderizarInventario === 'function') renderizarInventario();
+    }
+}
+window.guardarUmbralStockConfig = guardarUmbralStockConfig;
 

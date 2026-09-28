@@ -327,6 +327,12 @@ function renderizarCatalogoCliente() {
     }
     if (clienteFiltroCategoria === 'AGOTADOS') {
         prods = prods.filter(p => Number(p.stock || 0) <= 0);
+    } else if (clienteFiltroCategoria === 'STOCK_BAJO') {
+        const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+        prods = prods.filter(p => {
+            const s = Number(p.stock || 0);
+            return s > 0 && s <= umbralBajo;
+        });
     } else {
         // Por defecto los productos agotados no aparecen en el catálogo de clientes
         prods = prods.filter(p => Number(p.stock || 0) > 0);
@@ -382,9 +388,10 @@ function renderizarCatalogoCliente() {
                 ? Number(p.puntos) 
                 : (precioUSD > 0 ? Math.max(1, Math.floor(precioUSD * ptsPorDolar)) : 0));
 
+        const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
         const stockBadgeClass = agotado 
             ? 'badge-stock-tag stock-agotado' 
-            : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
+            : (stock > 0 && stock <= umbralBajo ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
 
         return `
             <div class="cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="cli-card-${p.id}"
@@ -458,6 +465,22 @@ function renderizarCategoriasCatalogo() {
     let html = `
         <button type="button" class="chip-filter ${clienteFiltroCategoria === 'TODAS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('TODAS')">
             🌟 Todas
+        </button>
+    `;
+
+    const umbralBajoCli = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+    const totalStockBajoCli = (AppState.productos || []).filter(p => {
+        const s = Number(p.stock || 0);
+        return s > 0 && s <= umbralBajoCli;
+    }).length;
+    const isStockBajoCliActive = clienteFiltroCategoria === 'STOCK_BAJO';
+    html += `
+        <button type="button" class="chip-filter ${isStockBajoCliActive ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('STOCK_BAJO')" 
+                style="${isStockBajoCliActive 
+                    ? 'background: #f59e0b !important; border-color: #d97706 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(245,158,11,0.35); font-weight: 800;' 
+                    : 'border-color: rgba(245, 158, 11, 0.45); color: #d97706; background: rgba(245, 158, 11, 0.08); font-weight: 700;'}"
+                title="Filtrar productos con existencia &le; ${umbralBajoCli}">
+            ⚠️ Stock &le; ${umbralBajoCli} (${totalStockBajoCli})
         </button>
     `;
 

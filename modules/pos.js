@@ -317,6 +317,11 @@ function actualizarChipsCategoriasPOS() {
     const categorias = Array.from(categoriasSet).sort();
     const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
     const totalAgotados = prods.filter(p => Number(p.stock || 0) <= 0).length;
+    const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+    const totalStockBajo = prods.filter(p => {
+        const s = Number(p.stock || 0);
+        return s > 0 && s <= umbralBajo;
+    }).length;
 
     const iconoPorCategoria = (nombreCat) => {
         const c = String(nombreCat || '').toLowerCase();
@@ -334,6 +339,19 @@ function actualizarChipsCategoriasPOS() {
         <button type="button" class="chip-filter ${posCategoriaActiva === 'TODOS' ? 'active' : ''}" 
                 onclick="seleccionarCategoriaPOS('TODOS')">
             🌟 Todos
+        </button>
+    `;
+
+    // Chip dedicado para productos con Stock Bajo (Amarillo)
+    const isStockBajoActive = posCategoriaActiva === 'STOCK_BAJO';
+    html += `
+        <button type="button" class="chip-filter chip-filter-stock-bajo ${isStockBajoActive ? 'active' : ''}" 
+                onclick="seleccionarCategoriaPOS('STOCK_BAJO')"
+                style="${isStockBajoActive 
+                    ? 'background: #f59e0b !important; border-color: #d97706 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(245,158,11,0.35); font-weight: 800;' 
+                    : 'border-color: rgba(245, 158, 11, 0.45); color: #d97706; background: rgba(245, 158, 11, 0.08); font-weight: 700;'}"
+                title="Filtrar productos con existencia &le; ${umbralBajo}">
+            ⚠️ Stock &le; ${umbralBajo} (${totalStockBajo})
         </button>
     `;
 
@@ -402,6 +420,9 @@ function renderizarPosProductos(filtro = null) {
         // Si la categoría seleccionada es AGOTADOS
         if (posCategoriaActiva === 'AGOTADOS') {
             if (!esAgotado) return false;
+        } else if (posCategoriaActiva === 'STOCK_BAJO') {
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+            if (stock <= 0 || stock > umbralBajo) return false;
         } else {
             // Por defecto, productos agotados NO aparecen a menos que posMostrarAgotados sea true
             if (esAgotado && !posMostrarAgotados) return false;
@@ -428,6 +449,9 @@ function renderizarPosProductos(filtro = null) {
     if (countEl) {
         if (posCategoriaActiva === 'AGOTADOS') {
             countEl.innerHTML = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> ${filtrados.length} ${filtrados.length === 1 ? 'producto agotado' : 'productos agotados'}</span>`;
+        } else if (posCategoriaActiva === 'STOCK_BAJO') {
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+            countEl.innerHTML = `<span style="color:#d97706; font-weight:700;"><i class="fas fa-triangle-exclamation"></i> ${filtrados.length} con stock bajo (&le; ${umbralBajo})</span>`;
         } else {
             let txt = `${filtrados.length} ${filtrados.length === 1 ? 'producto disponible' : 'productos disponibles'}`;
             if (totalAgotados > 0 && !posMostrarAgotados) {
@@ -441,6 +465,11 @@ function renderizarPosProductos(filtro = null) {
     if (activeCatEl) {
         if (posCategoriaActiva === 'AGOTADOS') {
             activeCatEl.innerHTML = `<span style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:999px; padding:2px 10px; font-weight:700;">🚫 Viendo sólo Agotados</span> <button type="button" onclick="seleccionarCategoriaPOS('TODOS')" style="margin-left:6px; background:none; border:none; color:var(--accent-primary, #2563eb); text-decoration:underline; font-size:0.75rem; cursor:pointer; font-weight:600;">Ver disponibles</button>`;
+            activeCatEl.style.display = 'inline-flex';
+            activeCatEl.style.alignItems = 'center';
+        } else if (posCategoriaActiva === 'STOCK_BAJO') {
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+            activeCatEl.innerHTML = `<span style="background:rgba(245,158,11,0.15); color:#d97706; border:1px solid rgba(245,158,11,0.35); border-radius:999px; padding:2px 10px; font-weight:700;">⚠️ Viendo Stock Bajo (&le; ${umbralBajo})</span> <button type="button" onclick="seleccionarCategoriaPOS('TODOS')" style="margin-left:6px; background:none; border:none; color:var(--accent-primary, #2563eb); text-decoration:underline; font-size:0.75rem; cursor:pointer; font-weight:600;">Ver todos</button>`;
             activeCatEl.style.display = 'inline-flex';
             activeCatEl.style.alignItems = 'center';
         } else if (posCategoriaActiva !== 'TODOS') {
@@ -515,9 +544,11 @@ function renderizarPosProductos(filtro = null) {
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const esAgotado = stock <= 0;
                 const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+                const esStockBajo = stock > 0 && stock <= umbralBajo;
                 const stockBadgeClass = esAgotado 
                     ? 'badge-stock-tag stock-agotado' 
-                    : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
+                    : (esStockBajo ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
                 
                 const rawImg = p.imagen;
                 const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
@@ -569,7 +600,8 @@ function renderizarPosProductos(filtro = null) {
                 const precioUSD = Number(p.precio || 0);
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const esAgotado = stock <= 0;
-                const stockClase = esAgotado ? 'out-stock' : (stock <= 5 ? 'low-stock' : 'in-stock');
+                const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+                const stockClase = esAgotado ? 'out-stock' : (stock > 0 && stock <= umbralBajo ? 'low-stock' : 'in-stock');
                 const stockTexto = esAgotado ? 'Agotado' : `${stock} disp.`;
 
                 const miniThumbHTML = p.imagen ? `

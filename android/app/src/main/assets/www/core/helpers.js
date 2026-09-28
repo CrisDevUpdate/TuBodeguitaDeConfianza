@@ -527,6 +527,45 @@ function sanitizarAbonoMonedas(a, tasaParam = 0) {
 }
 window.sanitizarAbonoMonedas = sanitizarAbonoMonedas;
 
+function obtenerUmbralStockBajo() {
+    try {
+        if (window.AppState && typeof window.AppState.umbralStockBajo === 'number' && window.AppState.umbralStockBajo >= 0) {
+            return window.AppState.umbralStockBajo;
+        }
+        const saved = localStorage.getItem('inv_filtro_stock_cant') || localStorage.getItem('umbral_stock_bajo');
+        if (saved !== null && !isNaN(parseInt(saved, 10))) {
+            const val = Math.max(0, parseInt(saved, 10));
+            if (window.AppState) window.AppState.umbralStockBajo = val;
+            return val;
+        }
+    } catch (_) {}
+    return 5;
+}
+
+function fijarUmbralStockBajo(nuevoUmbral) {
+    const val = isNaN(parseInt(nuevoUmbral, 10)) ? 5 : Math.max(0, parseInt(nuevoUmbral, 10));
+    if (window.AppState) window.AppState.umbralStockBajo = val;
+    try {
+        localStorage.setItem('inv_filtro_stock_cant', String(val));
+        localStorage.setItem('umbral_stock_bajo', String(val));
+    } catch (_) {}
+
+    // Sincronizar input en Inventario si existe en pantalla
+    const inputCantEl = document.getElementById('inv-stock-cantidad-input');
+    if (inputCantEl && String(inputCantEl.value) !== String(val)) {
+        inputCantEl.value = val;
+    }
+
+    return val;
+}
+
+window.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
+window.fijarUmbralStockBajo = fijarUmbralStockBajo;
+if (window.InventoryApp) {
+    window.InventoryApp.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
+    window.InventoryApp.fijarUmbralStockBajo = fijarUmbralStockBajo;
+}
+
 window.switchTab = switchTab;
 
 window.InventoryApp.Helpers = Object.freeze({
@@ -538,6 +577,8 @@ window.InventoryApp.Helpers = Object.freeze({
     calcularHashSha256,
     verificarPasswordHash,
     sanitizarAbonoMonedas,
+    obtenerUmbralStockBajo,
+    fijarUmbralStockBajo,
     switchTab,
     esUsuarioAdmin
 });

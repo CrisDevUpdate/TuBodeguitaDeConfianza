@@ -220,6 +220,23 @@
             `;
         }
 
+        // Chip dedicado para productos con Stock Bajo (Amarillo)
+        const umbralBajoKiosco = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+        const totalStockBajoKiosco = productos.filter(p => {
+            const s = Number(p.stock || 0);
+            return s > 0 && s <= umbralBajoKiosco;
+        }).length;
+        const isStockBajoKioscoActive = (categoriaKioscoActiva === 'STOCK_BAJO');
+        html += `
+            <button type="button" class="kiosco-cat-chip chip-filter-stock-bajo ${isStockBajoKioscoActive ? 'active' : ''}" 
+                    onclick="window.KioscoModule.seleccionarCategoria('STOCK_BAJO')"
+                    style="${isStockBajoKioscoActive ? 'background: #f59e0b !important; border-color: #d97706 !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(245,158,11,0.35); font-weight: 800;' : 'border-color: rgba(245, 158, 11, 0.45); color: #d97706; background: rgba(245, 158, 11, 0.08); font-weight: 700;'}"
+                    title="Ver productos con stock bajo (&le; ${umbralBajoKiosco})">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>Stock &le; ${umbralBajoKiosco} (${totalStockBajoKiosco})</span>
+            </button>
+        `;
+
         // Chip dedicado para productos agotados (igual que en el punto de venta)
         const isAgotadosActive = (categoriaKioscoActiva === 'AGOTADOS');
         html += `
@@ -268,6 +285,9 @@
             // Si la categoría seleccionada es AGOTADOS
             if (categoriaKioscoActiva === 'AGOTADOS') {
                 if (!esAgotado) return false;
+            } else if (categoriaKioscoActiva === 'STOCK_BAJO') {
+                const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+                if (stock <= 0 || stock > umbralBajo) return false;
             } else {
                 // Por defecto, productos agotados NO aparecen a menos que kioscoMostrarAgotados sea true
                 if (esAgotado && !kioscoMostrarAgotados) return false;
@@ -406,9 +426,10 @@
             // Cantidad ya agregada al carrito
             const itemEnCarrito = carritoKiosco.find(i => i.productoId === p.id);
             const cantEnCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
             const stockBadgeClass = agotado 
                 ? 'badge-stock-tag stock-agotado' 
-                : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
+                : (stock > 0 && stock <= umbralBajo ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
 
             return `
                 <div class="kiosco-product-card cliente-prod-card pos-row-item ${agotado ? 'card-agotado' : ''} ${esCombo ? 'es-combo es-super-combo' : ''}" 
@@ -437,8 +458,8 @@
                             <span class="kiosco-price-ves price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                         </div>
 
-                        <div class="kiosco-product-stock-tag ${stock <= 3 && !agotado ? 'stock-bajo' : ''}">
-                            ${agotado ? 'Sin existencias' : (stock <= 5 ? `¡Solo quedan ${stock}!` : `Disponible: ${stock}`)}
+                        <div class="kiosco-product-stock-tag ${stock > 0 && stock <= umbralBajo ? 'stock-bajo' : ''}">
+                            ${agotado ? 'Sin existencias' : (stock > 0 && stock <= umbralBajo ? `¡Solo quedan ${stock}!` : `Disponible: ${stock}`)}
                         </div>
                     </div>
 

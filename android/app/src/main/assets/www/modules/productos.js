@@ -599,11 +599,11 @@ function normalizarProductos() {
 
 let busquedaInventario = '';
 let filtroStockInventario = 'todos';
-let filtroStockCantidad = 5;
+let filtroStockCantidad = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
 let filtroStockOperador = '<=';
 
 try {
-    const savedCant = localStorage.getItem('inv_filtro_stock_cant');
+    const savedCant = localStorage.getItem('inv_filtro_stock_cant') || localStorage.getItem('umbral_stock_bajo');
     if (savedCant !== null && !isNaN(parseInt(savedCant, 10))) {
         filtroStockCantidad = Math.max(0, parseInt(savedCant, 10));
     }
@@ -651,7 +651,11 @@ function alCambiarCantidadStock(e) {
     if (input) {
         const val = parseInt(input.value, 10);
         filtroStockCantidad = isNaN(val) ? 0 : Math.max(0, val);
-        try { localStorage.setItem('inv_filtro_stock_cant', String(filtroStockCantidad)); } catch (_) {}
+        if (typeof fijarUmbralStockBajo === 'function') {
+            fijarUmbralStockBajo(filtroStockCantidad);
+        } else {
+            try { localStorage.setItem('inv_filtro_stock_cant', String(filtroStockCantidad)); } catch (_) {}
+        }
     }
     filtroStockInventario = 'bajo';
     ['todos', 'bajo', 'agotado'].forEach(st => {
@@ -662,6 +666,14 @@ function alCambiarCantidadStock(e) {
         }
     });
     renderizarInventario();
+
+    // Actualizar catálogo del POS y cliente en vivo para que el indicador amarillo refleje el nuevo umbral
+    if (typeof window.renderizarCatalogoPOS === 'function') {
+        window.renderizarCatalogoPOS();
+    }
+    if (typeof window.renderizarCatalogoCliente === 'function') {
+        window.renderizarCatalogoCliente();
+    }
 }
 window.alCambiarCantidadStock = alCambiarCantidadStock;
 
@@ -867,6 +879,8 @@ function renderizarInventario() {
                 const rawImg = p.imagen;
                 const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || '';
 
+                const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : (filtroStockCantidad || 5);
+
                 return `
                     <div class="inventario-item-card ${esAgotado ? 'card-agotado' : ''}" id="inv-card-${p.id}">
                         <div class="inventario-item-img-wrap">
@@ -886,7 +900,7 @@ function renderizarInventario() {
                                 </span>
                                 ${esAgotado 
                                     ? '<span class="inv-stock-pill stock-agotado"><i class="fas fa-circle-xmark"></i> 0 disp.</span>'
-                                    : (stock <= 5 
+                                    : (stock > 0 && stock <= umbralBajo 
                                         ? `<span class="inv-stock-pill stock-bajo"><i class="fas fa-triangle-exclamation"></i> ${stock} disp.</span>`
                                         : `<span class="inv-stock-pill stock-ok"><i class="fas fa-check"></i> ${stock} disp.</span>`
                                     )
@@ -941,7 +955,9 @@ function renderizarInventario() {
                 </tr>
             `;
         } else {
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : (filtroStockCantidad || 5);
             tbody.innerHTML = prodsFiltrados.map(p => {
+                const stock = Number(p.stock || 0);
                 const esPerdida = Number(p.costo || 0) > 0 && Number(p.precio || 0) < Number(p.costo || 0);
                 return `
                 <tr style="${esPerdida ? 'background:#fffbfb;' : ''}">
@@ -977,7 +993,7 @@ function renderizarInventario() {
                         }
                     </td>
                     <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
-                    <td class="num font-weight-bold" style="${p.stock <= 5 ? 'color:#d97706;' : ''}">${p.stock}</td>
+                    <td class="num font-weight-bold" style="${stock > 0 && stock <= umbralBajo ? 'color:#d97706;' : ''}">${p.stock}</td>
                     <td class="inventory-actions">
                         ${esPerdida 
                             ? `<button class="btn btn-warning" onclick="editarProducto('${p.id}')" style="background:#f97316; border-color:#ea580c; color:#ffffff; font-weight:700;" title="Ajustar precio de venta">Ajustar PVP</button>`

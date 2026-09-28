@@ -207,6 +207,8 @@ class CatalogManager {
                 : Math.max(1, Math.floor(precioUSD * ptsPorDolar));
             const esMasVendido = ventas >= 3;
             const esAgotado = stock <= 0;
+            const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
+            const esStockBajo = stock > 0 && stock <= umbralBajo;
 
             const imagenSrc = p.imagen || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
 
@@ -252,7 +254,7 @@ class CatalogManager {
                         <div class="cliente-prod-meta">
                             <span class="cliente-prod-code">${p.codigo || p.id}</span>
                             ${p.contenido ? `<span class="cliente-prod-content">${p.contenido}</span>` : ''}
-                            <span class="${esAgotado ? 'badge-stock-tag stock-agotado' : (stock <= 5 ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal')}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
+                            <span class="${esAgotado ? 'badge-stock-tag stock-agotado' : (esStockBajo ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal')}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
                         </div>
 
                         <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
