@@ -3547,6 +3547,9 @@
                     <span id="inventario-total-items-badge" class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.75rem;">0 productos</span>
                 </div>
                 <div class="inventario-header-actions">
+                    <button type="button" class="btn btn-sm btn-info" onclick="abrirModalMovimientosStock()" style="font-weight:700; background:#0284c7; color:#fff; border-color:#0369a1; display:inline-flex; align-items:center; gap:6px; border-radius:8px; padding:6px 14px;" title="Ver desglose y movimientos de stock (Kardex)">
+                        <i class="fas fa-boxes-packing"></i> Movimientos de Stock
+                    </button>
                     <button type="button" class="btn btn-sm btn-success btn-inv-new" onclick="nuevoProductoDesdeInventario()" style="font-weight:700;">
                         <i class="fas fa-plus-circle"></i> Nuevo Producto
                     </button>
@@ -5463,6 +5466,120 @@
 
 
 <!-- Modal para eliminar productos del inventario -->
+<!-- Modal para Desglose de Movimientos de Stock (Kardex 360°) -->
+<div id="modal-movimientos-stock" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalMovimientosStock();">
+    <div class="modal-content" style="max-width:980px; max-height:92vh; overflow-y:auto; border-radius:18px; padding:24px; box-shadow:0 24px 48px rgba(0,0,0,0.25);">
+        <!-- Cabecera del Modal -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:16px;">
+            <div>
+                <h3 style="margin:0 0 4px 0; font-size:1.3rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-boxes-packing" style="color:#0284c7;"></i> Desglose de Movimientos de Stock (Kardex)
+                </h3>
+                <span style="font-size:0.85rem; color:var(--text-muted); display:block;">
+                    Trazabilidad exacta de cada unidad: inventario inicial, compras de proveedores, ventas en caja y retiros.
+                </span>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalMovimientosStock()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; font-size:1.2rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
+        </div>
+
+        <!-- Selector de Producto y Tarjeta Informativa -->
+        <div style="margin-bottom:16px;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                <label for="kdx-select-producto" style="font-weight:700; font-size:0.88rem; color:var(--text-color); display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-box" style="color:#0284c7;"></i> Producto a consultar:
+                </label>
+                <div style="flex:1; min-width:260px;">
+                    <select id="kdx-select-producto" class="form-control" onchange="alCambiarProductoMovimientos(this.value)" style="width:100%; font-weight:700; padding:8px 12px; border-radius:10px; border:2px solid #bae6fd; background:#f0f9ff; color:#0369a1; font-size:0.92rem;">
+                    </select>
+                </div>
+            </div>
+
+            <!-- Preview Card del Producto -->
+            <div id="kdx-producto-header-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,0.03);"></div>
+        </div>
+
+        <!-- KPIs Resumen de Movimientos -->
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:16px;">
+            <div class="kpi-card" style="border-left:4px solid #0284c7; background:#f0f9ff; padding:12px 14px; border-radius:12px;">
+                <div class="kpi-title" style="color:#0369a1; font-size:0.75rem; font-weight:800;"><i class="fas fa-cubes"></i> STOCK ACTUAL EN ESTANTE</div>
+                <div id="kdx-kpi-stock-actual" style="font-size:1.5rem; font-weight:900; color:#0284c7; margin-top:3px;">0 unid.</div>
+                <small id="kdx-kpi-stock-valor" style="color:#0369a1; font-size:0.75rem; font-weight:600; display:block;">Valor: $0.00</small>
+            </div>
+            <div class="kpi-card" style="border-left:4px solid #16a34a; background:#f0fdf4; padding:12px 14px; border-radius:12px;">
+                <div class="kpi-title" style="color:#15803d; font-size:0.75rem; font-weight:800;"><i class="fas fa-arrow-down"></i> TOTAL ENTRADAS (COMPRAS/BASE)</div>
+                <div id="kdx-kpi-entradas" style="font-size:1.5rem; font-weight:900; color:#16a34a; margin-top:3px;">+0 unid.</div>
+                <small id="kdx-kpi-entradas-sub" style="color:#15803d; font-size:0.75rem; font-weight:600; display:block;">Ingresos registrados</small>
+            </div>
+            <div class="kpi-card" style="border-left:4px solid #dc2626; background:#fef2f2; padding:12px 14px; border-radius:12px;">
+                <div class="kpi-title" style="color:#b91c1c; font-size:0.75rem; font-weight:800;"><i class="fas fa-arrow-up"></i> SALIDAS POR VENTAS (CAJA)</div>
+                <div id="kdx-kpi-ventas" style="font-size:1.5rem; font-weight:900; color:#dc2626; margin-top:3px;">-0 unid.</div>
+                <small id="kdx-kpi-ventas-sub" style="color:#b91c1c; font-size:0.75rem; font-weight:600; display:block;">Despachadas al cliente</small>
+            </div>
+            <div class="kpi-card" style="border-left:4px solid #ea580c; background:#fff7ed; padding:12px 14px; border-radius:12px;">
+                <div class="kpi-title" style="color:#c2410c; font-size:0.75rem; font-weight:800;"><i class="fas fa-triangle-exclamation"></i> BAJAS / RETIROS / MERMAS</div>
+                <div id="kdx-kpi-bajas" style="font-size:1.5rem; font-weight:900; color:#ea580c; margin-top:3px;">-0 unid.</div>
+                <small id="kdx-kpi-bajas-sub" style="color:#c2410c; font-size:0.75rem; font-weight:600; display:block;">Daño, vencimiento o merma</small>
+            </div>
+        </div>
+
+        <!-- Barra de Filtros y Búsqueda -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <!-- Chips de Filtro por Tipo -->
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="inv-chip active" id="chip-kdx-todos" onclick="filtrarMovimientosStock('TODOS')">Todos</button>
+                <button type="button" class="inv-chip" id="chip-kdx-compras" onclick="filtrarMovimientosStock('COMPRA')" style="color:#15803d;"><i class="fas fa-circle-down"></i> Compras</button>
+                <button type="button" class="inv-chip" id="chip-kdx-ventas" onclick="filtrarMovimientosStock('VENTA')" style="color:#dc2626;"><i class="fas fa-circle-up"></i> Ventas</button>
+                <button type="button" class="inv-chip" id="chip-kdx-retiros" onclick="filtrarMovimientosStock('RETIRO')" style="color:#ea580c;"><i class="fas fa-trash-can"></i> Bajas</button>
+                <button type="button" class="inv-chip" id="chip-kdx-auditorias" onclick="filtrarMovimientosStock('AUDITORIA')" style="color:#0284c7;"><i class="fas fa-clipboard-check"></i> Auditorías</button>
+            </div>
+
+            <!-- Buscador interno en movimientos -->
+            <div style="position:relative; min-width:220px; flex:1; max-width:340px;">
+                <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.85rem;"></i>
+                <input type="text" id="kdx-input-busqueda" oninput="alBuscarMovimientosStock(this.value)" placeholder="Buscar cliente, recibo, factura..." style="width:100%; padding:6px 12px 6px 30px; font-size:0.85rem; border-radius:8px; border:1px solid #cbd5e1; background:#fff; outline:none; box-sizing:border-box;">
+            </div>
+        </div>
+
+        <!-- Tabla de Movimientos / Kardex -->
+        <div class="table-responsive" style="max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:12px;">
+            <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                <thead style="position:sticky; top:0; background:#f8fafc; z-index:2; border-bottom:2px solid #cbd5e1;">
+                    <tr>
+                        <th style="padding:10px 12px; text-align:left;">Fecha / Hora</th>
+                        <th style="padding:10px 12px; text-align:center;">Tipo</th>
+                        <th style="padding:10px 12px; text-align:left;">Concepto / Referencia</th>
+                        <th style="padding:10px 12px; text-align:center;">Movimiento</th>
+                        <th style="padding:10px 12px; text-align:center;">Stock Anterior ➡️ Resultante</th>
+                        <th style="padding:10px 12px; text-align:right;">Precio / Costo</th>
+                        <th style="padding:10px 12px; text-align:center;">Responsable</th>
+                    </tr>
+                </thead>
+                <tbody id="kdx-tabla-movimientos-body">
+                    <tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Cargando movimientos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Botones de Acción y Cierre -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:16px; margin-top:16px;">
+            <div style="font-size:0.8rem; color:var(--text-muted);" id="kdx-resumen-conteo">
+                Mostrando movimientos de stock.
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn" onclick="descargarKardexProductoExcel()" style="background:#107c41; color:#fff; border:none; font-weight:700; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px;">
+                    <i class="fas fa-file-excel"></i> Exportar a Excel
+                </button>
+                <button type="button" class="btn" onclick="imprimirKardexProducto()" style="background:#2563eb; color:#fff; border:none; font-weight:700; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px;">
+                    <i class="fas fa-print"></i> Imprimir / PDF
+                </button>
+                <button type="button" class="btn" onclick="cerrarModalMovimientosStock()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700; padding:7px 14px; border-radius:8px;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="modal-eliminar-producto" class="modal">
     <div class="modal-content">
         <h3><i class="fas fa-trash-alt"></i> Retirar producto del inventario</h3>
@@ -6793,6 +6910,7 @@
 <script src="modules/clientes.js?v=20260915_v5"></script>
 <script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
 <script src="modules/facturas.js?v=20260918_v1"></script>
+<script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/auditoria.js?v=20260915_v5"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>

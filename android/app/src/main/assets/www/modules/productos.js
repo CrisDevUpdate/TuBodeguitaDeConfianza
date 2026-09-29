@@ -927,6 +927,10 @@ function renderizarInventario() {
                         </div>
 
                         <div class="inventario-item-actions">
+                            <button type="button" class="btn-inv-action" onclick="abrirModalMovimientosStock('${p.id}')" title="Ver movimientos y desglose de stock" aria-label="Ver movimientos" style="background:#f0f9ff; color:#0284c7; border:1px solid #bae6fd;">
+                                <i class="fas fa-boxes-packing"></i>
+                                <span>Kardex</span>
+                            </button>
                             <button type="button" class="btn-inv-action btn-inv-edit" onclick="editarProducto('${p.id}')" title="Editar producto" aria-label="Editar producto" style="${costoUSD > 0 && precioUSD < costoUSD ? 'background:#f97316; color:#ffffff;' : ''}">
                                 <i class="fas fa-pen-to-square"></i>
                                 <span>${costoUSD > 0 && precioUSD < costoUSD ? 'Ajustar PVP' : 'Editar'}</span>
@@ -994,7 +998,10 @@ function renderizarInventario() {
                     </td>
                     <td class="num">Bs. ${tasaActiva > 0 ? (p.precio * tasaActiva).toFixed(2) : '—'}</td>
                     <td class="num font-weight-bold" style="${stock > 0 && stock <= umbralBajo ? 'color:#d97706;' : ''}">${p.stock}</td>
-                    <td class="inventory-actions">
+                    <td class="inventory-actions" style="white-space:nowrap;">
+                        <button type="button" class="btn btn-info" onclick="abrirModalMovimientosStock('${p.id}')" style="background:#0284c7; border-color:#0369a1; color:#ffffff; font-weight:600; padding:4px 8px; border-radius:6px; font-size:0.78rem; display:inline-flex; align-items:center; gap:4px;" title="Ver desglose y movimientos de stock (Kardex)">
+                            <i class="fas fa-boxes-packing"></i> Kardex
+                        </button>
                         ${esPerdida 
                             ? `<button class="btn btn-warning" onclick="editarProducto('${p.id}')" style="background:#f97316; border-color:#ea580c; color:#ffffff; font-weight:700;" title="Ajustar precio de venta">Ajustar PVP</button>`
                             : `<button class="btn btn-warning" onclick="editarProducto('${p.id}')">Editar</button>`
