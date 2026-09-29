@@ -501,6 +501,38 @@ body[data-active-tab="cliente-catalogo"] #bodeguita-app-footer,
 .bodeguita-footer-copy {
     font-size: 0.74rem;
     color: var(--text-muted, #94a3b8);
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.bodeguita-footer-ws-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #15803d;
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 3px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(37, 211, 102, 0.12);
+    border: 1px solid rgba(37, 211, 102, 0.25);
+    transition: all 0.2s ease;
+}
+
+.bodeguita-footer-ws-link:hover {
+    color: #166534;
+    background: rgba(37, 211, 102, 0.22);
+    border-color: rgba(37, 211, 102, 0.4);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.bodeguita-footer-ws-link i {
+    color: #25d366;
+    font-size: 0.95rem;
 }
 
 /* Modo Móvil: Ajuste de banners y modales */

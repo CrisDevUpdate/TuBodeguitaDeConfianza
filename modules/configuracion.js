@@ -318,7 +318,7 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
                     </strong>
                     <div style="font-size:0.82rem; color:var(--text-muted); margin-top:6px; line-height:1.45;">
                         • <strong>Responsable:</strong> Tu Bodeguita de Confianza / Cristian Flores<br>
-                        • <strong>WhatsApp:</strong> 0412-5363849<br>
+                        • <strong>WhatsApp:</strong> <a href="https://wa.me/584125363849?text=Hola%20Cristian%2C%20necesito%20soporte%20en%20Tu%20Bodeguita%20de%20Confianza" target="_blank" rel="noopener" style="color:inherit; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:4px;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> 0412-5363849</a><br>
                         • <strong>Email:</strong> Cris.Dev.Update@gmail.com
                     </div>
                 </div>
