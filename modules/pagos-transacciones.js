@@ -6,25 +6,6 @@ function abrirModalAbono() {
     }
     const modal = document.getElementById('modal-abono');
     if (modal) modal.classList.add('active');
-
-    // Pre-cargar la deuda actual del cliente en Bolívares (o en USD según el método)
-    if (typeof calcularEstadoFinancieroCliente === 'function') {
-        const est = calcularEstadoFinancieroCliente(clienteSeleccionadoId);
-        if (est && est.saldoDeudaUSD > 0) {
-            const inputMonto = document.getElementById('abono-monto');
-            const metodo = document.getElementById('abono-metodo')?.value || 'Pago Móvil VES';
-            const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
-            if (inputMonto) {
-                if (metodo === 'Efectivo USD') {
-                    inputMonto.value = est.saldoDeudaUSD.toFixed(2);
-                } else {
-                    const deudaves = est.saldoDeudaVES > 0 ? est.saldoDeudaVES : (est.saldoDeudaUSD * tasa);
-                    inputMonto.value = deudaves.toFixed(2);
-                }
-            }
-        }
-    }
-
     actualizarMonedaAbono();
 }
 
