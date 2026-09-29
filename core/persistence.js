@@ -19,9 +19,6 @@ window.InventoryApp = window.InventoryApp || {};
         'bodeguita_eliminaciones',
         'bodeguita_clientes_eliminados',
         'bodeguita_usuarios',
-        'bodeguita_cache_productos',
-        'bodeguita_cache_premio',
-        'bodeguita_cache_cuentas_bancarias',
         'bodeguita_conteos_respaldo_v1',
         'bodeguita_ciclos_recuperacion',
         'bodeguita_tasas_bcv',
@@ -262,11 +259,20 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // 4. El 100% de las entidades de negocio se inicializan en memoria con el catálogo oficial o sincronización Firestore
+        // 4. El 100% de las entidades de negocio se inicializan en memoria con el catálogo oficial, caché o sincronización Firestore
         if (!Array.isArray(AppState.productos) || AppState.productos.length === 0) {
-            AppState.productos = (typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF))
+            let prodsFromCache = null;
+            try {
+                const rawCache = localStorage.getItem('bodeguita_client_cache_prods_v2') || localStorage.getItem('bodeguita_cache_productos');
+                if (rawCache) {
+                    const parsed = JSON.parse(rawCache);
+                    if (Array.isArray(parsed) && parsed.length > 0) prodsFromCache = parsed;
+                }
+            } catch (e) {}
+
+            AppState.productos = prodsFromCache || ((typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF))
                 ? JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF))
-                : [];
+                : []);
         }
         if (!Array.isArray(AppState.clientes) || AppState.clientes.length === 0) {
             AppState.clientes = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))

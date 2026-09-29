@@ -38,18 +38,6 @@ window.InventoryApp = window.InventoryApp || {};
      */
     function esUsuarioAdminActivo(usuario) {
         if (!usuario) {
-            // Si no hay sesión explícita en AppState pero la app está en vista de administración
-            try {
-                const mainApp = document.getElementById('main-app');
-                const gatewall = document.getElementById('gatewall-modal');
-                const esMainVisible = mainApp && mainApp.style.display !== 'none';
-                const esGatewallOculto = !gatewall || gatewall.style.display === 'none';
-                const activeTab = document.querySelector('.nav-btn.active')?.getAttribute('data-tab') || '';
-                const esVistaAdmin = !activeTab.startsWith('cliente-');
-                if (esMainVisible && esGatewallOculto && esVistaAdmin) {
-                    return true;
-                }
-            } catch (e) {}
             return false;
         }
 
@@ -275,6 +263,44 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * Calcula la marca de tiempo exacta del próximo reinicio de cuotas gratuitas de Google Firebase (Spark).
+     * Las cuotas diarias de Firestore (20,000 escrituras / 50,000 lecturas) se reinician todos los días
+     * a medianoche hora del Pacífico (00:00 PST/PDT = 07:00 UTC = 03:00 AM hora de Venezuela).
+     */
+    function calcularSiguienteReinicioCuota() {
+        const ahora = new Date();
+        const reinicio = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate(), 7, 0, 0, 0));
+        if (ahora.getTime() >= reinicio.getTime()) {
+            reinicio.setUTCDate(reinicio.getUTCDate() + 1);
+        }
+        return reinicio.getTime();
+    }
+
+    /**
+     * Comprueba si el límite de cuota sigue vigente de forma persistente en localStorage.
+     * Si ya pasaron las 3:00 AM (07:00 UTC), se reactiva automáticamente.
+     */
+    function verificarEstadoCuotaPersistente() {
+        try {
+            const reinicioTimestamp = Number(localStorage.getItem('bodeguita_quota_exhausted_until') || 0);
+            if (reinicioTimestamp > 0) {
+                if (Date.now() < reinicioTimestamp) {
+                    isQuotaExhausted = true;
+                    return true;
+                } else {
+                    localStorage.removeItem('bodeguita_quota_exhausted_until');
+                    if (typeof sessionStorage !== 'undefined') {
+                        sessionStorage.removeItem('bodeguita_quota_exhausted');
+                    }
+                    isQuotaExhausted = false;
+                    return false;
+                }
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    /**
      * Detecta si un error corresponde al límite de cuota gratuita diaria de Firestore
      */
     function esErrorDeCuota(error) {
@@ -293,27 +319,44 @@ window.InventoryApp = window.InventoryApp || {};
      * Maneja el estado de cuota agotada pausando temporalmente las peticiones recurrentes a la nube
      */
     function manejarErrorCuota() {
-        if (!isQuotaExhausted) {
-            isQuotaExhausted = true;
-            console.warn('[Firebase] Cuota gratuita de Firestore alcanzada (resource-exhausted). Desconectando red Firestore y operando con persistencia local/IndexedDB.');
-            detenerListenersTiempoReal();
-            if (db && typeof db.disableNetwork === 'function') {
-                db.disableNetwork().catch(() => {});
+        const siguienteReinicio = calcularSiguienteReinicioCuota();
+        isQuotaExhausted = true;
+
+        try {
+            localStorage.setItem('bodeguita_quota_exhausted_until', String(siguienteReinicio));
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.setItem('bodeguita_quota_exhausted', 'true');
             }
-            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore protegida)');
+        } catch (e) {}
+
+        console.warn('[Firebase] Cuota diaria de Firestore alcanzada. Desconectando red y operando con persistencia local/IndexedDB protegida. Se reiniciará a las 3:00 AM (07:00 UTC).');
+        detenerListenersTiempoReal();
+        if (db && typeof db.disableNetwork === 'function') {
+            db.disableNetwork().catch(() => {});
         }
+        actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore protegida - Se reinicia a las 3:00 AM)');
 
         if (quotaCooldownTimer) clearTimeout(quotaCooldownTimer);
+        const msHastaReinicio = Math.max(10000, siguienteReinicio - Date.now());
         quotaCooldownTimer = setTimeout(async () => {
+            console.log('[Firebase] ¡Hora de reinicio de cuota alcanzada! Restableciendo conexión a Firestore...');
+            try {
+                localStorage.removeItem('bodeguita_quota_exhausted_until');
+                if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.removeItem('bodeguita_quota_exhausted');
+                }
+            } catch (e) {}
             isQuotaExhausted = false;
-            console.log('[Firebase] Reanudando verificaciones con Firestore tras período de enfriamiento...');
             if (db && typeof db.enableNetwork === 'function') {
                 try {
                     await db.enableNetwork();
-                    iniciarListenersTiempoReal();
+                    const usuarioSesion = window.AppState?.usuarioActual;
+                    if (esUsuarioAdminActivo(usuarioSesion)) {
+                        iniciarListenersTiempoReal();
+                    }
                 } catch (e) {}
             }
-        }, 15 * 60 * 1000); // 15 minutos
+        }, msHastaReinicio);
     }
 
     /**
@@ -556,21 +599,38 @@ window.InventoryApp = window.InventoryApp || {};
             }
 
             inicializado = true;
+
+            // Comprobar si la cuota ya fue agotada para evitar bombardeo de peticiones fallidas
+            if (verificarEstadoCuotaPersistente()) {
+                isQuotaExhausted = true;
+                if (db && typeof db.disableNetwork === 'function') {
+                    db.disableNetwork().catch(() => {});
+                }
+                actualizarUIEstadoNube('offline', 'Modo Local (Cuota diaria alcanzada - Se reactivará a las 3:00 AM)');
+                console.warn('[Firebase] Cuota diaria agotada en sesión previa. Operando con caché local protegida.');
+                return true;
+            }
+
             actualizarUIEstadoNube('conectado', 'Nube Conectada (Firestore)');
             console.log('[Firebase] Firestore inicializado exitosamente. Proyecto:', config.projectId);
 
             // Iniciar sincronización inicial desde la nube
             await sincronizarTodoDesdeNube();
 
-            // Escuchar cambios en tiempo real
-            iniciarListenersTiempoReal();
+            // Escuchar cambios en tiempo real ÚNICAMENTE si es Administrador activo
+            const usuarioSesionInit = window.AppState?.usuarioActual;
+            if (esUsuarioAdminActivo(usuarioSesionInit)) {
+                iniciarListenersTiempoReal();
+            }
 
-            // Re-validación en foco de ventana (Multi-Device Parity) con throttle de 60s
+            // Re-validación en foco de ventana (Multi-Device Parity) EXCLUSIVA para el Administrador activo
             let lastFocusSync = 0;
             const revalidarEnFoco = () => {
                 if (isQuotaExhausted) return;
+                const usuarioSesion = window.AppState?.usuarioActual;
+                if (!esUsuarioAdminActivo(usuarioSesion)) return; // Visitantes y clientes no ejecutan revalidación en foco
                 const now = Date.now();
-                if (now - lastFocusSync < 60000) return;
+                if (now - lastFocusSync < 120000) return; // Mínimo 2 minutos entre chequeos de foco
                 lastFocusSync = now;
                 sincronizarTodoDesdeNube().catch(() => {});
             };
@@ -677,19 +737,101 @@ window.InventoryApp = window.InventoryApp || {};
 
     /**
      * Sincroniza todos los datos desde Firestore a la memoria local de la app
+     * Implementa estrategia Cache-First para clientes y elimina escrituras automáticas innecesarias
      */
-    async function sincronizarTodoDesdeNube() {
+    async function sincronizarTodoDesdeNube(forzar = false) {
         if (!db) return false;
 
+        // Comprobar si la cuota ya fue agotada
+        if (isQuotaExhausted || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('bodeguita_quota_exhausted') === 'true')) {
+            isQuotaExhausted = true;
+            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore protegida)');
+            return true;
+        }
+
         const now = Date.now();
-        if (now - lastSyncAttempt < 15000) {
-            return true; // Throttled
+        const usuarioSesion = window.AppState?.usuarioActual;
+        const esAdmin = esUsuarioAdminActivo(usuarioSesion);
+
+        // Anti-ráfaga general: mínimo 30s entre sincronizaciones salvo que sea forzada por usuario
+        if (!forzar && (now - lastSyncAttempt < 30000)) {
+            return true;
         }
         lastSyncAttempt = now;
 
-        if (isQuotaExhausted) {
-            actualizarUIEstadoNube('offline', 'Modo Local (Cuota Firestore límite alcanzado)');
-            return true;
+        // 🛡️ ESTRATEGIA CACHE-FIRST ULTRA-EFICIENTE PARA CLIENTES Y VISITANTES PÚBLICOS
+        // Una vez que el cliente abre la app, los datos quedan congelados en caché local para evitar disparar solicitudes
+        if (!forzar && !esAdmin) {
+            // Intentar restaurar desde caché persistente si la memoria está vacía
+            if (!Array.isArray(AppState.productos) || AppState.productos.length === 0) {
+                try {
+                    const rawP = localStorage.getItem('bodeguita_client_cache_prods_v2');
+                    if (rawP) {
+                        const parsedP = JSON.parse(rawP);
+                        if (Array.isArray(parsedP) && parsedP.length > 0) AppState.productos = parsedP;
+                    }
+                    const rawC = localStorage.getItem('bodeguita_client_cache_config_v2');
+                    if (rawC) {
+                        const parsedC = JSON.parse(rawC);
+                        if (parsedC && typeof parsedC === 'object') {
+                            if (parsedC.premioMes) AppState.premioMes = parsedC.premioMes;
+                            if (typeof parsedC.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = parsedC.temporadaInviernoActiva;
+                            if (Array.isArray(parsedC.cuentasBancarias)) AppState.cuentasBancarias = parsedC.cuentasBancarias;
+                            if (parsedC.telefonoWhatsApp) AppState.telefonoWhatsApp = parsedC.telefonoWhatsApp;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            const lastClientSync = Number(localStorage.getItem('bodeguita_last_client_sync') || 0);
+            const prodsCargados = Array.isArray(AppState.productos) && AppState.productos.length > 0;
+            // Si el cliente ya tiene catálogo cargado y sincronizó hoy (o cuota agotada): 0 peticiones, 0 lecturas, 0 escrituras
+            if (prodsCargados && (isQuotaExhausted || (now - lastClientSync < 6 * 60 * 60 * 1000))) {
+                console.info('[Firebase Cache-First] Cliente: Catálogo servido 100% desde caché local (0 peticiones a Firestore).');
+                actualizarUIEstadoNube('conectado', 'Catálogo cargado (Caché local)');
+                refrescarTodasLasVistas();
+                return true;
+            }
+        }
+
+        // Si es cliente/visitante que necesita descargar por primera vez: SOLO lee PRODUCTOS y CONFIG
+        if (!esAdmin) {
+            actualizarUIEstadoNube('sincronizando', 'Cargando catálogo...');
+            try {
+                const [snapProds, snapConfig] = await Promise.all([
+                    obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
+                    obtenerDocSeguro(COLLECTIONS.CONFIG, 'global')
+                ]);
+
+                if (snapProds && !snapProds.empty) {
+                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    try {
+                        localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
+                    } catch (e) {}
+                }
+                if (snapConfig && snapConfig.exists) {
+                    const cfg = snapConfig.data() || {};
+                    if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
+                    if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                    if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
+                    if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
+                    if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
+                    try {
+                        localStorage.setItem('bodeguita_client_cache_config_v2', JSON.stringify(cfg));
+                    } catch (e) {}
+                }
+
+                localStorage.setItem('bodeguita_last_client_sync', String(now));
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(false);
+                }
+                refrescarTodasLasVistas();
+                actualizarUIEstadoNube('conectado', 'Catálogo actualizado');
+                return true;
+            } catch (cliErr) {
+                if (esErrorDeCuota(cliErr)) manejarErrorCuota();
+                return true;
+            }
         }
 
         actualizarUIEstadoNube('sincronizando', 'Comprobando sincronización en la nube...');
@@ -737,133 +879,101 @@ window.InventoryApp = window.InventoryApp || {};
                 return true;
             }
 
-            // Aplicar de forma fiel y directa los datos de la nube
-            if (snapProds) {
-                if (!snapProds.empty) {
-                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                } else if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
-                    subirTodoALaNube().catch(() => {});
-                }
+            // Aplicar de forma fiel y directa los datos de la nube (SIN ESCRITURAS AUTOMÁTICAS EN BUCLE)
+            if (snapProds && !snapProds.empty) {
+                AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             }
-            if (snapCli) {
-                if (!snapCli.empty) {
-                    const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
-                        CLIENTES_OFICIALES.forEach(co => {
-                            const found = loadedClients.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
-                            if (!found) {
-                                loadedClients.push(JSON.parse(JSON.stringify(co)));
-                                guardarClienteCloud(co).catch(() => {});
-                            } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
-                                found.deudaUSD = co.deudaUSD;
-                                found.deudaInicialUSD = co.deudaInicialUSD;
-                            }
-                        });
-                    }
-                    AppState.clientes = loadedClients;
-                } else if (Array.isArray(AppState.clientes) && AppState.clientes.length > 0) {
-                    AppState.clientes.forEach(c => guardarClienteCloud(c).catch(() => {}));
-                }
-            }
-            if (snapVentas) {
-                if (!snapVentas.empty) {
-                    AppState.ventas = snapVentas.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
-                    if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
-                        VENTAS_INICIALES_FIADOS.forEach(vf => {
-                            const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
-                            if (!exists) {
-                                AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
-                                registrarVentaCloud(vf, vf.items || []).catch(() => {});
-                            }
-                        });
-                    }
-                    // Limpieza reactiva de documento fantasma en ventas si existiera
-                    try {
-                        db.collection(COLLECTIONS.VENTAS).doc('PagosPorVerificar').delete().catch(() => {});
-                    } catch (e) {}
-                } else if (Array.isArray(AppState.ventas) && AppState.ventas.length > 0) {
-                    AppState.ventas.forEach(v => registrarVentaCloud(v, v.items || []).catch(() => {}));
-                }
-            }
-            if (snapAbonos) {
-                if (!snapAbonos.empty) {
-                    AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapTx) {
-                if (!snapTx.empty) {
-                    AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapAud) {
-                if (!snapAud.empty) {
-                    AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapElim) {
-                if (!snapElim.empty) {
-                    AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapCliElim) {
-                if (!snapCliElim.empty) {
-                    AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapFacturas) {
-                if (!snapFacturas.empty) {
-                    AppState.facturasCompras = snapFacturas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapKardex) {
-                if (!snapKardex.empty) {
-                    AppState.kardex = snapKardex.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-            }
-            if (snapProveedores) {
-                if (!snapProveedores.empty) {
-                    AppState.proveedores = snapProveedores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Sincronizar nombres a proveedoresFrecuentes para compatibilidad
-                    if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
-                    AppState.proveedores.forEach(p => {
-                        if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
-                            AppState.proveedoresFrecuentes.push(p.nombre);
+
+            if (snapCli && !snapCli.empty) {
+                const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+                    CLIENTES_OFICIALES.forEach(co => {
+                        const found = loadedClients.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                        if (!found) {
+                            loadedClients.push(JSON.parse(JSON.stringify(co)));
+                        } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
+                            found.deudaUSD = co.deudaUSD;
+                            found.deudaInicialUSD = co.deudaInicialUSD;
                         }
                     });
-                } else {
-                    AppState.proveedores = [];
-                    AppState.proveedoresFrecuentes = [];
                 }
+                AppState.clientes = loadedClients;
             }
-            if (snapUsuarios) {
-                if (!snapUsuarios.empty) {
-                    const cloudUsuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const mapUsuarios = new Map();
-                    cloudUsuarios.forEach(u => mapUsuarios.set(String(u.id || u.cedula).toUpperCase(), u));
-                    (AppState.usuarios || []).forEach(localU => {
-                        const k = String(localU.id || localU.cedula).toUpperCase();
-                        if (!mapUsuarios.has(k)) {
-                            mapUsuarios.set(k, localU);
-                            guardarUsuarioCloud(localU).catch(() => {});
+
+            if (snapVentas && !snapVentas.empty) {
+                AppState.ventas = snapVentas.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+                    VENTAS_INICIALES_FIADOS.forEach(vf => {
+                        const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
+                        if (!exists) {
+                            AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
                         }
                     });
-                    AppState.usuarios = Array.from(mapUsuarios.values());
-                } else if (Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
-                    AppState.usuarios.forEach(u => guardarUsuarioCloud(u).catch(() => {}));
                 }
+            }
+
+            if (snapAbonos && !snapAbonos.empty) {
+                AppState.abonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapTx && !snapTx.empty) {
+                AppState.transacciones = snapTx.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapAud && !snapAud.empty) {
+                AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapElim && !snapElim.empty) {
+                AppState.eliminaciones = snapElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapCliElim && !snapCliElim.empty) {
+                AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapFacturas && !snapFacturas.empty) {
+                AppState.facturasCompras = snapFacturas.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapKardex && !snapKardex.empty) {
+                AppState.kardex = snapKardex.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapProveedores && !snapProveedores.empty) {
+                AppState.proveedores = snapProveedores.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                AppState.proveedores.forEach(p => {
+                    if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                        AppState.proveedoresFrecuentes.push(p.nombre);
+                    }
+                });
+            }
+
+            if (snapUsuarios && !snapUsuarios.empty) {
+                const cloudUsuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const mapUsuarios = new Map();
+                cloudUsuarios.forEach(u => mapUsuarios.set(String(u.id || u.cedula).toUpperCase(), u));
+                (AppState.usuarios || []).forEach(localU => {
+                    const k = String(localU.id || localU.cedula).toUpperCase();
+                    if (!mapUsuarios.has(k)) {
+                        mapUsuarios.set(k, localU);
+                    }
+                });
+                AppState.usuarios = Array.from(mapUsuarios.values());
             }
 
             // Sincronizar regla de negocio: Cada usuario creado es automáticamente un cliente
             if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
                 asegurarSincronizacionUsuariosAClientes();
             }
-            if (snapCanjes) {
-                if (!snapCanjes.empty) {
-                    AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
+
+            if (snapCanjes && !snapCanjes.empty) {
+                AppState.canjesPremios = snapCanjes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             }
+
             if (snapConfig && snapConfig.exists) {
                 const cfg = snapConfig.data() || {};
                 if (cfg.nextProductSequence) AppState.nextProductSequence = cfg.nextProductSequence;
@@ -876,26 +986,25 @@ window.InventoryApp = window.InventoryApp || {};
                 if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
                 if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
             }
-            if (snapPagosPorVerificar) {
-                if (!snapPagosPorVerificar.empty) {
-                    const pagos = [];
-                    snapPagosPorVerificar.docs.forEach(doc => {
-                        const data = doc.data() || {};
-                        if (Array.isArray(data.pagos)) {
-                            data.pagos.forEach(p => { if (p && p.id) pagos.push(p); });
-                        }
-                        pagos.push({ id: doc.id, ...data });
-                    });
-                    AppState.pagosPorVerificar = pagos;
-                }
+
+            if (snapPagosPorVerificar && !snapPagosPorVerificar.empty) {
+                const pagos = [];
+                snapPagosPorVerificar.docs.forEach(doc => {
+                    const data = doc.data() || {};
+                    if (Array.isArray(data.pagos)) {
+                        data.pagos.forEach(p => { if (p && p.id) pagos.push(p); });
+                    }
+                    pagos.push({ id: doc.id, ...data });
+                });
+                AppState.pagosPorVerificar = pagos;
             }
 
             if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
                 window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
             }
 
-            // Si la colección de usuarios en Firestore no tiene SuperAdmin, solo guardar SuperAdmin
-            if (snapUsuarios && snapUsuarios.empty && db) {
+            // Si la colección de usuarios en Firestore no tiene SuperAdmin, solo guardar SuperAdmin si el usuario activo es administrador
+            if (snapUsuarios && snapUsuarios.empty && db && esAdmin) {
                 const superAdmin = (AppState.usuarios || []).find(u => u.id === 'SuperAdmin');
                 if (superAdmin) {
                     db.collection(COLLECTIONS.USUARIOS).doc('SuperAdmin').set(superAdmin, { merge: true }).catch(() => {});
@@ -1140,6 +1249,13 @@ window.InventoryApp = window.InventoryApp || {};
         // Limpiar listeners previos
         detenerListenersTiempoReal();
 
+        const usuarioSesion = window.AppState?.usuarioActual;
+        const esAdmin = esUsuarioAdminActivo(usuarioSesion);
+        if (!esAdmin) {
+            console.info('[Firebase Realtime] Modo Cliente / Visitante activo: No se inician listeners de administración en segundo plano.');
+            return;
+        }
+
         try {
             // Helper para persistir caché tras actualización en tiempo real
             const guardarCacheLocal = () => {
@@ -1180,7 +1296,6 @@ window.InventoryApp = window.InventoryApp || {};
                             const found = newClientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
                             if (!found) {
                                 newClientes.push(JSON.parse(JSON.stringify(co)));
-                                guardarClienteCloud(co).catch(() => {});
                             } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
                                 found.deudaUSD = co.deudaUSD;
                                 found.deudaInicialUSD = co.deudaInicialUSD;
@@ -1318,7 +1433,6 @@ window.InventoryApp = window.InventoryApp || {};
                         const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
                         if (!exists) {
                             newVentas.push(JSON.parse(JSON.stringify(vf)));
-                            registrarVentaCloud(vf, vf.items || []).catch(() => {});
                         }
                     });
                 }
@@ -3683,6 +3797,8 @@ window.InventoryApp = window.InventoryApp || {};
         ocultarNotificacion: ocultarNotificacionCloud,
         marcarNotificacionLeida: marcarNotificacionLeidaCloud,
         actualizarUIEstadoNube,
+        iniciarListeners: iniciarListenersTiempoReal,
+        detenerListeners: detenerListenersTiempoReal,
         getConfig: obtenerConfiguracion
     };
 })();

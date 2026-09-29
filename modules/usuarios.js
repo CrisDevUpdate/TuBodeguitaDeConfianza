@@ -178,6 +178,9 @@ function configurarVistasPorRol(usuario) {
                        document.querySelector('#mobile-bottom-nav .bottom-nav-item.active')?.getAttribute('data-tab');
     
     if (esAdmin) {
+        if (window.InventoryApp?.Firebase?.iniciarListeners) {
+            window.InventoryApp.Firebase.iniciarListeners();
+        }
         if (!activeView || activeView.startsWith('cliente-')) {
             switchTab('pos');
         }
@@ -220,6 +223,9 @@ function configurarVistasPorRol(usuario) {
         if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
         // Cliente
+        if (window.InventoryApp?.Firebase?.detenerListeners) {
+            window.InventoryApp.Firebase.detenerListeners();
+        }
         if (!activeView || !activeView.startsWith('cliente-')) {
             switchTab('cliente-catalogo');
         }
