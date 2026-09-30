@@ -237,15 +237,29 @@ function actualizarSelectClientes() {
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
     }
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+
+    // Sincronizar deudas actuales reales de todos los clientes con su balance contable
+    if (typeof calcularEstadoFinancieroCliente === 'function') {
+        lista.forEach(c => {
+            if (c && c.id && c.id !== 'V-00000000') {
+                const estFin = calcularEstadoFinancieroCliente(c.id || c);
+                if (estFin && typeof estFin.saldoDeudaUSD === 'number') {
+                    c.deudaUSD = estFin.saldoDeudaUSD;
+                }
+            }
+        });
+    }
+
     const select = document.getElementById('pos-cliente-select');
     const selectMobile = document.getElementById('pos-cliente-select-mobile');
-    if (!select && !selectMobile) return;
-    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const tieneMostrador = lista.some(c => c.id === 'V-00000000' || (c.nombre && c.nombre.toLowerCase().includes('mostrador')));
-    const mostradorHTML = tieneMostrador ? '' : '<option value="V-00000000">Cliente de Mostrador</option>';
-    const optionsHTML = mostradorHTML + lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-    if (select) select.innerHTML = optionsHTML;
-    if (selectMobile) selectMobile.innerHTML = optionsHTML;
+    if (select || selectMobile) {
+        const tieneMostrador = lista.some(c => c.id === 'V-00000000' || (c.nombre && c.nombre.toLowerCase().includes('mostrador')));
+        const mostradorHTML = tieneMostrador ? '' : '<option value="V-00000000">Cliente de Mostrador</option>';
+        const optionsHTML = mostradorHTML + lista.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        if (select) select.innerHTML = optionsHTML;
+        if (selectMobile) selectMobile.innerHTML = optionsHTML;
+    }
 
     if (typeof renderizarCustomClientePickersPOS === 'function') {
         renderizarCustomClientePickersPOS('both');
@@ -805,11 +819,29 @@ function renderizarClientes() {
     if (typeof verificarSugerenciasFusionClientes === 'function') {
         verificarSugerenciasFusionClientes();
     }
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+
+    // Sincronizar deudas consistentes para todos los clientes con su balance contable
+    if (typeof calcularEstadoFinancieroCliente === 'function') {
+        lista.forEach(c => {
+            if (c && c.id && c.id !== 'V-00000000') {
+                const estadoFin = calcularEstadoFinancieroCliente(c.id || c);
+                if (estadoFin && typeof estadoFin.saldoDeudaUSD === 'number') {
+                    c.deudaUSD = estadoFin.saldoDeudaUSD;
+                }
+            }
+        });
+    }
+
+    if (typeof renderizarCustomClientePickersPOS === 'function') {
+        renderizarCustomClientePickersPOS('both');
+    }
+
     const tbody = document.getElementById('clientes-body');
     const mobileList = document.getElementById('clientes-mobile-list');
     if (!tbody && !mobileList) return;
 
-    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
     const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
 
     // Calcular métricas financieras globales para los KPIs
@@ -818,6 +850,7 @@ function renderizarClientes() {
 
     const clientesConEstado = lista.map(c => {
         const estadoFin = calcularEstadoFinancieroCliente(c.id);
+        c.deudaUSD = estadoFin.saldoDeudaUSD; // Asegurar consistencia absoluta de deuda en todo el sistema
         if (estadoFin.saldoDeudaUSD > 0) {
             clientesConDeuda++;
             totalDeudaGlobalUSD += estadoFin.saldoDeudaUSD;

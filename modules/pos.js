@@ -1091,7 +1091,14 @@ function abrirModalConfirmacionCreditoPOS(clienteObj) {
     const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
     const totalArticulos = carrito.reduce((s, i) => s + i.cantidad, 0);
 
-    const deudaActual = Number(clienteObj.deudaUSD || 0);
+    let deudaActual = 0;
+    if (typeof calcularEstadoFinancieroCliente === 'function') {
+        const estFin = calcularEstadoFinancieroCliente(clienteObj.id || clienteObj);
+        deudaActual = estFin ? Number(estFin.saldoDeudaUSD || 0) : Number(clienteObj.deudaUSD || 0);
+    } else {
+        deudaActual = Number(clienteObj.deudaUSD || 0);
+    }
+    clienteObj.deudaUSD = deudaActual;
     const nuevaDeuda = deudaActual + totalUSD;
 
     modal.innerHTML = `
@@ -1264,7 +1271,12 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
     // Actualizar cuenta corriente / deuda del cliente
     const clienteExistente = listaClientes.find(c => c.id === clienteId);
     if (clienteExistente) {
-        clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            const estFin = calcularEstadoFinancieroCliente(clienteExistente.id || clienteExistente);
+            if (estFin) clienteExistente.deudaUSD = estFin.saldoDeudaUSD;
+        } else {
+            clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+        }
         if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
             window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
         }
@@ -1319,6 +1331,8 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
     renderizarPosProductos();
     renderizarInventario();
     renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarResumenPerdidasEconomicas();
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
@@ -1528,7 +1542,12 @@ async function ejecutarFinalizacionCheckoutPOS() {
     if (metodoPago === 'Crédito') {
         const clienteExistente = clientes.find(c => c.id === clienteId);
         if (clienteExistente) {
-            clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+            if (typeof calcularEstadoFinancieroCliente === 'function') {
+                const estFin = calcularEstadoFinancieroCliente(clienteExistente.id || clienteExistente);
+                if (estFin) clienteExistente.deudaUSD = estFin.saldoDeudaUSD;
+            } else {
+                clienteExistente.deudaUSD = Number(clienteExistente.deudaUSD || 0) + total;
+            }
             if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
                 window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
             }
@@ -1621,6 +1640,8 @@ async function ejecutarFinalizacionCheckoutPOS() {
     renderizarPosProductos();
     renderizarInventario();
     renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
     renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
     renderizarResumenPerdidasEconomicas();
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
@@ -1714,7 +1735,18 @@ function renderizarCustomClientePickersPOS(tipo = 'both') {
             const cId = c.id || c.cedula || 'CLI-000';
             const isSelected = String(cId) === String(valorActual);
             const avatarChar = c.nombre ? c.nombre.trim().charAt(0).toUpperCase() : 'C';
-            const deudaUSD = Number(c.deudaUSD || 0);
+
+            // Obtener siempre la deuda real actual exacta (sincronizada al 100% con Clientes y Cuentas por Cobrar)
+            let deudaUSD = 0;
+            if (cId === 'V-00000000') {
+                deudaUSD = 0;
+            } else if (typeof calcularEstadoFinancieroCliente === 'function') {
+                const estFin = calcularEstadoFinancieroCliente(c.id || c);
+                deudaUSD = estFin && typeof estFin.saldoDeudaUSD === 'number' ? estFin.saldoDeudaUSD : Number(c.deudaUSD || 0);
+                c.deudaUSD = deudaUSD;
+            } else {
+                deudaUSD = Number(c.deudaUSD || 0);
+            }
 
             let badgeHtml = '';
             if (deudaUSD > 0) {
@@ -1780,7 +1812,16 @@ function actualizarCustomClienteTriggerDisplay() {
         deudaUSD: 0
     };
 
-    const deudaUSD = Number(clienteObj.deudaUSD || 0);
+    let deudaUSD = 0;
+    if (clienteObj.id === 'V-00000000') {
+        deudaUSD = 0;
+    } else if (typeof calcularEstadoFinancieroCliente === 'function') {
+        const estFin = calcularEstadoFinancieroCliente(clienteObj.id || clienteObj);
+        deudaUSD = estFin && typeof estFin.saldoDeudaUSD === 'number' ? estFin.saldoDeudaUSD : Number(clienteObj.deudaUSD || 0);
+        clienteObj.deudaUSD = deudaUSD;
+    } else {
+        deudaUSD = Number(clienteObj.deudaUSD || 0);
+    }
     const avatarChar = clienteObj.nombre ? clienteObj.nombre.trim().charAt(0).toUpperCase() : 'C';
 
     ['desktop', 'mobile'].forEach(tipo => {
@@ -1838,6 +1879,9 @@ function toggleDropdownClientePOS(tipo) {
     cerrarDropdownClientePOS('all');
 
     if (!estaAbierto) {
+        // Al desplegar el selector de clientes en el carrito, refrescar con las deudas actuales exactas en tiempo real
+        renderizarCustomClientePickersPOS(tipo);
+
         menu.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');

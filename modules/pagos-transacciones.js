@@ -200,12 +200,16 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
         }
 
         // Actualizar último abono y saldo del cliente
-        const clienteAsociado = (AppState.clientes || []).find(c => c.id === tx.clienteId);
+        const clienteAsociado = (AppState.clientes || []).find(c => 
+            (tx.clienteId && c.id === tx.clienteId) || 
+            (tx.clienteCedula && (c.cedula === tx.clienteCedula || c.id === tx.clienteCedula)) ||
+            (tx.clienteNombre && c.nombre && c.nombre.trim().toLowerCase() === tx.clienteNombre.trim().toLowerCase())
+        );
         if (clienteAsociado) {
             clienteAsociado.ultimoAbonoFecha = new Date().toISOString();
             if (typeof calcularEstadoFinancieroCliente === 'function') {
-                const estFin = calcularEstadoFinancieroCliente(clienteAsociado.id);
-                if (estFin) clienteAsociado.deudaUSD = estFin.saldoDeudaUSD;
+                const estFin = calcularEstadoFinancieroCliente(clienteAsociado.id || clienteAsociado);
+                if (estFin && typeof estFin.saldoDeudaUSD === 'number') clienteAsociado.deudaUSD = estFin.saldoDeudaUSD;
             }
             if (window.InventoryApp?.Firebase?.guardarCliente) {
                 window.InventoryApp.Firebase.guardarCliente(clienteAsociado).catch(() => {});
@@ -254,6 +258,9 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
 
         renderizarTransacciones();
         renderizarClientes();
+        if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+        if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+        if (typeof actualizarCustomClienteTriggerDisplay === 'function') actualizarCustomClienteTriggerDisplay();
         if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
         if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
@@ -1575,6 +1582,9 @@ function guardarAbono(e) {
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
     if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
     if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+    if (typeof actualizarCustomClienteTriggerDisplay === 'function') actualizarCustomClienteTriggerDisplay();
     if (typeof verDetalleCliente === 'function') verDetalleCliente(clienteId);
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
@@ -1750,6 +1760,9 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
 
     // 6. Refrescar vistas
     if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+    if (typeof actualizarCustomClienteTriggerDisplay === 'function') actualizarCustomClienteTriggerDisplay();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
     if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
@@ -2101,9 +2114,19 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
             }
 
             // Actualizar solvencia y último abono del cliente
-            const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
+            const cliente = (AppState.clientes || []).find(c => 
+                (abono.clienteId && c.id === abono.clienteId) || 
+                (abono.clienteCedula && (c.cedula === abono.clienteCedula || c.id === abono.clienteCedula)) ||
+                (abono.clienteNombre && c.nombre && c.nombre.trim().toLowerCase() === abono.clienteNombre.trim().toLowerCase())
+            );
             if (cliente) {
                 cliente.ultimoAbonoFecha = new Date().toISOString();
+                if (typeof calcularEstadoFinancieroCliente === 'function') {
+                    const nuevoEst = calcularEstadoFinancieroCliente(cliente.id || cliente);
+                    if (nuevoEst && typeof nuevoEst.saldoDeudaUSD === 'number') {
+                        cliente.deudaUSD = nuevoEst.saldoDeudaUSD;
+                    }
+                }
                 if (window.InventoryApp?.Firebase?.guardarCliente) {
                     window.InventoryApp.Firebase.guardarCliente(cliente).catch(() => {});
                 }
@@ -2163,6 +2186,9 @@ window.aprobarPagoPorVerificarAdmin = async function(id) {
     if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
     if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
     if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+    if (typeof actualizarCustomClienteTriggerDisplay === 'function') actualizarCustomClienteTriggerDisplay();
     if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
 
     if (window.InventoryApp?.Modal?.toast) {
