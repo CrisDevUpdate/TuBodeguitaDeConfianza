@@ -617,22 +617,22 @@ window.InventoryApp = window.InventoryApp || {};
             // Iniciar sincronización inicial desde la nube
             await sincronizarTodoDesdeNube();
 
-            // Escuchar cambios en tiempo real ÚNICAMENTE si es Administrador activo
+            // Escuchar cambios en tiempo real si hay usuario en sesión activa
             const usuarioSesionInit = window.AppState?.usuarioActual;
-            if (esUsuarioAdminActivo(usuarioSesionInit)) {
+            if (usuarioSesionInit) {
                 iniciarListenersTiempoReal();
             }
 
-            // Re-validación en foco de ventana (Multi-Device Parity) EXCLUSIVA para el Administrador activo
+            // Re-validación en foco de ventana (Multi-Device Parity) para usuarios con sesión activa
             let lastFocusSync = 0;
             const revalidarEnFoco = () => {
                 if (isQuotaExhausted) return;
                 const usuarioSesion = window.AppState?.usuarioActual;
-                if (!esUsuarioAdminActivo(usuarioSesion)) return; // Visitantes y clientes no ejecutan revalidación en foco
+                if (!usuarioSesion) return; // Visitantes sin login no revalidan
                 const now = Date.now();
-                if (now - lastFocusSync < 120000) return; // Mínimo 2 minutos entre chequeos de foco
+                if (now - lastFocusSync < 20000) return; // Mínimo 20 segundos entre chequeos de foco
                 lastFocusSync = now;
-                sincronizarTodoDesdeNube().catch(() => {});
+                sincronizarTodoDesdeNube(true).catch(() => {});
             };
             window.addEventListener('focus', revalidarEnFoco);
             document.addEventListener('visibilitychange', () => {
@@ -759,9 +759,9 @@ window.InventoryApp = window.InventoryApp || {};
         }
         lastSyncAttempt = now;
 
-        // 🛡️ ESTRATEGIA CACHE-FIRST ULTRA-EFICIENTE PARA CLIENTES Y VISITANTES PÚBLICOS
-        // Una vez que el cliente abre la app, los datos quedan congelados en caché local para evitar disparar solicitudes
-        if (!forzar && !esAdmin) {
+        // 🛡️ ESTRATEGIA PARA VISITANTES PÚBLICOS SIN SESIÓN
+        // Si no hay usuario logueado en la app, únicamente se requiere catálogo y config
+        if (!forzar && !usuarioSesion) {
             // Intentar restaurar desde caché persistente si la memoria está vacía
             if (!Array.isArray(AppState.productos) || AppState.productos.length === 0) {
                 try {
@@ -785,17 +785,15 @@ window.InventoryApp = window.InventoryApp || {};
 
             const lastClientSync = Number(localStorage.getItem('bodeguita_last_client_sync') || 0);
             const prodsCargados = Array.isArray(AppState.productos) && AppState.productos.length > 0;
-            // Si el cliente ya tiene catálogo cargado y sincronizó hoy (o cuota agotada): 0 peticiones, 0 lecturas, 0 escrituras
             if (prodsCargados && (isQuotaExhausted || (now - lastClientSync < 6 * 60 * 60 * 1000))) {
-                console.info('[Firebase Cache-First] Cliente: Catálogo servido 100% desde caché local (0 peticiones a Firestore).');
                 actualizarUIEstadoNube('conectado', 'Catálogo cargado (Caché local)');
                 refrescarTodasLasVistas();
                 return true;
             }
         }
 
-        // Si es cliente/visitante que necesita descargar por primera vez: SOLO lee PRODUCTOS y CONFIG
-        if (!esAdmin) {
+        // Si es visitante público sin sesión que descarga por primera vez: SOLO lee PRODUCTOS y CONFIG
+        if (!usuarioSesion) {
             actualizarUIEstadoNube('sincronizando', 'Cargando catálogo...');
             try {
                 const [snapProds, snapConfig] = await Promise.all([
@@ -845,42 +843,49 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        actualizarUIEstadoNube('sincronizando', 'Comprobando sincronización en la nube...');
+        actualizarUIEstadoNube('sincronizando', 'Sincronizando con la nube...');
 
         try {
-            const [
-                snapProds,
-                snapCli,
-                snapVentas,
-                snapAbonos,
-                snapTx,
-                snapAud,
-                snapElim,
-                snapCliElim,
-                snapUsuarios,
-                snapCanjes,
-                snapConfig,
-                snapPagosPorVerificar,
-                snapFacturas,
-                snapKardex,
-                snapProveedores
-            ] = await Promise.all([
+            const promesas = [
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
                 obtenerColeccionSegura(COLLECTIONS.VENTAS),
                 obtenerColeccionSegura(COLLECTIONS.ABONOS),
-                obtenerColeccionSegura(COLLECTIONS.TRANSACCIONES),
-                obtenerColeccionSegura(COLLECTIONS.AUDITORIAS),
-                obtenerColeccionSegura(COLLECTIONS.ELIMINACIONES),
-                obtenerColeccionSegura(COLLECTIONS.CLIENTES_ELIMINADOS),
                 obtenerColeccionSegura(COLLECTIONS.USUARIOS),
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
-                obtenerColeccionSegura(COLLECTIONS.FACTURAS),
-                obtenerColeccionSegura(COLLECTIONS.KARDEX),
-                obtenerColeccionSegura(COLLECTIONS.PROVEEDORES)
-            ]);
+                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+            ];
+
+            if (esAdmin) {
+                promesas.push(
+                    obtenerColeccionSegura(COLLECTIONS.TRANSACCIONES),
+                    obtenerColeccionSegura(COLLECTIONS.AUDITORIAS),
+                    obtenerColeccionSegura(COLLECTIONS.ELIMINACIONES),
+                    obtenerColeccionSegura(COLLECTIONS.CLIENTES_ELIMINADOS),
+                    obtenerColeccionSegura(COLLECTIONS.FACTURAS),
+                    obtenerColeccionSegura(COLLECTIONS.KARDEX),
+                    obtenerColeccionSegura(COLLECTIONS.PROVEEDORES)
+                );
+            }
+
+            const resultados = await Promise.all(promesas);
+            const snapProds = resultados[0];
+            const snapCli = resultados[1];
+            const snapVentas = resultados[2];
+            const snapAbonos = resultados[3];
+            const snapUsuarios = resultados[4];
+            const snapCanjes = resultados[5];
+            const snapConfig = resultados[6];
+            const snapPagosPorVerificar = resultados[7];
+
+            const snapTx = esAdmin ? resultados[8] : null;
+            const snapAud = esAdmin ? resultados[9] : null;
+            const snapElim = esAdmin ? resultados[10] : null;
+            const snapCliElim = esAdmin ? resultados[11] : null;
+            const snapFacturas = esAdmin ? resultados[12] : null;
+            const snapKardex = esAdmin ? resultados[13] : null;
+            const snapProveedores = esAdmin ? resultados[14] : null;
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
             const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
@@ -1286,8 +1291,8 @@ window.InventoryApp = window.InventoryApp || {};
 
         const usuarioSesion = window.AppState?.usuarioActual;
         const esAdmin = esUsuarioAdminActivo(usuarioSesion);
-        if (!esAdmin) {
-            console.info('[Firebase Realtime] Modo Cliente / Visitante activo: No se inician listeners de administración en segundo plano.');
+        if (!usuarioSesion) {
+            console.info('[Firebase Realtime] Visitante sin sesión activa: No se inician listeners en segundo plano.');
             return;
         }
 
@@ -1789,65 +1794,68 @@ window.InventoryApp = window.InventoryApp || {};
                 syncListeners.push(unsubDocAppStatePagos);
             } catch (e) {}
 
-            // Listener de transacciones
-            const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newTx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newTx);
-                    if (lastCollectionHashes[COLLECTIONS.TRANSACCIONES] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.TRANSACCIONES] = hash;
-                        AppState.transacciones = newTx;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+            // Listeners exclusivos de administración total (Transacciones, Auditorías, Eliminaciones, Clientes Eliminados)
+            if (esAdmin) {
+                // Listener de transacciones
+                const unsubTx = db.collection(COLLECTIONS.TRANSACCIONES).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newTx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newTx);
+                        if (lastCollectionHashes[COLLECTIONS.TRANSACCIONES] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.TRANSACCIONES] = hash;
+                            AppState.transacciones = newTx;
+                            guardarCacheLocal();
+                            solicitarRefrescoVistasDebounced();
+                        }
                     }
-                }
-            }, err => manejarErrorListener('transacciones', err));
-            syncListeners.push(unsubTx);
+                }, err => manejarErrorListener('transacciones', err));
+                syncListeners.push(unsubTx);
 
-            // Listener de auditorias
-            const unsubAud = db.collection(COLLECTIONS.AUDITORIAS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newAud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newAud);
-                    if (lastCollectionHashes[COLLECTIONS.AUDITORIAS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.AUDITORIAS] = hash;
-                        AppState.auditorias = newAud;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+                // Listener de auditorias
+                const unsubAud = db.collection(COLLECTIONS.AUDITORIAS).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newAud = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newAud);
+                        if (lastCollectionHashes[COLLECTIONS.AUDITORIAS] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.AUDITORIAS] = hash;
+                            AppState.auditorias = newAud;
+                            guardarCacheLocal();
+                            solicitarRefrescoVistasDebounced();
+                        }
                     }
-                }
-            }, err => manejarErrorListener('auditorias', err));
-            syncListeners.push(unsubAud);
+                }, err => manejarErrorListener('auditorias', err));
+                syncListeners.push(unsubAud);
 
-            // Listener de eliminaciones
-            const unsubElim = db.collection(COLLECTIONS.ELIMINACIONES).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newElim);
-                    if (lastCollectionHashes[COLLECTIONS.ELIMINACIONES] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.ELIMINACIONES] = hash;
-                        AppState.eliminaciones = newElim;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+                // Listener de eliminaciones
+                const unsubElim = db.collection(COLLECTIONS.ELIMINACIONES).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newElim);
+                        if (lastCollectionHashes[COLLECTIONS.ELIMINACIONES] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.ELIMINACIONES] = hash;
+                            AppState.eliminaciones = newElim;
+                            guardarCacheLocal();
+                            solicitarRefrescoVistasDebounced();
+                        }
                     }
-                }
-            }, err => manejarErrorListener('eliminaciones', err));
-            syncListeners.push(unsubElim);
+                }, err => manejarErrorListener('eliminaciones', err));
+                syncListeners.push(unsubElim);
 
-            // Listener de clientes eliminados
-            const unsubCliElim = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newCliElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newCliElim);
-                    if (lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] = hash;
-                        AppState.clientesEliminados = newCliElim;
-                        guardarCacheLocal();
-                        solicitarRefrescoVistasDebounced();
+                // Listener de clientes eliminados
+                const unsubCliElim = db.collection(COLLECTIONS.CLIENTES_ELIMINADOS).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newCliElim = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newCliElim);
+                        if (lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] = hash;
+                            AppState.clientesEliminados = newCliElim;
+                            guardarCacheLocal();
+                            solicitarRefrescoVistasDebounced();
+                        }
                     }
-                }
-            }, err => manejarErrorListener('clientes eliminados', err));
-            syncListeners.push(unsubCliElim);
+                }, err => manejarErrorListener('clientes eliminados', err));
+                syncListeners.push(unsubCliElim);
+            }
 
             // Listener de canjes de premios
             const unsubCanjes = db.collection(COLLECTIONS.CANJES).onSnapshot(snapshot => {
@@ -3825,11 +3833,68 @@ window.InventoryApp = window.InventoryApp || {};
         return true;
     }
 
+    /**
+     * Sincroniza exclusivamente el estado de cuenta y abonos del cliente en tiempo real desde Firestore.
+     * Garantiza que pagos aprobados, abonos y deudas estén 100% al día en el portal del cliente sin desfase.
+     */
+    async function sincronizarEstadoCuentaCliente(identificador) {
+        if (!db || isQuotaExhausted) return false;
+        try {
+            const [snapAbonos, snapCli, snapVentas, snapPagos] = await Promise.all([
+                obtenerColeccionSegura(COLLECTIONS.ABONOS),
+                obtenerColeccionSegura(COLLECTIONS.CLIENTES),
+                obtenerColeccionSegura(COLLECTIONS.VENTAS),
+                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+            ]);
+
+            if (snapAbonos && !snapAbonos.empty) {
+                const cloudAbonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                AppState.abonos = cloudAbonos;
+                lastCollectionHashes[COLLECTIONS.ABONOS] = calcularHashColeccion(cloudAbonos);
+            }
+
+            if (snapCli && !snapCli.empty) {
+                const cloudCli = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const mapCli = new Map((AppState.clientes || []).map(c => [String(c.id).toUpperCase(), c]));
+                cloudCli.forEach(c => mapCli.set(String(c.id).toUpperCase(), { ...mapCli.get(String(c.id).toUpperCase()), ...c }));
+                AppState.clientes = Array.from(mapCli.values());
+                lastCollectionHashes[COLLECTIONS.CLIENTES] = calcularHashColeccion(AppState.clientes);
+            }
+
+            if (snapVentas && !snapVentas.empty) {
+                const cloudVentas = snapVentas.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                AppState.ventas = cloudVentas;
+                lastCollectionHashes[COLLECTIONS.VENTAS] = calcularHashColeccion(cloudVentas);
+            }
+
+            if (snapPagos && !snapPagos.empty) {
+                const pagos = [];
+                snapPagos.docs.forEach(doc => {
+                    const data = doc.data() || {};
+                    if (Array.isArray(data.pagos)) {
+                        data.pagos.forEach(p => { if (p && p.id) pagos.push(p); });
+                    }
+                    pagos.push({ id: doc.id, ...data });
+                });
+                AppState.pagosPorVerificar = pagos;
+            }
+
+            return true;
+        } catch (err) {
+            console.warn('[Firebase] Aviso sincronizando estado de cuenta de cliente:', err);
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
         syncFromCloud: sincronizarTodoDesdeNube,
         syncToCloud: subirTodoALaNube,
+        sincronizarTodo: sincronizarTodoDesdeNube,
+        sincronizarEstadoCuentaCliente: sincronizarEstadoCuentaCliente,
         guardarProducto: guardarProductoCloud,
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,

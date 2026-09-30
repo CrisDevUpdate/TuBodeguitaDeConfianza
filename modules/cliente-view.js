@@ -1657,9 +1657,19 @@ async function renderizarEstadoCuentaCliente() {
 
     const cedula = usuario.cedula || usuario.id;
 
-    // Sincronización asíncrona throttled (anti-ráfaga de 30s) para evitar consultas a cada segundo
+    // Sincronización directa y segura con Firestore para garantizar abonos y deuda 100% al día
     const now = Date.now();
-    if (now - _ultimoSyncAccountStatus > 30000) {
+    if (window.InventoryApp?.Firebase?.sincronizarEstadoCuentaCliente) {
+        const tiempoSinSync = now - _ultimoSyncAccountStatus;
+        if (tiempoSinSync > 15000 || !AppState.abonos || AppState.abonos.length === 0) {
+            _ultimoSyncAccountStatus = now;
+            try {
+                await window.InventoryApp.Firebase.sincronizarEstadoCuentaCliente(cedula);
+            } catch (errSync) {
+                console.warn('[ClienteView] Aviso sincronizando estado de cuenta desde Firestore:', errSync);
+            }
+        }
+    } else if (now - _ultimoSyncAccountStatus > 30000) {
         _ultimoSyncAccountStatus = now;
         try {
             const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);
@@ -1717,6 +1727,10 @@ async function renderizarEstadoCuentaCliente() {
     const metricas = calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abonosAprobados);
     const { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente, totalCompradoHistoricoUSD } = metricas;
 
+    window.ultimoSaldoDeudaUSD = saldoDeudaUSD;
+    window.ultimoSaldoDeudaVES = saldoDeudaVES;
+    window.ultimoEstadoFinancieroCliente = estadoFin;
+
     const formatVES = (val) => Number(val || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const puntosPorLiberar = esSolvente ? 0 : ventasCliente
@@ -1756,7 +1770,7 @@ async function renderizarEstadoCuentaCliente() {
                     </span>
                 </div>
 
-                <button type="button" class="wallet-cta-btn" onclick="abrirModalReportarPagoCliente()">
+                <button type="button" class="wallet-cta-btn" onclick="abrirModalReportarPagoCliente({ saldoUSD: ${saldoDeudaUSD}, saldoVES: ${saldoDeudaVES} })">
                     <i class="fas fa-credit-card"></i>
                     <span>Pagar / Reportar Abono</span>
                 </button>
@@ -2072,7 +2086,7 @@ async function renderizarEstadoCuentaCliente() {
                     </h3>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span class="customer-section-badge">${todosAbonosCliente.length} abonos</span>
-                        <button type="button" class="customer-section-action-btn" onclick="abrirModalReportarPagoCliente()">
+                        <button type="button" class="customer-section-action-btn" onclick="abrirModalReportarPagoCliente({ saldoUSD: ${saldoDeudaUSD}, saldoVES: ${saldoDeudaVES} })">
                             <i class="fas fa-plus"></i> Reportar
                         </button>
                     </div>
@@ -2320,6 +2334,17 @@ function abrirModalReportarPagoCliente(opciones = {}) {
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const cuentas = typeof obtenerCuentasBancariasActivas === 'function' ? obtenerCuentasBancariasActivas() : [];
 
+    // 1. Obtener la deuda actual del cliente (en USD y en Bolívares con tasa BCV activa)
+    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente(opciones);
+    window._modalAbonoSaldoUSD = saldoUSD;
+    window._modalAbonoSaldoVES = saldoVES;
+
+    const tieneDeuda = saldoUSD > 0.009;
+    const formatVESNum = (v) => Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const montoInicial = (monedaAbonoSeleccionada === 'USD')
+        ? (saldoUSD > 0.009 ? saldoUSD.toFixed(2) : '')
+        : (saldoVES > 0.009 ? saldoVES.toFixed(2) : '');
+
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 540px; padding: 22px; animation: modalPop 0.25s ease-out;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
@@ -2350,6 +2375,44 @@ function abrirModalReportarPagoCliente(opciones = {}) {
                 <!-- Rellenado dinámicamente por actualizarCoordenadasModalAbono() -->
             </div>
 
+            <!-- 🏷️ TARJETA DESTACADA: MONTO QUE DEBEN (AUTO-CARGADO Y 100% EDITABLE) -->
+            ${tieneDeuda ? `
+                <div id="abono-modal-deuda-banner" style="background:#eff6ff; border:1.5px solid #93c5fd; border-radius:12px; padding:12px 14px; margin-bottom:14px; box-shadow:0 1px 3px rgba(37,99,235,0.08);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <span style="font-size:0.75rem; text-transform:uppercase; font-weight:800; color:#1e40af; letter-spacing:0.5px; display:flex; align-items:center; gap:5px;">
+                                <i class="fas fa-file-invoice-dollar" style="color:#2563eb;"></i> Tu Deuda Pendiente Actual:
+                            </span>
+                            <div style="display:flex; align-items:baseline; gap:8px; margin-top:2px;">
+                                <strong id="abono-modal-deuda-principal" style="font-size:1.15rem; color:#1e3a8a; font-weight:800;">
+                                    Bs. ${formatVESNum(saldoVES)}
+                                </strong>
+                                <span id="abono-modal-deuda-secundario" style="font-size:0.85rem; color:#475569; font-weight:700;">
+                                    (≈ $${saldoUSD.toFixed(2)} USD)
+                                </span>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" onclick="cargarMontoEnModalAbono(1.0)" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="Cargar el 100% de la deuda">
+                                <i class="fas fa-check-circle"></i> Pagar Total
+                            </button>
+                            <button type="button" onclick="cargarMontoEnModalAbono(0.5)" style="background:#e0e7ff; color:#3730a3; border:none; border-radius:6px; padding:6px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;" title="Abonar el 50% de la deuda">
+                                50%
+                            </button>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px; font-size:0.76rem; color:#1e40af; background:#dbeafe; padding:6px 10px; border-radius:6px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-pen-to-square" style="color:#2563eb;"></i>
+                        <span>El monto adeudado ya fue colocado en la casilla de abajo. <strong>Puedes editarlo libremente</strong> por si deseas abonar una cantidad menor.</span>
+                    </div>
+                </div>
+            ` : `
+                <div id="abono-modal-deuda-banner" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:0.8rem; color:#15803d; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-circle-check" style="color:#16a34a;"></i>
+                    <span>Actualmente estás <strong>Solvente / Al día ($0.00)</strong>. Ingresa el monto que desees abonar a favor.</span>
+                </div>
+            `}
+
             <form id="form-cliente-reportar-pago" onsubmit="event.preventDefault(); procesarReportePagoCliente();">
                 <div class="form-group" style="margin-bottom:12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -2361,7 +2424,7 @@ function abrirModalReportarPagoCliente(opciones = {}) {
                             <button type="button" id="btn-abono-moneda-usd" onclick="seleccionarMonedaAbonoCliente('USD')" style="padding:3px 10px; border:none; background:#f1f5f9; color:#475569; cursor:pointer; transition:all 0.15s;">$ USD</button>
                         </div>
                     </div>
-                    <input type="number" id="abono-cli-monto" step="0.01" min="0.01" class="form-control" placeholder="Ej: 1000.00" required oninput="calcularEquivalenteAbonoCliente(this.value)">
+                    <input type="number" id="abono-cli-monto" step="0.01" min="0.01" class="form-control" placeholder="Ej: 1000.00" value="${montoInicial}" required oninput="calcularEquivalenteAbonoCliente(this.value)">
                     <small id="abono-cli-conversion-text" style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:4px;">
                         Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})
                     </small>
@@ -2397,9 +2460,6 @@ function abrirModalReportarPagoCliente(opciones = {}) {
     modal.classList.add('active');
     actualizarCoordenadasModalAbono();
 
-    // 1. Obtener la deuda actual del cliente (en USD y en Bolívares con tasa BCV activa)
-    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente(opciones);
-
     // 2. Si se suministró referencia de compra específica, precargar en la nota
     if (opciones && opciones.referenciaCompra) {
         const inputNota = document.getElementById('abono-cli-nota');
@@ -2408,17 +2468,22 @@ function abrirModalReportarPagoCliente(opciones = {}) {
         }
     }
 
-    // 3. Pre-cargar automáticamente el monto adeudado en Bolívares (o en USD si la cuenta destino es Divisas)
+    // 3. Pre-cargar monto y calcular equivalente
     const inputMonto = document.getElementById('abono-cli-monto');
     if (inputMonto) {
-        const montoPrecarga = (monedaAbonoSeleccionada === 'USD') ? saldoUSD : saldoVES;
-        if (montoPrecarga > 0.001) {
-            inputMonto.value = Number(montoPrecarga).toFixed(2);
+        if (montoInicial && Number(montoInicial) > 0) {
+            inputMonto.value = montoInicial;
             calcularEquivalenteAbonoCliente(inputMonto.value);
+        } else {
+            const montoPrecarga = (monedaAbonoSeleccionada === 'USD') ? saldoUSD : saldoVES;
+            if (montoPrecarga > 0.009) {
+                inputMonto.value = Number(montoPrecarga).toFixed(2);
+                calcularEquivalenteAbonoCliente(inputMonto.value);
+            }
         }
     }
 
-    // 4. Mostrar hint interactivo para informar al cliente que el total está precargado y es editable
+    // 4. Mostrar hint interactivo si aplica
     actualizarHintDeudaModalAbono(opciones);
 }
 
@@ -2432,36 +2497,118 @@ function obtenerDeudaActualCliente(opciones = {}) {
     let saldoUSD = 0;
     let saldoVES = 0;
 
-    if (opciones && typeof opciones.montoUSD === 'number' && opciones.montoUSD > 0) {
-        saldoUSD = Number(opciones.montoUSD);
-        saldoVES = tasa > 0 ? Number((saldoUSD * tasa).toFixed(2)) : 0;
-    } else {
-        let estado = null;
-        if (typeof calcularEstadoFinancieroCliente === 'function') {
-            if (opciones && opciones.clienteId) {
-                estado = calcularEstadoFinancieroCliente(opciones.clienteId);
-            } else if (usuario) {
-                estado = calcularEstadoFinancieroCliente(usuario);
-            }
-        }
+    // 1. Opciones directas recibidas
+    if (opciones) {
+        if (typeof opciones.saldoUSD === 'number' && opciones.saldoUSD > 0) saldoUSD = opciones.saldoUSD;
+        else if (typeof opciones.deudaUSD === 'number' && opciones.deudaUSD > 0) saldoUSD = opciones.deudaUSD;
+        else if (typeof opciones.montoUSD === 'number' && opciones.montoUSD > 0) saldoUSD = opciones.montoUSD;
+        else if (typeof opciones.totalUSD === 'number' && opciones.totalUSD > 0) saldoUSD = opciones.totalUSD;
 
-        if (!estado && window.ultimoEstadoFinancieroCliente) {
-            estado = window.ultimoEstadoFinancieroCliente;
-        }
+        if (typeof opciones.saldoVES === 'number' && opciones.saldoVES > 0) saldoVES = opciones.saldoVES;
+        else if (typeof opciones.deudaVES === 'number' && opciones.deudaVES > 0) saldoVES = opciones.deudaVES;
+        else if (typeof opciones.montoVES === 'number' && opciones.montoVES > 0) saldoVES = opciones.montoVES;
+    }
 
-        if (estado) {
-            saldoUSD = Number(estado.saldoDeudaUSD || 0);
-            saldoVES = Number(estado.saldoDeudaVES || 0);
+    // 2. Caché global reciente del cliente en ventana
+    if (saldoUSD <= 0) {
+        if (typeof window.ultimoSaldoDeudaUSD === 'number' && window.ultimoSaldoDeudaUSD > 0) {
+            saldoUSD = window.ultimoSaldoDeudaUSD;
+        } else if (typeof window._modalAbonoSaldoUSD === 'number' && window._modalAbonoSaldoUSD > 0) {
+            saldoUSD = window._modalAbonoSaldoUSD;
+        } else if (window.ultimoEstadoFinancieroCliente && typeof window.ultimoEstadoFinancieroCliente.saldoDeudaUSD === 'number' && window.ultimoEstadoFinancieroCliente.saldoDeudaUSD > 0) {
+            saldoUSD = window.ultimoEstadoFinancieroCliente.saldoDeudaUSD;
         }
     }
 
+    if (saldoVES <= 0) {
+        if (typeof window.ultimoSaldoDeudaVES === 'number' && window.ultimoSaldoDeudaVES > 0) {
+            saldoVES = window.ultimoSaldoDeudaVES;
+        } else if (typeof window._modalAbonoSaldoVES === 'number' && window._modalAbonoSaldoVES > 0) {
+            saldoVES = window._modalAbonoSaldoVES;
+        } else if (window.ultimoEstadoFinancieroCliente && typeof window.ultimoEstadoFinancieroCliente.saldoDeudaVES === 'number' && window.ultimoEstadoFinancieroCliente.saldoDeudaVES > 0) {
+            saldoVES = window.ultimoEstadoFinancieroCliente.saldoDeudaVES;
+        }
+    }
+
+    // 3. Cálculo directo mediante calcularEstadoFinancieroCliente
+    if (saldoUSD <= 0 && typeof calcularEstadoFinancieroCliente === 'function') {
+        let estado = null;
+        if (opciones && opciones.clienteId) {
+            estado = calcularEstadoFinancieroCliente(opciones.clienteId);
+        } else if (usuario) {
+            estado = calcularEstadoFinancieroCliente(usuario);
+            if ((!estado || estado.saldoDeudaUSD <= 0) && usuario.clienteId) {
+                estado = calcularEstadoFinancieroCliente(usuario.clienteId);
+            }
+            if ((!estado || estado.saldoDeudaUSD <= 0) && usuario.cedula) {
+                estado = calcularEstadoFinancieroCliente(usuario.cedula);
+            }
+        }
+
+        if (estado && typeof estado.saldoDeudaUSD === 'number' && estado.saldoDeudaUSD > 0) {
+            saldoUSD = Number(estado.saldoDeudaUSD);
+            if (estado.saldoDeudaVES) saldoVES = Number(estado.saldoDeudaVES);
+        }
+    }
+
+    // 4. Búsqueda directa en AppState.clientes y CLIENTES_OFICIALES
+    if (saldoUSD <= 0 && usuario) {
+        const uCed = String(usuario.cedula || usuario.id || '').trim().toUpperCase();
+        const uCliId = String(usuario.clienteId || '').trim().toUpperCase();
+        const uNom = String(usuario.nombre || '').trim().toUpperCase();
+
+        const cli = (AppState.clientes || []).find(c => {
+            if (!c) return false;
+            const cId = String(c.id || '').trim().toUpperCase();
+            const cCed = String(c.cedula || '').trim().toUpperCase();
+            const cNom = String(c.nombre || '').trim().toUpperCase();
+            return (uCliId && cId === uCliId) || (uCed && (cId === uCed || cCed === uCed)) || (uNom && cNom === uNom);
+        });
+
+        if (cli) {
+            const d = Number(cli.deudaUSD || cli.deudaInicialUSD || 0);
+            if (d > 0) saldoUSD = d;
+        }
+
+        if (saldoUSD <= 0 && typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+            const co = CLIENTES_OFICIALES.find(c => {
+                const cId = String(c.id || '').trim().toUpperCase();
+                const cNom = String(c.nombre || '').trim().toUpperCase();
+                return (uCliId && cId === uCliId) || (uCed && cId === uCed) || (uNom && cNom === uNom);
+            });
+            if (co && Number(co.deudaUSD || 0) > 0) saldoUSD = Number(co.deudaUSD);
+        }
+    }
+
+    // Conversión simétrica entre VES y USD con tasa BCV
     if (saldoVES <= 0 && saldoUSD > 0 && tasa > 0) {
         saldoVES = Number((saldoUSD * tasa).toFixed(2));
+    } else if (saldoUSD <= 0 && saldoVES > 0 && tasa > 0) {
+        saldoUSD = Number((saldoVES / tasa).toFixed(2));
     }
 
     return { saldoUSD, saldoVES, tasa };
 }
 window.obtenerDeudaActualCliente = obtenerDeudaActualCliente;
+
+/**
+ * Carga de forma inmediata el monto total o un porcentaje de la deuda en la casilla editable
+ */
+function cargarMontoEnModalAbono(factor = 1.0) {
+    const inputEl = document.getElementById('abono-cli-monto');
+    if (!inputEl) return;
+    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente();
+    const esUSD = (monedaAbonoSeleccionada === 'USD');
+    const base = esUSD ? saldoUSD : saldoVES;
+    const valor = Number((base * factor).toFixed(2));
+    if (valor > 0) {
+        inputEl.value = valor.toFixed(2);
+        calcularEquivalenteAbonoCliente(inputEl.value);
+        inputEl.focus();
+        inputEl.select();
+    }
+}
+window.cargarMontoEnModalAbono = cargarMontoEnModalAbono;
 
 /**
  * Muestra un aviso en el modal indicando que el monto de la deuda fue precargado automáticamente
@@ -2480,9 +2627,9 @@ function actualizarHintDeudaModalAbono(opciones = {}) {
             <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                 <span style="font-size:0.78rem; color:#1e40af; line-height:1.4;">
                     <i class="fas fa-circle-check" style="color:#2563eb; margin-right:4px;"></i>
-                    Monto adeudado (<strong>${montoTexto}</strong>) cargado automáticamente. Puedes editarlo si vas a abonar menos.
+                    Monto adeudado (<strong>${montoTexto}</strong>) precargado. Puedes editarlo si vas a abonar menos.
                 </span>
-                <button type="button" onclick="restablecerMontoDeudaTotalModalAbono()" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; flex-shrink:0; transition:all 0.15s;" title="Restaurar monto total de la deuda">
+                <button type="button" onclick="cargarMontoEnModalAbono(1.0)" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; flex-shrink:0; transition:all 0.15s;" title="Restaurar monto total de la deuda">
                     Pagar Total
                 </button>
             </div>
@@ -2498,17 +2645,7 @@ window.actualizarHintDeudaModalAbono = actualizarHintDeudaModalAbono;
  * Restablece el valor del input al total adeudado completo
  */
 function restablecerMontoDeudaTotalModalAbono() {
-    const inputEl = document.getElementById('abono-cli-monto');
-    if (!inputEl) return;
-    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente();
-    const esUSD = (monedaAbonoSeleccionada === 'USD');
-    const valor = esUSD ? saldoUSD.toFixed(2) : saldoVES.toFixed(2);
-    if (Number(valor) > 0) {
-        inputEl.value = valor;
-        calcularEquivalenteAbonoCliente(inputEl.value);
-        inputEl.focus();
-        inputEl.select();
-    }
+    cargarMontoEnModalAbono(1.0);
 }
 window.restablecerMontoDeudaTotalModalAbono = restablecerMontoDeudaTotalModalAbono;
 
@@ -2557,6 +2694,12 @@ function seleccionarMonedaAbonoCliente(moneda = 'VES') {
                     // De USD a VES
                     inputEl.value = (valNum * tasa).toFixed(2);
                 }
+            }
+        } else if (!inputEl.value) {
+            const { saldoUSD, saldoVES } = obtenerDeudaActualCliente();
+            const autoMonto = (moneda === 'USD') ? saldoUSD : saldoVES;
+            if (autoMonto > 0.009) {
+                inputEl.value = autoMonto.toFixed(2);
             }
         }
 

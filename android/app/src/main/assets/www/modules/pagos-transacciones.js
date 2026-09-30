@@ -172,20 +172,52 @@ async function procesarVerificacionTransaccion(id, opciones = {}) {
         tx.montoVES = Number(normalizarMontoTransaccion(tx.montoVES).toFixed(2));
         tx.montoUSD = calcularMontoUSDDesdeBs(tx.montoVES);
 
-        const yaExisteAbono = abonos.some(a => a.transaccionId === tx.id);
-        if (!yaExisteAbono) {
-            abonos.push({
-                id: 'A' + (abonos.length + 1),
+        let abonoAsociado = (Array.isArray(AppState.abonos) ? AppState.abonos : abonos).find(a => 
+            a.transaccionId === tx.id || a.id === tx.id || (a.referencia && a.referencia === tx.referencia)
+        );
+        if (abonoAsociado) {
+            abonoAsociado.estado = 'Pago agregado';
+            abonoAsociado.fechaAprobacion = tx.fechaVerificacion;
+            abonoAsociado.montoUSD = tx.montoUSD;
+            abonoAsociado.montoVES = tx.montoVES;
+        } else {
+            abonoAsociado = {
+                id: 'A' + ((AppState.abonos || abonos || []).length + 1) + '_' + Date.now().toString().slice(-4),
                 transaccionId: tx.id,
                 clienteId: tx.clienteId,
                 fecha: tx.fechaVerificacion,
+                fechaAprobacion: tx.fechaVerificacion,
                 montoUSD: tx.montoUSD,
                 montoVES: tx.montoVES,
                 metodo: tx.tipo,
                 referencia: tx.referencia,
                 tasaMomento: tx.tasaMomento,
                 estado: 'Pago agregado'
-            });
+            };
+            if (Array.isArray(abonos)) abonos.push(abonoAsociado);
+            if (!AppState.abonos) AppState.abonos = [];
+            if (!AppState.abonos.some(a => a.id === abonoAsociado.id)) AppState.abonos.push(abonoAsociado);
+        }
+
+        // Actualizar último abono y saldo del cliente
+        const clienteAsociado = (AppState.clientes || []).find(c => c.id === tx.clienteId);
+        if (clienteAsociado) {
+            clienteAsociado.ultimoAbonoFecha = new Date().toISOString();
+            if (typeof calcularEstadoFinancieroCliente === 'function') {
+                const estFin = calcularEstadoFinancieroCliente(clienteAsociado.id);
+                if (estFin) clienteAsociado.deudaUSD = estFin.saldoDeudaUSD;
+            }
+            if (window.InventoryApp?.Firebase?.guardarCliente) {
+                window.InventoryApp.Firebase.guardarCliente(clienteAsociado).catch(() => {});
+            }
+        }
+
+        // Guardar transacción y abono en Firestore
+        if (window.InventoryApp?.Firebase?.guardarAbono && abonoAsociado) {
+            window.InventoryApp.Firebase.guardarAbono(abonoAsociado).catch(() => {});
+        }
+        if (window.InventoryApp?.Firebase?.guardarTransaccion) {
+            window.InventoryApp.Firebase.guardarTransaccion(tx).catch(() => {});
         }
 
         // Si la transacción proviene de un pedido web de cliente pendiente, descontar el inventario ahora que el Admin validó
@@ -1627,6 +1659,12 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
     const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
     if (cliente) {
         cliente.ultimoAbonoFecha = new Date().toISOString();
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            const nuevoEst = calcularEstadoFinancieroCliente(cliente.id);
+            if (nuevoEst) {
+                cliente.deudaUSD = nuevoEst.saldoDeudaUSD;
+            }
+        }
     }
 
     // 3. Liberar y acreditar puntos de lealtad

@@ -223,8 +223,11 @@ function configurarVistasPorRol(usuario) {
         if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
         // Cliente
-        if (window.InventoryApp?.Firebase?.detenerListeners) {
-            window.InventoryApp.Firebase.detenerListeners();
+        if (window.InventoryApp?.Firebase?.iniciarListeners) {
+            window.InventoryApp.Firebase.iniciarListeners();
+        }
+        if (window.InventoryApp?.Firebase?.sincronizarTodo) {
+            window.InventoryApp.Firebase.sincronizarTodo(true).catch(() => {});
         }
         if (!activeView || !activeView.startsWith('cliente-')) {
             switchTab('cliente-catalogo');

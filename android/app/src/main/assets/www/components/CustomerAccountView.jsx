@@ -141,7 +141,7 @@ export default function CustomerAccountView({
             if (typeof onOpenPaymentModal === 'function') {
               onOpenPaymentModal();
             } else if (typeof window.abrirModalReportarPagoCliente === 'function') {
-              window.abrirModalReportarPagoCliente();
+              window.abrirModalReportarPagoCliente({ saldoUSD: saldoDeudaUSD, saldoVES: saldoDeudaVES });
             }
           }}
         >
@@ -536,7 +536,7 @@ export default function CustomerAccountView({
                 if (typeof onOpenPaymentModal === 'function') {
                   onOpenPaymentModal();
                 } else if (typeof window.abrirModalReportarPagoCliente === 'function') {
-                  window.abrirModalReportarPagoCliente();
+                  window.abrirModalReportarPagoCliente({ saldoUSD: saldoDeudaUSD, saldoVES: saldoDeudaVES });
                 }
               }}
             >
