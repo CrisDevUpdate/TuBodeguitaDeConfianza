@@ -2305,17 +2305,27 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    // Control de escrituras redundantes de clientes (anti-bucle)
+    const _clientesGuardadosHashes = new Map();
+
     /**
      * CRUD: Guardar / Registrar Cliente en Firestore
      */
     async function guardarClienteCloud(cliente) {
         if (!cliente || !cliente.id) return false;
 
+        // Dirty-check para evitar escrituras redundantes a cada segundo y parpadeo visual en la UI
+        const keyHash = `${cliente.id}_${cliente.nombre || ''}_${cliente.telefono || ''}_${cliente.email || ''}_${Number(cliente.deudaUSD || 0)}_${Number(cliente.deudaInicialUSD || 0)}`;
+        if (_clientesGuardadosHashes.get(cliente.id) === keyHash) {
+            return true;
+        }
+
         if (window.InventoryApp && window.InventoryApp.Persistence) {
             window.InventoryApp.Persistence.guardar(true);
         }
 
         if (isQuotaExhausted) {
+            _clientesGuardadosHashes.set(cliente.id, keyHash);
             actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Cuota Firestore activa)');
             return true;
         }
@@ -2339,6 +2349,7 @@ window.InventoryApp = window.InventoryApp || {};
                 await docRef.set(clienteData, { merge: true });
             }
 
+            _clientesGuardadosHashes.set(cliente.id, keyHash);
             actualizarUIEstadoNube('conectado', 'Cliente guardado en Firestore');
             return true;
         } catch (error) {

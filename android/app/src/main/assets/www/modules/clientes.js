@@ -1166,7 +1166,7 @@ function verDetalleCliente(id, abrirModal = true) {
             badgeEstadoEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Deuda: $${saldoDeudaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         } else {
             badgeEstadoEl.className = 'det-status-badge badge-success';
-            badgeEstadoEl.innerHTML = `<i class="fas fa-check-circle"></i> Al día ($0.00)`;
+            badgeEstadoEl.innerHTML = `<i class="fas fa-check-circle"></i> Al día ($0.00 en portal cliente)`;
         }
     }
 

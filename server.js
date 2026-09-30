@@ -434,10 +434,14 @@ app.get('/api/account/status', (req, res) => {
     (p.estado === 'Pago agregado' || p.estado === 'APROBADO' || !p.estado)
   );
 
-  const totalCompradoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const totalCompradoHistoricoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalCreditoUSD = userSales.filter(s => s.tipo === 'Crédito' || s.tipoPago === 'Crédito').reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalAbonadoUSD = userPayments.reduce((acc, p) => acc + Number(p.montoUSD || 0), 0);
   const saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
+  const esSolvente = saldoDeudaUSD <= 0.01;
+
+  // REGLA DE NEGOCIO: Al pagar toda su deuda (esSolvente), el total comprado para el cliente vuelve a 0.00
+  const totalCompradoUSD = esSolvente ? 0 : totalCompradoHistoricoUSD;
 
   const facturasPendientes = userSales.filter(s => (s.tipo === 'Crédito' || s.tipoPago === 'Crédito') && (s.estadoPago !== 'CANCELADO'));
 
@@ -445,9 +449,11 @@ app.get('/api/account/status', (req, res) => {
     success: true,
     userId,
     totalCompradoUSD,
+    totalCompradoHistoricoUSD,
     totalCreditoUSD,
     totalAbonadoUSD,
     saldoDeudaUSD,
+    esSolvente,
     facturasPendientesCount: facturasPendientes.length,
     ventas: userSales,
     abonos: userPayments

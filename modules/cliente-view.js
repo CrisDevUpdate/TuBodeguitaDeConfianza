@@ -1525,6 +1525,127 @@ function cerrarModalConfirmacionPedido() {
     if (modal) modal.classList.remove('active');
 }
 
+let _ultimoSyncAccountStatus = 0;
+
+/**
+ * Calcula las métricas de compra y abono para la vista de cuenta del cliente
+ * REGLA DE NEGOCIO:
+ * Al pagar toda su deuda (esSolvente), el total comprado vuelve a 0.00 para el cliente,
+ * así el cliente no ve cuánto ha gastado en la bodega.
+ * El Administrador sí conserva la visibilidad de la cifra histórica acumulada real.
+ */
+function calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abonosAprobados) {
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const esAdminReal = (typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : (usuario?.rol === 'admin')) ||
+                        (String(usuario?.id || '').toLowerCase() === 'superadmin') ||
+                        (String(usuario?.email || '').toLowerCase() === 'superadmin@tubodeguita.com');
+
+    const totalAbonadoHistoricoUSD = estadoFin ? Number(estadoFin.totalAbonadoUSD || 0) : 0;
+    const totalAbonadoHistoricoVES = estadoFin ? Number(estadoFin.totalAbonadoVES || 0) : 0;
+    const totalCompradoHistoricoUSD = estadoFin ? Number(estadoFin.totalCompradoUSD || 0) : 0;
+    const totalCompradoHistoricoVES = estadoFin ? Number(estadoFin.totalCompradoVES || 0) : 0;
+    const saldoDeudaUSD = estadoFin ? Number(estadoFin.saldoDeudaUSD || 0) : 0;
+    const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
+    const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
+
+    if (esAdminReal) {
+        return {
+            totalCompradoUSD: totalCompradoHistoricoUSD,
+            totalCompradoVES: totalCompradoHistoricoVES,
+            totalAbonadoUSD: totalAbonadoHistoricoUSD,
+            totalAbonadoVES: totalAbonadoHistoricoVES,
+            saldoDeudaUSD,
+            saldoDeudaVES,
+            esSolvente,
+            esAdminReal: true,
+            totalCompradoHistoricoUSD,
+            totalCompradoHistoricoVES
+        };
+    }
+
+    if (esSolvente) {
+        return {
+            totalCompradoUSD: 0,
+            totalCompradoVES: 0,
+            totalAbonadoUSD: 0,
+            totalAbonadoVES: 0,
+            saldoDeudaUSD: 0,
+            saldoDeudaVES: 0,
+            esSolvente: true,
+            esAdminReal: false,
+            totalCompradoHistoricoUSD,
+            totalCompradoHistoricoVES
+        };
+    }
+
+    // Si tiene deuda activa, calculamos el total comprado y abonado del ciclo actual
+    // para no mostrar el acumulado de compras que ya fueron saldadas en el pasado
+    let totalCompradoCicloUSD = 0;
+    let totalAbonadoCicloUSD = 0;
+
+    const eventos = [];
+    (ventasCliente || []).forEach(v => {
+        const esCred = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || !v.tipo;
+        if (esCred) {
+            eventos.push({
+                tipo: 'venta',
+                monto: Number(v.total || v.totalUSD || 0),
+                fecha: new Date(v.fecha || 0).getTime()
+            });
+        }
+    });
+    (abonosAprobados || []).forEach(a => {
+        const { montoUSD } = typeof sanitizarAbonoMonedas === 'function'
+            ? sanitizarAbonoMonedas(a, tasa)
+            : { montoUSD: Number(a.montoUSD || a.monto || 0) };
+        eventos.push({
+            tipo: 'abono',
+            monto: montoUSD,
+            fecha: new Date(a.fecha || 0).getTime()
+        });
+    });
+
+    eventos.sort((a, b) => a.fecha - b.fecha);
+
+    let bal = 0;
+    let idxUltimoCero = -1;
+    eventos.forEach((ev, i) => {
+        if (ev.tipo === 'venta') bal += ev.monto;
+        else if (ev.tipo === 'abono') bal = Math.max(0, bal - ev.monto);
+        if (bal <= 0.01) {
+            idxUltimoCero = i;
+        }
+    });
+
+    for (let i = idxUltimoCero + 1; i < eventos.length; i++) {
+        if (eventos[i].tipo === 'venta') totalCompradoCicloUSD += eventos[i].monto;
+        else if (eventos[i].tipo === 'abono') totalAbonadoCicloUSD += eventos[i].monto;
+    }
+
+    if (totalCompradoCicloUSD < saldoDeudaUSD) {
+        totalCompradoCicloUSD = Number((saldoDeudaUSD + totalAbonadoCicloUSD).toFixed(2));
+    }
+
+    totalCompradoCicloUSD = Number(totalCompradoCicloUSD.toFixed(2));
+    totalAbonadoCicloUSD = Number(totalAbonadoCicloUSD.toFixed(2));
+    const totalCompradoCicloVES = tasa > 0 ? Number((totalCompradoCicloUSD * tasa).toFixed(2)) : 0;
+    const totalAbonadoCicloVES = tasa > 0 ? Number((totalAbonadoCicloUSD * tasa).toFixed(2)) : 0;
+
+    return {
+        totalCompradoUSD: totalCompradoCicloUSD,
+        totalCompradoVES: totalCompradoCicloVES,
+        totalAbonadoUSD: totalAbonadoCicloUSD,
+        totalAbonadoVES: totalAbonadoCicloVES,
+        saldoDeudaUSD,
+        saldoDeudaVES,
+        esSolvente: false,
+        esAdminReal: false,
+        totalCompradoHistoricoUSD,
+        totalCompradoHistoricoVES
+    };
+}
+window.calcularMetricasCompradoCliente = calcularMetricasCompradoCliente;
+
 /**
  * Renderiza la sección personal de Estado de Cuenta & Deudas del Cliente
  * Sincroniza con el endpoint /api/account/status?userId=ID y renderiza la vista completa
@@ -1536,19 +1657,23 @@ async function renderizarEstadoCuentaCliente() {
 
     const cedula = usuario.cedula || usuario.id;
 
-    // Sincronización asíncrona con el endpoint de estado de cuenta backend
-    try {
-        const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);
-        if (resp.ok) {
-            const data = await resp.json();
-            console.log('[API Account Status] Sincronizado:', data);
+    // Sincronización asíncrona throttled (anti-ráfaga de 30s) para evitar consultas a cada segundo
+    const now = Date.now();
+    if (now - _ultimoSyncAccountStatus > 30000) {
+        _ultimoSyncAccountStatus = now;
+        try {
+            const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                console.log('[API Account Status] Sincronizado:', data);
+            }
+        } catch (e) {
+            // Modo local fallback
         }
-    } catch (e) {
-        // Modo local fallback
     }
 
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-        asegurarSincronizacionUsuariosAClientes();
+        asegurarSincronizacionUsuariosAClientes(false);
     }
 
     const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'
@@ -1580,13 +1705,17 @@ async function renderizarEstadoCuentaCliente() {
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
-    const totalAbonadoUSD = estadoFin ? estadoFin.totalAbonadoUSD : 0;
-    const totalAbonadoVES = estadoFin ? estadoFin.totalAbonadoVES : 0;
-    const totalCompradoUSD = estadoFin ? estadoFin.totalCompradoUSD : 0;
-    const totalCompradoVES = estadoFin ? estadoFin.totalCompradoVES : 0;
-    const saldoDeudaUSD = estadoFin ? estadoFin.saldoDeudaUSD : 0;
-    const saldoDeudaVES = estadoFin ? estadoFin.saldoDeudaVES : 0;
-    const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
+    // Ocultar botón redundante "Volver Admin" en vista cliente si no es admin personificando
+    const esAdminReal = (typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : (usuario?.rol === 'admin')) ||
+                        (String(usuario?.id || '').toLowerCase() === 'superadmin') ||
+                        (String(usuario?.email || '').toLowerCase() === 'superadmin@tubodeguita.com');
+
+    // REGLA DE NEGOCIO:
+    // Al pagar toda su deuda (esSolvente), el total comprado vuelve a 0.00 para el cliente,
+    // de modo que no vea su acumulado histórico de gasto en la bodega.
+    // El Administrador sí conserva la visibilidad de la cifra histórica acumulada real.
+    const metricas = calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abonosAprobados);
+    const { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente, totalCompradoHistoricoUSD } = metricas;
 
     const formatVES = (val) => Number(val || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -1594,8 +1723,6 @@ async function renderizarEstadoCuentaCliente() {
         .filter(v => (v.tipo === 'Crédito' || v.tipo === 'credito') && v.puntosOtorgados)
         .reduce((sum, v) => sum + Number(v.puntosOtorgados || 0), 0);
 
-    // Ocultar botón redundante "Volver Admin" en vista cliente si no es admin personificando
-    const esAdminReal = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : (usuario.rol === 'admin');
     const btnVolverAdmin = document.getElementById('btn-volver-admin');
     if (btnVolverAdmin && !esAdminReal) {
         btnVolverAdmin.style.display = 'none';
@@ -1647,6 +1774,9 @@ async function renderizarEstadoCuentaCliente() {
                     </div>
                     <div class="metric-value">$${totalCompradoUSD.toFixed(2)}</div>
                     <span class="metric-subtext">Bs. ${formatVES(totalCompradoVES)}</span>
+                    ${esAdminReal 
+                        ? `<div style="margin-top:4px;"><span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;" title="Total histórico visible solo para administración. El cliente solvente ve $0.00">👑 Histórico Admin: $${totalCompradoHistoricoUSD.toFixed(2)}</span></div>` 
+                        : (esSolvente ? `<div style="margin-top:4px;"><span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> Al día ($0.00)</span></div>` : `<div style="margin-top:4px;"><span class="badge" style="background:#fef3c7; color:#b45309; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fas fa-clock"></i> Ciclo activo</span></div>`)}
                 </div>
 
                 <!-- Total Abonado -->
@@ -1658,7 +1788,8 @@ async function renderizarEstadoCuentaCliente() {
                         <span class="metric-label">Total Abonado</span>
                     </div>
                     <div class="metric-value">$${totalAbonadoUSD.toFixed(2)}</div>
-                    <span class="metric-subtext">Bs. ${formatVES(totalAbonadoVES)} (${abonosAprobados.length})</span>
+                    <span class="metric-subtext">Bs. ${formatVES(totalAbonadoVES)} ${esAdminReal ? `(${abonosAprobados.length})` : (esSolvente ? '(Cuenta saldada)' : `(${abonosAprobados.length})`)}</span>
+                    ${esAdminReal ? `<div style="margin-top:4px;"><span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;">👑 Histórico Admin</span></div>` : (esSolvente ? `<div style="margin-top:4px;"><span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px;"><i class="fas fa-shield-check"></i> Solvente</span></div>` : '')}
                 </div>
 
                 <!-- Pedidos Activos -->
@@ -2081,13 +2212,8 @@ function descargarHistorialDeudaClienteExcel() {
     const emailCliente = clienteObj.email || usuario.email || 'No registrado';
 
     const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
-    const saldoDeudaUSD = estadoFin ? Number(estadoFin.saldoDeudaUSD || 0) : 0;
-    const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
-    const totalCompradoUSD = estadoFin ? Number(estadoFin.totalCompradoUSD || 0) : 0;
-    const totalCompradoVES = estadoFin ? Number(estadoFin.totalCompradoVES || 0) : 0;
-    const totalAbonadoUSD = estadoFin ? Number(estadoFin.totalAbonadoUSD || 0) : 0;
-    const totalAbonadoVES = estadoFin ? Number(estadoFin.totalAbonadoVES || 0) : 0;
-    const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
+    const metricas = calcularMetricasCompradoCliente(estadoFin, usuario, estadoFin?.ventasCliente || [], estadoFin?.abonosCliente || []);
+    const { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente } = metricas;
 
     const ventas = (estadoFin?.ventasCliente || []).slice().sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
     const abonos = (window.AppState?.abonos || []).filter(a => {

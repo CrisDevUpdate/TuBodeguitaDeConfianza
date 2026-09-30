@@ -45,10 +45,6 @@ export default function CustomerAccountView({
   }, [clientPayments]);
 
   // Cálculos financieros
-  const totalCompradoUSD = useMemo(() => {
-    return clientSales.reduce((sum, v) => sum + Number(v.total || 0), 0);
-  }, [clientSales]);
-
   const totalCreditoUSD = useMemo(() => {
     return clientSales
       .filter(v => v.tipo === 'Crédito' || v.tipo === 'credito')
@@ -67,10 +63,32 @@ export default function CustomerAccountView({
 
   const saldoDeudaUSD = Math.max(0, Number((totalCreditoUSD - totalAbonadoUSD).toFixed(2)));
   const saldoDeudaVES = tasa > 0 ? saldoDeudaUSD * tasa : 0;
-  const totalCompradoVES = tasa > 0 ? totalCompradoUSD * tasa : 0;
-  const totalAbonadoVES = tasa > 0 ? totalAbonadoUSD * tasa : 0;
-
   const esSolvente = saldoDeudaUSD <= 0.01;
+
+  const esAdmin = currentUser?.rol === 'admin' || String(currentUser?.id).toLowerCase() === 'superadmin';
+
+  // Acumulado histórico total (visible para el administrador)
+  const totalCompradoHistoricoUSD = useMemo(() => {
+    return clientSales.reduce((sum, v) => sum + Number(v.total || 0), 0);
+  }, [clientSales]);
+
+  // REGLA DE NEGOCIO:
+  // Al pagar toda su deuda (esSolvente), el total comprado vuelve a 0.00 para el cliente
+  // El Administrador conserva la visibilidad del acumulado histórico
+  const totalCompradoUSD = useMemo(() => {
+    if (esAdmin) return totalCompradoHistoricoUSD;
+    if (esSolvente) return 0;
+    return saldoDeudaUSD;
+  }, [esAdmin, esSolvente, totalCompradoHistoricoUSD, saldoDeudaUSD]);
+
+  const totalAbonadoDisplayUSD = useMemo(() => {
+    if (esAdmin) return totalAbonadoUSD;
+    if (esSolvente) return 0;
+    return totalAbonadoUSD;
+  }, [esAdmin, esSolvente, totalAbonadoUSD]);
+
+  const totalCompradoVES = tasa > 0 ? totalCompradoUSD * tasa : 0;
+  const totalAbonadoVES = tasa > 0 ? totalAbonadoDisplayUSD * tasa : 0;
 
   // Puntos pendientes por liberar de compras a crédito aún no saldadas
   const puntosPorLiberar = useMemo(() => {
@@ -144,6 +162,20 @@ export default function CustomerAccountView({
           </div>
           <div className="metric-value">${totalCompradoUSD.toFixed(2)}</div>
           <span className="metric-subtext">Bs. {formatVES(totalCompradoVES)}</span>
+          {esAdmin && (
+            <div style={{ marginTop: '4px' }}>
+              <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>
+                👑 Histórico Admin: ${totalCompradoHistoricoUSD.toFixed(2)}
+              </span>
+            </div>
+          )}
+          {!esAdmin && esSolvente && (
+            <div style={{ marginTop: '4px' }}>
+              <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>
+                <i className="fas fa-check" /> Al día ($0.00)
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Total Abonado */}
@@ -154,8 +186,21 @@ export default function CustomerAccountView({
             </div>
             <span className="metric-label">Total Abonado</span>
           </div>
-          <div className="metric-value">${totalAbonadoUSD.toFixed(2)}</div>
+          <div className="metric-value">${totalAbonadoDisplayUSD.toFixed(2)}</div>
           <span className="metric-subtext">Bs. {formatVES(totalAbonadoVES)} ({approvedPayments.length})</span>
+          {esAdmin ? (
+            <div style={{ marginTop: '4px' }}>
+              <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>
+                👑 Histórico Admin
+              </span>
+            </div>
+          ) : (esSolvente ? (
+            <div style={{ marginTop: '4px' }}>
+              <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}>
+                <i className="fas fa-shield-check" /> Solvente
+              </span>
+            </div>
+          ) : null)}
         </div>
 
         {/* Pedidos Activos */}
