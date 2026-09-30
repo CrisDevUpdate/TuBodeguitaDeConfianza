@@ -1653,7 +1653,8 @@ function renderizarGridAvataresPresets() {
         if (actual) {
             if (actual.startsWith('data:image') || actual.startsWith('http') || actual.startsWith('/api/')) {
                 const url = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(actual) : actual;
-                previewEl.innerHTML = `<img src="${url}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+                const inicial = (AppState.usuarioActual.nombre || 'U').substring(0, 2);
+                previewEl.innerHTML = `<img src="${url}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" onerror="alFallarAvatar(this, '${inicial}')">`;
             } else {
                 previewEl.innerHTML = `<span style="font-size:2rem;">${actual}</span>`;
             }
@@ -2079,7 +2080,8 @@ function renderizarUsuarios(busqueda = '') {
             let uAvatarHtml = '';
             if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
                 const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
-                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+                const inicial = (u.nombre || idCed || 'U').substring(0, 2);
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--border);" onerror="alFallarAvatar(this, '${inicial}')">`;
             } else if (uAvatar) {
                 uAvatarHtml = `<span style="font-size:1.3rem; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:50%; border:1px solid var(--border-light);">${uAvatar}</span>`;
             } else {
@@ -2181,7 +2183,8 @@ function renderizarUsuarios(busqueda = '') {
             let uAvatarHtml = '';
             if (uAvatar.startsWith('http') || uAvatar.startsWith('data:') || uAvatar.startsWith('/api/')) {
                 const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(uAvatar) : uAvatar;
-                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" class="usuarios-item-avatar-img" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+                const inicial = (u.nombre || idCed || 'U').substring(0, 2);
+                uAvatarHtml = `<img src="${urlFinal}" alt="Avatar" class="usuarios-item-avatar-img" onerror="alFallarAvatar(this, '${inicial}')">`;
             } else if (uAvatar) {
                 uAvatarHtml = `<span class="usuarios-item-avatar-txt">${uAvatar}</span>`;
             } else {
@@ -2340,7 +2343,8 @@ function actualizarUIUsuarioActual() {
         if (usuario.avatar) {
             if (usuario.avatar.startsWith('data:image') || usuario.avatar.startsWith('http') || usuario.avatar.startsWith('/api/')) {
                 const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(usuario.avatar) : usuario.avatar;
-                avatarMini.innerHTML = `<img src="${urlFinal}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'">`;
+                const inicial = (usuario.nombre || 'U').substring(0, 2);
+                avatarMini.innerHTML = `<img src="${urlFinal}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="alFallarAvatar(this, '${inicial}')">`;
             } else {
                 avatarMini.innerHTML = `<span style="font-size:1.15rem;">${usuario.avatar}</span>`;
             }

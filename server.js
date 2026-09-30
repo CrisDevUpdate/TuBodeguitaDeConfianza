@@ -977,7 +977,23 @@ async function manejarVistaVercelBlob(req, res) {
       return fs.createReadStream(localFilePath).pipe(res);
     }
 
-    return res.status(404).send('Not found');
+    // 3. Si no existe en Vercel Blob ni en el almacén local, servir un SVG oficial de Tu Bodeguita
+    const svgFallback = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="100%" height="100%">
+      <defs>
+        <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f766e"/>
+          <stop offset="100%" stop-color="#115e59"/>
+        </linearGradient>
+      </defs>
+      <rect width="300" height="300" rx="28" fill="url(#bgG)"/>
+      <circle cx="150" cy="130" r="65" fill="#ffffff" opacity="0.12"/>
+      <text x="150" y="150" font-family="-apple-system, sans-serif" font-size="52" fill="#ffffff" text-anchor="middle">📦</text>
+      <rect x="20" y="224" width="260" height="46" rx="14" fill="rgba(15,23,42,0.65)"/>
+      <text x="150" y="252" font-family="-apple-system, sans-serif" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">Tu Bodeguita de Confianza</text>
+    </svg>`.trim();
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.status(200).send(svgFallback);
   } catch (err) {
     console.error('[Blob View Error]:', err);
     res.status(500).json({ error: err.message });

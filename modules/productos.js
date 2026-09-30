@@ -876,18 +876,14 @@ function renderizarInventario() {
                 const esAgotado = stock <= 0;
                 const esCombo = Boolean(p.esCombo === true || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
 
-                const rawImg = p.imagen;
-                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || '';
+                const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || ''));
 
                 const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : (filtroStockCantidad || 5);
 
                 return `
                     <div class="inventario-item-card ${esAgotado ? 'card-agotado' : ''}" id="inv-card-${p.id}">
                         <div class="inventario-item-img-wrap">
-                            ${imagenSrc 
-                                ? `<img src="${imagenSrc}" alt="${escaparHtmlInventario(p.nombre)}" class="inventario-item-img" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'inventario-item-noimg\\'><i class=\\'fas fa-box-open\\'></i></div>'">`
-                                : `<div class="inventario-item-noimg"><i class="fas fa-box-open"></i></div>`
-                            }
+                            <img src="${imagenSrc}" data-original-src="${p.imagen || ''}" data-prod-nombre="${escaparHtmlInventario(p.nombre)}" data-prod-cat="${escaparHtmlInventario(p.categoria || 'Snacks')}" alt="${escaparHtmlInventario(p.nombre)}" class="inventario-item-img" loading="lazy" onerror="alFallarCargaImagen(this)">
                             ${esAgotado ? '<span class="inv-badge-agotado">Agotado</span>' : ''}
                             ${esCombo ? '<span class="inv-badge-combo"><i class="fas fa-fire"></i></span>' : ''}
                         </div>
@@ -969,7 +965,7 @@ function renderizarInventario() {
                     <td>
                         <div class="inventory-product-cell">
                             <div class="inventory-product-thumb">
-                                ${p.imagen ? `<img src="${typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(p.imagen) : p.imagen}" alt="${p.nombre}" loading="lazy">` : '<i class="fas fa-box-open"></i>'}
+                                <img src="${typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || '')}" data-original-src="${p.imagen || ''}" data-prod-nombre="${escaparHtmlInventario(p.nombre)}" data-prod-cat="${escaparHtmlInventario(p.categoria || 'Snacks')}" alt="${p.nombre}" loading="lazy" onerror="alFallarCargaImagen(this)">
                             </div>
                             <div>
                                 <div class="inventory-product-name">${p.nombre}</div>

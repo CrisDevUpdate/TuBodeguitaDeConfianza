@@ -34,13 +34,13 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             if (c.telefono && !existente.telefono) existente.telefono = c.telefono;
             if (c.email && !existente.email) existente.email = c.email;
             
-            const sumaDeuda = Number(existente.deudaInicialUSD || existente.deudaUSD || 0) +
-                              Number(c.deudaInicialUSD || c.deudaUSD || 0);
-            if (sumaDeuda > 0) {
-                existente.deudaInicialUSD = sumaDeuda;
-                existente.deudaUSD = sumaDeuda;
+            // Evitar inflar la deuda sumando registros duplicados del mismo cliente
+            const maxDeuda = Math.max(Number(existente.deudaUSD || existente.deudaInicialUSD || 0), Number(c.deudaUSD || c.deudaInicialUSD || 0));
+            if (maxDeuda > 0 && (!existente.deudaUSD || existente.deudaUSD < maxDeuda)) {
+                existente.deudaInicialUSD = maxDeuda;
+                existente.deudaUSD = maxDeuda;
+                huboCambios = true;
             }
-            huboCambios = true;
         } else {
             if (nomNormalizado) clientesMap.set(nomNormalizado, c);
             clientesADepurar.push(c);
@@ -789,16 +789,9 @@ function asegurarDeudaConsolidadaYitxelCuenca() {
         huboCambioVenta = true;
     }
 
+    // Guardar únicamente en almacenamiento local (nunca disparar escrituras en la nube durante renderizado)
     if (huboCambioVenta && window.InventoryApp && window.InventoryApp.Persistence) {
-        window.InventoryApp.Persistence.guardar(true);
-    }
-    if (huboCambioVenta && window.InventoryApp && window.InventoryApp.Firebase) {
-        if (typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
-            window.InventoryApp.Firebase.registrarVenta(ventaFiado).catch(() => {});
-        }
-        if (typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-            window.InventoryApp.Firebase.guardarCliente(yitxel).catch(() => {});
-        }
+        window.InventoryApp.Persistence.guardar(false);
     }
 }
 window.asegurarDeudaConsolidadaYitxelCuenca = asegurarDeudaConsolidadaYitxelCuenca;

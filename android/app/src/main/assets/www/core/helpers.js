@@ -148,6 +148,277 @@ function normalizarUrlBlob(url) {
 window.normalizarUrlBlob = normalizarUrlBlob;
 
 /**
+ * Genera una ilustración vectorial SVG hermosa, nítida y 100% offline para cada producto.
+ * Garantiza cero peticiones de red, cero consumo de cuota y máxima velocidad de carga.
+ */
+function generarSvgProducto(nombre = 'Producto', categoria = 'Snacks') {
+    const nom = String(nombre || 'Producto').trim();
+    const cat = String(categoria || 'General').trim();
+    const nomLower = nom.toLowerCase();
+    const catLower = cat.toLowerCase();
+
+    let c1 = '#0D9488';
+    let c2 = '#047857';
+    let badgeText = 'TU BODEGUITA';
+    let iconSvg = '';
+
+    if (nomLower.includes('dorito') || nomLower.includes('nacho')) {
+        c1 = '#DC2626';
+        c2 = '#EA580C';
+        badgeText = 'SNACK CRUJIENTE';
+        // Triángulos de nachos crujientes con especias
+        iconSvg = `
+            <polygon points="200,90 280,225 120,225" fill="#FBBF24" stroke="#D97706" stroke-width="6" stroke-linejoin="round"/>
+            <polygon points="160,130 220,230 100,230" fill="#F59E0B" stroke="#B45309" stroke-width="5" opacity="0.85" stroke-linejoin="round"/>
+            <circle cx="195" cy="150" r="4" fill="#B91C1C"/>
+            <circle cx="175" cy="185" r="5" fill="#B91C1C"/>
+            <circle cx="225" cy="190" r="4.5" fill="#B91C1C"/>
+            <circle cx="190" cy="210" r="4" fill="#B91C1C"/>
+        `;
+    } else if (nomLower.includes('toston') || nomLower.includes('chicharron') || nomLower.includes('papa')) {
+        c1 = '#D97706';
+        c2 = '#B45309';
+        badgeText = 'TOSTONES & CHIPS';
+        // Ruedas de tostones dorados fritos
+        iconSvg = `
+            <ellipse cx="170" cy="165" rx="55" ry="42" fill="#FCD34D" stroke="#D97706" stroke-width="5" transform="rotate(-15 170 165)"/>
+            <ellipse cx="230" cy="150" rx="50" ry="38" fill="#FBBF24" stroke="#B45309" stroke-width="5" transform="rotate(20 230 150)"/>
+            <ellipse cx="195" cy="200" rx="60" ry="45" fill="#F59E0B" stroke="#92400E" stroke-width="6" transform="rotate(5 195 200)"/>
+            <path d="M 175 190 Q 195 180 215 195" stroke="#78350F" stroke-width="3" fill="none" opacity="0.6"/>
+            <path d="M 165 205 Q 195 215 225 205" stroke="#78350F" stroke-width="3" fill="none" opacity="0.6"/>
+        `;
+    } else if (nomLower.includes('pepito') || nomLower.includes('cheese') || nomLower.includes('cheetos') || nomLower.includes('aro') || catLower.includes('snack')) {
+        c1 = '#EA580C';
+        c2 = '#C2410C';
+        badgeText = 'SNACK DE QUESO';
+        // Aros y roscas de maíz inflado con queso
+        iconSvg = `
+            <circle cx="170" cy="150" r="42" fill="none" stroke="#FBBF24" stroke-width="20" stroke-linecap="round"/>
+            <circle cx="230" cy="180" r="38" fill="none" stroke="#F59E0B" stroke-width="18" stroke-linecap="round"/>
+            <circle cx="160" cy="205" r="32" fill="none" stroke="#FCD34D" stroke-width="16" stroke-linecap="round"/>
+            <circle cx="230" cy="130" r="8" fill="#F59E0B"/>
+            <circle cx="130" cy="170" r="6" fill="#FBBF24"/>
+        `;
+    } else if (nomLower.includes('malta')) {
+        c1 = '#451A03';
+        c2 = '#78350F';
+        badgeText = 'MALTA NUTRITIVA';
+        // Botella de malta con corona de espuma
+        iconSvg = `
+            <path d="M 180 90 L 220 90 L 220 120 L 245 155 L 245 240 Q 245 250 235 250 L 165 250 Q 155 250 155 240 L 155 155 L 180 120 Z" fill="#291102" stroke="#B45309" stroke-width="6"/>
+            <rect x="175" y="78" width="50" height="15" rx="5" fill="#D97706"/>
+            <ellipse cx="200" cy="180" rx="35" ry="30" fill="#F59E0B" opacity="0.25"/>
+            <text x="200" y="195" font-family="sans-serif" font-weight="900" font-size="28" fill="#FCD34D" text-anchor="middle">M</text>
+            <ellipse cx="200" cy="80" rx="28" ry="10" fill="#FEF3C7" opacity="0.9"/>
+        `;
+    } else if (nomLower.includes('jugo') || nomLower.includes('refresco') || nomLower.includes('agua') || catLower.includes('bebida')) {
+        c1 = '#0284C7';
+        c2 = '#0369A1';
+        badgeText = 'BEBIDA FRÍA';
+        // Vaso refrescante con hielo y pajita
+        iconSvg = `
+            <path d="M 160 110 L 240 110 L 225 245 Q 225 255 215 255 L 185 255 Q 175 255 175 245 Z" fill="#38BDF8" stroke="#FFFFFF" stroke-width="6" opacity="0.9"/>
+            <line x1="215" y1="70" x2="190" y2="170" stroke="#F43F5E" stroke-width="8" stroke-linecap="round"/>
+            <rect x="180" y="140" width="22" height="22" rx="4" fill="#FFFFFF" opacity="0.8" transform="rotate(15 180 140)"/>
+            <rect x="200" y="180" width="20" height="20" rx="4" fill="#FFFFFF" opacity="0.8" transform="rotate(-10 200 180)"/>
+        `;
+    } else if (nomLower.includes('pinguinito')) {
+        c1 = '#3B0764';
+        c2 = '#581C87';
+        badgeText = 'PASTELITO';
+        // Pastelito de chocolate relleno con espiral blanca característica
+        iconSvg = `
+            <path d="M 150 160 Q 200 130 250 160 L 240 235 Q 200 250 160 235 Z" fill="#2E1065" stroke="#7E22CE" stroke-width="6"/>
+            <ellipse cx="200" cy="160" rx="50" ry="24" fill="#1E1B4B"/>
+            <path d="M 165 160 Q 180 152 195 160 T 225 160 T 240 160" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            <ellipse cx="200" cy="200" rx="14" ry="10" fill="#FEF08A"/>
+        `;
+    } else if (nomLower.includes('chocolate') || nomLower.includes('samba') || nomLower.includes('galak') || nomLower.includes('toronto')) {
+        c1 = '#581C87';
+        c2 = '#701A75';
+        badgeText = 'CHOCOLATE';
+        // Tableta de chocolate dividida en cuadros
+        iconSvg = `
+            <rect x="150" y="110" width="100" height="130" rx="12" fill="#3B1D11" stroke="#9A3412" stroke-width="6"/>
+            <rect x="160" y="122" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+            <rect x="204" y="122" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+            <rect x="160" y="160" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+            <rect x="204" y="160" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+            <rect x="160" y="198" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+            <rect x="204" y="198" width="36" height="30" rx="4" fill="#5A2E1B" stroke="#78350F" stroke-width="2"/>
+        `;
+    } else if (nomLower.includes('oreo')) {
+        c1 = '#0F172A';
+        c2 = '#1E3A8A';
+        badgeText = 'GALLETAS';
+        // Galleta sándwich Oreo rellena
+        iconSvg = `
+            <circle cx="200" cy="175" r="58" fill="#18181B" stroke="#3F3F46" stroke-width="5"/>
+            <circle cx="200" cy="175" r="46" fill="none" stroke="#52525B" stroke-width="4" stroke-dasharray="8 6"/>
+            <rect x="150" y="170" width="100" height="12" rx="6" fill="#F8FAFC" opacity="0.95"/>
+            <text x="200" y="183" font-family="sans-serif" font-weight="900" font-size="18" fill="#E4E4E7" text-anchor="middle" letter-spacing="2">OREO</text>
+        `;
+    } else if (nomLower.includes('galleta') || nomLower.includes('club') || nomLower.includes('kraker') || nomLower.includes('susy') || nomLower.includes('cocosette') || catLower.includes('galleta')) {
+        c1 = '#B45309';
+        c2 = '#78350F';
+        badgeText = 'GALLETAS';
+        // Galleta dorada crujiente
+        iconSvg = `
+            <rect x="150" y="125" width="100" height="100" rx="16" fill="#FDE68A" stroke="#D97706" stroke-width="6"/>
+            <circle cx="175" cy="150" r="5" fill="#B45309"/>
+            <circle cx="200" cy="150" r="5" fill="#B45309"/>
+            <circle cx="225" cy="150" r="5" fill="#B45309"/>
+            <circle cx="175" cy="175" r="5" fill="#B45309"/>
+            <circle cx="200" cy="175" r="5" fill="#B45309"/>
+            <circle cx="225" cy="175" r="5" fill="#B45309"/>
+            <circle cx="175" cy="200" r="5" fill="#B45309"/>
+            <circle cx="200" cy="200" r="5" fill="#B45309"/>
+            <circle cx="225" cy="200" r="5" fill="#B45309"/>
+        `;
+    } else if (nomLower.includes('gomita') || nomLower.includes('chicle') || nomLower.includes('chupeta') || nomLower.includes('bocadillo') || catLower.includes('dulce') || catLower.includes('chuchería')) {
+        c1 = '#BE185D';
+        c2 = '#831843';
+        badgeText = 'CONFITERÍA';
+        // Dulce envuelto con destellos
+        iconSvg = `
+            <circle cx="200" cy="175" r="42" fill="#FB7185" stroke="#E11D48" stroke-width="6"/>
+            <polygon points="158,175 125,145 130,205" fill="#FDA4AF" stroke="#E11D48" stroke-width="4"/>
+            <polygon points="242,175 275,145 270,205" fill="#FDA4AF" stroke="#E11D48" stroke-width="4"/>
+            <circle cx="190" cy="165" r="8" fill="#FFF1F2" opacity="0.8"/>
+            <polygon points="200,105 205,120 220,125 205,130 200,145 195,130 180,125 195,120" fill="#FDE047"/>
+        `;
+    } else if (nomLower.includes('combo') || catLower.includes('combo')) {
+        c1 = '#DC2626';
+        c2 = '#EA580C';
+        badgeText = 'SUPER COMBO';
+        // Emblema de combo fuego / ahorro
+        iconSvg = `
+            <path d="M 200 95 Q 230 140 215 170 Q 240 180 230 215 Q 215 250 170 235 Q 150 205 165 175 Q 155 145 200 95 Z" fill="#FBBF24" stroke="#D97706" stroke-width="6"/>
+            <path d="M 195 145 Q 215 170 205 190 Q 220 195 210 215 Q 195 230 180 220 Z" fill="#EF4444"/>
+            <text x="200" y="210" font-family="sans-serif" font-weight="900" font-size="34" fill="#FFFFFF" text-anchor="middle">★</text>
+        `;
+    } else {
+        c1 = '#0F766E';
+        c2 = '#115E59';
+        badgeText = 'TU BODEGUITA';
+        // Bolsa de compras de bodega
+        iconSvg = `
+            <rect x="150" y="130" width="100" height="115" rx="14" fill="#2DD4BF" stroke="#14B8A6" stroke-width="6"/>
+            <path d="M 175 130 C 175 95 225 95 225 130" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            <circle cx="200" cy="180" r="18" fill="#0F766E"/>
+            <path d="M 192 180 L 198 186 L 210 174" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        `;
+    }
+
+    const nombreSeguro = nom.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const nombreCorto = nombreSeguro.length > 22 ? nombreSeguro.substring(0, 20) + '…' : nombreSeguro;
+
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${c1}"/>
+      <stop offset="100%" stop-color="${c2}"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="400" height="400" rx="32" fill="url(#bgGrad)"/>
+  <circle cx="200" cy="175" r="115" fill="#ffffff" opacity="0.08"/>
+  <circle cx="200" cy="175" r="85" fill="#ffffff" opacity="0.10"/>
+  
+  <rect x="115" y="24" width="170" height="28" rx="14" fill="#ffffff" opacity="0.22"/>
+  <text x="200" y="43" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" letter-spacing="1.5" fill="#ffffff" text-anchor="middle">${badgeText}</text>
+  
+  <g filter="url(#shadow)">
+    ${iconSvg}
+  </g>
+  
+  <rect x="24" y="316" width="352" height="60" rx="18" fill="rgba(15, 23, 42, 0.70)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+  <text x="200" y="345" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="0.4">${nombreCorto}</text>
+  <text x="200" y="364" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#cbd5e1" text-anchor="middle" opacity="0.95">Tu Bodeguita de Confianza</text>
+</svg>`.trim();
+
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+window.generarSvgProducto = generarSvgProducto;
+
+/**
+ * Manejador inteligente de fallos de imagen:
+ * 1. Detiene bucles de error.
+ * 2. Si es una URL de red o Blob, consulta el almacén IndexedDB del navegador.
+ * 3. Si no está en caché o falla, genera de inmediato el SVG específico del producto.
+ * Garantiza que NUNCA desaparezca ninguna imagen de la interfaz.
+ */
+function alFallarCargaImagen(imgEl, nombre = '', categoria = '') {
+    if (!imgEl) return;
+    imgEl.onerror = null; // Prevenir cualquier bucle infinito
+    
+    const nomFinal = nombre || imgEl.getAttribute('data-prod-nombre') || imgEl.alt || 'Producto';
+    const catFinal = categoria || imgEl.getAttribute('data-prod-cat') || 'Snacks';
+    const srcOriginal = imgEl.getAttribute('data-original-src') || imgEl.getAttribute('data-src') || imgEl.src;
+    
+    // Si la imagen tenía URL remota o de Vercel Blob, consultar el caché local persistente
+    if (window.InventoryApp && window.InventoryApp.ImageCache && typeof window.InventoryApp.ImageCache.obtenerUrlConCache === 'function' && srcOriginal && !srcOriginal.startsWith('data:')) {
+        window.InventoryApp.ImageCache.obtenerUrlConCache(srcOriginal).then(cachedUrl => {
+            if (cachedUrl && cachedUrl !== srcOriginal && !cachedUrl.includes('photo-1542838132-92c53300491e')) {
+                imgEl.src = cachedUrl;
+                return;
+            }
+            imgEl.src = generarSvgProducto(nomFinal, catFinal);
+        }).catch(() => {
+            imgEl.src = generarSvgProducto(nomFinal, catFinal);
+        });
+    } else {
+        imgEl.src = generarSvgProducto(nomFinal, catFinal);
+    }
+}
+window.alFallarCargaImagen = alFallarCargaImagen;
+
+/**
+ * Obtiene la imagen de un producto de forma segura, inteligente y 100% resiliente.
+ * - Si el producto tiene una imagen personalizada real (blob, /api/, data:, https://), la utiliza.
+ * - Si la imagen está vacía o apunta al viejo estante genérico de verduras, entrega el SVG vectorial oficial.
+ */
+function obtenerImagenProducto(p) {
+    if (!p) return generarSvgProducto('Producto', 'General');
+    const raw = (p.imagen || '').trim();
+    if (raw && !raw.includes('photo-1542838132-92c53300491e') && !raw.includes('images.unsplash.com')) {
+        return typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(raw) : raw;
+    }
+    return generarSvgProducto(p.nombre || 'Producto', p.categoria || 'Snacks');
+}
+window.obtenerImagenProducto = obtenerImagenProducto;
+
+/**
+ * Genera un avatar vectorial SVG elegante y 100% offline basado en iniciales.
+ */
+function generarSvgAvatar(iniciales = 'U') {
+    const letra = String(iniciales || 'U').trim().substring(0, 2).toUpperCase();
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <linearGradient id="avGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="url(#avGrad)" stroke="#ffffff" stroke-width="4"/>
+  <text x="60" y="74" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="800" fill="#ffffff" text-anchor="middle">${letra}</text>
+</svg>`.trim();
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+window.generarSvgAvatar = generarSvgAvatar;
+
+function alFallarAvatar(imgEl, iniciales = 'U') {
+    if (!imgEl) return;
+    imgEl.onerror = null;
+    imgEl.src = generarSvgAvatar(iniciales);
+}
+window.alFallarAvatar = alFallarAvatar;
+
+/**
  * Implementación de SHA-256 estándar pura y robusta (funciona en cualquier navegador y contexto http/https/iframe)
  */
 function sha256Sync(ascii) {

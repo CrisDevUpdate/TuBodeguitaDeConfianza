@@ -17,7 +17,7 @@ window.InventoryApp = window.InventoryApp || {};
     const DB_NAME = 'TuBodeguita_BlobCache_DB';
     const DB_VERSION = 1;
     const STORE_NAME = 'cached_images';
-    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días de vigencia de caché
+    const CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 año de vigencia (nunca se borra en offline)
 
     let dbPromise = null;
     const memoryBlobUrlMap = new Map(); // Mapeo en memoria de URL -> ObjectURL
@@ -27,7 +27,7 @@ window.InventoryApp = window.InventoryApp || {};
      */
     function obtenerDB() {
         if (!dbPromise) {
-            dbPromise = new Promise((resolve, reject) => {
+            dbPromise = new Promise((resolve) => {
                 if (!window.indexedDB) {
                     console.warn('[ImageCache] IndexedDB no soportado en este navegador. Usando memoria/localStorage.');
                     resolve(null);
@@ -104,6 +104,16 @@ window.InventoryApp = window.InventoryApp || {};
             const store = tx.objectStore(STORE_NAME);
             store.put(record);
 
+            // También almacenar bajo el pathname limpio si es URL con parámetros
+            if (url.includes('pathname=')) {
+                try {
+                    const clean = decodeURIComponent(url.split('pathname=')[1].split('&')[0]);
+                    if (clean && clean !== url) {
+                        store.put({ ...record, url: clean });
+                    }
+                } catch (e) {}
+            }
+
             // Crear y memorizar ObjectURL
             if (memoryBlobUrlMap.has(url)) {
                 URL.revokeObjectURL(memoryBlobUrlMap.get(url));
@@ -141,7 +151,7 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             const db = await obtenerDB();
             if (db) {
-                const cachedRecord = await new Promise((resolve) => {
+                let cachedRecord = await new Promise((resolve) => {
                     const tx = db.transaction(STORE_NAME, 'readonly');
                     const store = tx.objectStore(STORE_NAME);
                     const req = store.get(url);
@@ -149,7 +159,22 @@ window.InventoryApp = window.InventoryApp || {};
                     req.onerror = () => resolve(null);
                 });
 
-                if (cachedRecord && cachedRecord.blob && cachedRecord.expiresAt > Date.now()) {
+                // Si no se halló por URL completa, buscar por pathname
+                if (!cachedRecord && url.includes('pathname=')) {
+                    try {
+                        const clean = decodeURIComponent(url.split('pathname=')[1].split('&')[0]);
+                        cachedRecord = await new Promise((resolve) => {
+                            const tx = db.transaction(STORE_NAME, 'readonly');
+                            const store = tx.objectStore(STORE_NAME);
+                            const req = store.get(clean);
+                            req.onsuccess = () => resolve(req.result);
+                            req.onerror = () => resolve(null);
+                        });
+                    } catch (e) {}
+                }
+
+                // SIEMPRE usar el registro de IndexedDB si tiene blob (Cero expiración destructiva)
+                if (cachedRecord && cachedRecord.blob) {
                     const objUrl = URL.createObjectURL(cachedRecord.blob);
                     memoryBlobUrlMap.set(url, objUrl);
                     return objUrl;
@@ -165,7 +190,7 @@ window.InventoryApp = window.InventoryApp || {};
             return url;
         }
 
-        // 2. Si no está en caché o expiró, descargar una sola vez de la red y guardar en caché local
+        // 2. Si no está en caché, descargar una sola vez de la red y guardar en caché local
         try {
             const res = await fetch(url, { mode: 'cors', cache: 'default' });
             if (res.ok) {
@@ -185,17 +210,15 @@ window.InventoryApp = window.InventoryApp || {};
     /**
      * Aplica de forma optimizada una imagen a un elemento <img> utilizando el caché local prioritario
      */
-    async function aplicarImagenConCache(imgElement, url, fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60') {
+    async function aplicarImagenConCache(imgElement, url, fallback = '') {
         if (!imgElement) return;
 
         if (!url) {
-            imgElement.src = fallback;
-            return;
-        }
-
-        // Si es emoji o preset
-        if (!url.startsWith('http') && !url.startsWith('data:')) {
-            imgElement.src = fallback;
+            if (typeof alFallarCargaImagen === 'function') {
+                alFallarCargaImagen(imgElement);
+            } else if (fallback) {
+                imgElement.src = fallback;
+            }
             return;
         }
 
@@ -205,14 +228,18 @@ window.InventoryApp = window.InventoryApp || {};
             return;
         }
 
-        // Resolver vía caché local con transición suave
+        // Resolver vía caché local
         try {
             const cachedSrc = await obtenerUrlConCache(url, fallback);
             if (imgElement) {
-                imgElement.src = cachedSrc;
+                imgElement.src = cachedSrc || fallback;
             }
         } catch {
-            if (imgElement) imgElement.src = fallback;
+            if (typeof alFallarCargaImagen === 'function') {
+                alFallarCargaImagen(imgElement);
+            } else if (imgElement && fallback) {
+                imgElement.src = fallback;
+            }
         }
     }
 

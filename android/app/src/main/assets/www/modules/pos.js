@@ -550,13 +550,12 @@ function renderizarPosProductos(filtro = null) {
                     ? 'badge-stock-tag stock-agotado' 
                     : (esStockBajo ? 'badge-stock-tag stock-low badge-stock-low' : 'badge-stock-tag stock-normal');
                 
-                const rawImg = p.imagen;
-                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || ''));
 
                 return `
             <div class="cliente-prod-card pos-row-item ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
                 <div class="cliente-prod-img-wrapper">
-                    <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&amp;auto=format&amp;fit=crop&amp;q=60'">
+                    <img src="${imagenSrc}" data-original-src="${p.imagen || ''}" data-prod-nombre="${p.nombre ? p.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="${(p.categoria || 'Snacks').replace(/"/g, '&quot;')}" alt="${p.nombre}" class="cliente-prod-img" onerror="alFallarCargaImagen(this)">
                     ${esAgotado ? '<span class="badge-agotado-pill">Agotado</span>' : ''}
                 </div>
                 <div class="cliente-prod-body">
@@ -604,11 +603,9 @@ function renderizarPosProductos(filtro = null) {
                 const stockClase = esAgotado ? 'out-stock' : (stock > 0 && stock <= umbralBajo ? 'low-stock' : 'in-stock');
                 const stockTexto = esAgotado ? 'Agotado' : `${stock} disp.`;
 
-                const miniThumbHTML = p.imagen ? `
-                    <img src="${p.imagen}" alt="${p.nombre}" class="pos-list-thumb" loading="lazy" 
-                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'pos-list-thumb-fallback\\'><i class=\\'fas fa-box\\'></i></div>';">
-                ` : `
-                    <div class="pos-list-thumb-fallback"><i class="fas fa-box"></i></div>
+                const miniThumbHTML = `
+                    <img src="${typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || '')}" data-original-src="${p.imagen || ''}" data-prod-nombre="${p.nombre ? p.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="${(p.categoria || 'Snacks').replace(/"/g, '&quot;')}" alt="${p.nombre}" class="pos-list-thumb" loading="lazy" 
+                         onerror="alFallarCargaImagen(this)">
                 `;
 
                 return `
@@ -847,14 +844,13 @@ function renderizarCarrito() {
                 const subtotal = item.cantidad * item.precio;
                 const prod = (productos || []).find(p => p.id === item.productoId);
                 const rawImg = item.imagen || (prod ? prod.imagen : '');
-                const thumbSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) 
-                    || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                const thumbSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(prod || item) : (rawImg || ''));
 
                 return `
                     <div class="pos-drawer-item-row" id="pos-drawer-item-${idx}">
                         <div class="pos-drawer-item-thumb-wrap">
-                            <img src="${thumbSrc}" alt="${item.nombre}" class="pos-drawer-item-thumb" 
-                                 onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&amp;auto=format&amp;fit=crop&amp;q=60';">
+                            <img src="${thumbSrc}" data-original-src="${rawImg}" data-prod-nombre="${item.nombre ? item.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="General" alt="${item.nombre}" class="pos-drawer-item-thumb" 
+                                 onerror="alFallarCargaImagen(this)">
                         </div>
                         <div class="pos-drawer-item-content">
                             <div class="pos-drawer-item-header-row">

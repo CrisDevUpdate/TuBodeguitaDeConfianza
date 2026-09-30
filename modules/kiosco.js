@@ -392,7 +392,7 @@
             const esCombo = Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'));
 
             const rawImg = p.imagen;
-            const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+            const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (rawImg || ''));
 
             // Cantidad ya agregada al carrito
             const itemEnCarrito = carritoKiosco.find(i => i.productoId === p.id);
@@ -410,7 +410,7 @@
                      title="${agotado ? 'Producto agotado' : 'Toca para agregar a tu orden'}">
                     
                     <div class="kiosco-product-img-wrap cliente-prod-img-wrapper">
-                        <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                        <img src="${imagenSrc}" data-original-src="${rawImg}" data-prod-nombre="${p.nombre}" data-prod-cat="${p.categoria || 'Snacks'}" alt="${p.nombre}" class="cliente-prod-img" loading="lazy" onerror="alFallarCargaImagen(this)">
                         ${agotado ? '<div class="kiosco-badge-agotado badge-agotado-pill">Agotado</div>' : ''}
                         ${esCombo ? '<div class="kiosco-badge-combo"><i class="fas fa-fire"></i> Combo</div>' : ''}
                         ${cantEnCarrito > 0 ? `<div class="kiosco-badge-en-carrito"><i class="fas fa-check"></i> ${cantEnCarrito} en orden</div>` : ''}

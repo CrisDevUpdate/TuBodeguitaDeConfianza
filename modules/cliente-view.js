@@ -264,14 +264,13 @@ function renderizarCatalogoCliente() {
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const stock = Number(combo.stock || 0);
                 const agotado = stock <= 0;
-                const rawImg = combo.imagen;
-                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(combo) : (combo.imagen || ''));
                 const pts = Number(combo.puntosCombo ?? combo.points_given ?? combo.puntosPromo ?? Math.max(1, Math.floor(precioUSD * ptsPorDolar)));
 
                 return `
                     <div class="combo-carousel-item ${agotado ? 'card-agotado' : ''}" onclick="agregarAlCarritoCliente('${combo.id}')" title="Toca para agregar">
                         <div class="combo-carousel-img-wrap">
-                            <img src="${imagenSrc}" alt="${combo.nombre}" class="combo-carousel-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                            <img src="${imagenSrc}" data-original-src="${combo.imagen || ''}" data-prod-nombre="${combo.nombre ? combo.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="Combos" alt="${combo.nombre}" class="combo-carousel-img" onerror="alFallarCargaImagen(this)">
                             <span class="combo-carousel-badge"><i class="fas fa-fire"></i> SUPER COMBO</span>
                         </div>
                         <div class="combo-carousel-body">
@@ -374,8 +373,7 @@ function renderizarCatalogoCliente() {
         const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
         const stock = Number(p.stock || 0);
         const agotado = stock <= 0;
-        const rawImg = p.imagen;
-        const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+        const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || ''));
 
         const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
             ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
@@ -394,7 +392,7 @@ function renderizarCatalogoCliente() {
                 style="${agotado ? '' : 'cursor: pointer;'}"
                 title="${agotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
                 <div class="cliente-prod-img-wrapper">
-                    <img src="${imagenSrc}" alt="${p.nombre}" class="cliente-prod-img" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                    <img src="${imagenSrc}" data-original-src="${p.imagen || ''}" data-prod-nombre="${p.nombre ? p.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="${(p.categoria || 'Snacks').replace(/"/g, '&quot;')}" alt="${p.nombre}" class="cliente-prod-img" onerror="alFallarCargaImagen(this)">
                     ${agotado ? '<span class="badge-agotado-pill">Agotado</span>' : ''}
                 </div>
                 <div class="cliente-prod-body">
@@ -604,14 +602,13 @@ function renderizarCarritoCliente() {
                 const prod = (AppState.productos || []).find(p => p.id === item.productoId) 
                           || (AppState.combos || []).find(c => c.id === item.productoId);
                 const rawImg = item.imagen || prod?.imagen || '';
-                const imagenSrc = (typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawImg) : rawImg) 
-                    || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60';
+                const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(prod || item) : (rawImg || ''));
 
                 return `
                     <div class="cliente-cart-item-row" id="cart-item-${idx}">
                         <!-- Miniatura con la imagen del producto -->
                         <div class="cliente-cart-item-img">
-                            <img src="${imagenSrc}" alt="${item.nombre}" onerror="this.src='https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60'">
+                            <img src="${imagenSrc}" data-original-src="${rawImg}" data-prod-nombre="${item.nombre ? item.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="General" alt="${item.nombre}" onerror="alFallarCargaImagen(this)">
                         </div>
 
                         <!-- Información: Nombre, Precio unitario y Subtotal -->
@@ -1557,6 +1554,7 @@ async function renderizarEstadoCuentaCliente() {
     const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'
         ? calcularEstadoFinancieroCliente(usuario)
         : null;
+    window.ultimoEstadoFinancieroCliente = estadoFin;
 
     const clienteEncontrado = estadoFin?.clienteObj || (AppState.clientes || []).find(c => 
         (c.cedula && String(c.cedula).toUpperCase() === String(cedula).toUpperCase()) ||
@@ -2241,6 +2239,7 @@ function abrirModalReportarPagoCliente(opciones = {}) {
                     <small id="abono-cli-conversion-text" style="color:var(--text-muted); font-size:0.8rem; display:block; margin-top:4px;">
                         Equivalente en Divisas ($ USD): <strong id="abono-cli-conversion-preview" style="color:var(--primary-accent);">$0.00 USD</strong> (Tasa BCV: 1 USD = Bs. ${tasa > 0 ? tasa.toFixed(2) : '—'})
                     </small>
+                    <div id="abono-cli-deuda-hint" style="display:none; margin-top:8px;"></div>
                 </div>
 
                 <div class="form-group" style="margin-bottom:12px;">
@@ -2272,28 +2271,125 @@ function abrirModalReportarPagoCliente(opciones = {}) {
     modal.classList.add('active');
     actualizarCoordenadasModalAbono();
 
-    // Precargar datos si se suministraron opciones (ej: desde el desglose de una compra)
-    if (opciones) {
-        if (opciones.referenciaCompra) {
-            const inputNota = document.getElementById('abono-cli-nota');
-            if (inputNota) {
-                inputNota.value = `Abono a compra #${opciones.referenciaCompra}`;
-            }
-        }
-        if (typeof opciones.montoUSD === 'number' && opciones.montoUSD > 0) {
-            seleccionarMonedaAbonoCliente('USD');
-            const inputMonto = document.getElementById('abono-cli-monto');
-            if (inputMonto) {
-                inputMonto.value = Number(opciones.montoUSD).toFixed(2);
-                calcularEquivalenteAbonoCliente(inputMonto.value);
-            }
+    // 1. Obtener la deuda actual del cliente (en USD y en Bolívares con tasa BCV activa)
+    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente(opciones);
+
+    // 2. Si se suministró referencia de compra específica, precargar en la nota
+    if (opciones && opciones.referenciaCompra) {
+        const inputNota = document.getElementById('abono-cli-nota');
+        if (inputNota) {
+            inputNota.value = `Abono a compra #${opciones.referenciaCompra}`;
         }
     }
+
+    // 3. Pre-cargar automáticamente el monto adeudado en Bolívares (o en USD si la cuenta destino es Divisas)
+    const inputMonto = document.getElementById('abono-cli-monto');
+    if (inputMonto) {
+        const montoPrecarga = (monedaAbonoSeleccionada === 'USD') ? saldoUSD : saldoVES;
+        if (montoPrecarga > 0.001) {
+            inputMonto.value = Number(montoPrecarga).toFixed(2);
+            calcularEquivalenteAbonoCliente(inputMonto.value);
+        }
+    }
+
+    // 4. Mostrar hint interactivo para informar al cliente que el total está precargado y es editable
+    actualizarHintDeudaModalAbono(opciones);
 }
+
+/**
+ * Obtiene el saldo deudor actual del cliente tanto en Divisas ($ USD) como en Bolívares (Bs. VES)
+ */
+function obtenerDeudaActualCliente(opciones = {}) {
+    const usuario = (opciones && opciones.usuario) || (typeof AppState !== 'undefined' ? AppState.usuarioActual : null);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    let saldoUSD = 0;
+    let saldoVES = 0;
+
+    if (opciones && typeof opciones.montoUSD === 'number' && opciones.montoUSD > 0) {
+        saldoUSD = Number(opciones.montoUSD);
+        saldoVES = tasa > 0 ? Number((saldoUSD * tasa).toFixed(2)) : 0;
+    } else {
+        let estado = null;
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            if (opciones && opciones.clienteId) {
+                estado = calcularEstadoFinancieroCliente(opciones.clienteId);
+            } else if (usuario) {
+                estado = calcularEstadoFinancieroCliente(usuario);
+            }
+        }
+
+        if (!estado && window.ultimoEstadoFinancieroCliente) {
+            estado = window.ultimoEstadoFinancieroCliente;
+        }
+
+        if (estado) {
+            saldoUSD = Number(estado.saldoDeudaUSD || 0);
+            saldoVES = Number(estado.saldoDeudaVES || 0);
+        }
+    }
+
+    if (saldoVES <= 0 && saldoUSD > 0 && tasa > 0) {
+        saldoVES = Number((saldoUSD * tasa).toFixed(2));
+    }
+
+    return { saldoUSD, saldoVES, tasa };
+}
+window.obtenerDeudaActualCliente = obtenerDeudaActualCliente;
+
+/**
+ * Muestra un aviso en el modal indicando que el monto de la deuda fue precargado automáticamente
+ * y que puede ser editado si el cliente desea pagar una cantidad menor.
+ */
+function actualizarHintDeudaModalAbono(opciones = {}) {
+    const hintEl = document.getElementById('abono-cli-deuda-hint');
+    if (!hintEl) return;
+    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente(opciones);
+    if (saldoVES > 0.01) {
+        hintEl.style.display = 'block';
+        const formatVESNum = (v) => Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const esUSD = (monedaAbonoSeleccionada === 'USD');
+        const montoTexto = esUSD ? `$${saldoUSD.toFixed(2)} USD` : `Bs. ${formatVESNum(saldoVES)}`;
+        hintEl.innerHTML = `
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <span style="font-size:0.78rem; color:#1e40af; line-height:1.4;">
+                    <i class="fas fa-circle-check" style="color:#2563eb; margin-right:4px;"></i>
+                    Monto adeudado (<strong>${montoTexto}</strong>) cargado automáticamente. Puedes editarlo si vas a abonar menos.
+                </span>
+                <button type="button" onclick="restablecerMontoDeudaTotalModalAbono()" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:4px 10px; font-size:0.73rem; font-weight:700; cursor:pointer; flex-shrink:0; transition:all 0.15s;" title="Restaurar monto total de la deuda">
+                    Pagar Total
+                </button>
+            </div>
+        `;
+    } else {
+        hintEl.style.display = 'none';
+        hintEl.innerHTML = '';
+    }
+}
+window.actualizarHintDeudaModalAbono = actualizarHintDeudaModalAbono;
+
+/**
+ * Restablece el valor del input al total adeudado completo
+ */
+function restablecerMontoDeudaTotalModalAbono() {
+    const inputEl = document.getElementById('abono-cli-monto');
+    if (!inputEl) return;
+    const { saldoUSD, saldoVES } = obtenerDeudaActualCliente();
+    const esUSD = (monedaAbonoSeleccionada === 'USD');
+    const valor = esUSD ? saldoUSD.toFixed(2) : saldoVES.toFixed(2);
+    if (Number(valor) > 0) {
+        inputEl.value = valor;
+        calcularEquivalenteAbonoCliente(inputEl.value);
+        inputEl.focus();
+        inputEl.select();
+    }
+}
+window.restablecerMontoDeudaTotalModalAbono = restablecerMontoDeudaTotalModalAbono;
 
 let monedaAbonoSeleccionada = 'VES';
 
 function seleccionarMonedaAbonoCliente(moneda = 'VES') {
+    const monedaAnterior = monedaAbonoSeleccionada;
     monedaAbonoSeleccionada = moneda;
     const btnVES = document.getElementById('btn-abono-moneda-ves');
     const btnUSD = document.getElementById('btn-abono-moneda-usd');
@@ -2323,6 +2419,21 @@ function seleccionarMonedaAbonoCliente(moneda = 'VES') {
 
     if (inputEl) {
         inputEl.placeholder = moneda === 'USD' ? 'Ej: 20.00' : 'Ej: 1000.00';
+
+        // Si el usuario cambia entre VES y USD y ya hay un valor ingresado, convertirlo proporcionalmente
+        if (inputEl.value && tasa > 0 && monedaAnterior !== moneda) {
+            const valNum = parseFloat(inputEl.value);
+            if (!isNaN(valNum) && valNum > 0) {
+                if (moneda === 'USD') {
+                    // De VES a USD
+                    inputEl.value = (valNum / tasa).toFixed(2);
+                } else {
+                    // De USD a VES
+                    inputEl.value = (valNum * tasa).toFixed(2);
+                }
+            }
+        }
+
         if (inputEl.value) {
             calcularEquivalenteAbonoCliente(inputEl.value);
         } else {
@@ -2334,6 +2445,8 @@ function seleccionarMonedaAbonoCliente(moneda = 'VES') {
             }
         }
     }
+
+    actualizarHintDeudaModalAbono();
 }
 window.seleccionarMonedaAbonoCliente = seleccionarMonedaAbonoCliente;
 
@@ -2776,11 +2889,11 @@ function renderizarPerfilCliente() {
     let avatarMarkup = '';
     if (avatarEsImagen) {
         const urlFinal = typeof normalizarUrlBlob === 'function' ? normalizarUrlBlob(rawAvatar) : rawAvatar;
-        avatarMarkup = `<img src="${urlFinal}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';">`;
+        avatarMarkup = `<img src="${urlFinal}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="alFallarAvatar(this, '${(usuario.nombre || 'U').substring(0, 2)}')">`;
     } else if (rawAvatar) {
         avatarMarkup = `<div style="width: 84px; height: 84px; border-radius: 50%; border: 3px solid var(--primary-accent); display: flex; align-items: center; justify-content: center; font-size: 2.6rem; background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">${rawAvatar}</div>`;
     } else {
-        avatarMarkup = `<img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">`;
+        avatarMarkup = `<img src="${typeof generarSvgAvatar === 'function' ? generarSvgAvatar((usuario.nombre || 'U').substring(0, 2)) : ''}" alt="Avatar" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">`;
     }
     const puntos = typeof obtenerPuntosCliente === 'function' ? obtenerPuntosCliente(usuario.cedula || usuario.id) : (usuario.puntos || 0);
 

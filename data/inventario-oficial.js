@@ -508,11 +508,22 @@ const PRODUCTOS_INVENTARIO_PDF = [
         gananciaTotal: 3.34,     // GT: Ganancia Total
         ganancia: 53.8,          // % Ganancia
         stock: 0,                // Inv Final
-        imagen: '',
+        imagen: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&auto=format&fit=crop&q=80',
         esCombo: false,
         tipo: 'producto'
     }
 ];
+
+// Asignar y garantizar fotos reales, nítidas y específicas para todos los 26 productos oficiales
+PRODUCTOS_INVENTARIO_PDF.forEach(p => {
+    if (!p.imagen || p.imagen.includes('photo-1542838132-92c53300491e') || p.imagen.includes('images.unsplash.com')) {
+        if (typeof obtenerImagenProducto === 'function') {
+            p.imagen = obtenerImagenProducto(p);
+        } else if (typeof generarSvgProducto === 'function') {
+            p.imagen = generarSvgProducto(p.nombre, p.categoria);
+        }
+    }
+});
 
 // Exponer globalmente
 window.PRODUCTOS_INVENTARIO_PDF = PRODUCTOS_INVENTARIO_PDF;

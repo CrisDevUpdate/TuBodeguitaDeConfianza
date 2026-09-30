@@ -196,6 +196,14 @@ window.InventoryApp = window.InventoryApp || {};
                 localStorage.removeItem(SESSION_KEY);
             }
 
+            // Preservar siempre el catálogo de productos con sus imágenes en caché local para que nunca desaparezcan
+            if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
+                    localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
+                } catch (cacheErr) {}
+            }
+
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
         } catch (e) {
@@ -273,6 +281,23 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.productos = prodsFromCache || ((typeof PRODUCTOS_INVENTARIO_PDF !== 'undefined' && Array.isArray(PRODUCTOS_INVENTARIO_PDF))
                 ? JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF))
                 : []);
+        }
+
+        // Garantizar que las imágenes de todos los productos nunca falten ni se degraden a un estante genérico
+        if (Array.isArray(AppState.productos)) {
+            let actualizoFotos = false;
+            AppState.productos.forEach(p => {
+                if (!p.imagen || p.imagen.includes('photo-1542838132-92c53300491e') || p.imagen.includes('images.unsplash.com')) {
+                    if (typeof obtenerImagenProducto === 'function') {
+                        p.imagen = obtenerImagenProducto(p);
+                        actualizoFotos = true;
+                    }
+                }
+            });
+            try {
+                localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
+                localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
+            } catch (e) {}
         }
         if (!Array.isArray(AppState.clientes) || AppState.clientes.length === 0) {
             AppState.clientes = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))

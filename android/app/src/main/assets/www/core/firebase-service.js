@@ -804,7 +804,18 @@ window.InventoryApp = window.InventoryApp || {};
                 ]);
 
                 if (snapProds && !snapProds.empty) {
-                    AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    AppState.productos = snapProds.docs.map(doc => {
+                        const data = doc.data() || {};
+                        const id = doc.id;
+                        const prodLocal = (AppState.productos || []).find(p => p.id === id);
+                        let imgFinal = data.imagen;
+                        if (!imgFinal || imgFinal.includes('photo-1542838132-92c53300491e') || imgFinal.includes('images.unsplash.com')) {
+                            imgFinal = (prodLocal && prodLocal.imagen && !prodLocal.imagen.includes('photo-1542838132-92c53300491e') && !prodLocal.imagen.includes('images.unsplash.com'))
+                                ? prodLocal.imagen
+                                : (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto({ ...data, id }) : '');
+                        }
+                        return { id, ...data, imagen: imgFinal };
+                    });
                     try {
                         localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
                     } catch (e) {}
@@ -881,14 +892,38 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Aplicar de forma fiel y directa los datos de la nube (SIN ESCRITURAS AUTOMÁTICAS EN BUCLE)
             if (snapProds && !snapProds.empty) {
-                AppState.productos = snapProds.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                AppState.productos = snapProds.docs.map(doc => {
+                    const data = doc.data() || {};
+                    const id = doc.id;
+                    const prodLocal = (AppState.productos || []).find(p => p.id === id);
+                    let imgFinal = data.imagen;
+                    if (!imgFinal || imgFinal.includes('photo-1542838132-92c53300491e') || imgFinal.includes('images.unsplash.com')) {
+                        imgFinal = (prodLocal && prodLocal.imagen && !prodLocal.imagen.includes('photo-1542838132-92c53300491e') && !prodLocal.imagen.includes('images.unsplash.com'))
+                            ? prodLocal.imagen
+                            : (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto({ ...data, id }) : '');
+                    }
+                    return { id, ...data, imagen: imgFinal };
+                });
             }
 
             if (snapCli && !snapCli.empty) {
                 const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
                     CLIENTES_OFICIALES.forEach(co => {
-                        const found = loadedClients.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                        const idCoUpper = String(co.id || '').toUpperCase();
+                        const fueAbsorbido = loadedClients.some(c => 
+                            (c.id === '27611440' && (idCoUpper === 'CLI-025' || co.cedula === '27611440')) ||
+                            (Array.isArray(c.codigosAnteriores) && c.codigosAnteriores.map(x => String(x).toUpperCase()).includes(idCoUpper)) ||
+                            (c.codigoOficial && String(c.codigoOficial).toUpperCase() === idCoUpper)
+                        );
+                        if (fueAbsorbido) return;
+
+                        const found = loadedClients.find(c => 
+                            c.id === co.id || 
+                            (co.cedula && (c.cedula === co.cedula || c.id === co.cedula)) ||
+                            (c.codigoOficial && co.id && c.codigoOficial === co.id) ||
+                            (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase())
+                        );
                         if (!found) {
                             loadedClients.push(JSON.parse(JSON.stringify(co)));
                         } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
@@ -1293,7 +1328,20 @@ window.InventoryApp = window.InventoryApp || {};
                     let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
                         CLIENTES_OFICIALES.forEach(co => {
-                            const found = newClientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
+                            const idCoUpper = String(co.id || '').toUpperCase();
+                            const fueAbsorbido = newClientes.some(c => 
+                                (c.id === '27611440' && (idCoUpper === 'CLI-025' || co.cedula === '27611440')) ||
+                                (Array.isArray(c.codigosAnteriores) && c.codigosAnteriores.map(x => String(x).toUpperCase()).includes(idCoUpper)) ||
+                                (c.codigoOficial && String(c.codigoOficial).toUpperCase() === idCoUpper)
+                            );
+                            if (fueAbsorbido) return;
+
+                            const found = newClientes.find(c => 
+                                c.id === co.id || 
+                                (co.cedula && (c.cedula === co.cedula || c.id === co.cedula)) ||
+                                (c.codigoOficial && co.id && c.codigoOficial === co.id) ||
+                                (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase())
+                            );
                             if (!found) {
                                 newClientes.push(JSON.parse(JSON.stringify(co)));
                             } else if (co.deudaUSD > 0 && found.deudaUSD === undefined && found.deudaInicialUSD === undefined) {
@@ -2163,14 +2211,24 @@ window.InventoryApp = window.InventoryApp || {};
 
                 // 1. Registrar venta
                 const ventaRef = db.collection(COLLECTIONS.VENTAS).doc(String(venta.id));
-                batch.set(ventaRef, {
+                const ventaData = {
                     clienteId: venta.clienteId || '',
+                    clienteNombre: venta.clienteNombre || '',
+                    clienteCedula: venta.clienteCedula || '',
+                    codigoOficial: venta.codigoOficial || '',
                     fecha: venta.fecha || '',
                     items: venta.items || [],
                     total: Number(venta.total) || 0,
+                    totalUSD: Number(venta.totalUSD || venta.total) || 0,
                     tipo: venta.tipo || 'Contado',
+                    tipoPago: venta.tipoPago || venta.tipo || 'Contado',
+                    metodoDetalle: venta.metodoDetalle || '',
+                    referencia: venta.referencia || '',
+                    estado: venta.estado || 'CONFIRMADA',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                };
+                if (venta.usuarioId) ventaData.usuarioId = String(venta.usuarioId);
+                batch.set(ventaRef, ventaData, { merge: true });
 
                 // 2. Actualizar stock de cada producto en la base de datos
                 if (Array.isArray(itemsVendidos)) {
