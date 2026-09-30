@@ -1891,7 +1891,13 @@ async function renderizarEstadoCuentaCliente() {
                         let motivoTitulo = 'Compra a Crédito (Fiado) en Tienda';
                         let motivoDesc = `Esta compra fue registrada a crédito (fiado) en caja el ${v.fecha || 'la fecha indicada'}. Retiraste los productos detallados abajo sin pago de contado inmediato, cargándose el importe de $${totalUSD.toFixed(2)} USD a tu cuenta pendiente de pago.`;
 
-                        if (v.id && String(v.id).startsWith('V_FIADO_')) {
+                        if (v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id).startsWith('CARGO_')) {
+                            motivoIcon = 'fa-hand-holding-dollar';
+                            motivoColor = '#dc2626';
+                            motivoBg = '#fef2f2';
+                            motivoTitulo = 'Préstamo de Dinero / Cargo Manual a Cuenta';
+                            motivoDesc = `Se registró un préstamo o cargo directo a tu cuenta de $${totalUSD.toFixed(2)} USD el ${v.fecha || 'la fecha indicada'}. Motivo registrado: "${v.motivo || v.referencia || 'Préstamo de dinero en efectivo'}". Este importe fue sumado a tu cuenta sin retiro de productos de inventario.`;
+                        } else if (v.id && String(v.id).startsWith('V_FIADO_')) {
                             motivoIcon = 'fa-book-bookmark';
                             motivoColor = '#b45309';
                             motivoBg = '#fef3c7';
@@ -2297,7 +2303,9 @@ function descargarHistorialDeudaCSV(cliente, ventas, abonos, datos) {
         const totVES = tasaV > 0 ? (totUSD * tasaV) : 0;
         const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(' | ') || 'Productos';
         let motivo = 'Compra a crédito en tienda sin pago inmediato';
-        if (v.id && String(v.id).startsWith('V_FIADO_')) motivo = 'Saldo inicial transferido de libreta fiada';
+        if (v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id).startsWith('CARGO_')) {
+            motivo = `Préstamo / Cargo: ${v.motivo || v.referencia || 'Préstamo de dinero en efectivo'}`;
+        } else if (v.id && String(v.id).startsWith('V_FIADO_')) motivo = 'Saldo inicial transferido de libreta fiada';
         else if (v.origen === 'Kiosco' || String(v.id).startsWith('PED_')) motivo = 'Pedido a crédito Auto-servicio';
         else if (v.tipo === 'Contado') motivo = 'Compra pagada de contado';
 

@@ -5707,6 +5707,11 @@ input[type="number"].pos-stepper-val,
     color: #dc2626;
 }
 
+.det-tx-icon-prestamo {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
 .det-tx-icon-abono {
     background: #dcfce7;
     color: #16a34a;

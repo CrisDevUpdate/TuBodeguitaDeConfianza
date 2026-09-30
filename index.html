@@ -6015,6 +6015,9 @@
 
                 <!-- Profile Quick Actions Bar -->
                 <div class="det-profile-actions">
+                    <button type="button" class="btn det-btn-action" onclick="abrirModalSumarDeudaCliente(clienteSeleccionadoId)" title="Sumar una deuda o préstamo de dinero sin alterar el inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                        <i class="fas fa-plus-circle"></i> Sumar Deuda / Préstamo
+                    </button>
                     <button type="button" class="btn btn-warning det-btn-action" onclick="abrirModalAbono()">
                         <i class="fas fa-hand-holding-dollar"></i> Registrar Abono
                     </button>
@@ -6218,6 +6221,93 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn btn-danger" onclick="cerrarModalAbono()">Cancelar</button>
                 <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Enviar Pago para Aprobación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Sumar Deuda / Préstamo de Dinero a Cliente (Sin Afectar Inventario) -->
+<div id="modal-sumar-deuda-cliente" class="modal" onclick="if(event.target === this) cerrarModalSumarDeudaCliente();">
+    <div class="modal-content" style="max-width: 500px; width: 100%; border-radius: 20px; padding: 22px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; border-bottom: 1px solid var(--border-light, #e2e8f0); padding-bottom: 12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:42px; height:42px; border-radius:12px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+                    <i class="fas fa-hand-holding-dollar"></i>
+                </div>
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main, #0f172a); font-weight:800;">Sumar Deuda / Préstamo</h3>
+                    <p style="margin:2px 0 0; font-size:0.8rem; color:var(--text-muted, #64748b);">Agrega saldo deudor sin descontar productos del inventario</p>
+                </div>
+            </div>
+            <button type="button" onclick="cerrarModalSumarDeudaCliente()" style="background:transparent; border:none; font-size:1.5rem; line-height:1; color:var(--text-muted, #64748b); cursor:pointer; padding:4px 8px; border-radius:6px;">&times;</button>
+        </div>
+
+        <form onsubmit="guardarCargoManualCliente(event)" style="display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" id="sumar-deuda-cliente-id">
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:0.72rem; text-transform:uppercase; color:#64748b; font-weight:700; display:block;">Cliente</span>
+                    <strong id="sumar-deuda-cliente-nombre" style="font-size:0.95rem; color:#0f172a;">—</strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:0.72rem; text-transform:uppercase; color:#64748b; font-weight:700; display:block;">Deuda Actual</span>
+                    <span id="sumar-deuda-cliente-actual" style="font-weight:800; font-size:1.05rem; color:#dc2626;">$0.00</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-monto" style="font-weight:700; font-size:0.88rem; color:#0f172a; display:flex; justify-content:space-between;">
+                    <span>Monto a Sumar ($ USD) <span style="color:#dc2626;">*</span></span>
+                    <span id="sumar-deuda-equiv-ves" style="color:#64748b; font-size:0.8rem; font-weight:500;">≈ Bs. 0,00</span>
+                </label>
+                <div style="position:relative; margin-top:5px;">
+                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-weight:700; color:#64748b; font-size:1.1rem;">$</span>
+                    <input type="number" id="sumar-deuda-monto" step="0.01" min="0.01" required placeholder="0.00" oninput="calcularEquivalenteSumarDeuda()" style="width:100%; padding:10px 12px 10px 28px; border:2px solid #cbd5e1; border-radius:10px; font-size:1.15rem; font-weight:800; color:#0f172a; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-motivo" style="font-weight:700; font-size:0.88rem; color:#0f172a;">
+                    Motivo o Concepto del Agregue <span style="color:#dc2626;">*</span>
+                </label>
+                <input type="text" id="sumar-deuda-motivo" required placeholder="Ej: Préstamo de $1 en efectivo para pasaje" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; font-size:0.9rem; margin-top:5px; box-sizing:border-box;">
+                
+                <!-- Chips de sugerencias rápidas -->
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('💵 Préstamo de dinero en efectivo')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        💵 Préstamo de efectivo
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('🚗 Préstamo para pasaje / transporte')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        🚗 Pasaje / Transporte
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('🛒 Cargo por ajuste a cuenta')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        🛒 Ajuste a cuenta
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('📦 Flete / Servicio de Delivery')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        📦 Delivery / Flete
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-fecha" style="font-weight:700; font-size:0.88rem; color:#0f172a;">Fecha del Movimiento</label>
+                <input type="text" id="sumar-deuda-fecha" placeholder="YYYY-MM-DD HH:mm" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:10px; font-size:0.88rem; margin-top:5px; box-sizing:border-box;">
+            </div>
+
+            <!-- Previsualización del nuevo saldo -->
+            <div style="background:#fef2f2; border:1px dashed #fca5a5; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.85rem; color:#991b1b; font-weight:600;">Nueva Deuda Resultante:</span>
+                <strong id="sumar-deuda-nuevo-saldo" style="font-size:1.15rem; color:#b91c1c;">$0.00 USD</strong>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
+                <button type="button" class="btn" onclick="cerrarModalSumarDeudaCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:10px; padding:9px 18px; font-weight:600; cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn" style="background:#dc2626; color:#ffffff; border:none; border-radius:10px; padding:9px 20px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fas fa-plus-circle"></i> Cargar a la Deuda
+                </button>
             </div>
         </form>
     </div>

@@ -1313,27 +1313,43 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
     const esCredito = tipoPago === 'Crédito' || String(venta.metodoDetalle || '').toLowerCase().includes('crédito');
     const fechaVenta = venta.fecha || 'Sin fecha';
     const clienteNombre = venta.clienteNombre || (clienteIdOpcional ? (AppState.clientes?.find(c => c.id === clienteIdOpcional)?.nombre || clienteIdOpcional) : 'Cliente');
+    const esCargoManual = venta.esCargoManual || (venta.items && venta.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(venta.id).startsWith('CARGO_');
 
-    const mensajeConfirm = `¿Confirmas que deseas deshacer y anular la compra <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> (${tipoPago}) realizada el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
-        `📦 <b>Productos a devolver al inventario:</b><br>${resumenItems}<br><br>` +
-        (esCredito 
-            ? `💳 <b>Cuenta Corriente:</b> Se descontará el cargo de $${totalUSD} USD de la deuda del cliente.<br><br>` 
-            : `💰 <b>Venta Contado:</b> Se revertirá el cargo registrado en caja.<br><br>`) +
-        `⚠️ <b>Esta acción eliminará permanentemente la compra y repondrá las unidades al stock.</b>`;
+    let mensajeConfirm = '';
+    let tituloConfirm = 'Deshacer Compra';
+
+    if (esCargoManual) {
+        tituloConfirm = 'Anular Préstamo / Cargo';
+        const motivoCargo = venta.motivo || venta.referencia || 'Préstamo de dinero en efectivo';
+        mensajeConfirm = `¿Confirmas que deseas anular el préstamo / cargo manual <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> registrado el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
+            `📝 <b>Motivo registrado:</b><br>${motivoCargo}<br><br>` +
+            `💳 <b>Cuenta Corriente:</b> Se descontarán los $${totalUSD} USD de la deuda del cliente.<br>` +
+            `📦 <b>Inventario:</b> No se modificará el stock ya que fue un préstamo / cargo directo de saldo.<br><br>` +
+            `⚠️ <b>Esta acción eliminará el cargo y actualizará el saldo del cliente inmediatamente.</b>`;
+    } else {
+        mensajeConfirm = `¿Confirmas que deseas deshacer y anular la compra <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> (${tipoPago}) realizada el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
+            `📦 <b>Productos a devolver al inventario:</b><br>${resumenItems}<br><br>` +
+            (esCredito 
+                ? `💳 <b>Cuenta Corriente:</b> Se descontará el cargo de $${totalUSD} USD de la deuda del cliente.<br><br>` 
+                : `💰 <b>Venta Contado:</b> Se revertirá el cargo registrado en caja.<br><br>`) +
+            `⚠️ <b>Esta acción eliminará permanentemente la compra y repondrá las unidades al stock.</b>`;
+    }
 
     let confirmado = false;
     if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Deshacer Compra', mensajeConfirm, 'danger');
+        confirmado = await showCustomConfirm(tituloConfirm, mensajeConfirm, 'danger');
     } else {
-        confirmado = confirm(`¿Deshacer la compra #${venta.id} por $${totalUSD} USD?\n\nProductos: ${resumenItems}\n\nSe devolverá el stock y se descontará la deuda.`);
+        confirmado = confirm(esCargoManual 
+            ? `¿Anular el préstamo / cargo #${venta.id} por $${totalUSD} USD a ${clienteNombre}?\n\nMotivo: ${venta.motivo || 'Préstamo'}\nSe descontará de la deuda sin alterar inventario.`
+            : `¿Deshacer la compra #${venta.id} por $${totalUSD} USD?\n\nProductos: ${resumenItems}\n\nSe devolverá el stock y se descontará la deuda.`);
     }
 
     if (!confirmado) return;
 
-    // 1. Devolver los productos al inventario
+    // 1. Devolver los productos al inventario (si no es cargo manual)
     const prodsList = Array.isArray(AppState.productos) ? AppState.productos : (typeof productos !== 'undefined' ? productos : []);
     items.forEach(it => {
-        if (!it || !it.productoId || it.productoId === 'SALDO_INICIAL') return;
+        if (!it || !it.productoId || it.productoId === 'SALDO_INICIAL' || it.productoId === 'CARGO_MANUAL') return;
         const prod = prodsList.find(p => p.id === it.productoId || p.codigo === it.productoId);
         if (prod) {
             const cant = Number(it.cantidad || 1);
@@ -1414,9 +1430,11 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
         window.registrarNotificacion({
             id: 'notif_anul_' + Date.now(),
             tipo: 'auditoria',
-            subTipo: 'venta_anulada',
-            titulo: 'Compra Deshecha / Anulada',
-            mensaje: `Se deshizo con éxito la compra #${venta.id} por $${totalUSD} USD (${clienteNombre}). El stock fue reincorporado al inventario.`,
+            subTipo: esCargoManual ? 'cargo_anulado' : 'venta_anulada',
+            titulo: esCargoManual ? 'Préstamo / Cargo Anulado' : 'Compra Deshecha / Anulada',
+            mensaje: esCargoManual 
+                ? `Se anuló el préstamo / cargo #${venta.id} por $${totalUSD} USD (${clienteNombre}). La deuda fue recalculada sin afectar inventario.`
+                : `Se deshizo con éxito la compra #${venta.id} por $${totalUSD} USD (${clienteNombre}). El stock fue reincorporado al inventario.`,
             montoUSD: Number(totalUSD),
             paraAdmin: true,
             paraCliente: false
@@ -1448,9 +1466,12 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
     if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
     // 9. Feedback visual
+    const msgExito = esCargoManual 
+        ? `✅ Préstamo / cargo #${venta.id} anulado con éxito. Se reajustó la deuda sin alterar inventario.`
+        : `✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`;
     if (typeof showCustomToast === 'function') {
-        showCustomToast(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`, 'success');
-    } else {
-        alert(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`);
+        showCustomToast(msgExito, 'success');
+    } else if (typeof alert === 'function') {
+        alert(msgExito);
     }
 }
