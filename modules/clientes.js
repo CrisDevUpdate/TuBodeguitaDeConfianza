@@ -1259,6 +1259,9 @@ function verDetalleCliente(id, abrirModal = true) {
     const transacciones = [];
     (ventasCliente || []).forEach(v => {
         transacciones.push({
+            id: v.id,
+            ventaId: v.id,
+            esVenta: true,
             tipoOperacion: 'cargo',
             fecha: v.fecha || '2026-09-23 12:00',
             concepto: `Venta (${v.tipo || 'Contado'})`,
@@ -1327,7 +1330,7 @@ function verDetalleCliente(id, abrirModal = true) {
         `;
         const tbody = document.getElementById('det-historial-body');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px 16px; color:var(--text-muted);">${mensajeVacio}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:32px 16px; color:var(--text-muted);">${mensajeVacio}</td></tr>`;
         }
         const mobileContainer = document.getElementById('det-historial-mobile');
         if (mobileContainer) {
@@ -1346,6 +1349,15 @@ function verDetalleCliente(id, abrirModal = true) {
                 saldoAcumuladoUSD,
                 saldoVES
             });
+
+            const esVentaDeshacible = t.esVenta && t.ventaId && !String(t.ventaId).startsWith('V_FIADO_');
+            const accionTd = esVentaDeshacible ? `
+                <td style="padding:6px 10px; text-align:center; white-space:nowrap;">
+                    <button type="button" class="btn btn-sm" onclick="deshacerVentaCompra('${t.ventaId}', '${id}')" title="Deshacer / Anular esta compra cargada por error" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; border-radius:6px; padding:3px 8px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
+                        <i class="fas fa-rotate-left"></i> Deshacer
+                    </button>
+                </td>
+            ` : `<td style="padding:6px 10px; text-align:center; color:var(--text-muted); font-size:0.8rem;">—</td>`;
 
             // Fila Desktop
             rowsDesktop.push(`
@@ -1371,6 +1383,7 @@ function verDetalleCliente(id, abrirModal = true) {
                     <td class="num" style="padding:8px 10px; font-weight:bold; color:${saldoEsDeudor ? 'var(--danger, #dc2626)' : '#16a34a'};">
                         Bs. ${tasa > 0 ? saldoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                     </td>
+                    ${accionTd}
                 </tr>
             `);
 
@@ -1401,6 +1414,13 @@ function verDetalleCliente(id, abrirModal = true) {
                             ${tasa > 0 ? `<small style="color:#64748b; margin-left:4px;">(Bs. ${saldoVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</small>` : ''}
                         </span>
                     </div>
+                    ${esVentaDeshacible ? `
+                        <div style="display:flex; justify-content:flex-end; margin-top:8px; padding-top:6px; border-top:1px dashed #e2e8f0;">
+                            <button type="button" class="btn btn-sm" onclick="deshacerVentaCompra('${t.ventaId}', '${id}')" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+                                <i class="fas fa-rotate-left"></i> Deshacer esta compra
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `);
         });

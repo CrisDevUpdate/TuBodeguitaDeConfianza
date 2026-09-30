@@ -445,6 +445,11 @@ function renderizarHistorialVentasAdmin() {
                                 <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                ${!String(v.id).startsWith('V_FIADO_') ? `
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deshacerVentaCompra('${v.id}', '${v.clienteId}')" title="Deshacer / Anular esta compra" style="color:#dc2626; border-color:#fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px;">
+                                        <i class="fas fa-rotate-left"></i>
+                                    </button>
+                                ` : ''}
                             </div>
                         </td>
                     </tr>
@@ -514,9 +519,16 @@ function renderizarHistorialVentasAdmin() {
                                     </span>
                                 `}
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
-                                <i class="fas fa-eye"></i> Ver Detalle
-                            </button>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
+                                    <i class="fas fa-eye"></i> Ver Detalle
+                                </button>
+                                ${!String(v.id).startsWith('V_FIADO_') ? `
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deshacerVentaCompra('${v.id}', '${v.clienteId}')" title="Deshacer compra" style="color:#dc2626; border-color:#fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px;">
+                                        <i class="fas fa-rotate-left"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -660,6 +672,11 @@ function renderizarHistorialVentasAdmin() {
                                 <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')" title="Ver detalle de la venta">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                ${!String(v.id).startsWith('V_FIADO_') ? `
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deshacerVentaCompra('${v.id}', '${v.clienteId}')" title="Deshacer / Anular esta compra" style="color:#dc2626; border-color:#fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px;">
+                                        <i class="fas fa-rotate-left"></i>
+                                    </button>
+                                ` : ''}
                             </div>
                         </td>
                     </tr>
@@ -730,9 +747,16 @@ function renderizarHistorialVentasAdmin() {
                                         </span>
                                     `}
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
-                                    <i class="fas fa-eye"></i> Ver Detalle
-                                </button>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalDetalleVenta('${v.id}')">
+                                        <i class="fas fa-eye"></i> Ver Detalle
+                                    </button>
+                                    ${!String(v.id).startsWith('V_FIADO_') ? `
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deshacerVentaCompra('${v.id}', '${v.clienteId}')" title="Deshacer compra" style="color:#dc2626; border-color:#fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px;">
+                                            <i class="fas fa-rotate-left"></i>
+                                        </button>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -903,7 +927,12 @@ function abrirModalDetalleVenta(ventaId) {
                 </div>
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                ${!String(venta.id).startsWith('V_FIADO_') ? `
+                    <button type="button" class="btn" onclick="deshacerVentaCompra('${venta.id}', '${venta.clienteId}')" style="background:#dc2626; color:#ffffff; font-weight:700; border:none; padding:8px 16px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                        <i class="fas fa-rotate-left"></i> Deshacer / Anular esta Compra
+                    </button>
+                ` : '<div></div>'}
                 <button type="button" class="btn btn-outline" onclick="cerrarModalDetalleVenta()">Cerrar</button>
             </div>
         </div>
@@ -1243,6 +1272,185 @@ window.confirmarVentaAdmin = confirmarVentaAdmin;
 window.abrirModalLimpiadorVentas = abrirModalLimpiadorVentas;
 window.cerrarModalLimpiadorVentas = cerrarModalLimpiadorVentas;
 window.ejecutarLimpiezaVentas = ejecutarLimpiezaVentas;
+window.deshacerVentaCompra = deshacerVentaCompra;
 window.actualizarBadgeVentasHoy = actualizarBadgeVentasHoy;
 window.marcarHistorialVentasRevisado = marcarHistorialVentasRevisado;
 window.obtenerVentasNoRevisadasCount = obtenerVentasNoRevisadasCount;
+
+/**
+ * Deshace y anula una compra registrada en el sistema.
+ * Reincorpora el stock al inventario, descuenta la deuda si fue a crédito,
+ * y elimina la venta del historial contable y de Firebase Firestore.
+ */
+async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
+    if (!ventaId) return;
+
+    const listaVentas = Array.isArray(AppState.ventas) ? AppState.ventas : (typeof ventas !== 'undefined' ? ventas : []);
+    const venta = listaVentas.find(v => String(v.id) === String(ventaId));
+
+    if (!venta) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Venta no encontrada', `No se encontró el registro de la venta #${ventaId}.`, 'warning');
+        } else {
+            alert(`No se encontró el registro de la venta #${ventaId}.`);
+        }
+        return;
+    }
+
+    if (String(venta.id).startsWith('V_FIADO_')) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Saldo Inicial Protegido', 'Este registro corresponde a un saldo inicial de la libreta y no puede deshacerse como venta de mostrador.', 'info');
+        } else {
+            alert('Este registro corresponde a un saldo inicial de la libreta y no puede deshacerse.');
+        }
+        return;
+    }
+
+    const items = Array.isArray(venta.items) ? venta.items : [];
+    const resumenItems = items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Productos despachados';
+    const totalUSD = Number(venta.total || venta.totalUSD || 0).toFixed(2);
+    const tipoPago = venta.tipo || venta.tipoPago || 'Contado';
+    const esCredito = tipoPago === 'Crédito' || String(venta.metodoDetalle || '').toLowerCase().includes('crédito');
+    const fechaVenta = venta.fecha || 'Sin fecha';
+    const clienteNombre = venta.clienteNombre || (clienteIdOpcional ? (AppState.clientes?.find(c => c.id === clienteIdOpcional)?.nombre || clienteIdOpcional) : 'Cliente');
+
+    const mensajeConfirm = `¿Confirmas que deseas deshacer y anular la compra <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> (${tipoPago}) realizada el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
+        `📦 <b>Productos a devolver al inventario:</b><br>${resumenItems}<br><br>` +
+        (esCredito 
+            ? `💳 <b>Cuenta Corriente:</b> Se descontará el cargo de $${totalUSD} USD de la deuda del cliente.<br><br>` 
+            : `💰 <b>Venta Contado:</b> Se revertirá el cargo registrado en caja.<br><br>`) +
+        `⚠️ <b>Esta acción eliminará permanentemente la compra y repondrá las unidades al stock.</b>`;
+
+    let confirmado = false;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Deshacer Compra', mensajeConfirm, 'danger');
+    } else {
+        confirmado = confirm(`¿Deshacer la compra #${venta.id} por $${totalUSD} USD?\n\nProductos: ${resumenItems}\n\nSe devolverá el stock y se descontará la deuda.`);
+    }
+
+    if (!confirmado) return;
+
+    // 1. Devolver los productos al inventario
+    const prodsList = Array.isArray(AppState.productos) ? AppState.productos : (typeof productos !== 'undefined' ? productos : []);
+    items.forEach(it => {
+        if (!it || !it.productoId || it.productoId === 'SALDO_INICIAL') return;
+        const prod = prodsList.find(p => p.id === it.productoId || p.codigo === it.productoId);
+        if (prod) {
+            const cant = Number(it.cantidad || 1);
+            if (window.InventoryApp?.StockService?.devolver) {
+                window.InventoryApp.StockService.devolver(prod.id, cant);
+            } else {
+                prod.stock = Math.max(0, (Number(prod.stock) || 0) + cant);
+            }
+            if (window.InventoryApp?.Firebase?.guardarProducto) {
+                window.InventoryApp.Firebase.guardarProducto(prod).catch(() => {});
+            }
+        }
+    });
+
+    // 2. Quitar la venta de AppState.ventas y window.ventas
+    if (Array.isArray(AppState.ventas)) {
+        AppState.ventas = AppState.ventas.filter(v => String(v.id) !== String(venta.id));
+    }
+    if (typeof ventas !== 'undefined' && Array.isArray(ventas)) {
+        ventas = ventas.filter(v => String(v.id) !== String(venta.id));
+    }
+
+    // 3. Quitar de transacciones y pagos por verificar si estuvieran vinculados
+    if (Array.isArray(AppState.transacciones)) {
+        AppState.transacciones = AppState.transacciones.filter(t => 
+            String(t.id) !== String(venta.id) && String(t.pedidoId) !== String(venta.id) && (!venta.referencia || t.referencia !== venta.referencia)
+        );
+    }
+    if (typeof transacciones !== 'undefined' && Array.isArray(transacciones)) {
+        transacciones = transacciones.filter(t => 
+            String(t.id) !== String(venta.id) && String(t.pedidoId) !== String(venta.id) && (!venta.referencia || t.referencia !== venta.referencia)
+        );
+    }
+    if (Array.isArray(AppState.pagosPorVerificar)) {
+        AppState.pagosPorVerificar = AppState.pagosPorVerificar.filter(p => 
+            String(p.id) !== String(venta.id) && String(p.ventaId) !== String(venta.id) && String(p.pedidoId) !== String(venta.id)
+        );
+    }
+
+    // 4. Eliminar de Firebase Firestore
+    if (window.InventoryApp?.Firebase) {
+        if (typeof window.InventoryApp.Firebase.eliminarVentas === 'function') {
+            await window.InventoryApp.Firebase.eliminarVentas([venta.id]);
+        }
+        if (typeof window.InventoryApp.Firebase.eliminarTransaccion === 'function') {
+            window.InventoryApp.Firebase.eliminarTransaccion(venta.id).catch(() => {});
+        }
+    }
+
+    // 5. Guardar en almacenamiento local
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // 6. Recalcular y actualizar la deuda del cliente
+    const targetCliId = venta.clienteId || clienteIdOpcional;
+    let clienteTarget = null;
+    if (targetCliId) {
+        const listaClientes = Array.isArray(AppState.clientes) ? AppState.clientes : (typeof clientes !== 'undefined' ? clientes : []);
+        clienteTarget = listaClientes.find(c => 
+            c.id === targetCliId || c.cedula === targetCliId || (c.nombre && venta.clienteNombre && c.nombre.trim().toLowerCase() === venta.clienteNombre.trim().toLowerCase())
+        );
+        if (clienteTarget) {
+            if (typeof calcularEstadoFinancieroCliente === 'function') {
+                const nuevoEst = calcularEstadoFinancieroCliente(clienteTarget.id || clienteTarget);
+                if (nuevoEst && typeof nuevoEst.saldoDeudaUSD === 'number') {
+                    clienteTarget.deudaUSD = nuevoEst.saldoDeudaUSD;
+                }
+            }
+            if (window.InventoryApp?.Firebase?.guardarCliente) {
+                window.InventoryApp.Firebase.guardarCliente(clienteTarget).catch(() => {});
+            }
+        }
+    }
+
+    // 7. Notificación administrativa
+    if (typeof window.registrarNotificacion === 'function') {
+        window.registrarNotificacion({
+            id: 'notif_anul_' + Date.now(),
+            tipo: 'auditoria',
+            subTipo: 'venta_anulada',
+            titulo: 'Compra Deshecha / Anulada',
+            mensaje: `Se deshizo con éxito la compra #${venta.id} por $${totalUSD} USD (${clienteNombre}). El stock fue reincorporado al inventario.`,
+            montoUSD: Number(totalUSD),
+            paraAdmin: true,
+            paraCliente: false
+        });
+    }
+
+    // 8. Refrescar interfaces
+    if (typeof cerrarModalDetalleVenta === 'function') cerrarModalDetalleVenta();
+    
+    // Si la Ficha 360° está abierta, refrescarla de inmediato
+    const modal360 = document.getElementById('modal-cliente-detalle');
+    if (modal360 && modal360.classList.contains('active') && targetCliId) {
+        if (typeof verDetalleCliente === 'function') {
+            verDetalleCliente(targetCliId, false);
+        }
+    }
+
+    if (typeof renderizarClientes === 'function') renderizarClientes();
+    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+    if (typeof actualizarCustomClienteTriggerDisplay === 'function') actualizarCustomClienteTriggerDisplay();
+    if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+    if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+    if (typeof renderizarInventario === 'function') renderizarInventario();
+    if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+    if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+    if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+
+    // 9. Feedback visual
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`, 'success');
+    } else {
+        alert(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`);
+    }
+}
