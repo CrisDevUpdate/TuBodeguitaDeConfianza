@@ -2232,6 +2232,12 @@ window.InventoryApp = window.InventoryApp || {};
                     tipoPago: venta.tipoPago || venta.tipo || 'Contado',
                     metodoDetalle: venta.metodoDetalle || '',
                     referencia: venta.referencia || '',
+                    motivo: venta.motivo || '',
+                    concepto: venta.concepto || '',
+                    esCargoManual: Boolean(venta.esCargoManual),
+                    esPrestamo: Boolean(venta.esPrestamo),
+                    afectaInventario: venta.afectaInventario !== undefined ? Boolean(venta.afectaInventario) : true,
+                    origen: venta.origen || '',
                     estado: venta.estado || 'CONFIRMADA',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -3898,6 +3904,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarProducto: guardarProductoCloud,
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,
+        guardarVenta: registrarVentaCloud,
         eliminarVentas: eliminarVentasCloud,
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,

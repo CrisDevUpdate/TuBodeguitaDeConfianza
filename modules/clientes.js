@@ -461,8 +461,16 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         return false;
     };
 
-    // Filtrar ventas del cliente
-    let ventasCli = ventasList.filter(coincideConCliente);
+    // Filtrar ventas del cliente asegurando no tener duplicados idénticos en memoria
+    const seenVentaIds = new Set();
+    let ventasCli = ventasList.filter(v => {
+        if (!coincideConCliente(v)) return false;
+        if (v && v.id) {
+            if (seenVentaIds.has(String(v.id))) return false;
+            seenVentaIds.add(String(v.id));
+        }
+        return true;
+    });
 
     // VINCULACIÓN GARANTIZADA: Si es Yitxel Cuenca (27611440) o absorbió a CLI-025 / Yixel
     const esYitxel = targetUpper === '27611440' || (clienteObj && (String(clienteObj.id).trim() === '27611440' || String(clienteObj.cedula).trim() === '27611440' || String(clienteObj.nombre).trim().toUpperCase().includes('YITXEL')));
@@ -567,12 +575,16 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
     totalAbonadoUSD = Number(totalAbonadoUSD.toFixed(2));
 
     // Determinar deuda inicial registrada directamente
-    const deudaDirecta = Number(
-        clienteObj?.deudaInicialUSD ?? 
-        clienteObj?.deudaUSD ?? 
-        oficialObj?.deudaUSD ?? 
-        0
-    );
+    let deudaDirecta = 0;
+    if (typeof clienteObj?.deudaInicialUSD === 'number') {
+        deudaDirecta = clienteObj.deudaInicialUSD;
+    } else if (typeof oficialObj?.deudaInicialUSD === 'number') {
+        deudaDirecta = oficialObj.deudaInicialUSD;
+    } else if (clienteObj?.deudaUSD !== undefined && clienteObj?.deudaUSD !== null) {
+        // Fijar deudaInicialUSD en memoria para que no se altere al calcular deuda total futura
+        clienteObj.deudaInicialUSD = Number(clienteObj.deudaUSD || 0);
+        deudaDirecta = clienteObj.deudaInicialUSD;
+    }
 
     // Verificar si ya existe una venta inicial de fiado en ventasCli (ej: V_FIADO_CLI-021)
     const tieneVentaFiadoInicial = ventasCli.some(v => v.id && String(v.id).startsWith('V_FIADO_'));
@@ -2791,12 +2803,21 @@ if (typeof asegurarDeudaConsolidadaYitxelCuenca === 'function') {
  * =========================================================================================
  */
 
+let isGuardandoCargoManual = false;
+
 /**
  * Abre el modal para sumar deuda o registrar un préstamo de dinero en efectivo a un cliente
  */
 function abrirModalSumarDeudaCliente(clienteId) {
     const modal = document.getElementById('modal-sumar-deuda-cliente');
     if (!modal) return;
+
+    isGuardandoCargoManual = false;
+    const submitBtn = modal.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Cargar a la Deuda';
+    }
 
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
     let cliente = null;
@@ -2911,175 +2932,204 @@ window.aplicarChipMotivoDeuda = aplicarChipMotivoDeuda;
 async function guardarCargoManualCliente(event) {
     if (event && event.preventDefault) event.preventDefault();
 
-    const inputId = document.getElementById('sumar-deuda-cliente-id');
-    const inputMonto = document.getElementById('sumar-deuda-monto');
-    const inputMotivo = document.getElementById('sumar-deuda-motivo');
-    const inputFecha = document.getElementById('sumar-deuda-fecha');
+    if (isGuardandoCargoManual) {
+        console.warn('[Cargos] Guardado de cargo en progreso, ignorando envío duplicado.');
+        return;
+    }
+    isGuardandoCargoManual = true;
 
-    const clienteId = inputId ? inputId.value : '';
-    const monto = parseFloat(inputMonto ? inputMonto.value : 0) || 0;
-    const motivo = (inputMotivo ? inputMotivo.value : '').trim();
-    const fechaHora = (inputFecha ? inputFecha.value : '').trim() || new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const modal = document.getElementById('modal-sumar-deuda-cliente');
+    const submitBtn = modal ? modal.querySelector('button[type="submit"]') : null;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    }
 
-    if (!clienteId) {
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Error', 'No se ha especificado el cliente.', 'warning');
+    try {
+        const inputId = document.getElementById('sumar-deuda-cliente-id');
+        const inputMonto = document.getElementById('sumar-deuda-monto');
+        const inputMotivo = document.getElementById('sumar-deuda-motivo');
+        const inputFecha = document.getElementById('sumar-deuda-fecha');
+
+        const clienteId = inputId ? inputId.value : '';
+        const monto = parseFloat(inputMonto ? inputMonto.value : 0) || 0;
+        const motivo = (inputMotivo ? inputMotivo.value : '').trim();
+        const fechaHora = (inputFecha ? inputFecha.value : '').trim() || new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+        if (!clienteId) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Error', 'No se ha especificado el cliente.', 'warning');
+            } else {
+                alert('No se ha especificado el cliente.');
+            }
+            return;
+        }
+
+        if (monto <= 0) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Monto Inválido', 'Ingresa un monto en dólares mayor a cero.', 'warning');
+            } else {
+                alert('Ingresa un monto en dólares mayor a cero.');
+            }
+            if (inputMonto) inputMonto.focus();
+            return;
+        }
+
+        if (!motivo) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Motivo Requerido', 'Debes especificar el motivo del agregue a la deuda (ej. Préstamo de dinero en efectivo).', 'warning');
+            } else {
+                alert('Debes especificar el motivo del agregue a la deuda.');
+            }
+            if (inputMotivo) inputMotivo.focus();
+            return;
+        }
+
+        const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+        const cliente = lista.find(c => String(c.id) === String(clienteId) || String(c.cedula) === String(clienteId));
+        if (!cliente) {
+            alert('Cliente no encontrado en el sistema.');
+            return;
+        }
+
+        const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
+        const totalVES = tasa > 0 ? Number((monto * tasa).toFixed(2)) : 0;
+        const cargoId = `CARGO_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+
+        // Construir registro de cargo / préstamo (sin descontar inventario)
+        const cargoVenta = {
+            id: cargoId,
+            clienteId: cliente.id,
+            clienteNombre: cliente.nombre,
+            clienteCedula: cliente.cedula || cliente.id,
+            usuarioId: cliente.usuarioId || cliente.id,
+            vendedorId: AppState.usuarioActual?.id || 'ADMIN',
+            vendedorNombre: AppState.usuarioActual?.nombre || 'Josna / Administración',
+            fecha: fechaHora,
+            tipo: 'Crédito',
+            tipoPago: 'Crédito',
+            esCargoManual: true,
+            esPrestamo: true,
+            afectaInventario: false,
+            items: [{
+                productoId: 'CARGO_MANUAL',
+                nombre: `Préstamo / Cargo de Dinero: ${motivo}`,
+                cantidad: 1,
+                precio: monto,
+                costo: 0,
+                subtotal: monto
+            }],
+            total: monto,
+            totalUSD: monto,
+            totalVES: totalVES,
+            tasa: tasa,
+            motivo: motivo,
+            referencia: motivo,
+            concepto: 'Préstamo / Cargo manual',
+            metodoDetalle: 'Préstamo / Cargo directo a cuenta (sin descontar inventario)',
+            estado: 'CONFIRMADA',
+            confirmada: true,
+            origen: 'Administración'
+        };
+
+        // 1. Agregar a AppState.ventas SIN DUPLICAR
+        if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
+        if (!AppState.ventas.some(v => v.id === cargoVenta.id)) {
+            AppState.ventas.unshift(cargoVenta);
+        }
+        if (typeof ventas !== 'undefined' && Array.isArray(ventas) && ventas !== AppState.ventas) {
+            if (!ventas.some(v => v.id === cargoVenta.id)) {
+                ventas.unshift(cargoVenta);
+            }
+        }
+
+        // 2. Persistir en Firestore en la colección 'ventas' (fuente única de verdad)
+        if (window.InventoryApp?.Firebase) {
+            try {
+                if (typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
+                    await window.InventoryApp.Firebase.registrarVenta(cargoVenta, []);
+                } else if (typeof window.InventoryApp.Firebase.guardarVenta === 'function') {
+                    await window.InventoryApp.Firebase.guardarVenta(cargoVenta, []);
+                }
+            } catch (e) {
+                console.error('[Cargos] Error al guardar cargo en Firebase:', e);
+            }
+        }
+
+        // 3. Persistir en almacenamiento local
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        // 4. Recalcular estado financiero y actualizar deuda del cliente
+        let nuevoEst = null;
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            nuevoEst = calcularEstadoFinancieroCliente(cliente.id);
+            if (nuevoEst && typeof nuevoEst.saldoDeudaUSD === 'number') {
+                cliente.deudaUSD = nuevoEst.saldoDeudaUSD;
+            }
         } else {
-            alert('No se ha especificado el cliente.');
+            cliente.deudaUSD = Number(((Number(cliente.deudaUSD || 0)) + monto).toFixed(2));
         }
-        return;
-    }
 
-    if (monto <= 0) {
+        if (window.InventoryApp?.Firebase?.guardarCliente) {
+            try {
+                await window.InventoryApp.Firebase.guardarCliente(cliente);
+            } catch (e) {
+                console.error('[Cargos] Error al actualizar cliente en Firebase:', e);
+            }
+        }
+
+        // 5. Registrar notificación para auditoría administrativa
+        if (typeof window.registrarNotificacion === 'function') {
+            window.registrarNotificacion({
+                id: 'notif_cargo_' + Date.now(),
+                tipo: 'auditoria',
+                subTipo: 'cargo_manual_deuda',
+                titulo: 'Préstamo / Deuda Agregada',
+                mensaje: `Se sumaron $${monto.toFixed(2)} USD a la cuenta de ${cliente.nombre}. Motivo: ${motivo}.`,
+                montoUSD: monto,
+                paraAdmin: true,
+                paraCliente: false
+            });
+        }
+
+        // 6. Cerrar modal de sumar deuda
+        cerrarModalSumarDeudaCliente();
+
+        // 7. Refrescar interfaces
+        if (typeof renderizarClientes === 'function') renderizarClientes();
+        if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+        if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
+
+        // Refrescar Ficha 360° si está abierta
+        const modal360 = document.getElementById('modal-cliente-detalle');
+        if (modal360 && modal360.style.display !== 'none' && typeof verDetalleCliente === 'function') {
+            verDetalleCliente(cliente.id);
+        }
+
+        // 8. Mensaje de confirmación al usuario
+        const deudaFinalStr = nuevoEst ? nuevoEst.saldoDeudaUSD.toFixed(2) : cliente.deudaUSD.toFixed(2);
         if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Monto Inválido', 'Ingresa un monto en dólares mayor a cero.', 'warning');
+            showCustomAlert(
+                'Deuda Actualizada',
+                `Se han sumado con éxito <b>$${monto.toFixed(2)} USD</b> a la deuda de <b>${cliente.nombre}</b>.<br><br>` +
+                `📝 <b>Motivo:</b> ${motivo}<br>` +
+                `💳 <b>Nueva Deuda Total:</b> $${deudaFinalStr} USD<br>` +
+                `📦 <b>Inventario:</b> No fue afectado (sin movimiento de stock).`,
+                'success'
+            );
+        } else if (typeof showCustomToast === 'function') {
+            showCustomToast(`+$${monto.toFixed(2)} USD cargados a ${cliente.nombre} (${motivo})`, 'success');
         } else {
-            alert('Ingresa un monto en dólares mayor a cero.');
+            alert(`¡Deuda sumada con éxito!\n\nSe sumaron $${monto.toFixed(2)} USD a ${cliente.nombre}.\nMotivo: ${motivo}\nNueva deuda total: $${deudaFinalStr} USD\nEl inventario no fue afectado.`);
         }
-        if (inputMonto) inputMonto.focus();
-        return;
-    }
-
-    if (!motivo) {
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Motivo Requerido', 'Debes especificar el motivo del agregue a la deuda (ej. Préstamo de dinero en efectivo).', 'warning');
-        } else {
-            alert('Debes especificar el motivo del agregue a la deuda.');
+    } finally {
+        isGuardandoCargoManual = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Cargar a la Deuda';
         }
-        if (inputMotivo) inputMotivo.focus();
-        return;
-    }
-
-    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const cliente = lista.find(c => String(c.id) === String(clienteId) || String(c.cedula) === String(clienteId));
-    if (!cliente) {
-        alert('Cliente no encontrado en el sistema.');
-        return;
-    }
-
-    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
-    const totalVES = tasa > 0 ? Number((monto * tasa).toFixed(2)) : 0;
-    const cargoId = `CARGO_${Date.now()}`;
-
-    // Construir registro de cargo / préstamo (sin descontar inventario)
-    const cargoVenta = {
-        id: cargoId,
-        clienteId: cliente.id,
-        clienteNombre: cliente.nombre,
-        clienteCedula: cliente.cedula || cliente.id,
-        usuarioId: cliente.usuarioId || cliente.id,
-        vendedorId: AppState.usuarioActual?.id || 'ADMIN',
-        vendedorNombre: AppState.usuarioActual?.nombre || 'Josna / Administración',
-        fecha: fechaHora,
-        tipo: 'Crédito',
-        tipoPago: 'Crédito',
-        esCargoManual: true,
-        esPrestamo: true,
-        afectaInventario: false,
-        items: [{
-            productoId: 'CARGO_MANUAL',
-            nombre: `Préstamo / Cargo de Dinero: ${motivo}`,
-            cantidad: 1,
-            precio: monto,
-            costo: 0,
-            subtotal: monto
-        }],
-        total: monto,
-        totalUSD: monto,
-        totalVES: totalVES,
-        tasa: tasa,
-        motivo: motivo,
-        referencia: motivo,
-        concepto: 'Préstamo / Cargo manual',
-        metodoDetalle: 'Préstamo / Cargo directo a cuenta (sin descontar inventario)',
-        estado: 'PENDIENTE',
-        confirmada: false,
-        origen: 'Administración'
-    };
-
-    // 1. Agregar a AppState.ventas y window.ventas
-    if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
-    AppState.ventas.unshift(cargoVenta);
-    if (typeof ventas !== 'undefined' && Array.isArray(ventas)) {
-        ventas.unshift(cargoVenta);
-    }
-
-    // 2. Persistir en Firestore en la colección 'ventas'
-    if (window.InventoryApp?.Firebase?.guardarVenta) {
-        try {
-            await window.InventoryApp.Firebase.guardarVenta(cargoVenta);
-        } catch (e) {
-            console.warn('[Cargos] Error al guardar cargo en Firebase:', e);
-        }
-    }
-
-    // 3. Persistir en almacenamiento local
-    if (window.InventoryApp?.Persistence?.guardar) {
-        window.InventoryApp.Persistence.guardar(true);
-    }
-
-    // 4. Recalcular estado financiero y actualizar deuda del cliente
-    let nuevoEst = null;
-    if (typeof calcularEstadoFinancieroCliente === 'function') {
-        nuevoEst = calcularEstadoFinancieroCliente(cliente.id);
-        if (nuevoEst && typeof nuevoEst.saldoDeudaUSD === 'number') {
-            cliente.deudaUSD = nuevoEst.saldoDeudaUSD;
-        }
-    } else {
-        cliente.deudaUSD = Number(((Number(cliente.deudaUSD || 0)) + monto).toFixed(2));
-    }
-
-    if (window.InventoryApp?.Firebase?.guardarCliente) {
-        try {
-            await window.InventoryApp.Firebase.guardarCliente(cliente);
-        } catch (e) {
-            console.warn('[Cargos] Error al actualizar cliente en Firebase:', e);
-        }
-    }
-
-    // 5. Registrar notificación para auditoría administrativa
-    if (typeof window.registrarNotificacion === 'function') {
-        window.registrarNotificacion({
-            id: 'notif_cargo_' + Date.now(),
-            tipo: 'auditoria',
-            subTipo: 'cargo_manual_deuda',
-            titulo: 'Préstamo / Deuda Agregada',
-            mensaje: `Se sumaron $${monto.toFixed(2)} USD a la cuenta de ${cliente.nombre}. Motivo: ${motivo}.`,
-            montoUSD: monto,
-            paraAdmin: true,
-            paraCliente: false
-        });
-    }
-
-    // 6. Cerrar modal de sumar deuda
-    cerrarModalSumarDeudaCliente();
-
-    // 7. Refrescar interfaces
-    if (typeof renderizarClientes === 'function') renderizarClientes();
-    if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
-    if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
-
-    // Refrescar Ficha 360° si está abierta
-    const modal360 = document.getElementById('modal-cliente-detalle');
-    if (modal360 && modal360.style.display !== 'none' && typeof verDetalleCliente === 'function') {
-        verDetalleCliente(cliente.id);
-    }
-
-    // 8. Mensaje de confirmación al usuario
-    const deudaFinalStr = nuevoEst ? nuevoEst.saldoDeudaUSD.toFixed(2) : cliente.deudaUSD.toFixed(2);
-    if (typeof showCustomAlert === 'function') {
-        showCustomAlert(
-            'Deuda Actualizada',
-            `Se han sumado con éxito <b>$${monto.toFixed(2)} USD</b> a la deuda de <b>${cliente.nombre}</b>.<br><br>` +
-            `📝 <b>Motivo:</b> ${motivo}<br>` +
-            `💳 <b>Nueva Deuda Total:</b> $${deudaFinalStr} USD<br>` +
-            `📦 <b>Inventario:</b> No fue afectado (sin movimiento de stock).`,
-            'success'
-        );
-    } else if (typeof showCustomToast === 'function') {
-        showCustomToast(`+$${monto.toFixed(2)} USD cargados a ${cliente.nombre} (${motivo})`, 'success');
-    } else {
-        alert(`¡Deuda sumada con éxito!\n\nSe sumaron $${monto.toFixed(2)} USD a ${cliente.nombre}.\nMotivo: ${motivo}\nNueva deuda total: $${deudaFinalStr} USD\nEl inventario no fue afectado.`);
     }
 }
 window.guardarCargoManualCliente = guardarCargoManualCliente;
