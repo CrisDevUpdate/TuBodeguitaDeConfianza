@@ -71,12 +71,36 @@ function obtenerSaludoSegunHora() {
 }
 
 /**
- * Selecciona una frase aleatoria del banco de mensajes local
+ * Selecciona una frase aleatoria del banco de 1000 mensajes (o fallback)
  */
 function obtenerFraseSabiduriaAleatoria() {
-    const idx = Math.floor(Math.random() * BANCO_MENSAJES_SABIDURIA.length);
-    return BANCO_MENSAJES_SABIDURIA[idx];
+    const banco = (Array.isArray(window.BANCO_FRASES_1000) && window.BANCO_FRASES_1000.length > 0)
+        ? window.BANCO_FRASES_1000
+        : BANCO_MENSAJES_SABIDURIA;
+    const idx = Math.floor(Math.random() * banco.length);
+    return banco[idx];
 }
+
+/**
+ * Permite cambiar la frase/curiosidad al azar interactivamente
+ */
+function cambiarFraseAleatoria() {
+    fraseActualSeleccionada = obtenerFraseSabiduriaAleatoria();
+    const elemTexto = document.getElementById('cliente-frase-texto');
+    const elemAutor = document.getElementById('cliente-frase-autor');
+    const elemCat = document.getElementById('cliente-frase-categoria');
+
+    if (elemTexto && fraseActualSeleccionada) {
+        elemTexto.textContent = `"${fraseActualSeleccionada.frase}"`;
+    }
+    if (elemAutor && fraseActualSeleccionada) {
+        elemAutor.textContent = `— ${fraseActualSeleccionada.autor}`;
+    }
+    if (elemCat && fraseActualSeleccionada) {
+        elemCat.textContent = fraseActualSeleccionada.categoria;
+    }
+}
+window.cambiarFraseAleatoria = cambiarFraseAleatoria;
 
 /**
  * Actualiza el encabezado dinámico del cliente (saludo por hora + frase de sabiduría)
@@ -108,7 +132,7 @@ async function actualizarEncabezadoClienteDinamico() {
         elemIcono.innerHTML = saludoInfo.icono;
     }
 
-    // 2. Frase de Sabiduría con API externa o fallback local
+    // 2. Frase de Sabiduría / Curiosidad / Sarcasmo con API o banco de 1000 frases
     if (!fraseActualSeleccionada) {
         try {
             const res = await fetch('/api/quotes/wisdom');
@@ -118,7 +142,7 @@ async function actualizarEncabezadoClienteDinamico() {
                     fraseActualSeleccionada = {
                         frase: data.frase,
                         autor: data.autor || 'Sabiduría',
-                        categoria: 'Inspiración & Finanzas'
+                        categoria: data.categoria || 'Curiosidades & Sabiduría'
                     };
                 }
             }
@@ -151,6 +175,15 @@ async function actualizarEncabezadoClienteDinamico() {
     }
     if (elemCat && fraseActualSeleccionada) {
         elemCat.textContent = fraseActualSeleccionada.categoria;
+    }
+
+    // Herramientas de frases (Otra / Leer TXT): SOLO visibles para el Administrador
+    const adminTools = document.getElementById('cliente-frase-admin-tools');
+    if (adminTools) {
+        const esAdmin = typeof esUsuarioAdmin === 'function'
+            ? esUsuarioAdmin(usuario)
+            : Boolean(usuario && (usuario.rol === 'admin' || usuario.rol === 'superadmin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin'));
+        adminTools.style.display = esAdmin ? 'inline-flex' : 'none';
     }
 
     // 3. Puntos en Banner

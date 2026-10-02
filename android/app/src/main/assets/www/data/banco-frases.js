@@ -1,4 +1,9 @@
-[
+/**
+ * data/banco-frases.js
+ * Banco Integral de 1000 Mensajes: Frases Célebres, Datos Curiosos y Comentarios Sarcásticos / Humor Criollo
+ * Generado para Tu Bodeguita de Confianza.
+ */
+window.BANCO_FRASES_1000 = [
   {
     "id": 1,
     "frase": "El Salto Ángel en Canaima es la caída de agua ininterrumpida más alta del mundo, con 979 metros de altura.",
@@ -5999,4 +6004,4 @@
     "autor": "Tradición Quesera",
     "categoria": "Dato Curioso"
   }
-]
+];

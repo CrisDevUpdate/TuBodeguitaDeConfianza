@@ -2664,6 +2664,13 @@ function actualizarUIUsuarioActual() {
         btnVolverAdmin.style.display = (!esAdmin && tieneSimulador) ? 'inline-flex' : 'none';
     }
 
+    // Herramientas de frases (Otra / Leer TXT) solo visibles para Administradores
+    const fraseAdminToolsEl = document.getElementById('cliente-frase-admin-tools');
+    if (fraseAdminToolsEl) {
+        const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuario) : false;
+        fraseAdminToolsEl.style.display = esAdmin ? 'inline-flex' : 'none';
+    }
+
     // Actualizar badges y centro de notificaciones respetando el rol del usuario en sesión
     if (typeof window.actualizarBadgesNotificaciones === 'function') {
         window.actualizarBadgesNotificaciones();

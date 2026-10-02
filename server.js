@@ -271,48 +271,51 @@ app.get('/api/inventory/adjustments', (req, res) => {
   res.json({ success: true, count: serverInventoryAdjustments.length, adjustments: serverInventoryAdjustments });
 });
 
+// Cargar banco de 1000 frases, curiosidades y humor criollo
+let BANCO_MENSAJES_1000 = [];
+try {
+  const mensajesJsonPath = path.join(__dirname, 'data', 'mensajes.json');
+  if (fs.existsSync(mensajesJsonPath)) {
+    BANCO_MENSAJES_1000 = JSON.parse(fs.readFileSync(mensajesJsonPath, 'utf-8'));
+    console.log(`[Server Quotes] Cargadas ${BANCO_MENSAJES_1000.length} frases y curiosidades de data/mensajes.json.`);
+  }
+} catch (err) {
+  console.warn('[Server Quotes] Error leyendo data/mensajes.json:', err.message);
+}
+
 // API Wisdom / Quotes: GET /api/quotes/wisdom
 const WISDOM_QUOTES = [
-  { frase: "El secreto del éxito en los negocios es saber algo que nadie más sabe.", autor: "Aristóteles Onassis" },
-  { frase: "La perseverancia es la base de todas las acciones.", autor: "Lao Tsé" },
-  { frase: "No busques el momento perfecto, toma el momento y hazlo perfecto.", autor: "Proverbio de Sabiduría" },
-  { frase: "La disciplina es el puente entre las metas y los logros.", autor: "Jim Rohn" },
-  { frase: "La confianza en uno mismo es el primer secreto del éxito.", autor: "Ralph Waldo Emerson" },
-  { frase: "El verdadero progreso es el que pone la tecnología al alcance de todos.", autor: "Henry Ford" },
-  { frase: "Siembra un pensamiento y cosecharás una acción; siembra una acción y cosecharás un hábito.", autor: "Stephen Covey" },
-  { frase: "El cliente no compra productos, compra confianza, rapidez y sonrisas.", autor: "Tu Bodeguita de Confianza" },
-  { frase: "La excelencia no es un acto aislado, sino un hábito constante.", autor: "Aristóteles" },
-  { frase: "Cada pequeño esfuerzo diario suma para alcanzar grandes triunfos.", autor: "Filosofía Kaizen" }
+  { frase: "El secreto del éxito en los negocios es saber algo que nadie más sabe.", autor: "Aristóteles Onassis", categoria: "Finanzas & Negocios" },
+  { frase: "La perseverancia es la base de todas las acciones.", autor: "Lao Tsé", categoria: "Sabiduría & Filosofía" },
+  { frase: "No busques el momento perfecto, toma el momento y hazlo perfecto.", autor: "Proverbio de Sabiduría", categoria: "Motivación" },
+  { frase: "La disciplina es el puente entre las metas y los logros.", autor: "Jim Rohn", categoria: "Constancia" },
+  { frase: "La confianza en uno mismo es el primer secreto del éxito.", autor: "Ralph Waldo Emerson", categoria: "Confianza" },
+  { frase: "El cliente no compra productos, compra confianza, rapidez y sonrisas.", autor: "Tu Bodeguita de Confianza", categoria: "Cultura & Bodega" }
 ];
 
-app.get('/api/quotes/wisdom', async (req, res) => {
-  try {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 2500);
-    const apiRes = await fetch('https://dummyjson.com/quotes/random', { signal: controller.signal });
-    clearTimeout(id);
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data && data.quote) {
-        return res.json({
-          success: true,
-          frase: data.quote,
-          autor: data.author || 'Inspiración Diaria',
-          fuente: 'DummyJSON Quotes API'
-        });
-      }
-    }
-  } catch {
-    // Graceful fallback to rich local quote bank
-  }
-
-  const randomQuote = WISDOM_QUOTES[Math.floor(Math.random() * WISDOM_QUOTES.length)];
+app.get('/api/quotes/wisdom', (req, res) => {
+  const banco = (Array.isArray(BANCO_MENSAJES_1000) && BANCO_MENSAJES_1000.length > 0)
+    ? BANCO_MENSAJES_1000
+    : WISDOM_QUOTES;
+  const item = banco[Math.floor(Math.random() * banco.length)];
   res.json({
     success: true,
-    frase: randomQuote.frase,
-    autor: randomQuote.autor,
-    fuente: 'Sabiduría Local'
+    frase: item.frase || item.quote,
+    autor: item.autor || item.author || 'Sabiduría',
+    categoria: item.categoria || 'Curiosidades & Sabiduría',
+    id: item.id || 1,
+    total: banco.length,
+    fuente: 'Tu Bodeguita - Banco 1000'
   });
+});
+
+app.get('/mensajes_1000.txt', (req, res) => {
+  const txtPath = path.join(__dirname, 'mensajes_1000.txt');
+  if (fs.existsSync(txtPath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.sendFile(txtPath);
+  }
+  res.status(404).send('Archivo mensajes_1000.txt no encontrado');
 });
 
 // API Users: Delete User (DELETE /api/users/:id or DELETE /api/users?id=...)
@@ -1105,40 +1108,18 @@ app.post('/api/blob/sync-firestore-images', async (req, res) => {
   }
 });
 
-app.get('/api/quotes/random', async (req, res) => {
-  try {
-    const fetchController = new AbortController();
-    const timeout = setTimeout(() => fetchController.abort(), 2000);
-    
-    // Intento con ZenQuotes
-    const externalResponse = await fetch('https://zenquotes.io/api/random', {
-      signal: fetchController.signal
-    }).catch(() => null);
-    
-    clearTimeout(timeout);
-
-    if (externalResponse && externalResponse.ok) {
-      const data = await externalResponse.json();
-      if (Array.isArray(data) && data.length > 0 && data[0].q) {
-        return res.json({
-          success: true,
-          quote: data[0].q,
-          author: data[0].a || 'Anónimo',
-          source: 'ZenQuotes API'
-        });
-      }
-    }
-  } catch (err) {
-    // Fallback continuo
-  }
-
-  const randomIdx = Math.floor(Math.random() * localWisdomQuotes.length);
-  const selected = localWisdomQuotes[randomIdx];
+app.get('/api/quotes/random', (req, res) => {
+  const banco = (Array.isArray(BANCO_MENSAJES_1000) && BANCO_MENSAJES_1000.length > 0)
+    ? BANCO_MENSAJES_1000
+    : localWisdomQuotes;
+  const selected = banco[Math.floor(Math.random() * banco.length)];
   res.json({
     success: true,
-    quote: selected.quote,
-    author: selected.author,
-    source: 'Local Wisdom Engine'
+    quote: selected.frase || selected.quote,
+    author: selected.autor || selected.author || 'Sabiduría',
+    category: selected.categoria || 'Curiosidades & Sabiduría',
+    id: selected.id || 1,
+    source: 'Tu Bodeguita - Banco 1000'
   });
 });
 

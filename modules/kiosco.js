@@ -93,7 +93,7 @@
                     fraseObj = {
                         frase: data.frase,
                         autor: data.autor || 'Sabiduría Universal',
-                        categoria: 'Inspiración'
+                        categoria: data.categoria || 'Inspiración & Finanzas'
                     };
                 }
             }
@@ -101,8 +101,11 @@
             // fallback local
         }
         if (!fraseObj) {
-            const idx = Math.floor(Math.random() * BANCO_FRASES_AUTOSERVICIO.length);
-            fraseObj = BANCO_FRASES_AUTOSERVICIO[idx];
+            const banco = (Array.isArray(window.BANCO_FRASES_1000) && window.BANCO_FRASES_1000.length > 0)
+                ? window.BANCO_FRASES_1000
+                : BANCO_FRASES_AUTOSERVICIO;
+            const idx = Math.floor(Math.random() * banco.length);
+            fraseObj = banco[idx];
         }
 
         const elTexto = document.getElementById('kiosco-frase-texto');
