@@ -965,13 +965,13 @@ function actualizarPreviewPremioAdmin() {
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%;">
                     <div>
                         <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:800; font-size:0.82rem; padding:4px 10px; border-radius:9999px;">
-                            ❄️ TEMPORADA DE INVIERNO (DESAFÍO ELIMINADO / EN RECESO)
+                            ☕ TEMPORADA EN RECESO (SIN DESAFÍO ACTIVO)
                         </span>
                         <div style="margin-top:6px; font-size:0.88rem; color:#0c4a6e; font-weight:600;">
-                            No hay ningún desafío activo. El sistema está en hibernación y todos los clientes están con 0 puntos.
+                            No hay ningún premio activo por ahora. El sistema y el arbolito están en reposo, y todos los clientes están en 0 puntos.
                         </div>
                         <div style="font-size:0.8rem; color:#0284c7;">
-                            Cuando estés listo, activa un nuevo premio para que todos comiencen a acumular desde cero.
+                            Cuando quieras, activa un nuevo premio para que la gente empiece a acumular puntos desde cero.
                         </div>
                     </div>
                     <div style="display:flex; gap:8px;">
@@ -1636,8 +1636,8 @@ async function renderizarPremioMesCliente() {
 
                     ${esInvierno ? `
                         <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#0369a1; line-height:1.4;">
-                            <div style="font-weight:800; margin-bottom:4px; font-size:0.92rem;"><i class="fas fa-snowflake" style="color:#0284c7;"></i> Temporada en Receso Invernal</div>
-                            El desafío anterior ha concluido y el sistema está en hibernación. Todos los clientes se encuentran con 0 puntos para que todos comiencen en igualdad de condiciones en cuanto se anuncie el próximo premio.
+                            <div style="font-weight:800; margin-bottom:4px; font-size:0.92rem;"><i class="fas fa-mug-hot" style="color:#0284c7;"></i> Temporada en Reposo</div>
+                            El desafío anterior ya concluyó y el arbolito está agarrando fuerzas para el próximo premio. Todos los clientes están en 0 puntos para arrancar parejitos en cuanto se anuncie el nuevo premio.
                         </div>
                     ` : (pm.estado === 'GANADOR_ALCANZADO' ? `
                         <div style="background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.85rem; color:#854d0e; line-height:1.4;">

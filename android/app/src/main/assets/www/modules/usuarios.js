@@ -260,7 +260,7 @@ function renderizarDetalleGatewallPendiente(usuario) {
     if (fechaEl) fechaEl.textContent = usuario.fechaRegistro || new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     if (waBtn) {
-        const msgTexto = `Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${usuario.nombre} (Cédula: ${usuario.cedula || usuario.id}). Acabo de registrarme y solicito la aprobación de mi cuenta.`;
+        const msgTexto = `¡Buenas! Saludos. Le escribe ${usuario.nombre} (C.I. ${usuario.cedula || usuario.id}). Acabo de registrarme en Tu Bodeguita de Confianza y quedé pendiente por aprobación. ¿Me echas una manito activando mi cuenta cuando puedas, porfa? ¡Mil gracias!`;
         const rawTel = (typeof AppState !== 'undefined' && AppState.telefonoWhatsApp) || '0412-5363849';
         const telAdmin = (typeof normalizarNumeroWhatsApp === 'function') ? normalizarNumeroWhatsApp(rawTel) : '584125363849';
         waBtn.href = `https://api.whatsapp.com/send?phone=${telAdmin}&text=${encodeURIComponent(msgTexto)}&app=normal`;
@@ -707,8 +707,8 @@ async function registrarUsuarioDesdeGatewall(e) {
             const deudaDetUSD = Math.max(0, Number(estadoDet.saldoDeudaUSD || 0));
 
             const msgConfirm = deudaDetUSD > 0
-                ? `⚠️ ATENCIÓN:\nDetectamos que en nuestra libreta existe el cliente "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}) con una deuda pendiente de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta te pertenece a ti?\n\n• Pulsa ACEPTAR si ERES TÚ (para vincularte a esta cuenta y asumir dicho saldo).\n• Pulsa CANCELAR si NO ERES TÚ (para registrarte como un cliente nuevo e independiente con $0 de deuda).`
-                : `Detectamos que en nuestra libreta existe el cliente "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}).\n\n¿Deseas vincular tu cuenta con este registro comercial previo?\n\n• Pulsa ACEPTAR si ERES TÚ.\n• Pulsa CANCELAR si NO ERES TÚ (cuenta nueva limpia).`;
+                ? `⚠️ ¡OJO AL DATO!:\nEn la libreta de la bodeguita tenemos anotado a "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}) con un saldo pendiente de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta es tuya?\n\n• Dale a ACEPTAR si ERES TÚ (para vincularte a tu cuenta y mantener tu saldo).\n• Dale a CANCELAR si NO ERES TÚ (para abrirte una cuenta nueva desde cero, limpiecita y con $0.00 de deuda).`
+                : `En la libreta de la bodeguita tenemos registrado a "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}).\n\n¿Deseas vincular tu cuenta con esta ficha previa?\n\n• Dale a ACEPTAR si ERES TÚ.\n• Dale a CANCELAR si NO ERES TÚ (cuenta nueva desde cero).`;
 
             const esEl = confirm(msgConfirm);
             if (esEl) {
@@ -1015,7 +1015,7 @@ function renderizarAlertaClienteDetectado(container, resultado, origen) {
                 <div style="flex:1;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
                         <h4 style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
-                            <span>Existe un cliente registrado con estos datos:</span>
+                            <span>¡Epa! Ya tenemos un cliente anotado con estos datos:</span>
                             <span style="background:${tieneDeuda ? '#fef3c7' : '#dcfce7'}; color:${tieneDeuda ? '#92400e' : '#166534'}; padding:2px 8px; border-radius:6px; font-size:0.78rem; font-weight:700;">
                                 ${cliente.nombre} (${cliente.id})
                             </span>
@@ -1026,20 +1026,20 @@ function renderizarAlertaClienteDetectado(container, resultado, origen) {
                     <div style="margin-top:8px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 12px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                             <span style="font-size:0.86rem; color:#991b1b; font-weight:700;">
-                                <i class="fas fa-hand-holding-dollar"></i> Deuda pendiente acumulada:
+                                <i class="fas fa-hand-holding-dollar"></i> Saldo pendiente / Fiado acumulado:
                             </span>
                             <span style="font-size:1.15rem; font-weight:900; color:#dc2626;">
                                 $${deudaUSD.toFixed(2)} USD <small style="font-size:0.75rem; font-weight:600; color:#b91c1c;">(Bs. ${deudaVES})</small>
                             </span>
                         </div>
                         <div style="margin-top:6px; font-size:0.82rem; color:#b91c1c; line-height:1.45;">
-                            ⚠️ <strong>Aviso Importante:</strong> Esta deuda registrada de <strong>$${deudaUSD.toFixed(2)} USD</strong> se colocará en tu cuenta si confirmas. 
-                            <strong>Si no eres tú, debes presionar "NO SOY YO"</strong> para registrarte con una cuenta nueva limpia con <strong>$0.00 de deuda</strong>.
+                            ⚠️ <strong>¡Ojo al dato!:</strong> Esta cuenta tiene un fiado pendiente de <strong>$${deudaUSD.toFixed(2)} USD</strong> (Bs. ${deudaVES}) que se te cargará si confirmas que eres tú. 
+                            <strong>Si no eres tú, dale a "No soy yo"</strong> y te abrimos una cuenta nueva desde cero, limpiecita y con <strong>$0.00 de deuda</strong>.
                         </div>
                     </div>
                     ` : `
                     <div style="margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:0.84rem; color:#166534;">
-                        <i class="fas fa-check-circle" style="color:#22c55e;"></i> Esta cuenta está al día (<strong>$0.00 de saldo</strong>). Puedes vincularla para mantener tu historial comercial.
+                        <i class="fas fa-check-circle" style="color:#22c55e;"></i> Esta cuenta está al día y solvente (<strong>$0.00 de saldo</strong>). Puedes vincularla para mantener tu historial de compras.
                     </div>
                     `}
 
@@ -1051,10 +1051,10 @@ function renderizarAlertaClienteDetectado(container, resultado, origen) {
 
                     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" id="${origen}-botones-decision">
                         <button type="button" class="btn btn-sm btn-success" onclick="confirmarVinculacionCliente('${origen}', true, '${cliente.id}')" style="font-weight:700; border-radius:8px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px; background:#16a34a; border-color:#16a34a; color:#ffffff;">
-                            <i class="fas fa-check"></i> Sí, soy yo (Vincular)
+                            <i class="fas fa-check"></i> Sí, soy yo (Vincular mi cuenta)
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmarVinculacionCliente('${origen}', false, '${cliente.id}')" style="font-weight:700; border-radius:8px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px;">
-                            <i class="fas fa-user-xmark"></i> No soy yo (Cuenta limpia $0)
+                            <i class="fas fa-user-xmark"></i> No soy yo (Cuenta nueva desde cero $0)
                         </button>
                     </div>
                 </div>
@@ -1164,7 +1164,7 @@ function confirmarVinculacionCliente(origen, esEl, clienteId) {
                 <div style="background:#dcfce7; border:1.5px solid #22c55e; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); animation:fadeIn 0.2s ease;">
                     <div style="font-size:0.88rem; color:#166534; font-weight:700; display:flex; align-items:center; gap:8px;">
                         <i class="fas fa-check-circle" style="color:#16a34a; font-size:1.1rem;"></i>
-                        <span>Confirmado: Tu usuario se vinculará a la ficha de <strong>${cliente ? cliente.nombre : clienteId}</strong>.</span>
+                        <span>¡Listo! Confirmado: Tu usuario queda vinculado a la cuenta de <strong>${cliente ? cliente.nombre : clienteId}</strong>.</span>
                     </div>
                     <button type="button" class="btn btn-xs btn-outline" onclick="deshacerConfirmacionVinculacion('${origen}')" style="font-size:0.76rem; padding:3px 8px; border-radius:6px; color:#166534; border-color:#86efac; background:#ffffff;">
                         <i class="fas fa-rotate-left"></i> Cambiar
@@ -1182,7 +1182,7 @@ function confirmarVinculacionCliente(origen, esEl, clienteId) {
                 <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); animation:fadeIn 0.2s ease;">
                     <div style="font-size:0.88rem; color:#334155; font-weight:700; display:flex; align-items:center; gap:8px;">
                         <i class="fas fa-user-plus" style="color:var(--primary-accent); font-size:1.1rem;"></i>
-                        <span>Entendido: Se creará un cliente nuevo e independiente con <strong>$0.00 de deuda</strong>.</span>
+                        <span>¡Entendido! Te abrimos una cuenta nueva desde cero, limpiecita y con <strong>$0.00 de deuda</strong>.</span>
                     </div>
                     <button type="button" class="btn btn-xs btn-outline" onclick="deshacerConfirmacionVinculacion('${origen}')" style="font-size:0.76rem; padding:3px 8px; border-radius:6px; color:#475569; border-color:#cbd5e1; background:#ffffff;">
                         <i class="fas fa-rotate-left"></i> Cambiar
@@ -1285,8 +1285,8 @@ async function registrarUsuario(e) {
         const deudaDetUSD = Math.max(0, Number(estadoDet.saldoDeudaUSD || 0));
 
         const msgConfirm = deudaDetUSD > 0
-            ? `⚠️ ATENCIÓN:\nExiste un cliente registrado como "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}) con una deuda de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta le pertenece a este nuevo usuario?\n\n• Pulsa ACEPTAR si ES ÉL (para vincularlo y que asuma la deuda).\n• Pulsa CANCELAR si NO ES ÉL (para no asignarle esa deuda y registrarlo con $0.00 de saldo).`
-            : `Existe un cliente registrado como "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}).\n\n¿Deseas vincular este nuevo usuario con dicha ficha de cliente?\n\n• Pulsa ACEPTAR si ES ÉL.\n• Pulsa CANCELAR si NO ES ÉL.`;
+            ? `⚠️ ¡OJO AL DATO!:\nEn la libreta existe el cliente "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}) con un saldo pendiente de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta le pertenece a este nuevo usuario?\n\n• Dale a ACEPTAR si ES ÉL (para vincularlo a su cuenta).\n• Dale a CANCELAR si NO ES ÉL (para abrirle una cuenta nueva limpiecita con $0.00 de saldo).`
+            : `En la libreta existe el cliente "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}).\n\n¿Deseas vincular este nuevo usuario con dicha ficha de cliente?\n\n• Dale a ACEPTAR si ES ÉL.\n• Dale a CANCELAR si NO ES ÉL.`;
 
         const esEl = confirm(msgConfirm);
         if (esEl) {
@@ -1426,7 +1426,7 @@ async function registrarUsuario(e) {
     }
     clienteDetectadoAdmin = null;
 
-    mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
+    mostrarNotificacionRegistro(`¡Listo! Registro recibido para ${nombre} (C.I. ${cedula}). Tu solicitud quedó en revisión y pendiente por aprobación del administrador.`, 'success');
 
     if (!esAdminSesion) {
         verificarGatewall();
@@ -2308,7 +2308,7 @@ function renderizarUsuarios(busqueda = '') {
             const idCed = u.cedula || u.id;
             const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
             const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
-            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=%C2%A1Buenas!%20Hola%20${encodeURIComponent(u.nombre)},%20te%20saludamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
 
             let badgeEstado = '';
             if (u.estado === 'PENDIENTE_APROBACION') {
@@ -2411,7 +2411,7 @@ function renderizarUsuarios(busqueda = '') {
             const idCed = u.cedula || u.id;
             const puntos = Number(u.puntosAcumulados || 0) - Number(u.puntosCanjeados || 0);
             const telefonoLimpio = (u.telefono || '').replace(/\D/g, '');
-            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=Hola%20${encodeURIComponent(u.nombre)},%20te%20contactamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
+            const waLink = telefonoLimpio ? `https://wa.me/${telefonoLimpio.startsWith('58') ? telefonoLimpio : '58' + telefonoLimpio.replace(/^0/, '')}?text=%C2%A1Buenas!%20Hola%20${encodeURIComponent(u.nombre)},%20te%20saludamos%20de%20Tu%20Bodeguita%20de%20Confianza.` : null;
 
             let badgeEstado = '';
             if (u.estado === 'PENDIENTE_APROBACION') {

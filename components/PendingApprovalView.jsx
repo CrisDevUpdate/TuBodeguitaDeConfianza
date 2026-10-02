@@ -49,9 +49,9 @@ export default function PendingApprovalView({
     }
   };
 
-  const waNumber = '584120000000';
+  const waNumber = '584125363849';
   const waMsg = encodeURIComponent(
-    `Hola Administrador de Tu Bodeguita de Confianza. Mi nombre es ${user?.nombre || formData.nombre} (Cédula: ${user?.cedula || formData.cedula}). Acabo de registrarme y solicito la aprobación de mi cuenta.`
+    `¡Buenas! Saludos. Le escribe ${user?.nombre || formData.nombre} (C.I. ${user?.cedula || formData.cedula}). Acabo de registrarme en Tu Bodeguita de Confianza y quedé pendiente por aprobación. ¿Me echas una manito activando mi cuenta cuando puedas, porfa? ¡Mil gracias!`
   );
   const waUrl = `https://wa.me/${waNumber}?text=${waMsg}`;
 
@@ -91,10 +91,10 @@ export default function PendingApprovalView({
         </div>
 
         <h3 style={{ color: '#0f172a', margin: '0 0 6px 0', fontSize: '1.4rem' }}>
-          Solicitud en Revisión
+          ¡Listo el registro! Solicitud en Revisión
         </h3>
         <p style={{ color: '#64748b', fontSize: '0.92rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
-          Tu cuenta ha sido creada exitosamente y se encuentra en estado <strong>PENDIENTE DE APROBACIÓN</strong> por el Administrador.
+          Tu solicitud ya quedó registrada y está <strong>pendiente por aprobación</strong> del administrador. Puedes escribirle por WhatsApp para que te active la cuenta de una vez.
         </p>
 
         {statusMessage && (
@@ -200,7 +200,7 @@ export default function PendingApprovalView({
               boxShadow: '0 4px 10px rgba(37, 211, 102, 0.25)'
             }}
           >
-            <i className="fab fa-whatsapp" style={{ fontSize: '1.2rem' }}></i> Notificar al Administrador por WhatsApp
+            <i className="fab fa-whatsapp" style={{ fontSize: '1.2rem' }}></i> Avisarle al Administrador por WhatsApp
           </a>
 
           <button 

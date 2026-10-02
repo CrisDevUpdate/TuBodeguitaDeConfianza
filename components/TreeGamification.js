@@ -106,10 +106,10 @@ class TreeGamificationWidget {
         const temporadaActiva = AppState.premioMes?.temporadaActiva !== false && !Boolean(AppState.isWinterMode || AppState.temporadaInviernoActiva || AppState.premioMes?.estado === 'INVIERNO' || AppState.premioMes?.estado === 'ELIMINADO');
 
         const CHISTES_INVIERNO = [
-            "❄️ <b>Humor de Invierno:</b> ¿Por qué el bodeguero no tiene frío en invierno? ¡Porque siempre está cerca del calor de los clientes y las buenas ofertas!",
-            "❄️ <b>Humor de Invierno:</b> Un cliente entra temblando y pide café: —¿Tiene café caliente? El bodeguero dice: —¡Tan caliente como las sorpresas que vienen en la próxima temporada!",
-            "❄️ <b>Humor de Invierno:</b> El árbol está tomando su siesta invernal con bufanda. ¡Descansa y prepárate para la cosecha de la nueva temporada!",
-            "❄️ <b>Humor de Invierno:</b> ¿Qué le dice un refresco a otro en el congelador? —¡Hermano, tápate que nos vamos a resfriar!"
+            "☕ <b>Pausa Criolla:</b> ¿Por qué el bodeguero no pierde el ánimo? ¡Porque siempre está activo con su café caliente y las mejores ofertas pa' la gente!",
+            "☕ <b>Pausa Criolla:</b> El arbolito se está tomando un buen café guayoyo en la bodeguita. ¡Descansa y prepárate, que lo que viene está bueno!",
+            "☕ <b>Pausa Criolla:</b> ¿Qué le dice una Malta a otra en la nevera? —¡Hermano, agárrate que viene la nueva temporada de premios!",
+            "☕ <b>Pausa Criolla:</b> El arbolito está agarrando mínimo para florecer con todo en la próxima temporada. ¡Activo con las compras!"
         ];
         const chisteAleatorio = CHISTES_INVIERNO[Math.floor(Math.random() * CHISTES_INVIERNO.length)];
 
@@ -575,14 +575,14 @@ class TreeGamificationWidget {
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span style="font-size:1.4rem;">${temporadaActiva ? etapa.icono : '❄️'}</span>
                             <h3 style="margin:0; font-size:1.2rem; color:#ffffff; font-weight:700;">
-                                ${temporadaActiva ? 'Árbol de Crecimiento y Fidelidad' : 'Árbol de Fidelidad · Temporada de Invierno'}
+                                ${temporadaActiva ? 'Árbol de Crecimiento y Fidelidad' : 'Árbol de Fidelidad · Tiempo de Reposo'}
                             </h3>
                             <span class="badge-pill" style="background:${temporadaActiva ? '#fef08a' : '#e0f2fe'}; color:${temporadaActiva ? '#854d0e' : '#0369a1'}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px;">
                                 Ciclo #${this.nivelCiclo}
                             </span>
                         </div>
                         <p style="margin:4px 0 0 0; font-size:0.85rem; color:${temporadaActiva ? '#d1fae5' : '#bae6fd'};">
-                            ${temporadaActiva ? `${etapa.titulo} · <span style="color:#fde047; font-weight:600;">${etapa.rango}</span>` : '<span style="color:#ffffff; font-weight:600;">Modo Hibernación & Reposo Invernal</span>'}
+                            ${temporadaActiva ? `${etapa.titulo} · <span style="color:#fde047; font-weight:600;">${etapa.rango}</span>` : '<span style="color:#ffffff; font-weight:600;">El Arbolito está Reposando · Agarrando Mínimo</span>'}
                         </p>
                     </div>
 
@@ -601,7 +601,7 @@ class TreeGamificationWidget {
                         <!-- Badge flotante de estado en el árbol -->
                         <div style="position:absolute; top:12px; left:14px; background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); border:1px solid #cbd5e1; border-radius:20px; padding:4px 12px; font-size:0.78rem; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.06);">
                             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${temporadaActiva ? etapa.color : '#38bdf8'};"></span>
-                            <span>${temporadaActiva ? etapa.titulo : 'Hibernación Invernal'}</span>
+                            <span>${temporadaActiva ? etapa.titulo : 'Arbolito en Reposo'}</span>
                         </div>
 
                         <!-- Indicador porcentual flotante -->
@@ -624,11 +624,11 @@ class TreeGamificationWidget {
                             <!-- Mensaje humorístico de Temporada de Invierno -->
                             <div style="background:#f0f9ff; border:1px solid #bae6fd; border-left:4px solid #0284c7; border-radius:0 10px 10px 0; padding:14px 16px; margin-bottom:16px; font-size:0.88rem; color:#0369a1; line-height:1.45;">
                                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; font-weight:700; color:#0369a1;">
-                                    <span style="font-size:1.2rem;">☕🧣</span>
-                                    <span>¡Shhh! Nuestro árbol de fidelidad está hibernando</span>
+                                    <span style="font-size:1.2rem;">☕🌱</span>
+                                    <span>¡Shhh! El arbolito de fidelidad está descansando</span>
                                 </div>
                                 <p style="margin:0; color:#0c4a6e;">
-                                    La temporada de premios actual está en receso invernal. El árbol está tomando chocolate caliente bajo una bufanda de lana y recargando energías. Los puntos de compra están en pausa. ¡Muy pronto anunciaremos la nueva temporada con increíbles sorpresas!
+                                    Por ahora la temporada de premios está en receso. El arbolito se está tomando un buen café guayoyo, agarrando mínimo y recargando energías para el próximo premio. La acumulación de puntos está en pausa por los momentos. ¡Pendiente, que muy pronto venimos con un premio buenísimo!
                                 </p>
                             </div>
                         ` : `
