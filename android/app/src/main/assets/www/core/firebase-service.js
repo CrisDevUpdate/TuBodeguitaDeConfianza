@@ -2156,6 +2156,7 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
         if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
     }
 
     // =========================================================================

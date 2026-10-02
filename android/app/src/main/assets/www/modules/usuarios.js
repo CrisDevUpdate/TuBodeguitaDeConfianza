@@ -696,7 +696,28 @@ async function registrarUsuarioDesdeGatewall(e) {
         const estadoAsignado = 'PENDIENTE_APROBACION';
         const fechaAprobacion = null;
 
-        const clienteVincIdGw = document.getElementById('gw-reg-cliente-vincular')?.value;
+        let clienteVincIdGw = document.getElementById('gw-reg-cliente-vincular-id')?.value;
+        const clienteVincConfirmed = document.getElementById('gw-reg-cliente-vincular-confirmed')?.value;
+
+        // Si se detectó una coincidencia en tiempo real pero el usuario no presionó "Sí, soy yo" ni "No soy yo":
+        if (clienteDetectadoGatewall && clienteVincConfirmed !== 'true' && clienteVincConfirmed !== 'rejected') {
+            const estadoDet = typeof calcularEstadoFinancieroCliente === 'function'
+                ? calcularEstadoFinancieroCliente(clienteDetectadoGatewall.id)
+                : { saldoDeudaUSD: Number(clienteDetectadoGatewall.deudaUSD || 0) };
+            const deudaDetUSD = Math.max(0, Number(estadoDet.saldoDeudaUSD || 0));
+
+            const msgConfirm = deudaDetUSD > 0
+                ? `⚠️ ATENCIÓN:\nDetectamos que en nuestra libreta existe el cliente "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}) con una deuda pendiente de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta te pertenece a ti?\n\n• Pulsa ACEPTAR si ERES TÚ (para vincularte a esta cuenta y asumir dicho saldo).\n• Pulsa CANCELAR si NO ERES TÚ (para registrarte como un cliente nuevo e independiente con $0 de deuda).`
+                : `Detectamos que en nuestra libreta existe el cliente "${clienteDetectadoGatewall.nombre}" (${clienteDetectadoGatewall.id}).\n\n¿Deseas vincular tu cuenta con este registro comercial previo?\n\n• Pulsa ACEPTAR si ERES TÚ.\n• Pulsa CANCELAR si NO ERES TÚ (cuenta nueva limpia).`;
+
+            const esEl = confirm(msgConfirm);
+            if (esEl) {
+                clienteVincIdGw = clienteDetectadoGatewall.id;
+            } else {
+                clienteVincIdGw = null;
+            }
+        }
+
         let cliVinculadoGw = null;
         if (clienteVincIdGw && Array.isArray(AppState.clientes)) {
             cliVinculadoGw = AppState.clientes.find(c => String(c.id).toUpperCase() === String(clienteVincIdGw).toUpperCase());
@@ -788,6 +809,18 @@ async function registrarUsuarioDesdeGatewall(e) {
             });
         }
 
+        // Resetear detección de cliente en Gatewall
+        const gwContainer = document.getElementById('gw-cliente-match-container');
+        const gwInputId = document.getElementById('gw-reg-cliente-vincular-id');
+        const gwInputConf = document.getElementById('gw-reg-cliente-vincular-confirmed');
+        if (gwInputId) gwInputId.value = '';
+        if (gwInputConf) gwInputConf.value = '';
+        if (gwContainer) {
+            gwContainer.style.display = 'none';
+            gwContainer.innerHTML = '';
+        }
+        clienteDetectadoGatewall = null;
+
         verificarGatewall();
     } finally {
         if (btnSubmit) {
@@ -871,175 +904,324 @@ async function verificarEstadoAprobacionGatewall() {
     }
 }
 
-/**
- * Actualiza los selectores para vincular usuarios con clientes existentes de la libreta
- */
-function actualizarSelectClientesParaVincular() {
-    const select = document.getElementById('reg-cliente-vincular');
-    const selectGw = document.getElementById('gw-reg-cliente-vincular');
-    if (!select && !selectGw) return;
+// --- DETECCIÓN INTELIGENTE AUTOMÁTICA DE CLIENTES REGISTRADOS ---
+let clienteDetectadoGatewall = null;
+let clienteDetectadoAdmin = null;
 
+/**
+ * Busca coincidencias inteligentes de clientes en la libreta activa
+ * basado en Cédula / RIF o Nombre ingresado en tiempo real.
+ */
+function buscarCoincidenciaClienteRegistro(cedulaVal, nombreVal) {
     if (typeof asegurarClientesOficiales === 'function') {
         asegurarClientesOficiales();
     }
     const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
+    const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
     const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
 
-    let optionsHTML = `<option value="">-- No sincronizar (Crear usuario nuevo sin historial previo) --</option>`;
+    const cedulaLimpia = String(cedulaVal || '').trim().toUpperCase().replace(/[\s\.\-_]/g, '').replace(/^[VEJPG]/i, '');
+    const idDirecto = String(cedulaVal || '').trim().toUpperCase();
+    const nombreLimpio = String(nombreVal || '').trim().toLowerCase();
 
-    lista.forEach(c => {
-        const estado = typeof calcularEstadoFinancieroCliente === 'function'
-            ? calcularEstadoFinancieroCliente(c.id)
-            : { saldoDeudaUSD: Number(c.deudaUSD || 0) };
+    const tieneCedula = cedulaLimpia.length >= 4 || idDirecto.length >= 4;
+    const tieneNombre = nombreLimpio.length >= 3;
 
-        // Verificar si ya tiene cuenta de usuario vinculada
-        const usuarioVinculado = usuariosList.find(u => 
-            u.clienteId === c.id || 
-            (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
-            (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
-            (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
-        );
-
-        const textoDeuda = estado.saldoDeudaUSD > 0
-            ? `• Deuda: $${estado.saldoDeudaUSD.toFixed(2)} USD`
-            : `• Al día ($0.00)`;
-
-        const badgeUser = usuarioVinculado ? ` [Cuenta ya asignada: ${usuarioVinculado.cedula || usuarioVinculado.id}]` : '';
-
-        optionsHTML += `<option value="${c.id}">
-            ${c.nombre} (${c.id}) ${textoDeuda}${badgeUser}
-        </option>`;
-    });
-
-    if (select) {
-        const val = select.value;
-        select.innerHTML = optionsHTML;
-        if (val) select.value = val;
+    if (!tieneCedula && !tieneNombre) {
+        return null;
     }
-    if (selectGw) {
-        const valGw = selectGw.value;
-        selectGw.innerHTML = `<option value="">-- Soy un cliente nuevo --</option>` + optionsHTML.replace('<option value="">-- No sincronizar (Crear usuario nuevo sin historial previo) --</option>', '');
-        if (valGw) selectGw.value = valGw;
+
+    const helperEliminado = typeof esClienteEliminadoOExcluido === 'function'
+        ? esClienteEliminadoOExcluido
+        : (c) => false;
+
+    for (const c of lista) {
+        if (!c || helperEliminado(c, eliminados)) continue;
+
+        const cIdRaw = String(c.id || '').trim().toUpperCase();
+        const cCedRaw = String(c.cedula || '').trim().toUpperCase();
+        const cIdLimpio = cIdRaw.replace(/[\s\.\-_]/g, '').replace(/^[VEJPG]/i, '');
+        const cCedLimpia = cCedRaw.replace(/[\s\.\-_]/g, '').replace(/^[VEJPG]/i, '');
+        const cNomLimpio = String(c.nombre || '').trim().toLowerCase();
+
+        // 1. Coincidencia por Cédula o ID
+        let matchCedula = false;
+        if (tieneCedula) {
+            if (cIdRaw === idDirecto || cCedRaw === idDirecto) matchCedula = true;
+            else if (cedulaLimpia && (cIdLimpio === cedulaLimpia || cCedLimpia === cedulaLimpia)) matchCedula = true;
+        }
+
+        // 2. Coincidencia por Nombre
+        let matchNombre = false;
+        if (tieneNombre) {
+            if (cNomLimpio === nombreLimpio) {
+                matchNombre = true;
+            } else if (cNomLimpio.length >= 4 && (cNomLimpio.startsWith(nombreLimpio) || nombreLimpio.startsWith(cNomLimpio))) {
+                matchNombre = true;
+            } else if (cNomLimpio.includes(nombreLimpio) && nombreLimpio.length >= 5) {
+                matchNombre = true;
+            }
+        }
+
+        if (matchCedula || matchNombre) {
+            const usuarioAsignado = usuariosList.find(u => 
+                u.clienteId === c.id || 
+                (u.cedula && String(u.cedula).toUpperCase() === cIdRaw) ||
+                (cCedRaw && u.cedula && String(u.cedula).toUpperCase() === cCedRaw)
+            );
+
+            const estado = typeof calcularEstadoFinancieroCliente === 'function'
+                ? calcularEstadoFinancieroCliente(c.id)
+                : { saldoDeudaUSD: Number(c.deudaUSD || 0), totalCompradoUSD: 0 };
+
+            return {
+                cliente: c,
+                estadoFinanciero: estado,
+                deudaUSD: Math.max(0, Number(estado.saldoDeudaUSD || 0)),
+                totalCompradoUSD: Number(estado.totalCompradoUSD || 0),
+                usuarioAsignado: usuarioAsignado || null,
+                tipoCoincidencia: matchCedula ? 'cedula' : 'nombre'
+            };
+        }
     }
+
+    return null;
+}
+window.buscarCoincidenciaClienteRegistro = buscarCoincidenciaClienteRegistro;
+
+/**
+ * Renderiza la tarjeta visual interactiva de notificación de cliente existente
+ */
+function renderizarAlertaClienteDetectado(container, resultado, origen) {
+    if (!container) return;
+    if (!resultado || !resultado.cliente) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    const { cliente, deudaUSD, totalCompradoUSD, usuarioAsignado } = resultado;
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
+    const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const tieneDeuda = deudaUSD > 0;
+
+    container.style.display = 'block';
+    container.innerHTML = `
+        <div style="background: ${tieneDeuda ? '#fffbeb' : '#f0fdf4'}; border: 1.5px solid ${tieneDeuda ? '#f59e0b' : '#22c55e'}; border-radius: 12px; padding: 14px 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 12px;">
+            <div style="display:flex; align-items:flex-start; gap:12px;">
+                <div style="font-size:1.6rem; color:${tieneDeuda ? '#d97706' : '#16a34a'}; line-height:1; margin-top:2px;">
+                    <i class="fas ${tieneDeuda ? 'fa-triangle-exclamation' : 'fa-circle-check'}"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
+                        <h4 style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                            <span>Existe un cliente registrado con estos datos:</span>
+                            <span style="background:${tieneDeuda ? '#fef3c7' : '#dcfce7'}; color:${tieneDeuda ? '#92400e' : '#166534'}; padding:2px 8px; border-radius:6px; font-size:0.78rem; font-weight:700;">
+                                ${cliente.nombre} (${cliente.id})
+                            </span>
+                        </h4>
+                    </div>
+
+                    ${tieneDeuda ? `
+                    <div style="margin-top:8px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size:0.86rem; color:#991b1b; font-weight:700;">
+                                <i class="fas fa-hand-holding-dollar"></i> Deuda pendiente acumulada:
+                            </span>
+                            <span style="font-size:1.15rem; font-weight:900; color:#dc2626;">
+                                $${deudaUSD.toFixed(2)} USD <small style="font-size:0.75rem; font-weight:600; color:#b91c1c;">(Bs. ${deudaVES})</small>
+                            </span>
+                        </div>
+                        <div style="margin-top:6px; font-size:0.82rem; color:#b91c1c; line-height:1.45;">
+                            ⚠️ <strong>Aviso Importante:</strong> Esta deuda registrada de <strong>$${deudaUSD.toFixed(2)} USD</strong> se colocará en tu cuenta si confirmas. 
+                            <strong>Si no eres tú, debes presionar "NO SOY YO"</strong> para registrarte con una cuenta nueva limpia con <strong>$0.00 de deuda</strong>.
+                        </div>
+                    </div>
+                    ` : `
+                    <div style="margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; font-size:0.84rem; color:#166534;">
+                        <i class="fas fa-check-circle" style="color:#22c55e;"></i> Esta cuenta está al día (<strong>$0.00 de saldo</strong>). Puedes vincularla para mantener tu historial comercial.
+                    </div>
+                    `}
+
+                    ${usuarioAsignado ? `
+                    <div style="margin-top:6px; font-size:0.78rem; color:#64748b;">
+                        <i class="fas fa-info-circle"></i> Nota: Este cliente ya tiene asignada la cuenta de usuario <strong>${usuarioAsignado.cedula || usuarioAsignado.id}</strong>.
+                    </div>
+                    ` : ''}
+
+                    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;" id="${origen}-botones-decision">
+                        <button type="button" class="btn btn-sm btn-success" onclick="confirmarVinculacionCliente('${origen}', true, '${cliente.id}')" style="font-weight:700; border-radius:8px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px; background:#16a34a; border-color:#16a34a; color:#ffffff;">
+                            <i class="fas fa-check"></i> Sí, soy yo (Vincular)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmarVinculacionCliente('${origen}', false, '${cliente.id}')" style="font-weight:700; border-radius:8px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px;">
+                            <i class="fas fa-user-xmark"></i> No soy yo (Cuenta limpia $0)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Escucha la escritura en tiempo real en el registro del Gatewall
+ */
+function alEscribirDatosRegistroGatewall() {
+    const cedulaInput = document.getElementById('gw-reg-cedula');
+    const nombreInput = document.getElementById('gw-reg-nombre');
+    const container = document.getElementById('gw-cliente-match-container');
+    const inputId = document.getElementById('gw-reg-cliente-vincular-id');
+    const inputConfirmed = document.getElementById('gw-reg-cliente-vincular-confirmed');
+
+    const cedulaVal = cedulaInput?.value || '';
+    const nombreVal = nombreInput?.value || '';
+
+    // Si ya había una confirmación expresa y el usuario no cambió radicalmente el texto, no molestar
+    const confirmedVal = inputConfirmed?.value;
+    if (confirmedVal === 'true' || confirmedVal === 'rejected') {
+        return;
+    }
+
+    const match = buscarCoincidenciaClienteRegistro(cedulaVal, nombreVal);
+    clienteDetectadoGatewall = match ? match.cliente : null;
+
+    if (match) {
+        if (inputId) inputId.value = match.cliente.id;
+        renderizarAlertaClienteDetectado(container, match, 'gw');
+    } else {
+        clienteDetectadoGatewall = null;
+        if (inputId) inputId.value = '';
+        if (inputConfirmed) inputConfirmed.value = '';
+        if (container) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+        }
+    }
+}
+window.alEscribirDatosRegistroGatewall = alEscribirDatosRegistroGatewall;
+
+/**
+ * Escucha la escritura en tiempo real en el registro del panel Administrador
+ */
+function alEscribirDatosRegistroAdmin() {
+    const cedulaInput = document.getElementById('reg-cedula');
+    const nombreInput = document.getElementById('reg-nombre');
+    const container = document.getElementById('reg-cliente-match-container');
+    const inputId = document.getElementById('reg-cliente-vincular-id');
+    const inputConfirmed = document.getElementById('reg-cliente-vincular-confirmed');
+
+    const cedulaVal = cedulaInput?.value || '';
+    const nombreVal = nombreInput?.value || '';
+
+    const confirmedVal = inputConfirmed?.value;
+    if (confirmedVal === 'true' || confirmedVal === 'rejected') {
+        return;
+    }
+
+    const match = buscarCoincidenciaClienteRegistro(cedulaVal, nombreVal);
+    clienteDetectadoAdmin = match ? match.cliente : null;
+
+    if (match) {
+        if (inputId) inputId.value = match.cliente.id;
+        renderizarAlertaClienteDetectado(container, match, 'admin');
+    } else {
+        clienteDetectadoAdmin = null;
+        if (inputId) inputId.value = '';
+        if (inputConfirmed) inputConfirmed.value = '';
+        if (container) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+        }
+    }
+}
+window.alEscribirDatosRegistroAdmin = alEscribirDatosRegistroAdmin;
+
+/**
+ * Procesa la decisión del usuario ante el cliente detectado
+ */
+function confirmarVinculacionCliente(origen, esEl, clienteId) {
+    const isGw = origen === 'gw';
+    const inputId = document.getElementById(isGw ? 'gw-reg-cliente-vincular-id' : 'reg-cliente-vincular-id');
+    const inputConfirmed = document.getElementById(isGw ? 'gw-reg-cliente-vincular-confirmed' : 'reg-cliente-vincular-confirmed');
+    const container = document.getElementById(isGw ? 'gw-cliente-match-container' : 'reg-cliente-match-container');
+    const telInput = document.getElementById(isGw ? 'gw-reg-telefono' : 'reg-telefono');
+    const emailInput = document.getElementById(isGw ? 'gw-reg-email' : 'reg-email');
+
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
+    const cliente = lista.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+
+    if (esEl) {
+        if (inputId) inputId.value = clienteId;
+        if (inputConfirmed) inputConfirmed.value = 'true';
+
+        if (cliente) {
+            if (telInput && cliente.telefono && !telInput.value) telInput.value = cliente.telefono;
+            if (emailInput && cliente.email && !emailInput.value) emailInput.value = cliente.email;
+        }
+
+        if (container) {
+            container.innerHTML = `
+                <div style="background:#dcfce7; border:1.5px solid #22c55e; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); animation:fadeIn 0.2s ease;">
+                    <div style="font-size:0.88rem; color:#166534; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-check-circle" style="color:#16a34a; font-size:1.1rem;"></i>
+                        <span>Confirmado: Tu usuario se vinculará a la ficha de <strong>${cliente ? cliente.nombre : clienteId}</strong>.</span>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="deshacerConfirmacionVinculacion('${origen}')" style="font-size:0.76rem; padding:3px 8px; border-radius:6px; color:#166534; border-color:#86efac; background:#ffffff;">
+                        <i class="fas fa-rotate-left"></i> Cambiar
+                    </button>
+                </div>
+            `;
+        }
+    } else {
+        // No es él: cuenta nueva limpia con $0 de deuda
+        if (inputId) inputId.value = '';
+        if (inputConfirmed) inputConfirmed.value = 'rejected';
+
+        if (container) {
+            container.innerHTML = `
+                <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); animation:fadeIn 0.2s ease;">
+                    <div style="font-size:0.88rem; color:#334155; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-user-plus" style="color:var(--primary-accent); font-size:1.1rem;"></i>
+                        <span>Entendido: Se creará un cliente nuevo e independiente con <strong>$0.00 de deuda</strong>.</span>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="deshacerConfirmacionVinculacion('${origen}')" style="font-size:0.76rem; padding:3px 8px; border-radius:6px; color:#475569; border-color:#cbd5e1; background:#ffffff;">
+                        <i class="fas fa-rotate-left"></i> Cambiar
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+window.confirmarVinculacionCliente = confirmarVinculacionCliente;
+
+/**
+ * Permite al usuario revertir su decisión y reabrir la alerta de coincidencia
+ */
+function deshacerConfirmacionVinculacion(origen) {
+    const isGw = origen === 'gw';
+    const inputId = document.getElementById(isGw ? 'gw-reg-cliente-vincular-id' : 'reg-cliente-vincular-id');
+    const inputConfirmed = document.getElementById(isGw ? 'gw-reg-cliente-vincular-confirmed' : 'reg-cliente-vincular-confirmed');
+    if (inputId) inputId.value = '';
+    if (inputConfirmed) inputConfirmed.value = '';
+
+    if (isGw) {
+        alEscribirDatosRegistroGatewall();
+    } else {
+        alEscribirDatosRegistroAdmin();
+    }
+}
+window.deshacerConfirmacionVinculacion = deshacerConfirmacionVinculacion;
+
+// Stubs para mantener retrocompatibilidad limpia sin selectores de directorio
+function actualizarSelectClientesParaVincular() {
+    // El directorio completo de clientes ya no se muestra públicamente por privacidad y seguridad
 }
 window.actualizarSelectClientesParaVincular = actualizarSelectClientesParaVincular;
 
-/**
- * Gestiona la selección de un cliente existente en el formulario de registro de usuarios
- */
-function alSeleccionarClienteVinculado(clienteId) {
-    const infoDiv = document.getElementById('reg-cliente-vincular-info');
-    const cedulaInput = document.getElementById('reg-cedula');
-    const nombreInput = document.getElementById('reg-nombre');
-    const telefonoInput = document.getElementById('reg-telefono');
-    const emailInput = document.getElementById('reg-email');
-    const rolSelect = document.getElementById('reg-rol');
-
-    if (!clienteId) {
-        if (infoDiv) {
-            infoDiv.style.display = 'none';
-            infoDiv.innerHTML = '';
-        }
-        return;
-    }
-
-    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
-    const cliente = lista.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
-    if (!cliente) return;
-
-    const estado = typeof calcularEstadoFinancieroCliente === 'function'
-        ? calcularEstadoFinancieroCliente(cliente.id)
-        : { saldoDeudaUSD: Number(cliente.deudaUSD || 0), totalCompradoUSD: 0 };
-
-    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
-    const deudaVES = (estado.saldoDeudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    if (nombreInput) {
-        nombreInput.value = cliente.nombre || '';
-    }
-    if (telefonoInput && cliente.telefono && !telefonoInput.value) {
-        telefonoInput.value = cliente.telefono;
-    }
-    if (emailInput && cliente.email && !emailInput.value) {
-        emailInput.value = cliente.email;
-    }
-    if (rolSelect) {
-        rolSelect.value = 'cliente';
-    }
-
-    if (infoDiv) {
-        infoDiv.style.display = 'block';
-        const tieneDeuda = estado.saldoDeudaUSD > 0;
-        infoDiv.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div>
-                    <span style="font-weight:700; color:var(--text-main);">
-                        <i class="fas fa-user-check" style="color:#16a34a;"></i> Cliente Vinculado: <strong>${cliente.nombre}</strong> (${cliente.id})
-                    </span>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
-                        ${cliente.telefono ? `Teléfono: ${cliente.telefono} • ` : ''}Compras previas registradas: $${estado.totalCompradoUSD.toFixed(2)} USD
-                    </div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--text-muted);">Deuda a Heredar:</div>
-                    <div style="font-size:1.1rem; font-weight:800; color:${tieneDeuda ? 'var(--danger)' : '#16a34a'};">
-                        $${estado.saldoDeudaUSD.toFixed(2)} USD <span style="font-size:0.8rem; font-weight:500;">(Bs. ${deudaVES})</span>
-                    </div>
-                </div>
-            </div>
-            <div style="margin-top:6px; font-size:0.78rem; color:${tieneDeuda ? '#b45309' : '#15803d'}; display:flex; align-items:center; gap:5px;">
-                <i class="fas fa-check-circle"></i>
-                <span>Al registrar este usuario, quedará directamente enlazado con la deuda y compras de <strong>${cliente.nombre}</strong>.</span>
-            </div>
-        `;
-    }
-}
+function alSeleccionarClienteVinculado(clienteId) {}
 window.alSeleccionarClienteVinculado = alSeleccionarClienteVinculado;
 
-/**
- * Gestiona la selección de un cliente en el Gatewall
- */
-function alSeleccionarClienteVinculadoGatewall(clienteId) {
-    const infoDiv = document.getElementById('gw-reg-cliente-vincular-info');
-    const nombreInput = document.getElementById('gw-reg-nombre');
-    const telefonoInput = document.getElementById('gw-reg-telefono');
-    const emailInput = document.getElementById('gw-reg-email');
-    const rolSelect = document.getElementById('gw-reg-rol');
-
-    if (!clienteId) {
-        if (infoDiv) {
-            infoDiv.style.display = 'none';
-            infoDiv.innerHTML = '';
-        }
-        return;
-    }
-
-    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (window.clientes || []);
-    const cliente = lista.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
-    if (!cliente) return;
-
-    const estado = typeof calcularEstadoFinancieroCliente === 'function'
-        ? calcularEstadoFinancieroCliente(cliente.id)
-        : { saldoDeudaUSD: Number(cliente.deudaUSD || 0), totalCompradoUSD: 0 };
-
-    if (nombreInput) nombreInput.value = cliente.nombre || '';
-    if (telefonoInput && cliente.telefono && !telefonoInput.value) telefonoInput.value = cliente.telefono;
-    if (emailInput && cliente.email && !emailInput.value) emailInput.value = cliente.email;
-    if (rolSelect) rolSelect.value = 'cliente';
-
-    if (infoDiv) {
-        infoDiv.style.display = 'block';
-        const tieneDeuda = estado.saldoDeudaUSD > 0;
-        infoDiv.innerHTML = `
-            <div style="font-weight:700; color:var(--text-main);">
-                <i class="fas fa-link" style="color:var(--primary-accent);"></i> Cliente Libreta: <strong>${cliente.nombre}</strong>
-            </div>
-            <div style="color:${tieneDeuda ? 'var(--danger)' : '#16a34a'}; font-weight:700; margin-top:2px;">
-                Deuda pendiente: $${estado.saldoDeudaUSD.toFixed(2)} USD
-            </div>
-        `;
-    }
-}
+function alSeleccionarClienteVinculadoGatewall(clienteId) {}
 window.alSeleccionarClienteVinculadoGatewall = alSeleccionarClienteVinculadoGatewall;
 
 /**
@@ -1090,8 +1272,30 @@ async function registrarUsuario(e) {
         return;
     }
 
-    // Sincronización opcional con cliente existente
-    const clienteVincId = document.getElementById('reg-cliente-vincular')?.value;
+    // Sincronización inteligente con cliente detectado o vinculado
+    let clienteVincId = document.getElementById('reg-cliente-vincular-id')?.value;
+    const clienteVincConfirmed = document.getElementById('reg-cliente-vincular-confirmed')?.value;
+
+    if (clienteVincConfirmed === 'rejected') {
+        clienteVincId = null;
+    } else if (clienteDetectadoAdmin && clienteVincConfirmed !== 'true') {
+        const estadoDet = typeof calcularEstadoFinancieroCliente === 'function'
+            ? calcularEstadoFinancieroCliente(clienteDetectadoAdmin.id)
+            : { saldoDeudaUSD: Number(clienteDetectadoAdmin.deudaUSD || 0) };
+        const deudaDetUSD = Math.max(0, Number(estadoDet.saldoDeudaUSD || 0));
+
+        const msgConfirm = deudaDetUSD > 0
+            ? `⚠️ ATENCIÓN:\nExiste un cliente registrado como "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}) con una deuda de $${deudaDetUSD.toFixed(2)} USD.\n\n¿Esta cuenta le pertenece a este nuevo usuario?\n\n• Pulsa ACEPTAR si ES ÉL (para vincularlo y que asuma la deuda).\n• Pulsa CANCELAR si NO ES ÉL (para no asignarle esa deuda y registrarlo con $0.00 de saldo).`
+            : `Existe un cliente registrado como "${clienteDetectadoAdmin.nombre}" (${clienteDetectadoAdmin.id}).\n\n¿Deseas vincular este nuevo usuario con dicha ficha de cliente?\n\n• Pulsa ACEPTAR si ES ÉL.\n• Pulsa CANCELAR si NO ES ÉL.`;
+
+        const esEl = confirm(msgConfirm);
+        if (esEl) {
+            clienteVincId = clienteDetectadoAdmin.id;
+        } else {
+            clienteVincId = null;
+        }
+    }
+
     let cliVinculado = null;
     if (clienteVincId && Array.isArray(AppState.clientes)) {
         cliVinculado = AppState.clientes.find(c => String(c.id).toUpperCase() === String(clienteVincId).toUpperCase());
@@ -1211,14 +1415,16 @@ async function registrarUsuario(e) {
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
 
-    const selVinc = document.getElementById('reg-cliente-vincular');
-    if (selVinc) selVinc.value = '';
-    const selVincInfo = document.getElementById('reg-cliente-vincular-info');
-    if (selVincInfo) {
-        selVincInfo.style.display = 'none';
-        selVincInfo.innerHTML = '';
+    const inputIdAdmin = document.getElementById('reg-cliente-vincular-id');
+    const inputConfAdmin = document.getElementById('reg-cliente-vincular-confirmed');
+    const contAdmin = document.getElementById('reg-cliente-match-container');
+    if (inputIdAdmin) inputIdAdmin.value = '';
+    if (inputConfAdmin) inputConfAdmin.value = '';
+    if (contAdmin) {
+        contAdmin.style.display = 'none';
+        contAdmin.innerHTML = '';
     }
-    actualizarSelectClientesParaVincular();
+    clienteDetectadoAdmin = null;
 
     mostrarNotificacionRegistro(`Solicitud de registro enviada exitosamente para ${nombre} (${cedula}). Estado: PENDIENTE DE APROBACIÓN.`, 'success');
 
@@ -1996,14 +2202,30 @@ function volverASesionAdmin() {
 }
 window.volverASesionAdmin = volverASesionAdmin;
 
+function esEstadoPendiente(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'PENDIENTE_APROBACION' || s === 'PENDIENTE' || s.startsWith('PEND');
+}
+
+function esEstadoActivo(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'ACTIVO' || s === 'APROBADO';
+}
+
+function esEstadoRechazado(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'RECHAZADO' || s === 'INACTIVO' || s === 'SUSPENDIDO';
+}
+
 /**
  * Filtra la tabla de usuarios del panel administrativo
  */
 function filtrarUsuariosPorEstado(estado) {
     filtroEstadoUsuarioActual = estado;
 
-    document.querySelectorAll('.tab-btn-user-filter').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-filter') === estado);
+    document.querySelectorAll('.filter-btn-user, .tab-btn-user-filter').forEach(btn => {
+        const val = btn.getAttribute('data-status') || btn.getAttribute('data-filter');
+        btn.classList.toggle('active', val === estado);
     });
 
     renderizarUsuarios();
@@ -2021,26 +2243,37 @@ function renderizarUsuarios(busqueda = '') {
 
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
 
-    // Conteo para KPIs
+    // Conteo para KPIs con normalización resiliente
     const total = lista.length;
-    const pendientes = lista.filter(u => u.estado === 'PENDIENTE_APROBACION').length;
-    const activos = lista.filter(u => u.estado === 'ACTIVO').length;
-    const rechazados = lista.filter(u => u.estado === 'RECHAZADO').length;
+    const pendientes = lista.filter(u => esEstadoPendiente(u.estado)).length;
+    const activos = lista.filter(u => esEstadoActivo(u.estado)).length;
+    const rechazados = lista.filter(u => esEstadoRechazado(u.estado)).length;
 
-    const kpiTotal = document.getElementById('kpi-usuarios-total');
-    const kpiPendientes = document.getElementById('kpi-usuarios-pendientes');
-    const kpiActivos = document.getElementById('kpi-usuarios-activos');
-    const kpiRechazados = document.getElementById('kpi-usuarios-rechazados');
+    const kpiTotal = document.getElementById('kpi-user-total') || document.getElementById('kpi-usuarios-total');
+    const kpiPendientes = document.getElementById('kpi-user-pendientes') || document.getElementById('kpi-usuarios-pendientes');
+    const kpiActivos = document.getElementById('kpi-user-activos') || document.getElementById('kpi-usuarios-activos');
+    const kpiRechazados = document.getElementById('kpi-user-rechazados') || document.getElementById('kpi-usuarios-rechazados');
 
     if (kpiTotal) kpiTotal.textContent = total;
     if (kpiPendientes) kpiPendientes.textContent = pendientes;
     if (kpiActivos) kpiActivos.textContent = activos;
     if (kpiRechazados) kpiRechazados.textContent = rechazados;
 
+    // Actualizar también badges de navegación
+    actualizarBadgesUsuarios();
+
     // Filtrar
     let filtrados = lista;
     if (filtroEstadoUsuarioActual !== 'TODOS') {
-        filtrados = filtrados.filter(u => u.estado === filtroEstadoUsuarioActual);
+        if (filtroEstadoUsuarioActual === 'PENDIENTE_APROBACION') {
+            filtrados = filtrados.filter(u => esEstadoPendiente(u.estado));
+        } else if (filtroEstadoUsuarioActual === 'ACTIVO') {
+            filtrados = filtrados.filter(u => esEstadoActivo(u.estado));
+        } else if (filtroEstadoUsuarioActual === 'RECHAZADO') {
+            filtrados = filtrados.filter(u => esEstadoRechazado(u.estado));
+        } else {
+            filtrados = filtrados.filter(u => u.estado === filtroEstadoUsuarioActual);
+        }
     }
     if (busqueda) {
         const q = busqueda.toLowerCase();
@@ -2051,6 +2284,14 @@ function renderizarUsuarios(busqueda = '') {
             (u.telefono || '').includes(q)
         );
     }
+
+    // Ordenar: Los pendientes de aprobación siempre de primeros para atención inmediata
+    filtrados.sort((a, b) => {
+        const aPend = esEstadoPendiente(a.estado) ? 1 : 0;
+        const bPend = esEstadoPendiente(b.estado) ? 1 : 0;
+        if (aPend !== bPend) return bPend - aPend;
+        return (b.fechaRegistro || '').localeCompare(a.fechaRegistro || '');
+    });
 
     if (filtrados.length === 0) {
         if (tbody) {
@@ -2280,7 +2521,10 @@ function renderizarUsuarios(busqueda = '') {
  */
 function actualizarBadgesUsuarios() {
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
-    const pendientes = lista.filter(u => u.estado === 'PENDIENTE_APROBACION').length;
+    const pendientes = lista.filter(u => typeof esEstadoPendiente === 'function' ? esEstadoPendiente(u.estado) : String(u.estado).toUpperCase().includes('PEND')).length;
+    const total = lista.length;
+    const activos = lista.filter(u => typeof esEstadoActivo === 'function' ? esEstadoActivo(u.estado) : u.estado === 'ACTIVO').length;
+    const rechazados = lista.filter(u => typeof esEstadoRechazado === 'function' ? esEstadoRechazado(u.estado) : u.estado === 'RECHAZADO').length;
 
     const bDesk = document.getElementById('badge-pendientes-desktop');
     const bMob = document.getElementById('badge-pendientes-mobile');
@@ -2297,10 +2541,22 @@ function actualizarBadgesUsuarios() {
     if (bMob) {
         if (pendientes > 0) {
             bMob.style.display = 'block';
+            bMob.textContent = pendientes;
         } else {
             bMob.style.display = 'none';
         }
     }
+
+    // Actualizar KPIs del panel de control y flujo de aprobación en tiempo real
+    const kpiTotal = document.getElementById('kpi-user-total') || document.getElementById('kpi-usuarios-total');
+    const kpiPendientes = document.getElementById('kpi-user-pendientes') || document.getElementById('kpi-usuarios-pendientes');
+    const kpiActivos = document.getElementById('kpi-user-activos') || document.getElementById('kpi-usuarios-activos');
+    const kpiRechazados = document.getElementById('kpi-user-rechazados') || document.getElementById('kpi-usuarios-rechazados');
+
+    if (kpiTotal) kpiTotal.textContent = total;
+    if (kpiPendientes) kpiPendientes.textContent = pendientes;
+    if (kpiActivos) kpiActivos.textContent = activos;
+    if (kpiRechazados) kpiRechazados.textContent = rechazados;
 }
 
 /**

@@ -4741,28 +4741,28 @@
 
             <!-- KPIs de Usuarios -->
             <div class="users-kpi-grid">
-                <div class="user-kpi-card">
+                <div class="user-kpi-card" style="cursor:pointer;" onclick="filtrarUsuariosPorEstado('TODOS')" title="Ver todos los usuarios registrados">
                     <div class="user-kpi-icon" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-users"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-total">0</span>
                         <span class="user-kpi-lbl">Total Registrados</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#fde68a;">
+                <div class="user-kpi-card" style="border-color:#fde68a; cursor:pointer;" onclick="filtrarUsuariosPorEstado('PENDIENTE_APROBACION')" title="Ver solo solicitudes pendientes de aprobación">
                     <div class="user-kpi-icon" style="background:#fef3c7; color:#d97706;"><i class="fas fa-clock fa-spin"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-pendientes" style="color:#d97706;">0</span>
                         <span class="user-kpi-lbl">Pendientes Aprobación</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#bbf7d0;">
+                <div class="user-kpi-card" style="border-color:#bbf7d0; cursor:pointer;" onclick="filtrarUsuariosPorEstado('ACTIVO')" title="Ver solo usuarios activos">
                     <div class="user-kpi-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-user-check"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-activos" style="color:#16a34a;">0</span>
                         <span class="user-kpi-lbl">Usuarios Activos</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#fecaca;">
+                <div class="user-kpi-card" style="border-color:#fecaca; cursor:pointer;" onclick="filtrarUsuariosPorEstado('RECHAZADO')" title="Ver usuarios rechazados o inactivos">
                     <div class="user-kpi-icon" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-user-xmark"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-rechazados" style="color:#dc2626;">0</span>
@@ -4803,6 +4803,7 @@
                             <th>Teléfono (WhatsApp)</th>
                             <th>Rol Asignado</th>
                             <th>Estado</th>
+                            <th class="num">Puntos</th>
                             <th>Fecha Registro</th>
                             <th>Acciones de Aprobación</th>
                         </tr>

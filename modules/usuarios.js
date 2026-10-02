@@ -2202,14 +2202,30 @@ function volverASesionAdmin() {
 }
 window.volverASesionAdmin = volverASesionAdmin;
 
+function esEstadoPendiente(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'PENDIENTE_APROBACION' || s === 'PENDIENTE' || s.startsWith('PEND');
+}
+
+function esEstadoActivo(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'ACTIVO' || s === 'APROBADO';
+}
+
+function esEstadoRechazado(estado) {
+    const s = String(estado || '').trim().toUpperCase();
+    return s === 'RECHAZADO' || s === 'INACTIVO' || s === 'SUSPENDIDO';
+}
+
 /**
  * Filtra la tabla de usuarios del panel administrativo
  */
 function filtrarUsuariosPorEstado(estado) {
     filtroEstadoUsuarioActual = estado;
 
-    document.querySelectorAll('.tab-btn-user-filter').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-filter') === estado);
+    document.querySelectorAll('.filter-btn-user, .tab-btn-user-filter').forEach(btn => {
+        const val = btn.getAttribute('data-status') || btn.getAttribute('data-filter');
+        btn.classList.toggle('active', val === estado);
     });
 
     renderizarUsuarios();
@@ -2227,26 +2243,37 @@ function renderizarUsuarios(busqueda = '') {
 
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
 
-    // Conteo para KPIs
+    // Conteo para KPIs con normalización resiliente
     const total = lista.length;
-    const pendientes = lista.filter(u => u.estado === 'PENDIENTE_APROBACION').length;
-    const activos = lista.filter(u => u.estado === 'ACTIVO').length;
-    const rechazados = lista.filter(u => u.estado === 'RECHAZADO').length;
+    const pendientes = lista.filter(u => esEstadoPendiente(u.estado)).length;
+    const activos = lista.filter(u => esEstadoActivo(u.estado)).length;
+    const rechazados = lista.filter(u => esEstadoRechazado(u.estado)).length;
 
-    const kpiTotal = document.getElementById('kpi-usuarios-total');
-    const kpiPendientes = document.getElementById('kpi-usuarios-pendientes');
-    const kpiActivos = document.getElementById('kpi-usuarios-activos');
-    const kpiRechazados = document.getElementById('kpi-usuarios-rechazados');
+    const kpiTotal = document.getElementById('kpi-user-total') || document.getElementById('kpi-usuarios-total');
+    const kpiPendientes = document.getElementById('kpi-user-pendientes') || document.getElementById('kpi-usuarios-pendientes');
+    const kpiActivos = document.getElementById('kpi-user-activos') || document.getElementById('kpi-usuarios-activos');
+    const kpiRechazados = document.getElementById('kpi-user-rechazados') || document.getElementById('kpi-usuarios-rechazados');
 
     if (kpiTotal) kpiTotal.textContent = total;
     if (kpiPendientes) kpiPendientes.textContent = pendientes;
     if (kpiActivos) kpiActivos.textContent = activos;
     if (kpiRechazados) kpiRechazados.textContent = rechazados;
 
+    // Actualizar también badges de navegación
+    actualizarBadgesUsuarios();
+
     // Filtrar
     let filtrados = lista;
     if (filtroEstadoUsuarioActual !== 'TODOS') {
-        filtrados = filtrados.filter(u => u.estado === filtroEstadoUsuarioActual);
+        if (filtroEstadoUsuarioActual === 'PENDIENTE_APROBACION') {
+            filtrados = filtrados.filter(u => esEstadoPendiente(u.estado));
+        } else if (filtroEstadoUsuarioActual === 'ACTIVO') {
+            filtrados = filtrados.filter(u => esEstadoActivo(u.estado));
+        } else if (filtroEstadoUsuarioActual === 'RECHAZADO') {
+            filtrados = filtrados.filter(u => esEstadoRechazado(u.estado));
+        } else {
+            filtrados = filtrados.filter(u => u.estado === filtroEstadoUsuarioActual);
+        }
     }
     if (busqueda) {
         const q = busqueda.toLowerCase();
@@ -2257,6 +2284,14 @@ function renderizarUsuarios(busqueda = '') {
             (u.telefono || '').includes(q)
         );
     }
+
+    // Ordenar: Los pendientes de aprobación siempre de primeros para atención inmediata
+    filtrados.sort((a, b) => {
+        const aPend = esEstadoPendiente(a.estado) ? 1 : 0;
+        const bPend = esEstadoPendiente(b.estado) ? 1 : 0;
+        if (aPend !== bPend) return bPend - aPend;
+        return (b.fechaRegistro || '').localeCompare(a.fechaRegistro || '');
+    });
 
     if (filtrados.length === 0) {
         if (tbody) {
@@ -2486,7 +2521,10 @@ function renderizarUsuarios(busqueda = '') {
  */
 function actualizarBadgesUsuarios() {
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
-    const pendientes = lista.filter(u => u.estado === 'PENDIENTE_APROBACION').length;
+    const pendientes = lista.filter(u => typeof esEstadoPendiente === 'function' ? esEstadoPendiente(u.estado) : String(u.estado).toUpperCase().includes('PEND')).length;
+    const total = lista.length;
+    const activos = lista.filter(u => typeof esEstadoActivo === 'function' ? esEstadoActivo(u.estado) : u.estado === 'ACTIVO').length;
+    const rechazados = lista.filter(u => typeof esEstadoRechazado === 'function' ? esEstadoRechazado(u.estado) : u.estado === 'RECHAZADO').length;
 
     const bDesk = document.getElementById('badge-pendientes-desktop');
     const bMob = document.getElementById('badge-pendientes-mobile');
@@ -2503,10 +2541,22 @@ function actualizarBadgesUsuarios() {
     if (bMob) {
         if (pendientes > 0) {
             bMob.style.display = 'block';
+            bMob.textContent = pendientes;
         } else {
             bMob.style.display = 'none';
         }
     }
+
+    // Actualizar KPIs del panel de control y flujo de aprobación en tiempo real
+    const kpiTotal = document.getElementById('kpi-user-total') || document.getElementById('kpi-usuarios-total');
+    const kpiPendientes = document.getElementById('kpi-user-pendientes') || document.getElementById('kpi-usuarios-pendientes');
+    const kpiActivos = document.getElementById('kpi-user-activos') || document.getElementById('kpi-usuarios-activos');
+    const kpiRechazados = document.getElementById('kpi-user-rechazados') || document.getElementById('kpi-usuarios-rechazados');
+
+    if (kpiTotal) kpiTotal.textContent = total;
+    if (kpiPendientes) kpiPendientes.textContent = pendientes;
+    if (kpiActivos) kpiActivos.textContent = activos;
+    if (kpiRechazados) kpiRechazados.textContent = rechazados;
 }
 
 /**

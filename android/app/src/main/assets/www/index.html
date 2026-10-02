@@ -2304,25 +2304,18 @@
             <!-- Subvista: Formulario de Registro -->
             <div id="gw-view-register" style="display:none;">
                 <form onsubmit="registrarUsuarioDesdeGatewall(event)">
-                    <!-- Sincronizar con Cliente Existente (Gatewall) -->
-                    <div class="form-group" style="margin-bottom:12px; background:rgba(37,99,235,0.05); border:1px dashed var(--primary-accent); border-radius:8px; padding:10px 12px;">
-                        <label for="gw-reg-cliente-vincular" style="font-weight:700; font-size:0.82rem; color:var(--text-main); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                            <i class="fas fa-link" style="color:var(--primary-accent);"></i>
-                            <span>¿Ya estás registrado en nuestra libreta de clientes?</span>
-                        </label>
-                        <select id="gw-reg-cliente-vincular" onchange="alSeleccionarClienteVinculadoGatewall(this.value)" style="width:100%; padding:7px 10px; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:var(--bg-card); color:var(--text-main);">
-                            <option value="">-- Soy un cliente nuevo --</option>
-                        </select>
-                        <div id="gw-reg-cliente-vincular-info" style="display:none; margin-top:8px; padding:8px 10px; background:var(--bg-card); border-left:3px solid #16a34a; border-radius:6px; font-size:0.78rem;"></div>
-                    </div>
+                    <!-- Detección Automática Inteligente de Clientes Preexistentes -->
+                    <div id="gw-cliente-match-container" style="display:none; margin-bottom:12px;"></div>
+                    <input type="hidden" id="gw-reg-cliente-vincular-id" value="">
+                    <input type="hidden" id="gw-reg-cliente-vincular-confirmed" value="">
 
                     <div class="form-group" style="margin-bottom:10px;">
                         <label for="gw-reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
-                        <input type="text" id="gw-reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                        <input type="text" id="gw-reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off" oninput="alEscribirDatosRegistroGatewall()">
                     </div>
                     <div class="form-group" style="margin-bottom:10px;">
                         <label for="gw-reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
-                        <input type="text" id="gw-reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name">
+                        <input type="text" id="gw-reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name" oninput="alEscribirDatosRegistroGatewall()">
                     </div>
                     <div class="form-group" style="margin-bottom:10px;">
                         <label for="gw-reg-telefono">Número de Teléfono (WhatsApp) <span style="color:var(--danger);">*</span></label>
@@ -4679,33 +4672,21 @@
 
             <form onsubmit="registrarUsuario(event)" style="margin-top:10px;">
                 <!-- Sincronizar / Vincular Usuario con Cliente Existente -->
-                <div class="form-group" style="background:linear-gradient(135deg, rgba(37,99,235,0.05), rgba(245,158,11,0.05)); border:1.5px dashed var(--primary-accent); border-radius:10px; padding:12px 16px; margin-bottom:16px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
-                        <label for="reg-cliente-vincular" style="font-weight:700; color:var(--text-main); margin-bottom:0; display:flex; align-items:center; gap:8px; font-size:0.92rem;">
-                            <i class="fas fa-link" style="color:var(--primary-accent);"></i>
-                            <span>Sincronizar con Cliente Existente (Heredar Deuda y Cuenta)</span>
-                        </label>
-                        <span class="badge" style="background:rgba(37,99,235,0.12); color:var(--primary-accent); font-weight:700; font-size:0.75rem; padding:3px 9px; border-radius:6px;">Opcional</span>
-                    </div>
-                    <select id="reg-cliente-vincular" onchange="alSeleccionarClienteVinculado(this.value)" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border-color); font-weight:600; background:var(--bg-card); color:var(--text-main);">
-                        <option value="">-- No sincronizar (Crear usuario nuevo sin historial previo) --</option>
-                    </select>
-                    <div id="reg-cliente-vincular-info" style="display:none; margin-top:10px; padding:10px 14px; background:var(--bg-card); border-left:4px solid #16a34a; border-radius:8px; font-size:0.85rem; box-shadow:0 1px 3px rgba(0,0,0,0.05);"></div>
-                    <small style="display:block; margin-top:6px; color:var(--text-muted); font-size:0.75rem;">
-                        <i class="fas fa-info-circle" style="color:var(--primary-accent);"></i> Si este usuario pertenece a un cliente de tu libreta (como <strong>Alejandra</strong>), selecciónalo aquí. El usuario se creará y heredará su deuda pendiente, compras y fiados.
-                    </small>
-                </div>
+                <!-- Detección Automática Inteligente de Clientes Preexistentes (Admin) -->
+                <div id="reg-cliente-match-container" style="display:none; margin-bottom:14px;"></div>
+                <input type="hidden" id="reg-cliente-vincular-id" value="">
+                <input type="hidden" id="reg-cliente-vincular-confirmed" value="">
 
                 <div class="register-form-grid">
                     <div class="form-group">
                         <label for="reg-cedula">Cédula de Identidad / RIF <span style="color:var(--danger);">*</span></label>
-                        <input type="text" id="reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off">
+                        <input type="text" id="reg-cedula" required placeholder="Ej: V-12345678 o J-12345678-0" autocomplete="off" oninput="alEscribirDatosRegistroAdmin()">
                         <small style="color:var(--text-muted); font-size:0.75rem;">Identificación única obligatoria.</small>
                     </div>
 
                     <div class="form-group">
                         <label for="reg-nombre">Nombre y Apellido / Razón Social <span style="color:var(--danger);">*</span></label>
-                        <input type="text" id="reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name">
+                        <input type="text" id="reg-nombre" required placeholder="Ej: Nombre y Apellido" autocomplete="name" oninput="alEscribirDatosRegistroAdmin()">
                     </div>
 
                     <div class="form-group">
@@ -4760,28 +4741,28 @@
 
             <!-- KPIs de Usuarios -->
             <div class="users-kpi-grid">
-                <div class="user-kpi-card">
+                <div class="user-kpi-card" style="cursor:pointer;" onclick="filtrarUsuariosPorEstado('TODOS')" title="Ver todos los usuarios registrados">
                     <div class="user-kpi-icon" style="background:#eff6ff; color:#2563eb;"><i class="fas fa-users"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-total">0</span>
                         <span class="user-kpi-lbl">Total Registrados</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#fde68a;">
+                <div class="user-kpi-card" style="border-color:#fde68a; cursor:pointer;" onclick="filtrarUsuariosPorEstado('PENDIENTE_APROBACION')" title="Ver solo solicitudes pendientes de aprobación">
                     <div class="user-kpi-icon" style="background:#fef3c7; color:#d97706;"><i class="fas fa-clock fa-spin"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-pendientes" style="color:#d97706;">0</span>
                         <span class="user-kpi-lbl">Pendientes Aprobación</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#bbf7d0;">
+                <div class="user-kpi-card" style="border-color:#bbf7d0; cursor:pointer;" onclick="filtrarUsuariosPorEstado('ACTIVO')" title="Ver solo usuarios activos">
                     <div class="user-kpi-icon" style="background:#dcfce7; color:#16a34a;"><i class="fas fa-user-check"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-activos" style="color:#16a34a;">0</span>
                         <span class="user-kpi-lbl">Usuarios Activos</span>
                     </div>
                 </div>
-                <div class="user-kpi-card" style="border-color:#fecaca;">
+                <div class="user-kpi-card" style="border-color:#fecaca; cursor:pointer;" onclick="filtrarUsuariosPorEstado('RECHAZADO')" title="Ver usuarios rechazados o inactivos">
                     <div class="user-kpi-icon" style="background:#fee2e2; color:#dc2626;"><i class="fas fa-user-xmark"></i></div>
                     <div class="user-kpi-info">
                         <span class="user-kpi-val" id="kpi-user-rechazados" style="color:#dc2626;">0</span>
@@ -4822,6 +4803,7 @@
                             <th>Teléfono (WhatsApp)</th>
                             <th>Rol Asignado</th>
                             <th>Estado</th>
+                            <th class="num">Puntos</th>
                             <th>Fecha Registro</th>
                             <th>Acciones de Aprobación</th>
                         </tr>
@@ -6015,6 +5997,9 @@
 
                 <!-- Profile Quick Actions Bar -->
                 <div class="det-profile-actions">
+                    <button type="button" class="btn det-btn-action" onclick="abrirModalSumarDeudaCliente(clienteSeleccionadoId)" title="Sumar una deuda o préstamo de dinero sin alterar el inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                        <i class="fas fa-plus-circle"></i> Sumar Deuda / Préstamo
+                    </button>
                     <button type="button" class="btn btn-warning det-btn-action" onclick="abrirModalAbono()">
                         <i class="fas fa-hand-holding-dollar"></i> Registrar Abono
                     </button>
@@ -6218,6 +6203,93 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn btn-danger" onclick="cerrarModalAbono()">Cancelar</button>
                 <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Enviar Pago para Aprobación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Sumar Deuda / Préstamo de Dinero a Cliente (Sin Afectar Inventario) -->
+<div id="modal-sumar-deuda-cliente" class="modal" onclick="if(event.target === this) cerrarModalSumarDeudaCliente();">
+    <div class="modal-content" style="max-width: 500px; width: 100%; border-radius: 20px; padding: 22px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; border-bottom: 1px solid var(--border-light, #e2e8f0); padding-bottom: 12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:42px; height:42px; border-radius:12px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+                    <i class="fas fa-hand-holding-dollar"></i>
+                </div>
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main, #0f172a); font-weight:800;">Sumar Deuda / Préstamo</h3>
+                    <p style="margin:2px 0 0; font-size:0.8rem; color:var(--text-muted, #64748b);">Agrega saldo deudor sin descontar productos del inventario</p>
+                </div>
+            </div>
+            <button type="button" onclick="cerrarModalSumarDeudaCliente()" style="background:transparent; border:none; font-size:1.5rem; line-height:1; color:var(--text-muted, #64748b); cursor:pointer; padding:4px 8px; border-radius:6px;">&times;</button>
+        </div>
+
+        <form onsubmit="guardarCargoManualCliente(event)" style="display:flex; flex-direction:column; gap:14px;">
+            <input type="hidden" id="sumar-deuda-cliente-id">
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:0.72rem; text-transform:uppercase; color:#64748b; font-weight:700; display:block;">Cliente</span>
+                    <strong id="sumar-deuda-cliente-nombre" style="font-size:0.95rem; color:#0f172a;">—</strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:0.72rem; text-transform:uppercase; color:#64748b; font-weight:700; display:block;">Deuda Actual</span>
+                    <span id="sumar-deuda-cliente-actual" style="font-weight:800; font-size:1.05rem; color:#dc2626;">$0.00</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-monto" style="font-weight:700; font-size:0.88rem; color:#0f172a; display:flex; justify-content:space-between;">
+                    <span>Monto a Sumar ($ USD) <span style="color:#dc2626;">*</span></span>
+                    <span id="sumar-deuda-equiv-ves" style="color:#64748b; font-size:0.8rem; font-weight:500;">≈ Bs. 0,00</span>
+                </label>
+                <div style="position:relative; margin-top:5px;">
+                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-weight:700; color:#64748b; font-size:1.1rem;">$</span>
+                    <input type="number" id="sumar-deuda-monto" step="0.01" min="0.01" required placeholder="0.00" oninput="calcularEquivalenteSumarDeuda()" style="width:100%; padding:10px 12px 10px 28px; border:2px solid #cbd5e1; border-radius:10px; font-size:1.15rem; font-weight:800; color:#0f172a; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-motivo" style="font-weight:700; font-size:0.88rem; color:#0f172a;">
+                    Motivo o Concepto del Agregue <span style="color:#dc2626;">*</span>
+                </label>
+                <input type="text" id="sumar-deuda-motivo" required placeholder="Ej: Préstamo de $1 en efectivo para pasaje" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; font-size:0.9rem; margin-top:5px; box-sizing:border-box;">
+                
+                <!-- Chips de sugerencias rápidas -->
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('💵 Préstamo de dinero en efectivo')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        💵 Préstamo de efectivo
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('🚗 Préstamo para pasaje / transporte')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        🚗 Pasaje / Transporte
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('🛒 Cargo por ajuste a cuenta')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        🛒 Ajuste a cuenta
+                    </button>
+                    <button type="button" class="btn" onclick="aplicarChipMotivoDeuda('📦 Flete / Servicio de Delivery')" style="font-size:0.72rem; padding:3px 7px; border-radius:6px; background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; cursor:pointer;">
+                        📦 Delivery / Flete
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin:0;">
+                <label for="sumar-deuda-fecha" style="font-weight:700; font-size:0.88rem; color:#0f172a;">Fecha del Movimiento</label>
+                <input type="text" id="sumar-deuda-fecha" placeholder="YYYY-MM-DD HH:mm" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:10px; font-size:0.88rem; margin-top:5px; box-sizing:border-box;">
+            </div>
+
+            <!-- Previsualización del nuevo saldo -->
+            <div style="background:#fef2f2; border:1px dashed #fca5a5; border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.85rem; color:#991b1b; font-weight:600;">Nueva Deuda Resultante:</span>
+                <strong id="sumar-deuda-nuevo-saldo" style="font-size:1.15rem; color:#b91c1c;">$0.00 USD</strong>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
+                <button type="button" class="btn" onclick="cerrarModalSumarDeudaCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:10px; padding:9px 18px; font-weight:600; cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn" style="background:#dc2626; color:#ffffff; border:none; border-radius:10px; padding:9px 20px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fas fa-plus-circle"></i> Cargar a la Deuda
+                </button>
             </div>
         </form>
     </div>

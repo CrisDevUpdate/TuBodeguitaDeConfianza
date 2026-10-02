@@ -11,6 +11,7 @@ window.InventoryApp = window.InventoryApp || {};
     const CACHE_CLIENTES_ELIMINADOS_KEY = 'bodeguita_cache_clientes_eliminados_v3';
     const CACHE_ABONOS_KEY = 'bodeguita_cache_abonos_v3';
     const CACHE_TX_KEY = 'bodeguita_cache_tx_v3';
+    const CACHE_USUARIOS_KEY = 'bodeguita_cache_usuarios_v3';
 
     const LLAVES_OBSOLETAS_A_PURGAR = [
         LEGACY_STORAGE_KEY,
@@ -234,6 +235,11 @@ window.InventoryApp = window.InventoryApp || {};
                     localStorage.setItem(CACHE_TX_KEY, JSON.stringify(AppState.transacciones));
                 } catch (tErr) {}
             }
+            if (Array.isArray(AppState.usuarios) && AppState.usuarios.length > 0) {
+                try {
+                    localStorage.setItem(CACHE_USUARIOS_KEY, JSON.stringify(AppState.usuarios));
+                } catch (uErr) {}
+            }
 
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
@@ -288,6 +294,26 @@ window.InventoryApp = window.InventoryApp || {};
 
         // 3. Garantizar SuperAdmin base
         asegurarUsuarioAdminInicial();
+
+        // Restaurar lista de usuarios persistidos en caché local
+        try {
+            const rawUsers = localStorage.getItem(CACHE_USUARIOS_KEY);
+            if (rawUsers) {
+                const parsed = JSON.parse(rawUsers);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const userMap = new Map();
+                    parsed.forEach(u => {
+                        const k = String(u.cedula || u.id || '').toUpperCase();
+                        if (k) userMap.set(k, u);
+                    });
+                    (AppState.usuarios || []).forEach(u => {
+                        const k = String(u.cedula || u.id || '').toUpperCase();
+                        if (k) userMap.set(k, u);
+                    });
+                    AppState.usuarios = Array.from(userMap.values());
+                }
+            }
+        } catch (e) {}
 
         // Si el usuario en sesión no es SuperAdmin, asegurar su presencia en AppState.usuarios
         if (AppState.usuarioActual && AppState.usuarioActual.id !== 'SuperAdmin') {
