@@ -356,7 +356,23 @@ function calcularResumenPerdidasEconomicas() {
     let deudaClientesEliminados = 0;
     listCliElim.forEach(c => {
         if (estaEnRangoDeFechas(c.fecha || c.fechaEliminacion, desde, hasta)) {
+            const motivoNorm = String(c.motivo || '').toLowerCase();
+            const esDuplicadoOError = motivoNorm.includes('duplicad') || 
+                                      motivoNorm.includes('error') || 
+                                      motivoNorm.includes('incorrect') || 
+                                      motivoNorm.includes('inactivo') || 
+                                      motivoNorm.includes('solicitud') ||
+                                      Boolean(c.esDuplicado);
+
+            // Si el cliente fue eliminado por datos duplicados, error de registro o sin pérdida:
+            // NO genera pérdida económica alguna, ni afecta el margen de pérdidas del negocio
+            if (esDuplicadoOError || Number(c.perdidaUSD) === 0) {
+                return;
+            }
+
             const monto = Math.max(0, Number(c.perdidaUSD ?? c.deudaUSD ?? 0));
+            if (monto <= 0) return;
+
             deudaClientesEliminados += monto;
             movimientos.push({
                 id: c.id || `cli_elim_${Math.random()}`,

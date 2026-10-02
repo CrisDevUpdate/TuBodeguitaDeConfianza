@@ -911,10 +911,45 @@ window.InventoryApp = window.InventoryApp || {};
                 });
             }
 
+            if (snapCliElim && !snapCliElim.empty) {
+                AppState.clientesEliminados = snapCliElim.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
             if (snapCli && !snapCli.empty) {
-                const loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                let loadedClients = snapCli.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Preservar datos locales esenciales (deudaInicialUSD o clientes locales no sincronizados)
+                (Array.isArray(AppState.clientes) ? AppState.clientes : []).forEach(localC => {
+                    if (!localC || !localC.id) return;
+                    const found = loadedClients.find(c => c.id === localC.id);
+                    if (found) {
+                        if (typeof localC.deudaInicialUSD === 'number' && typeof found.deudaInicialUSD !== 'number') {
+                            found.deudaInicialUSD = localC.deudaInicialUSD;
+                        }
+                    } else {
+                        loadedClients.push(localC);
+                    }
+                });
+
+                const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
+                const checkElim = typeof esClienteEliminadoOExcluido === 'function'
+                    ? esClienteEliminadoOExcluido
+                    : (c, list) => {
+                        const idNorm = String(c?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                        const nomNorm = String(c?.nombre || '').trim().toLowerCase();
+                        return list.some(e => {
+                            const eIdNorm = String(e?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            const eNom = String(e?.nombre || '').trim().toLowerCase();
+                            return (idNorm && eIdNorm && idNorm === eIdNorm) || (nomNorm && eNom && nomNorm === eNom);
+                        });
+                    };
+
+                // Purgar de loadedClients cualquier cliente que haya sido eliminado
+                loadedClients = loadedClients.filter(c => !checkElim(c, eliminados));
+
                 if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
                     CLIENTES_OFICIALES.forEach(co => {
+                        if (checkElim(co, eliminados)) return;
+
                         const idCoUpper = String(co.id || '').toUpperCase();
                         const fueAbsorbido = loadedClients.some(c => 
                             (c.id === '27611440' && (idCoUpper === 'CLI-025' || co.cedula === '27611440')) ||
@@ -938,12 +973,22 @@ window.InventoryApp = window.InventoryApp || {};
                     });
                 }
                 AppState.clientes = loadedClients;
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(false);
+                }
             }
 
             if (snapVentas && !snapVentas.empty) {
-                AppState.ventas = snapVentas.docs
+                const cloudVentas = snapVentas.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                const cloudIds = new Set(cloudVentas.map(v => String(v.id)));
+
+                // Conservar cargos manuales y ventas locales que aún no hayan impactado en la nube
+                const localExtras = (Array.isArray(AppState.ventas) ? AppState.ventas : [])
+                    .filter(v => v && v.id && !cloudIds.has(String(v.id)));
+
+                AppState.ventas = [...cloudVentas, ...localExtras];
                 if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
                     VENTAS_INICIALES_FIADOS.forEach(vf => {
                         const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
@@ -951,6 +996,9 @@ window.InventoryApp = window.InventoryApp || {};
                             AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
                         }
                     });
+                }
+                if (window.InventoryApp && window.InventoryApp.Persistence) {
+                    window.InventoryApp.Persistence.guardar(false);
                 }
             }
 
@@ -1331,8 +1379,25 @@ window.InventoryApp = window.InventoryApp || {};
             const unsubCli = db.collection(COLLECTIONS.CLIENTES).onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
                     let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
+                    const checkElim = typeof esClienteEliminadoOExcluido === 'function'
+                        ? esClienteEliminadoOExcluido
+                        : (c, list) => {
+                            const idNorm = String(c?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            const nomNorm = String(c?.nombre || '').trim().toLowerCase();
+                            return list.some(e => {
+                                const eIdNorm = String(e?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                                const eNom = String(e?.nombre || '').trim().toLowerCase();
+                                return (idNorm && eIdNorm && idNorm === eIdNorm) || (nomNorm && eNom && nomNorm === eNom);
+                            });
+                        };
+
+                    newClientes = newClientes.filter(c => !checkElim(c, eliminados));
+
                     if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
                         CLIENTES_OFICIALES.forEach(co => {
+                            if (checkElim(co, eliminados)) return;
+
                             const idCoUpper = String(co.id || '').toUpperCase();
                             const fueAbsorbido = newClientes.some(c => 
                                 (c.id === '27611440' && (idCoUpper === 'CLI-025' || co.cedula === '27611440')) ||
@@ -1849,6 +1914,21 @@ window.InventoryApp = window.InventoryApp || {};
                         if (lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] !== hash) {
                             lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] = hash;
                             AppState.clientesEliminados = newCliElim;
+                            const checkElim = typeof esClienteEliminadoOExcluido === 'function'
+                                ? esClienteEliminadoOExcluido
+                                : (c, list) => {
+                                    const idNorm = String(c?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                                    const nomNorm = String(c?.nombre || '').trim().toLowerCase();
+                                    return list.some(e => {
+                                        const eIdNorm = String(e?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                                        const eNom = String(e?.nombre || '').trim().toLowerCase();
+                                        return (idNorm && eIdNorm && idNorm === eIdNorm) || (nomNorm && eNom && nomNorm === eNom);
+                                    });
+                                };
+                            if (Array.isArray(AppState.clientes)) {
+                                AppState.clientes = AppState.clientes.filter(c => !checkElim(c, newCliElim));
+                                if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+                            }
                             guardarCacheLocal();
                             solicitarRefrescoVistasDebounced();
                         }
@@ -2232,6 +2312,12 @@ window.InventoryApp = window.InventoryApp || {};
                     tipoPago: venta.tipoPago || venta.tipo || 'Contado',
                     metodoDetalle: venta.metodoDetalle || '',
                     referencia: venta.referencia || '',
+                    motivo: venta.motivo || '',
+                    concepto: venta.concepto || '',
+                    esCargoManual: Boolean(venta.esCargoManual),
+                    esPrestamo: Boolean(venta.esPrestamo),
+                    afectaInventario: venta.afectaInventario !== undefined ? Boolean(venta.afectaInventario) : true,
+                    origen: venta.origen || '',
                     estado: venta.estado || 'CONFIRMADA',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -2377,6 +2463,28 @@ window.InventoryApp = window.InventoryApp || {};
     async function eliminarClienteCloud(clienteId, registroEliminado) {
         if (!clienteId) return false;
 
+        // Asegurar que quede registrado en memoria en clientesEliminados
+        if (registroEliminado) {
+            if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
+            const yaRegistrado = AppState.clientesEliminados.some(e => e.id === registroEliminado.id || (e.id && String(e.id).toUpperCase() === String(clienteId).toUpperCase()));
+            if (!yaRegistrado) {
+                AppState.clientesEliminados.push(registroEliminado);
+            }
+        }
+
+        // Purgar de AppState.clientes y window.clientes inmediatamente
+        const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+        const targetNorm = norm(clienteId);
+        if (Array.isArray(AppState.clientes)) {
+            AppState.clientes = AppState.clientes.filter(c => {
+                if (!c) return false;
+                if (c.id === clienteId || String(c.id).toUpperCase() === String(clienteId).toUpperCase()) return false;
+                if (norm(c.id) === targetNorm) return false;
+                return true;
+            });
+            if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+        }
+
         if (window.InventoryApp && window.InventoryApp.Persistence) {
             window.InventoryApp.Persistence.guardar(true);
         }
@@ -2391,9 +2499,17 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 const batch = db.batch();
-                // Eliminar de colección activa
-                const cliRef = db.collection(COLLECTIONS.CLIENTES).doc(String(clienteId));
-                batch.delete(cliRef);
+                // Eliminar de colección activa tanto el id directo como sus variantes si aplica (ej CLI-013 y cli-o13)
+                const idsAEliminarDoc = new Set([String(clienteId)]);
+                if (/^CLI-[0O]13$/i.test(clienteId)) {
+                    idsAEliminarDoc.add('CLI-013');
+                    idsAEliminarDoc.add('cli-o13');
+                    idsAEliminarDoc.add('CLI-O13');
+                }
+                idsAEliminarDoc.forEach(idDoc => {
+                    const cliRef = db.collection(COLLECTIONS.CLIENTES).doc(idDoc);
+                    batch.delete(cliRef);
+                });
 
                 // Guardar en papelera de clientes eliminados
                 if (registroEliminado) {
@@ -3898,6 +4014,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarProducto: guardarProductoCloud,
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,
+        guardarVenta: registrarVentaCloud,
         eliminarVentas: eliminarVentasCloud,
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,

@@ -1,4 +1,34 @@
 /**
+ * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
+ * Soporta variantes tipográficas comunes (ej: CLI-013 vs cli-o13, CLI-O13) y coincidencia por nombre.
+ */
+function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
+    const list = Array.isArray(eliminadosList) 
+        ? eliminadosList 
+        : (Array.isArray(window.AppState?.clientesEliminados) ? window.AppState.clientesEliminados : (window.clientesEliminados || []));
+    if (!list || !list.length) return false;
+
+    const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
+    const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : '';
+
+    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+    const idNorm = norm(id);
+
+    return list.some(e => {
+        if (!e) return false;
+        const eIdNorm = norm(e.id || e.cedula || '');
+        if (idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm))) return true;
+        if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => norm(c) === idNorm)) return true;
+        const eNom = String(e.nombre || '').trim().toLowerCase();
+        if (nom && eNom && nom === eNom) return true;
+        // Caso específico CLI-013 / cli-o13 / Johan
+        if ((idNorm === 'CLI013' || (nom && nom === 'johan')) && (eIdNorm === 'CLI013' || eNom === 'johan')) return true;
+        return false;
+    });
+}
+window.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
+
+/**
  * Regla Fundamental del Negocio: Todo usuario registrado/creado es automáticamente un cliente.
  * Sincroniza la lista de usuarios con la lista de clientes y consolida registros duplicados.
  * sincronizarConNube es false por defecto para evitar bucles de escritura infinitos con listeners de Firestore.
@@ -17,6 +47,12 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
 
     AppState.clientes.forEach(c => {
         if (!c || !c.id) return;
+        // Si este cliente fue eliminado explícitamente, purgarlo
+        if (esClienteEliminadoOExcluido(c, eliminadosList)) {
+            huboCambios = true;
+            return;
+        }
+
         const nomNormalizado = String(c.nombre || '').trim().toUpperCase();
         // Si ya existe un cliente con el mismo nombre exacto
         if (nomNormalizado && clientesMap.has(nomNormalizado)) {
@@ -62,8 +98,7 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         if (idUpper === 'SUPERADMIN' || (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com') return;
 
         // Si fue eliminado explícitamente y figura en clientesEliminados, respetamos la eliminación
-        const estaEliminado = eliminadosList.some(ce => String(ce.id).trim().toUpperCase() === idUpper);
-        if (estaEliminado) return;
+        if (esClienteEliminadoOExcluido({ id: idCed, cedula: idCed, nombre: u.nombre }, eliminadosList)) return;
 
         const uNom = String(u.nombre || '').trim().toUpperCase();
         const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
@@ -80,6 +115,10 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
                        (uVin && coNom === uVin) ||
                        (uNom.length >= 4 && (uNom.startsWith(coNom) || coNom.startsWith(uNom)));
             });
+            // Si el oficial encontrado está eliminado, no resucitarlo
+            if (coEncontrado && esClienteEliminadoOExcluido(coEncontrado, eliminadosList)) {
+                coEncontrado = null;
+            }
         }
 
         // Buscar cliente existente por ID, cédula, usuarioId, clienteId o por NOMBRE coincidente
@@ -237,7 +276,8 @@ function actualizarSelectClientes() {
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
         asegurarSincronizacionUsuariosAClientes();
     }
-    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
+    const lista = (Array.isArray(clientes) ? clientes : (AppState.clientes || [])).filter(c => !esClienteEliminadoOExcluido(c, eliminadosList));
 
     // Sincronizar deudas actuales reales de todos los clientes con su balance contable
     if (typeof calcularEstadoFinancieroCliente === 'function') {
@@ -574,16 +614,20 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
     });
     totalAbonadoUSD = Number(totalAbonadoUSD.toFixed(2));
 
-    // Determinar deuda inicial registrada directamente
+    // Determinar deuda inicial registrada directamente (saldo previo al sistema)
     let deudaDirecta = 0;
     if (typeof clienteObj?.deudaInicialUSD === 'number') {
         deudaDirecta = clienteObj.deudaInicialUSD;
     } else if (typeof oficialObj?.deudaInicialUSD === 'number') {
         deudaDirecta = oficialObj.deudaInicialUSD;
     } else if (clienteObj?.deudaUSD !== undefined && clienteObj?.deudaUSD !== null) {
-        // Fijar deudaInicialUSD en memoria para que no se altere al calcular deuda total futura
-        clienteObj.deudaInicialUSD = Number(clienteObj.deudaUSD || 0);
-        deudaDirecta = clienteObj.deudaInicialUSD;
+        // Si no tiene deudaInicialUSD fijada, deducir la deuda inicial restando los créditos ya contabilizados
+        if (totalCreditoVentas > 0) {
+            deudaDirecta = Math.max(0, Number(clienteObj.deudaUSD || 0) - totalCreditoVentas + totalAbonadoUSD);
+        } else {
+            deudaDirecta = Number(clienteObj.deudaUSD || 0);
+        }
+        clienteObj.deudaInicialUSD = deudaDirecta;
     }
 
     // Verificar si ya existe una venta inicial de fiado en ventasCli (ej: V_FIADO_CLI-021)
@@ -683,25 +727,37 @@ window.filtrarClientesEstado = filtrarClientesEstado;
 
 function asegurarClientesOficiales() {
     if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
+        const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
+        const fusionadosList = Array.isArray(AppState.clientesFusionados) ? AppState.clientesFusionados : [];
+
+        // Filtrar clientes oficiales que fueron eliminados o excluidos
+        const oficialesActivos = CLIENTES_OFICIALES.filter(co => !esClienteEliminadoOExcluido(co, eliminadosList));
+
         if (!Array.isArray(clientes) || clientes.length === 0) {
-            clientes = JSON.parse(JSON.stringify(CLIENTES_OFICIALES));
+            clientes = JSON.parse(JSON.stringify(oficialesActivos));
             AppState.clientes = clientes;
         } else {
-            const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
-            const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
-            const fusionadosList = Array.isArray(AppState.clientesFusionados) ? AppState.clientesFusionados : [];
+            // Purgar de la lista activa cualquier cliente que figure en clientesEliminados
+            if (eliminadosList.length > 0) {
+                const clientesFiltrados = clientes.filter(c => !esClienteEliminadoOExcluido(c, eliminadosList));
+                if (clientesFiltrados.length !== clientes.length) {
+                    clientes = clientesFiltrados;
+                    AppState.clientes = clientes;
+                }
+            }
 
-            CLIENTES_OFICIALES.forEach(co => {
+            const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
+
+            oficialesActivos.forEach(co => {
                 const idCoUpper = String(co.id || '').toUpperCase();
-                // Si fue eliminado o fusionado explícitamente, o si otro cliente lo absorbió
-                const estaEliminado = eliminadosList.some(e => String(e.id || '').toUpperCase() === idCoUpper);
+                // Si fue fusionado explícitamente, o si otro cliente lo absorbió
                 const estaFusionado = fusionadosList.some(f => String(f.idOrigen || f.id || '').toUpperCase() === idCoUpper);
                 const fueAbsorbido = clientes.some(c => 
                     (Array.isArray(c.codigosAnteriores) && c.codigosAnteriores.map(x => String(x).toUpperCase()).includes(idCoUpper)) ||
                     (c.id === '27611440' && idCoUpper === 'CLI-025')
                 );
 
-                if (estaEliminado || estaFusionado || fueAbsorbido) return;
+                if (estaFusionado || fueAbsorbido) return;
 
                 const cExistente = clientes.find(c => c.id === co.id || (c.nombre && c.nombre.trim().toLowerCase() === co.nombre.trim().toLowerCase()));
                 if (!cExistente) {
@@ -1109,7 +1165,18 @@ function confirmarEliminacionCliente(event) {
     const clienteId = document.getElementById('eliminar-cliente-id').value;
     const motivo = document.getElementById('eliminar-cliente-motivo').value.trim();
     const comentario = document.getElementById('eliminar-cliente-comentario').value.trim();
-    const indice = clientes.findIndex(c => c.id === clienteId);
+    
+    // Búsqueda flexible tolerante a mayúsculas/minúsculas y 'O' vs '0' (ej CLI-013 vs cli-o13)
+    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+    const targetNorm = norm(clienteId);
+
+    const indice = clientes.findIndex(c => {
+        if (!c) return false;
+        if (c.id === clienteId || String(c.id).toUpperCase() === String(clienteId).toUpperCase()) return true;
+        if (norm(c.id) === targetNorm) return true;
+        return false;
+    });
+
     if (indice === -1) {
         cerrarModalEliminarCliente();
         return;
@@ -1120,33 +1187,79 @@ function confirmarEliminacionCliente(event) {
     }
 
     const cliente = clientes[indice];
-    const estado = calcularEstadoFinancieroCliente(clienteId);
+    const estado = calcularEstadoFinancieroCliente(cliente.id || clienteId);
     const fecha = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+    const motivoLower = motivo.toLowerCase();
+    const esDuplicadoOError = motivoLower.includes('duplicad') || 
+                              motivoLower.includes('error') || 
+                              motivoLower.includes('incorrect') || 
+                              motivoLower.includes('inactivo') || 
+                              motivoLower.includes('solicitud');
+
+    // Regla de Negocio: Si la eliminación es por duplicados o error de registro,
+    // NO genera pérdida económica alguna (perdidaUSD = 0) para no inflar mermas ni afectar márgenes del negocio.
+    // Tampoco altera el inventario físico ni los productos (el conteo físico se respeta 100%).
+    const perdidaCalculada = esDuplicadoOError ? 0 : Math.max(0, estado.saldoDeudaUSD);
+
+    const codigosVariantes = [cliente.id, clienteId];
+    if (/^CLI-[0O]13$/i.test(cliente.id) || /^CLI-[0O]13$/i.test(clienteId)) {
+        codigosVariantes.push('CLI-013', 'cli-o13', 'CLI-O13', 'cli-013');
+    }
 
     const registroEliminado = {
         id: cliente.id,
+        cedula: cliente.cedula || cliente.id,
         nombre: cliente.nombre,
-        telefono: cliente.telefono,
+        telefono: cliente.telefono || '',
         fecha,
         totalCompradoUSD: estado.totalCompradoUSD,
         deudaUSD: estado.saldoDeudaUSD,
-        perdidaUSD: Math.max(0, estado.saldoDeudaUSD),
+        perdidaUSD: perdidaCalculada,
         motivo,
-        comentario
+        comentario,
+        codigosAnteriores: Array.from(new Set(codigosVariantes)),
+        esDuplicado: esDuplicadoOError
     };
-    clientesEliminados.push(registroEliminado);
 
-    // No se borran ventas ni abonos: se conservan para auditoría y el historial financiero.
-    clientes.splice(indice, 1);
+    if (!Array.isArray(AppState.clientesEliminados)) {
+        AppState.clientesEliminados = [];
+    }
+    AppState.clientesEliminados.push(registroEliminado);
+    if (typeof clientesEliminados !== 'undefined' && clientesEliminados !== AppState.clientesEliminados) {
+        clientesEliminados.push(registroEliminado);
+    }
+
+    // Purgar todas las copias o instancias duplicadas de este cliente de AppState.clientes y window.clientes
+    const idNormElim = norm(cliente.id);
+    const nombreElim = String(cliente.nombre || '').trim().toLowerCase();
+    AppState.clientes = (AppState.clientes || []).filter(c => {
+        if (!c) return false;
+        if (c.id === cliente.id || c.id === clienteId) return false;
+        if (norm(c.id) === idNormElim) return false;
+        if (nombreElim && c.nombre && String(c.nombre).trim().toLowerCase() === nombreElim && esDuplicadoOError) {
+            return false;
+        }
+        return true;
+    });
+    clientes = AppState.clientes;
+
+    // Guardar en almacenamiento local persistente de inmediato
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
 
     // Sincronizar eliminación en Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
         window.InventoryApp.Firebase.eliminarCliente(clienteId, registroEliminado).catch(err => {
             console.warn('[Clientes] Error al eliminar cliente en Firestore:', err);
         });
+        if (cliente.id !== clienteId) {
+            window.InventoryApp.Firebase.eliminarCliente(cliente.id, registroEliminado).catch(() => {});
+        }
     }
 
-    if (clienteSeleccionadoId === clienteId) {
+    if (clienteSeleccionadoId === clienteId || clienteSeleccionadoId === cliente.id) {
         clienteSeleccionadoId = null;
         const detalle = document.getElementById('cliente-detalle-card');
         if (detalle) detalle.style.display = 'none';
@@ -1156,9 +1269,11 @@ function confirmarEliminacionCliente(event) {
     actualizarSelectClientes();
     renderizarClientes();
     renderizarHistorialClientesEliminados();
-    renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
+        renderizarResumenPerdidasEconomicas();
+    }
 
-    alert(`Cliente ${cliente.nombre} eliminado correctamente. El historial de ventas y pagos se conservó.`);
+    alert(`Cliente ${cliente.nombre} eliminado correctamente.${esDuplicadoOError ? ' (Eliminado como duplicado/error de registro: no afecta inventario ni margen de pérdidas).' : ''}`);
 }
 
 function renderizarHistorialClientesEliminados() {
@@ -2992,6 +3107,12 @@ async function guardarCargoManualCliente(event) {
             return;
         }
 
+        // Fijar deudaInicialUSD en el cliente antes de registrar el cargo para proteger la línea base
+        if (typeof cliente.deudaInicialUSD !== 'number') {
+            const estPre = typeof calcularEstadoFinancieroCliente === 'function' ? calcularEstadoFinancieroCliente(cliente.id) : null;
+            cliente.deudaInicialUSD = (estPre && typeof estPre.saldoDeudaUSD === 'number') ? estPre.saldoDeudaUSD : Number(cliente.deudaUSD || 0);
+        }
+
         const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
         const totalVES = tasa > 0 ? Number((monto * tasa).toFixed(2)) : 0;
         const cargoId = `CARGO_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
@@ -3043,25 +3164,7 @@ async function guardarCargoManualCliente(event) {
             }
         }
 
-        // 2. Persistir en Firestore en la colección 'ventas' (fuente única de verdad)
-        if (window.InventoryApp?.Firebase) {
-            try {
-                if (typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
-                    await window.InventoryApp.Firebase.registrarVenta(cargoVenta, []);
-                } else if (typeof window.InventoryApp.Firebase.guardarVenta === 'function') {
-                    await window.InventoryApp.Firebase.guardarVenta(cargoVenta, []);
-                }
-            } catch (e) {
-                console.error('[Cargos] Error al guardar cargo en Firebase:', e);
-            }
-        }
-
-        // 3. Persistir en almacenamiento local
-        if (window.InventoryApp?.Persistence?.guardar) {
-            window.InventoryApp.Persistence.guardar(true);
-        }
-
-        // 4. Recalcular estado financiero y actualizar deuda del cliente
+        // 2. Recalcular estado financiero y actualizar deuda del cliente
         let nuevoEst = null;
         if (typeof calcularEstadoFinancieroCliente === 'function') {
             nuevoEst = calcularEstadoFinancieroCliente(cliente.id);
@@ -3072,11 +3175,24 @@ async function guardarCargoManualCliente(event) {
             cliente.deudaUSD = Number(((Number(cliente.deudaUSD || 0)) + monto).toFixed(2));
         }
 
-        if (window.InventoryApp?.Firebase?.guardarCliente) {
+        // 3. Persistir de inmediato en almacenamiento local (para sobrevivir recargas de página 100% garantizado)
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        // 4. Persistir en Firestore en segundo plano (ventas y cliente)
+        if (window.InventoryApp?.Firebase) {
             try {
-                await window.InventoryApp.Firebase.guardarCliente(cliente);
+                if (typeof window.InventoryApp.Firebase.registrarVenta === 'function') {
+                    window.InventoryApp.Firebase.registrarVenta(cargoVenta, []).catch(e => console.warn('[Cargos] Firebase venta warning:', e));
+                } else if (typeof window.InventoryApp.Firebase.guardarVenta === 'function') {
+                    window.InventoryApp.Firebase.guardarVenta(cargoVenta, []).catch(e => console.warn('[Cargos] Firebase venta warning:', e));
+                }
+                if (typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                    window.InventoryApp.Firebase.guardarCliente(cliente).catch(e => console.warn('[Cargos] Firebase cliente warning:', e));
+                }
             } catch (e) {
-                console.error('[Cargos] Error al actualizar cliente en Firebase:', e);
+                console.warn('[Cargos] Error al invocar guardado en Firebase:', e);
             }
         }
 

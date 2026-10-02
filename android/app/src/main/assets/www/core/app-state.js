@@ -14,7 +14,7 @@ const AppState = window.AppState = window.InventoryApp.state = {
         ? JSON.parse(JSON.stringify(PRODUCTOS_INVENTARIO_PDF)) 
         : [],
     clientes: (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
-        ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
+        ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES.filter(c => !/^CLI-[0O]13$/i.test(c.id) && String(c.nombre || '').trim().toLowerCase() !== 'johan')))
         : [],
     ventas: (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS))
         ? JSON.parse(JSON.stringify(VENTAS_INICIALES_FIADOS))
@@ -27,7 +27,22 @@ const AppState = window.AppState = window.InventoryApp.state = {
     conteosFisicos: {},
     auditorias: [],
     eliminaciones: [],
-    clientesEliminados: [],
+    clientesEliminados: [
+        {
+            id: 'CLI-013',
+            cedula: 'CLI-013',
+            nombre: 'Johan',
+            telefono: '',
+            fecha: '2026-10-01 12:00',
+            totalCompradoUSD: 0,
+            deudaUSD: 0,
+            perdidaUSD: 0,
+            motivo: 'Datos duplicados',
+            comentario: 'Eliminado por duplicado / registro repetido en sistema. No genera pérdidas ni altera inventario.',
+            codigosAnteriores: ['CLI-013', 'cli-o13', 'CLI-O13'],
+            esDuplicado: true
+        }
+    ],
     clientesFusionados: [],
     usuarios: [
         {

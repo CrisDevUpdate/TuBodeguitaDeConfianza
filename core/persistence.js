@@ -6,6 +6,12 @@ window.InventoryApp = window.InventoryApp || {};
     const SESSION_KEY = 'bodeguita_usuario_sesion';
     const LEGACY_STORAGE_KEY = 'inventoryapp.beta.v1.state';
 
+    const CACHE_VENTAS_KEY = 'bodeguita_cache_ventas_v3';
+    const CACHE_CLIENTES_KEY = 'bodeguita_cache_clientes_v3';
+    const CACHE_CLIENTES_ELIMINADOS_KEY = 'bodeguita_cache_clientes_eliminados_v3';
+    const CACHE_ABONOS_KEY = 'bodeguita_cache_abonos_v3';
+    const CACHE_TX_KEY = 'bodeguita_cache_tx_v3';
+
     const LLAVES_OBSOLETAS_A_PURGAR = [
         LEGACY_STORAGE_KEY,
         'inventoryapp.state',
@@ -17,7 +23,6 @@ window.InventoryApp = window.InventoryApp || {};
         'bodeguita_auditorias',
         'bodeguita_conteos',
         'bodeguita_eliminaciones',
-        'bodeguita_clientes_eliminados',
         'bodeguita_usuarios',
         'bodeguita_conteos_respaldo_v1',
         'bodeguita_ciclos_recuperacion',
@@ -43,7 +48,6 @@ window.InventoryApp = window.InventoryApp || {};
         'auditorias',
         'conteosFisicos',
         'eliminaciones',
-        'clientesEliminados',
         'clientesFusionados',
         'usuarios',
         'premioMes',
@@ -196,7 +200,7 @@ window.InventoryApp = window.InventoryApp || {};
                 localStorage.removeItem(SESSION_KEY);
             }
 
-            // Preservar siempre el catálogo de productos con sus imágenes en caché local para que nunca desaparezcan
+            // Preservar catálogo de productos con sus imágenes en caché local
             if (Array.isArray(AppState.productos) && AppState.productos.length > 0) {
                 try {
                     localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
@@ -204,26 +208,52 @@ window.InventoryApp = window.InventoryApp || {};
                 } catch (cacheErr) {}
             }
 
+            // Preservar ventas, clientes, abonos y transacciones para garantizar supervivencia tras recarga
+            if (Array.isArray(AppState.ventas) && AppState.ventas.length > 0) {
+                try {
+                    localStorage.setItem(CACHE_VENTAS_KEY, JSON.stringify(AppState.ventas));
+                } catch (vErr) {}
+            }
+            if (Array.isArray(AppState.clientes) && AppState.clientes.length > 0) {
+                try {
+                    localStorage.setItem(CACHE_CLIENTES_KEY, JSON.stringify(AppState.clientes));
+                } catch (cErr) {}
+            }
+            if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+                try {
+                    localStorage.setItem(CACHE_CLIENTES_ELIMINADOS_KEY, JSON.stringify(AppState.clientesEliminados));
+                } catch (ceErr) {}
+            }
+            if (Array.isArray(AppState.abonos)) {
+                try {
+                    localStorage.setItem(CACHE_ABONOS_KEY, JSON.stringify(AppState.abonos));
+                } catch (aErr) {}
+            }
+            if (Array.isArray(AppState.transacciones)) {
+                try {
+                    localStorage.setItem(CACHE_TX_KEY, JSON.stringify(AppState.transacciones));
+                } catch (tErr) {}
+            }
+
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
         } catch (e) {
-            console.warn('[Persistence] Error guardando sesión en localStorage:', e);
+            console.warn('[Persistence] Error guardando sesión y estado en localStorage:', e);
         }
         return true;
     }
 
     /**
      * Carga inicial:
-     * - Restaura ÚNICAMENTE la sesión del usuario para evitar requerir login repetitivo.
-     * - Inicializa el estado de negocio en memoria limpio.
-     * - Todas las colecciones (productos, clientes, ventas, abonos, transacciones, etc.)
-     *   se alimentan y sincronizan en tiempo real directamente desde Firebase Firestore.
+     * - Restaura la sesión del usuario para evitar requerir login repetitivo.
+     * - Restaura el estado persistente local (ventas, clientes, abonos) para garantizar disponibilidad inmediata tras recarga.
+     * - Se sincroniza y reconcilia en tiempo real con Firebase Firestore.
      */
     function cargar() {
-        // 1. Purgar cualquier dato residual previo de entidades en localStorage
+        // 1. Purgar cualquier dato residual previo de entidades obsoletas en localStorage
         purgarResiduosEntidadesLocalStorage();
 
-        // 2. Restaurar únicamente la sesión del usuario guardado
+        // 2. Restaurar la sesión del usuario guardado
         try {
             const sesionGuardada = localStorage.getItem(SESSION_KEY);
             if (sesionGuardada) {
@@ -267,7 +297,7 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        // 4. El 100% de las entidades de negocio se inicializan en memoria con el catálogo oficial, caché o sincronización Firestore
+        // 4. Cargar catálogo de productos desde caché local o catálogo base
         if (!Array.isArray(AppState.productos) || AppState.productos.length === 0) {
             let prodsFromCache = null;
             try {
@@ -299,19 +329,99 @@ window.InventoryApp = window.InventoryApp || {};
                 localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
             } catch (e) {}
         }
+
+        // 5. Cargar clientes desde caché local persistente o lista oficial
+        try {
+            const rawCliElim = localStorage.getItem(CACHE_CLIENTES_ELIMINADOS_KEY);
+            if (rawCliElim) {
+                const parsed = JSON.parse(rawCliElim);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    AppState.clientesEliminados = parsed;
+                }
+            }
+        } catch (e) {}
+        AppState.clientesEliminados = AppState.clientesEliminados || [];
+
         if (!Array.isArray(AppState.clientes) || AppState.clientes.length === 0) {
-            AppState.clientes = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
+            let clientesFromCache = null;
+            try {
+                const rawCli = localStorage.getItem(CACHE_CLIENTES_KEY);
+                if (rawCli) {
+                    const parsed = JSON.parse(rawCli);
+                    if (Array.isArray(parsed) && parsed.length > 0) clientesFromCache = parsed;
+                }
+            } catch (e) {}
+
+            const eliminados = AppState.clientesEliminados || [];
+            const helperEliminado = typeof esClienteEliminadoOExcluido === 'function' 
+                ? esClienteEliminadoOExcluido 
+                : (c, list) => {
+                    const idNorm = String(c?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                    const nomNorm = String(c?.nombre || '').trim().toLowerCase();
+                    return list.some(e => {
+                        const eIdNorm = String(e?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                        const eNom = String(e?.nombre || '').trim().toLowerCase();
+                        return (idNorm && eIdNorm && idNorm === eIdNorm) || (nomNorm && eNom && nomNorm === eNom);
+                    });
+                };
+
+            const listaBase = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
                 ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
                 : [];
+
+            AppState.clientes = (clientesFromCache || listaBase).filter(c => !helperEliminado(c, eliminados));
         }
+
+        // 6. Cargar ventas y préstamos desde caché local persistente o ventas iniciales
         if (!Array.isArray(AppState.ventas) || AppState.ventas.length === 0) {
-            AppState.ventas = (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS))
+            let ventasFromCache = null;
+            try {
+                const rawVen = localStorage.getItem(CACHE_VENTAS_KEY);
+                if (rawVen) {
+                    const parsed = JSON.parse(rawVen);
+                    if (Array.isArray(parsed) && parsed.length > 0) ventasFromCache = parsed;
+                }
+            } catch (e) {}
+
+            AppState.ventas = ventasFromCache || ((typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS))
                 ? JSON.parse(JSON.stringify(VENTAS_INICIALES_FIADOS))
-                : [];
+                : []);
         }
-        AppState.abonos = AppState.abonos || [];
+
+        // Asegurar que si hay ventas iniciales de fiado falten en memoria, se agreguen sin duplicar
+        if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
+            VENTAS_INICIALES_FIADOS.forEach(vf => {
+                const existe = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
+                if (!existe) {
+                    AppState.ventas.push(JSON.parse(JSON.stringify(vf)));
+                }
+            });
+        }
+
+        // 7. Cargar abonos y transacciones desde caché local persistente
+        if (!Array.isArray(AppState.abonos) || AppState.abonos.length === 0) {
+            try {
+                const rawA = localStorage.getItem(CACHE_ABONOS_KEY);
+                if (rawA) {
+                    const parsed = JSON.parse(rawA);
+                    if (Array.isArray(parsed)) AppState.abonos = parsed;
+                }
+            } catch (e) {}
+            AppState.abonos = AppState.abonos || [];
+        }
+
+        if (!Array.isArray(AppState.transacciones) || AppState.transacciones.length === 0) {
+            try {
+                const rawTx = localStorage.getItem(CACHE_TX_KEY);
+                if (rawTx) {
+                    const parsed = JSON.parse(rawTx);
+                    if (Array.isArray(parsed)) AppState.transacciones = parsed;
+                }
+            } catch (e) {}
+            AppState.transacciones = AppState.transacciones || [];
+        }
+
         AppState.pagosPorVerificar = AppState.pagosPorVerificar || [];
-        AppState.transacciones = AppState.transacciones || [];
         AppState.carrito = [];
         AppState.clienteSeleccionadoId = null;
         AppState.conteosFisicos = {};
