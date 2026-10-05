@@ -7,7 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
-    <title>Tu Bodeguita de Confianza - Sistema POS Multimoneda</title>
+    <title>Tu Bodeguita de Confianza — Android APK</title>
+    <meta name="description" content="Sistema POS Multimoneda con tasas oficiales BCV, ingreso de mercancía por facturas con costos de reposición, inventario, clientes, pagos y auditoría física con conciliación estricta.">
     <!-- Script de Restauración Inmediata de Paleta y Modo Oscuro (Previene Flicker al Recargar) -->
     <script>
         (function() {
@@ -43,11 +44,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS con xlsx-js-style para exportación profesional con estilos, fórmulas y configuración de impresión -->
     <script src="vendor/xlsx.bundle.js"></script>
-    <script>
-        if (typeof XLSX === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"><\/script>');
-        }
-    </script>
     <link rel="stylesheet" href="styles.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/themeEngine.css?v=20260916_v2">
@@ -59,7 +55,7 @@
     <link rel="stylesheet" href="styles/posMobile.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/terminosPrivacidad.css?v=20260927_v1">
     <style id="mobile-frase-priority-style">
-        /* Garantiza que la frase motivacional se vea en teléfonos móviles sin importar la caché */
+        /* El apartado de frases y curiosidades está disponible para todos los usuarios */
         #cliente-frase-sabiduria-card {
             display: flex !important;
             visibility: visible !important;
@@ -73,6 +69,14 @@
             gap: 8px !important;
             width: 100% !important;
             box-sizing: border-box !important;
+        }
+        /* La opción de descargar el archivo TXT es exclusiva del Administrador */
+        body:not(.is-admin-mode) #cliente-frase-descargar-txt {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        body.is-admin-mode #cliente-frase-descargar-txt {
+            display: inline-flex !important;
         }
         #cliente-frase-texto {
             display: block !important;
@@ -5317,8 +5321,8 @@
                         <span id="cliente-saludo-icono" style="font-size:1.2rem; color:#fde047;"><i class="fas fa-sun"></i></span>
                         <h2 style="margin:0; font-size:1.2rem; color:#ffffff;" id="cliente-bienvenida-nombre">¡Buenos días, Cliente!</h2>
                     </div>
-                    <!-- Frase de Sabiduría Dinámica & Motivacional (Optimizada para Móvil y Desktop) -->
-                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex !important; visibility:visible !important; opacity:1 !important; align-items:flex-start; gap:8px;">
+                    <!-- Frase de Sabiduría Dinámica & Curiosidades -->
+                    <div id="cliente-frase-sabiduria-card" style="background:rgba(255,255,255,0.08); border-left:3px solid #fde047; padding:8px 12px; border-radius:0 8px 8px 0; margin-top:6px; display:flex !important; align-items:flex-start; gap:8px;">
                         <i class="fas fa-quote-left" style="color:#fde047; font-size:0.85rem; margin-top:2px; flex-shrink:0;"></i>
                         <div>
                             <p id="cliente-frase-texto" style="margin:0; font-size:0.84rem; color:#f1f5f9; font-style:italic; line-height:1.3;">
@@ -5328,14 +5332,12 @@
                                 <small id="cliente-frase-autor" style="font-size:0.72rem; color:#cbd5e1; font-weight:600;">— Sabiduría Universal</small>
                                 <div style="display:inline-flex; align-items:center; gap:6px;">
                                     <span id="cliente-frase-categoria" style="font-size:0.65rem; background:rgba(253,224,71,0.2); color:#fde047; padding:1px 6px; border-radius:4px; font-weight:700;">Motivación</span>
-                                    <span id="cliente-frase-admin-tools" style="display:none; align-items:center; gap:6px;">
-                                        <button type="button" onclick="cambiarFraseAleatoria()" title="Ver otra frase o curiosidad al azar (1000 disponibles)" style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fde047; border-radius:4px; padding:2px 6px; font-size:0.68rem; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
-                                            <i class="fas fa-rotate"></i> Otra
-                                        </button>
-                                        <a href="mensajes_1000.txt" target="_blank" download="1000_Frases_Curiosidades_TuBodeguita.txt" title="Descargar las 1000 frases, curiosidades y sarcasmos en archivo TXT" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#93c5fd; border-radius:4px; padding:2px 6px; font-size:0.68rem; text-decoration:none; display:inline-flex; align-items:center; gap:3px;">
-                                            <i class="fas fa-file-lines"></i> Leer TXT (1000)
-                                        </a>
-                                    </span>
+                                    <button type="button" onclick="cambiarFraseAleatoria()" title="Ver otra frase o curiosidad al azar (1000 disponibles)" style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fde047; border-radius:4px; padding:2px 6px; font-size:0.68rem; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+                                        <i class="fas fa-rotate"></i> Otra
+                                    </button>
+                                    <a id="cliente-frase-descargar-txt" href="mensajes_1000.txt" target="_blank" download="1000_Frases_Curiosidades_TuBodeguita.txt" title="Descargar las 1000 frases, curiosidades y sarcasmos en archivo TXT" style="display:none; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#93c5fd; border-radius:4px; padding:2px 6px; font-size:0.68rem; text-decoration:none; align-items:center; gap:3px;">
+                                        <i class="fas fa-file-lines"></i> Leer TXT (1000)
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -5706,6 +5708,15 @@
                 </select>
                 <div id="fusion-card-secundario" style="margin-top:10px; font-size:0.82rem; color:var(--text-main); line-height:1.45;"></div>
             </div>
+        </div>
+
+        <!-- Opción de Transferencia de Deuda -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="fusion-transferir-deuda" checked onchange="alCambiarSeleccionFusion()" style="width:18px; height:18px; accent-color:#4f46e5; cursor:pointer;">
+            <label for="fusion-transferir-deuda" style="margin:0; font-size:0.85rem; font-weight:700; color:var(--text-main); cursor:pointer;">
+                Transferir saldo de deuda pendiente del cliente duplicado
+                <small style="display:block; font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(Desmarca esta casilla si el cliente duplicado ya te pagó o saldó esa deuda previamente para no cobrársela de nuevo)</small>
+            </label>
         </div>
 
         <!-- Vista Previa Dinámica del Resultado -->

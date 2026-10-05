@@ -2575,12 +2575,24 @@ function actualizarUIUsuarioActual() {
             headerStatus.textContent = 'INVITADO';
         }
         if (headerPtsPill) headerPtsPill.style.display = 'none';
+        document.body.classList.remove('is-admin-mode');
+        const txtLink = document.getElementById('cliente-frase-descargar-txt');
+        if (txtLink) txtLink.style.display = 'none';
         return;
     }
 
+    const r = (usuario.rol || 'cliente').toLowerCase();
+    const esAdmin = Boolean(r === 'admin' || r === 'superadmin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin');
+    if (esAdmin) {
+        document.body.classList.add('is-admin-mode');
+    } else {
+        document.body.classList.remove('is-admin-mode');
+    }
+    const txtLink = document.getElementById('cliente-frase-descargar-txt');
+    if (txtLink) txtLink.style.display = esAdmin ? 'inline-flex' : 'none';
+
     if (headerName) headerName.textContent = usuario.nombre || usuario.cedula;
     if (headerStatus) {
-        const r = (usuario.rol || 'cliente').toLowerCase();
         if (r === 'admin' || r === 'superadmin') {
             headerStatus.className = 'badge-status-pill badge-success';
             headerStatus.textContent = 'ADMIN';

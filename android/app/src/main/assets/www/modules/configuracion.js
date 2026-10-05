@@ -42,6 +42,39 @@ function renderizarConfiguracionAdmin() {
             </div>
         </div>
 
+        <!-- MÓDULO EXCLUSIVO ADMIN: Banco de 1000 Frases, Curiosidades & Humor Criollo -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #fde047; background: linear-gradient(135deg, rgba(30,41,59,0.02), rgba(245,158,11,0.05));">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h3 style="margin:0 0 6px 0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-quote-left" style="color:#d97706;"></i> Banco de Mensajes, Sabiduría & Curiosidades (1000 Frases)
+                    </h3>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-muted); line-height:1.4;">
+                        Módulo exclusivo del Administrador con 1000 datos curiosos, historia venezolana, negocios y humor criollo/sarcasmo.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="mensajes_1000.txt" target="_blank" download="1000_Frases_Curiosidades_TuBodeguita.txt" class="btn btn-outline" style="font-size:0.8rem; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; color:#2563eb; border-color:#93c5fd; background:#eff6ff;">
+                        <i class="fas fa-file-lines"></i> Descargar TXT (1000 Frases)
+                    </a>
+                </div>
+            </div>
+            <div id="admin-frase-preview-box" style="margin-top:14px; background:var(--card-bg, #ffffff); border:1px solid var(--border-light); border-radius:10px; padding:14px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:260px;">
+                    <p id="admin-config-frase-texto" style="margin:0; font-size:0.92rem; font-style:italic; color:var(--text-main); font-weight:600; line-height:1.4;">
+                        "Cargando frase del banco..."
+                    </p>
+                    <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+                        <small id="admin-config-frase-autor" style="color:var(--text-muted); font-size:0.78rem; font-weight:600;">— Autor</small>
+                        <span id="admin-config-frase-cat" class="badge" style="background:rgba(245,158,11,0.15); color:#d97706; font-size:0.7rem; padding:2px 8px; border-radius:4px; font-weight:700;">Categoría</span>
+                    </div>
+                </div>
+                <button type="button" onclick="rotarFraseAdminConfig()" class="btn btn-primary btn-sm" style="flex-shrink:0; font-weight:700;">
+                    <i class="fas fa-rotate"></i> Otra Frase al Azar
+                </button>
+            </div>
+        </div>
+
         <!-- MÓDULO: Número de WhatsApp Oficial para Clientes & Pedidos -->
         <div id="config-whatsapp-box"></div>
 
@@ -359,6 +392,11 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
     // Renderizar Selector de Temas del Administrador
     if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarGestorAdmin === 'function') {
         window.InventoryApp.Theme.renderizarGestorAdmin('config-theme-manager-box');
+    }
+
+    // Inicializar frase de sabiduría en tarjeta de administración
+    if (typeof rotarFraseAdminConfig === 'function') {
+        setTimeout(rotarFraseAdminConfig, 40);
     }
 }
 
@@ -1614,4 +1652,36 @@ function cambiarAppWhatsAppConfig(val) {
     renderizarGestionWhatsAppAdmin();
 }
 window.cambiarAppWhatsAppConfig = cambiarAppWhatsAppConfig;
+
+/**
+ * Rota interactivamente la frase mostrada en la Configuración del Administrador
+ */
+function rotarFraseAdminConfig() {
+    let item = null;
+    if (Array.isArray(window.BANCO_FRASES_1000) && window.BANCO_FRASES_1000.length > 0) {
+        const idx = Math.floor(Math.random() * window.BANCO_FRASES_1000.length);
+        item = window.BANCO_FRASES_1000[idx];
+    }
+    const tEl = document.getElementById('admin-config-frase-texto');
+    const aEl = document.getElementById('admin-config-frase-autor');
+    const cEl = document.getElementById('admin-config-frase-cat');
+
+    if (item && tEl) {
+        tEl.textContent = `"${item.frase}"`;
+        if (aEl) aEl.textContent = `— ${item.autor}`;
+        if (cEl) cEl.textContent = item.categoria;
+    } else if (tEl) {
+        fetch('/api/quotes/wisdom')
+            .then(r => r.json())
+            .then(d => {
+                if (d && d.frase && tEl) {
+                    tEl.textContent = `"${d.frase}"`;
+                    if (aEl) aEl.textContent = `— ${d.autor}`;
+                    if (cEl) cEl.textContent = d.categoria;
+                }
+            })
+            .catch(() => {});
+    }
+}
+window.rotarFraseAdminConfig = rotarFraseAdminConfig;
 

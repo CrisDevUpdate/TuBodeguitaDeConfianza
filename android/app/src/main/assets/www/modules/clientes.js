@@ -1,6 +1,6 @@
 /**
  * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
- * Soporta variantes tipográficas comunes (ej: CLI-013 vs cli-o13, CLI-O13) y coincidencia por nombre.
+ * Soporta variantes tipográficas comunes (ej: CLI-013 vs cli-o13, CLI-O13) y coincidencia por ID.
  */
 function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
     const list = Array.isArray(eliminadosList) 
@@ -16,13 +16,25 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
 
     return list.some(e => {
         if (!e) return false;
+
+        // Si este cliente es el receptor / sobreviviente de una fusión, NUNCA debe considerarse eliminado
+        const fusionadoEnNorm = norm(e.fusionadoEn || e.idDestino || '');
+        if (fusionadoEnNorm && idNorm && (idNorm === fusionadoEnNorm || idNorm.endsWith(fusionadoEnNorm) || fusionadoEnNorm.endsWith(idNorm))) {
+            return false;
+        }
+
         const eIdNorm = norm(e.id || e.cedula || '');
+        // Coincidencia estricta por ID o cédula
         if (idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm))) return true;
         if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => norm(c) === idNorm)) return true;
-        const eNom = String(e.nombre || '').trim().toLowerCase();
-        if (nom && eNom && nom === eNom) return true;
+
         // Caso específico CLI-013 / cli-o13 / Johan
-        if ((idNorm === 'CLI013' || (nom && nom === 'johan')) && (eIdNorm === 'CLI013' || eNom === 'johan')) return true;
+        if ((idNorm === 'CLI013' || (nom && nom === 'johan' && idNorm.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (e.nombre && String(e.nombre).trim().toLowerCase() === 'johan'))) return true;
+
+        // Si fue una fusión o unificación, JAMÁS comparar solo por nombre de pila, porque el cliente sobreviviente suele llamarse igual (ej: Rebeca)
+        const esFusion = e.motivo === 'FUSIÓN / UNIFICACIÓN' || Boolean(e.fusionadoEn) || Boolean(e.idDestino);
+        if (esFusion) return false;
+
         return false;
     });
 }
@@ -185,12 +197,6 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
                 u.clienteId = cliente.id;
                 u.clienteVinculado = cliente.nombre;
             }
-            // Si el cliente en la lista oficial tiene deuda inicial y cliente tiene 0, respaldar la deuda
-            if (coEncontrado && Number(coEncontrado.deudaUSD || 0) > 0 && Number(cliente.deudaUSD || 0) === 0 && Number(cliente.deudaInicialUSD || 0) === 0) {
-                cliente.deudaUSD = Number(coEncontrado.deudaUSD);
-                cliente.deudaInicialUSD = Number(coEncontrado.deudaInicialUSD || coEncontrado.deudaUSD);
-                actualizado = true;
-            }
             if (actualizado) {
                 huboCambios = true;
                 if (sincronizarConNube && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
@@ -199,6 +205,93 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             }
         }
     });
+
+    // 3. RECUPERACIÓN Y RESOLUCIÓN EXPLÍCITA PARA REBECA:
+    // Asegurar que si existe un usuario Rebeca, su registro de cliente esté activo en AppState.clientes,
+    // desbloqueado de clientesEliminados (por error de fusión previa) y con saldo de deuda en 0.00 porque ya pagó.
+    const usuarioRebeca = usuariosList.find(u => u && u.nombre && String(u.nombre).trim().toLowerCase().includes('rebeca'));
+    if (usuarioRebeca) {
+        // Desbloquear Rebeca de clientesEliminados si fue ingresada por motivo de fusión
+        if (Array.isArray(AppState.clientesEliminados)) {
+            const tamAntes = AppState.clientesEliminados.length;
+            AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+                if (!e) return false;
+                const eNom = String(e.nombre || '').trim().toLowerCase();
+                const esReb = eNom === 'rebeca' || (e.id && String(e.id).toUpperCase() === 'CLI-019');
+                if (esReb && (e.motivo === 'FUSIÓN / UNIFICACIÓN' || e.fusionadoEn || e.idDestino)) {
+                    return false;
+                }
+                return true;
+            });
+            if (AppState.clientesEliminados.length !== tamAntes) huboCambios = true;
+        }
+
+        // Asegurar que exista un cliente activo para el usuario Rebeca
+        let cliReb = AppState.clientes.find(c => c && c.nombre && String(c.nombre).trim().toLowerCase().includes('rebeca'));
+        const rebCed = String(usuarioRebeca.cedula || usuarioRebeca.id || 'CLI-019');
+        if (!cliReb) {
+            cliReb = {
+                id: rebCed,
+                cedula: rebCed,
+                nombre: usuarioRebeca.nombre || 'Rebeca',
+                telefono: usuarioRebeca.telefono || '',
+                email: usuarioRebeca.email || '',
+                usuarioId: usuarioRebeca.id || rebCed,
+                deudaUSD: 0,
+                deudaInicialUSD: 0
+            };
+            AppState.clientes.push(cliReb);
+            huboCambios = true;
+        }
+
+        // Saldo de deuda 0.00 confirmado porque ya pagó
+        if (cliReb) {
+            if (cliReb.deudaUSD !== 0 || cliReb.deudaInicialUSD !== 0) {
+                cliReb.deudaUSD = 0;
+                cliReb.deudaInicialUSD = 0;
+                huboCambios = true;
+            }
+            if (!usuarioRebeca.clienteId || usuarioRebeca.clienteId !== cliReb.id) {
+                usuarioRebeca.clienteId = cliReb.id;
+                usuarioRebeca.clienteVinculado = cliReb.nombre;
+                huboCambios = true;
+            }
+        }
+
+        // Anular cualquier deuda transferida en clientesFusionados para Rebeca
+        if (Array.isArray(AppState.clientesFusionados)) {
+            AppState.clientesFusionados.forEach(cf => {
+                if (!cf) return;
+                const oNom = String(cf.nombreOrigen || '').toLowerCase();
+                const dNom = String(cf.nombreDestino || '').toLowerCase();
+                if (oNom.includes('rebeca') || dNom.includes('rebeca') || cf.idOrigen === 'CLI-019') {
+                    if (cf.deudaTransferidaUSD > 0) {
+                        cf.deudaTransferidaUSD = 0;
+                        huboCambios = true;
+                    }
+                }
+            });
+        }
+
+        // Liquidar y marcar como PAGADAS las ventas a crédito generadas para Rebeca
+        if (Array.isArray(AppState.ventas)) {
+            AppState.ventas.forEach(v => {
+                if (!v) return;
+                const vNom = String(v.clienteNombre || v.nombreCliente || '').toLowerCase();
+                const vCId = String(v.clienteId || '').toUpperCase();
+                const vId = String(v.id || '').toUpperCase();
+                if ((vNom.includes('rebeca') || vCId === 'CLI-019' || vId.includes('CLI-019') || vId.includes('CLI_019')) && (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.estado === 'PENDIENTE')) {
+                    v.estado = 'PAGADA';
+                    v.confirmada = true;
+                    huboCambios = true;
+                }
+            });
+        }
+    }
+
+    if (huboCambios && window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
 
     return huboCambios;
 }
@@ -2613,9 +2706,13 @@ function alCambiarSeleccionFusion() {
         </div>
     `;
 
-    // Calcular resultado unificado
+    // Calcular resultado unificado respetando opción de transferir o no la deuda
+    const chkTransferir = document.getElementById('fusion-transferir-deuda');
+    const transferirDeuda = chkTransferir ? chkTransferir.checked : true;
+    const deudaSecundaria = transferirDeuda ? estSec.saldoDeudaUSD : 0;
+
     const totalCompradoConsolidado = (estPrin.totalCompradoUSD + estSec.totalCompradoUSD).toFixed(2);
-    const deudaConsolidada = (estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2);
+    const deudaConsolidada = (estPrin.saldoDeudaUSD + deudaSecundaria).toFixed(2);
     const deudaVES = (Number(deudaConsolidada) * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const ventasTransferir = estSec.ventasCliente.length;
     const abonosTransferir = estSec.abonosCliente.length;
@@ -2635,10 +2732,10 @@ function alCambiarSeleccionFusion() {
                     <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Total Comprado Final</span>
                     <strong style="font-size:1.1rem; color:#15803d;">$${totalCompradoConsolidado}</strong>
                 </div>
-                <div style="background:#fff; border:1px solid #fecaca; border-radius:8px; padding:6px 12px; text-align:center;">
+                <div style="background:#fff; border:1px solid ${deudaConsolidada > 0 ? '#fecaca' : '#bbf7d0'}; border-radius:8px; padding:6px 12px; text-align:center;">
                     <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Nueva Deuda Consolidada</span>
-                    <strong style="font-size:1.1rem; color:#dc2626;">$${deudaConsolidada}</strong>
-                    <small style="font-size:0.72rem; color:#dc2626; display:block;">Bs. ${deudaVES}</small>
+                    <strong style="font-size:1.1rem; color:${deudaConsolidada > 0 ? '#dc2626' : '#15803d'};">$${deudaConsolidada}</strong>
+                    <small style="font-size:0.72rem; color:${deudaConsolidada > 0 ? '#dc2626' : '#15803d'}; display:block;">Bs. ${deudaVES}</small>
                 </div>
             </div>
         </div>
@@ -2673,10 +2770,16 @@ async function ejecutarFusionClientes() {
 
     const estPrin = calcularEstadoFinancieroCliente(idPrin);
     const estSec = calcularEstadoFinancieroCliente(idSec);
-    const deudaFinal = (estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2);
+
+    const chkTransferir = document.getElementById('fusion-transferir-deuda');
+    const transferirDeuda = chkTransferir ? chkTransferir.checked : true;
+    const deudaSecundariaATransferir = transferirDeuda
+        ? Number(estSec.saldoDeudaUSD || cliSec.deudaUSD || cliSec.deudaInicialUSD || 0)
+        : 0;
+    const deudaFinal = (estPrin.saldoDeudaUSD + deudaSecundariaATransferir).toFixed(2);
 
     let confirmado = false;
-    const mensajeConfirm = `¿Confirmas fusionar la cuenta de "${cliSec.nombre}" (${cliSec.id}) dentro de "${cliPrin.nombre}" (${cliPrin.id})?\n\n• Su deuda previa de $${estSec.saldoDeudaUSD.toFixed(2)} se sumará a ${cliPrin.nombre}.\n• La nueva deuda total consolidada será de $${deudaFinal}.\n• Todas las ventas y abonos se conservarán y se transferirán a ${cliPrin.nombre}.\n• El registro duplicado "${cliSec.nombre}" se retirará del directorio activo.`;
+    const mensajeConfirm = `¿Confirmas fusionar la cuenta de "${cliSec.nombre}" (${cliSec.id}) dentro de "${cliPrin.nombre}" (${cliPrin.id})?\n\n• Deuda a transferir: $${deudaSecundariaATransferir.toFixed(2)}${!transferirDeuda ? ' (Desmarcado: ya fue pagada)' : ''}.\n• La nueva deuda total consolidada será de $${deudaFinal}.\n• Todas las ventas y abonos se conservarán y se transferirán a ${cliPrin.nombre}.\n• El registro duplicado "${cliSec.nombre}" se retirará del directorio activo.`;
 
     if (typeof showCustomConfirm === 'function') {
         confirmado = await showCustomConfirm(
@@ -2684,9 +2787,11 @@ async function ejecutarFusionClientes() {
             `<div style="text-align:left; font-size:0.9rem; line-height:1.5;">
                 <p>¿Estás seguro de fusionar <strong>${cliSec.nombre} (${cliSec.id})</strong> dentro de <strong>${cliPrin.nombre} (${cliPrin.id})</strong>?</p>
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:10px 0;">
-                    <div>💵 <strong>Deuda a transferir:</strong> +$${estSec.saldoDeudaUSD.toFixed(2)}</div>
+                    <div>💵 <strong>Deuda a transferir:</strong> ${deudaSecundariaATransferir > 0 ? `+$${deudaSecundariaATransferir.toFixed(2)}` : '<span style="color:#15803d; font-weight:700;">$0.00 (Ya pagada / Sin deuda)</span>'}</div>
                     <div>📦 <strong>Compras a transferir:</strong> ${estSec.ventasCliente.length} ventas ($${estSec.totalCompradoUSD.toFixed(2)})</div>
-                    <div style="color:#dc2626; font-weight:700; margin-top:6px; font-size:1rem;">🔴 Deuda Final Consolidada: $${deudaFinal}</div>
+                    <div style="color:${deudaFinal > 0 ? '#dc2626' : '#15803d'}; font-weight:700; margin-top:6px; font-size:1rem;">
+                        ${deudaFinal > 0 ? `🔴 Deuda Final Consolidada: $${deudaFinal}` : '🟢 Cuenta Solvente y Al Día: $0.00'}
+                    </div>
                 </div>
                 <small style="color:var(--text-muted);">Esta acción es irreversible y garantiza la exactitud de los saldos.</small>
             </div>`,
@@ -2785,8 +2890,7 @@ async function ejecutarFusionClientes() {
     if (!cliPrin.email && cliSec.email) cliPrin.email = cliSec.email;
     if (!cliPrin.usuarioId && cliSec.usuarioId) cliPrin.usuarioId = cliSec.usuarioId;
 
-    // Transferir o crear venta de crédito para la deuda del cliente secundario
-    const deudaSecundariaATransferir = Number(estSec.saldoDeudaUSD || cliSec.deudaUSD || cliSec.deudaInicialUSD || 0);
+    // Transferir o crear venta de crédito para la deuda del cliente secundario (si el admin confirmó transferirla)
     const tieneVentaFiadoSec = ventasModificadas.some(v => v.id && String(v.id).startsWith('V_FIADO_'));
     if (deudaSecundariaATransferir > 0 && !tieneVentaFiadoSec) {
         const ventaCreditoTransferida = {
@@ -2844,13 +2948,16 @@ async function ejecutarFusionClientes() {
         nombreOrigen: cliSec.nombre,
         idDestino: cliPrin.id,
         nombreDestino: cliPrin.nombre,
-        deudaTransferidaUSD: estSec.saldoDeudaUSD,
+        deudaTransferidaUSD: deudaSecundariaATransferir,
         comprasTransferidasUSD: estSec.totalCompradoUSD,
         fecha: new Date().toISOString()
     });
 
-    // 9. Quitar al cliente secundario del directorio activo
+    // 9. Quitar al cliente secundario del directorio activo y asegurar presencia del cliente principal
     AppState.clientes = lista.filter(c => c.id !== cliSec.id);
+    if (!AppState.clientes.some(c => c.id === cliPrin.id)) {
+        AppState.clientes.push(cliPrin);
+    }
     if (typeof clientes !== 'undefined') clientes = AppState.clientes;
 
     // 10. Persistencia local y en la nube Firestore
@@ -2867,6 +2974,7 @@ async function ejecutarFusionClientes() {
             if (typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
                 window.InventoryApp.Firebase.eliminarCliente(cliSec.id, {
                     motivo: 'FUSIÓN / UNIFICACIÓN',
+                    nombre: cliSec.nombre,
                     fusionadoEn: cliPrin.id,
                     fecha: new Date().toISOString().replace('T', ' ').substring(0, 16)
                 }).catch(() => {});

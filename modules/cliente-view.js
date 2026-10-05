@@ -154,6 +154,17 @@ async function actualizarEncabezadoClienteDinamico() {
         }
     }
 
+    // Tarjeta de frases y curiosidades visible para todos los clientes; la descarga de TXT solo para el Administrador
+    const esAdmin = typeof esUsuarioAdmin === 'function'
+        ? esUsuarioAdmin(usuario)
+        : Boolean(usuario && (usuario.rol === 'admin' || usuario.rol === 'superadmin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin'));
+
+    if (esAdmin) {
+        document.body.classList.add('is-admin-mode');
+    } else {
+        document.body.classList.remove('is-admin-mode');
+    }
+
     const cardFrase = document.getElementById('cliente-frase-sabiduria-card');
     if (cardFrase) {
         cardFrase.style.setProperty('display', 'flex', 'important');
@@ -177,13 +188,10 @@ async function actualizarEncabezadoClienteDinamico() {
         elemCat.textContent = fraseActualSeleccionada.categoria;
     }
 
-    // Herramientas de frases (Otra / Leer TXT): SOLO visibles para el Administrador
-    const adminTools = document.getElementById('cliente-frase-admin-tools');
-    if (adminTools) {
-        const esAdmin = typeof esUsuarioAdmin === 'function'
-            ? esUsuarioAdmin(usuario)
-            : Boolean(usuario && (usuario.rol === 'admin' || usuario.rol === 'superadmin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin'));
-        adminTools.style.display = esAdmin ? 'inline-flex' : 'none';
+    // La opción de descargar el archivo TXT con las 1000 frases es exclusiva del Administrador
+    const elemDescargarTxt = document.getElementById('cliente-frase-descargar-txt');
+    if (elemDescargarTxt) {
+        elemDescargarTxt.style.display = esAdmin ? 'inline-flex' : 'none';
     }
 
     // 3. Puntos en Banner

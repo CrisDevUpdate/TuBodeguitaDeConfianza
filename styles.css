@@ -3124,6 +3124,14 @@ body.dark-mode .cliente-combos-carousel-wrapper {
         gap: 8px !important;
     }
 
+    body:not(.is-admin-mode) #cliente-frase-descargar-txt {
+        display: none !important;
+    }
+
+    body.is-admin-mode #cliente-frase-descargar-txt {
+        display: inline-flex !important;
+    }
+
     #cliente-frase-texto {
         font-size: 0.82rem !important;
         line-height: 1.35 !important;

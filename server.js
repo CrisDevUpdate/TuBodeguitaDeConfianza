@@ -1126,7 +1126,15 @@ app.get('/api/quotes/random', (req, res) => {
 // Serve static files from root directory
 app.use(express.static(__dirname));
 
-// Fallback to index.html
+// Guard: Unhandled API requests and static assets (scripts, maps, json, css, images) MUST return 404, never index.html
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/') || /\.(js|map|json|css|png|jpg|jpeg|webp|svg|gif|ico|woff|woff2|ttf|eot)$/i.test(req.path)) {
+    return res.status(404).json({ error: 'Recurso no encontrado', path: req.path });
+  }
+  next();
+});
+
+// Fallback to index.html ONLY for navigation / HTML routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
