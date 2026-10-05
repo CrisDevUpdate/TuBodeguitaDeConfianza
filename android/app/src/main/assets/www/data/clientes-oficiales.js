@@ -17,7 +17,7 @@ const CLIENTES_OFICIALES = [
     { id: 'CLI-010', nombre: 'Elvimar', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
     { id: 'CLI-011', nombre: 'Gaby', telefono: '', email: '', deudaUSD: 13.20, deudaInicialUSD: 13.20 },
     { id: 'CLI-012', nombre: 'Henry', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
-    { id: 'CLI-013', nombre: 'Johan', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
+    // CLI-013 (Johan) eliminado por motivo de duplicado / registro repetido
     { id: 'CLI-014', nombre: 'Juan', telefono: '', email: '', deudaUSD: 4.40, deudaInicialUSD: 4.40 },
     { id: 'CLI-015', nombre: 'Luis Criollo', telefono: '', email: '', deudaUSD: 1.40, deudaInicialUSD: 1.40 },
     { id: 'CLI-016', nombre: 'Luis Niño', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
