@@ -3999,6 +3999,10 @@ window.InventoryApp = window.InventoryApp || {};
                 AppState.pagosPorVerificar = pagos;
             }
 
+            if (typeof asegurarSolvenciaRebeca === 'function') {
+                asegurarSolvenciaRebeca();
+            }
+
             return true;
         } catch (err) {
             console.warn('[Firebase] Aviso sincronizando estado de cuenta de cliente:', err);
