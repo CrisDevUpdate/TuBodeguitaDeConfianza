@@ -456,6 +456,10 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.clientesEliminados = AppState.clientesEliminados || [];
         AppState.canjesPremios = AppState.canjesPremios || [];
 
+        if (typeof asegurarSolvenciaRebeca === 'function') {
+            asegurarSolvenciaRebeca();
+        }
+
         return true;
     }
 

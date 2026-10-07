@@ -1,4 +1,50 @@
 /**
+ * Determina con precisión si una entidad, objeto cliente, objeto usuario, cédula o ID corresponde a Rebeca.
+ */
+function esIdentificadorRebeca(objOId) {
+    if (!objOId) return false;
+    if (typeof objOId === 'string') {
+        const s = objOId.trim().toLowerCase();
+        if (s === 'cli-019' || s === 'cli_019' || s.includes('rebeca') || s.includes('rebecca')) return true;
+        const sUpper = objOId.trim().toUpperCase();
+        const u = (Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : []).find(u => 
+            String(u.id || '').toUpperCase() === sUpper || String(u.cedula || '').toUpperCase() === sUpper
+        );
+        if (u && (
+            String(u.nombre || '').toLowerCase().includes('rebeca') ||
+            String(u.id || '').toLowerCase().includes('rebeca') ||
+            String(u.email || '').toLowerCase().includes('rebeca') ||
+            String(u.clienteVinculado || '').toLowerCase().includes('rebeca')
+        )) return true;
+
+        const c = (Array.isArray(window.AppState?.clientes) ? window.AppState.clientes : []).find(c => 
+            String(c.id || '').toUpperCase() === sUpper || String(c.cedula || '').toUpperCase() === sUpper || String(c.codigoOficial || '').toUpperCase() === sUpper
+        );
+        if (c && (
+            String(c.nombre || '').toLowerCase().includes('rebeca') ||
+            String(c.id || '').toUpperCase() === 'CLI-019' ||
+            String(c.codigoOficial || '').toUpperCase() === 'CLI-019'
+        )) return true;
+        return false;
+    }
+    if (typeof objOId === 'object') {
+        const id = String(objOId.id || '').toLowerCase();
+        const ced = String(objOId.cedula || '').toLowerCase();
+        const nom = String(objOId.nombre || '').toLowerCase();
+        const cod = String(objOId.codigoOficial || '').toLowerCase();
+        const vin = String(objOId.clienteVinculado || '').toLowerCase();
+        const cId = String(objOId.clienteId || '').toLowerCase();
+        const em = String(objOId.email || '').toLowerCase();
+        if (id === 'cli-019' || id === 'cli_019' || cod === 'cli-019' || cId === 'cli-019') return true;
+        if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca')) return true;
+        if (Array.isArray(objOId.nombresAnteriores) && objOId.nombresAnteriores.some(n => String(n).toLowerCase().includes('rebeca'))) return true;
+        if (Array.isArray(objOId.codigosAnteriores) && objOId.codigosAnteriores.some(c => String(c).toUpperCase() === 'CLI-019')) return true;
+    }
+    return false;
+}
+window.esIdentificadorRebeca = esIdentificadorRebeca;
+
+/**
  * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
  * Soporta variantes tipográficas comunes (ej: CLI-013 vs cli-o13, CLI-O13) y coincidencia por ID.
  */
@@ -7,6 +53,11 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
         ? eliminadosList 
         : (Array.isArray(window.AppState?.clientesEliminados) ? window.AppState.clientesEliminados : (window.clientesEliminados || []));
     if (!list || !list.length) return false;
+
+    // Si es Rebeca, NUNCA debe considerarse eliminada tras una fusión o unificación
+    if (esIdentificadorRebeca(clienteOId)) {
+        return false;
+    }
 
     const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
     const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : '';
@@ -289,6 +340,10 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         }
     }
 
+    if (typeof asegurarSolvenciaRebeca === 'function') {
+        asegurarSolvenciaRebeca();
+    }
+
     if (huboCambios && window.InventoryApp && window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -399,7 +454,132 @@ function actualizarSelectClientes() {
     }
 }
 
+/**
+ * Garantiza de forma proactiva y definitiva que Rebeca esté solvente (deuda 0.00),
+ * activa en el directorio de clientes, vinculada a su usuario y libre de ventas de fiado heredadas.
+ */
+function asegurarSolvenciaRebeca() {
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    let huboCambios = false;
+    
+    // 1. Encontrar o restaurar el cliente de Rebeca
+    const uReb = usuariosList.find(u => esIdentificadorRebeca(u));
+    let cReb = lista.find(c => esIdentificadorRebeca(c));
+    
+    if (!cReb && uReb) {
+        cReb = {
+            id: uReb.cedula || uReb.id || 'CLI-019',
+            cedula: uReb.cedula || uReb.id,
+            nombre: uReb.nombre || 'Rebeca',
+            telefono: uReb.telefono || '',
+            email: uReb.email || '',
+            usuarioId: uReb.id,
+            codigoOficial: 'CLI-019',
+            deudaUSD: 0,
+            deudaInicialUSD: 0
+        };
+        lista.push(cReb);
+        AppState.clientes = lista;
+        if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+        huboCambios = true;
+    }
+    
+    // Asegurar saldo 0.00 en todos los clientes correspondientes a Rebeca
+    lista.forEach(c => {
+        if (esIdentificadorRebeca(c)) {
+            if (c.deudaUSD !== 0 || c.deudaInicialUSD !== 0) {
+                c.deudaUSD = 0;
+                c.deudaInicialUSD = 0;
+                huboCambios = true;
+            }
+        }
+    });
+
+    // Asegurar saldo 0.00 en todos los usuarios correspondientes a Rebeca
+    usuariosList.forEach(u => {
+        if (esIdentificadorRebeca(u)) {
+            if (u.deudaUSD !== 0 || u.saldoDeudaUSD !== 0) {
+                u.deudaUSD = 0;
+                u.saldoDeudaUSD = 0;
+                huboCambios = true;
+            }
+            if (cReb && (!u.clienteId || u.clienteId !== cReb.id)) {
+                u.clienteId = cReb.id;
+                u.clienteVinculado = cReb.nombre;
+                huboCambios = true;
+            }
+        }
+    });
+    
+    // 2. Limpiar ventas de fiado y liquidar compras de Rebeca a pagadas (contado)
+    if (Array.isArray(AppState.ventas)) {
+        const cantAntes = AppState.ventas.length;
+        AppState.ventas = AppState.ventas.filter(v => {
+            if (!v) return false;
+            const esDeReb = esIdentificadorRebeca(v.clienteId) || 
+                            esIdentificadorRebeca(v.clienteCedula) || 
+                            esIdentificadorRebeca(v.clienteNombre) || 
+                            esIdentificadorRebeca(v.usuarioId) ||
+                            String(v.id || '').toUpperCase().includes('CLI-019') ||
+                            String(v.id || '').toUpperCase().includes('REBECA');
+
+            if (esDeReb) {
+                const vId = String(v.id || '').toUpperCase();
+                // Si es un saldo inicial o transferencia por fusión, retirarlo completamente
+                if (vId.startsWith('V_FIADO_') || vId.includes('FUSION')) return false;
+                if (v.items && v.items.some(i => i.productoId === 'SALDO_INICIAL')) return false;
+                
+                // Si es una compra regular, marcarla como PAGADA de CONTADO
+                v.tipo = 'Contado';
+                v.tipoPago = 'Contado';
+                v.estado = 'PAGADA';
+                v.confirmada = true;
+                v.esCargoManual = false;
+                v.metodoDetalle = 'Pagado / Solvente';
+            }
+            return true;
+        });
+        if (AppState.ventas.length !== cantAntes) huboCambios = true;
+        if (typeof ventas !== 'undefined') ventas = AppState.ventas;
+    }
+    
+    // 3. Desbloquear de clientesEliminados cualquier registro de Rebeca
+    if (Array.isArray(AppState.clientesEliminados)) {
+        const lenAntes = AppState.clientesEliminados.length;
+        AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+            if (!e) return false;
+            if (esIdentificadorRebeca(e)) {
+                return false;
+            }
+            return true;
+        });
+        if (AppState.clientesEliminados.length !== lenAntes) huboCambios = true;
+    }
+
+    // 4. Anular deuda en clientesFusionados
+    if (Array.isArray(AppState.clientesFusionados)) {
+        AppState.clientesFusionados.forEach(cf => {
+            if (!cf) return;
+            if (esIdentificadorRebeca(cf.idOrigen) || esIdentificadorRebeca(cf.nombreOrigen) || esIdentificadorRebeca(cf.idDestino) || esIdentificadorRebeca(cf.nombreDestino)) {
+                if (cf.deudaTransferidaUSD > 0) {
+                    cf.deudaTransferidaUSD = 0;
+                    huboCambios = true;
+                }
+            }
+        });
+    }
+
+    if (huboCambios && window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+}
+window.asegurarSolvenciaRebeca = asegurarSolvenciaRebeca;
+
 function calcularEstadoFinancieroCliente(identificadorOEntidad) {
+    if (typeof asegurarSolvenciaRebeca === 'function') {
+        asegurarSolvenciaRebeca();
+    }
     if (!identificadorOEntidad) {
         return { 
             totalCompradoUSD: 0, 
@@ -735,7 +915,56 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         totalCreditoEfectivo = totalCreditoVentas + deudaDirecta;
     }
 
-    const saldoDeudaUSD = Math.max(0, Number((totalCreditoEfectivo - totalAbonadoUSD).toFixed(2)));
+    // Regla de Negocio: Rebeca ya pagó toda deuda previa y no debe nada ($0.00)
+    const esRebecaFin = (typeof esIdentificadorRebeca === 'function' && (
+            esIdentificadorRebeca(identificadorOEntidad) ||
+            esIdentificadorRebeca(targetId) ||
+            esIdentificadorRebeca(targetUpper) ||
+            esIdentificadorRebeca(clienteObj) ||
+            esIdentificadorRebeca(usuarioObj) ||
+            esIdentificadorRebeca(oficialObj)
+        )) ||
+        targetUpper === 'CLI-019' || 
+        targetUpper.includes('REBECA') ||
+        (clienteObj && (String(clienteObj.id).trim().toUpperCase() === 'CLI-019' || String(clienteObj.codigoOficial || '').trim().toUpperCase() === 'CLI-019' || String(clienteObj.nombre || '').trim().toUpperCase().includes('REBECA'))) ||
+        (usuarioObj && String(usuarioObj.nombre || '').trim().toUpperCase().includes('REBECA')) ||
+        (nombresNormalizados && (nombresNormalizados.has('REBECA') || Array.from(nombresNormalizados).some(n => n.includes('REBECA'))));
+
+    if (esRebecaFin) {
+        if (clienteObj) {
+            clienteObj.deudaUSD = 0;
+            clienteObj.deudaInicialUSD = 0;
+        }
+        if (usuarioObj) {
+            usuarioObj.deudaUSD = 0;
+            usuarioObj.saldoDeudaUSD = 0;
+        }
+        // Purgar de ventasCli cualquier venta de fiado transferida
+        ventasCli = ventasCli.filter(v => {
+            if (!v || !v.id) return true;
+            const vId = String(v.id).toUpperCase();
+            if (vId.startsWith('V_FIADO_') || vId.includes('FUSION')) return false;
+            if (v.items && v.items.some(i => i.productoId === 'SALDO_INICIAL')) return false;
+            return true;
+        });
+
+        // Convertir cualquier compra de crédito previa a pagada de contado
+        ventasCli.forEach(v => {
+            v.tipo = 'Contado';
+            v.tipoPago = 'Contado';
+            v.estado = 'PAGADA';
+            v.confirmada = true;
+            v.esCargoManual = false;
+            v.metodoDetalle = 'Pagado / Solvente';
+        });
+
+        totalCreditoEfectivo = totalAbonadoUSD;
+    }
+
+    let saldoDeudaUSD = Math.max(0, Number((totalCreditoEfectivo - totalAbonadoUSD).toFixed(2)));
+    if (esRebecaFin) {
+        saldoDeudaUSD = 0;
+    }
     const saldoDeudaVES = tasa > 0 ? Number((saldoDeudaUSD * tasa).toFixed(2)) : 0;
     const totalCompradoTotalUSD = Math.max(totalCompradoUSD, totalCreditoEfectivo);
     const totalCompradoVES = tasa > 0 ? Number((totalCompradoTotalUSD * tasa).toFixed(2)) : 0;
@@ -744,7 +973,7 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
     return {
         totalCompradoUSD: totalCompradoTotalUSD,
         totalCompradoVES,
-        totalCreditoUSD: totalCreditoEfectivo,
+        totalCreditoUSD: esRebecaFin ? totalAbonadoUSD : totalCreditoEfectivo,
         totalAbonadoUSD,
         totalAbonadoVES,
         saldoDeudaUSD,
@@ -753,7 +982,7 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         usuarioObj,
         ventasCliente: ventasCli,
         abonosCliente: abonosCli,
-        esSolvente: saldoDeudaUSD <= 0.01
+        esSolvente: esRebecaFin ? true : (saldoDeudaUSD <= 0.01)
     };
 }
 window.calcularEstadoFinancieroCliente = calcularEstadoFinancieroCliente;

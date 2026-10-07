@@ -740,6 +740,11 @@ function vaciarCarritoPOS() {
     }
 
     carrito = [];
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    if (desktopSel) desktopSel.value = 'Crédito';
+    if (mobileSel) mobileSel.value = 'Crédito';
+    sincronizarCondicionPago('pos-tipo-pago');
     renderizarCarrito();
     animarBarraCarritoMobile();
     if (typeof showCustomToast === 'function') {
@@ -940,7 +945,7 @@ function sincronizarClienteSelects(origenId) {
 function sincronizarCondicionPago(origenId) {
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
-    let val = 'Contado';
+    let val = 'Crédito';
 
     if (origenId === 'pos-tipo-pago' && desktopSel) {
         val = desktopSel.value;
@@ -1047,7 +1052,7 @@ function procesarVenta() {
     // Detectar si la condición de venta es Contado o Crédito
     const desktopCond = document.getElementById('pos-tipo-pago')?.value;
     const mobileCond = document.getElementById('pos-tipo-pago-mobile')?.value;
-    const condicion = desktopCond || mobileCond || 'Contado';
+    const condicion = desktopCond || mobileCond || 'Crédito';
 
     const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
     const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
@@ -1325,6 +1330,11 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
     } catch {}
 
     carrito = [];
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    if (desktopSel) desktopSel.value = 'Crédito';
+    if (mobileSel) mobileSel.value = 'Crédito';
+    sincronizarCondicionPago('pos-tipo-pago');
     cerrarModalConfirmacionCreditoPOS();
     cerrarDrawerCarritoMobile();
     renderizarCarrito();
@@ -1634,6 +1644,11 @@ async function ejecutarFinalizacionCheckoutPOS() {
     } catch {}
 
     carrito = [];
+    const desktopSel = document.getElementById('pos-tipo-pago');
+    const mobileSel = document.getElementById('pos-tipo-pago-mobile');
+    if (desktopSel) desktopSel.value = 'Crédito';
+    if (mobileSel) mobileSel.value = 'Crédito';
+    sincronizarCondicionPago('pos-tipo-pago');
     cerrarModalCheckoutPOS();
     cerrarDrawerCarritoMobile();
     renderizarCarrito();
@@ -2020,10 +2035,12 @@ if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             renderizarCustomClientePickersPOS('both');
+            sincronizarCondicionPago('pos-tipo-pago');
         });
     } else {
         setTimeout(() => {
             renderizarCustomClientePickersPOS('both');
+            sincronizarCondicionPago('pos-tipo-pago');
         }, 120);
     }
 }
