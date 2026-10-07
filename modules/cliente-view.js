@@ -1589,24 +1589,6 @@ function calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abon
     const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
     const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
 
-    const esRebDirecto = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(estadoFin))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-
-    if (esRebDirecto) {
-        return {
-            totalCompradoUSD: 0,
-            totalCompradoVES: 0,
-            totalAbonadoUSD: 0,
-            totalAbonadoVES: 0,
-            saldoDeudaUSD: 0,
-            saldoDeudaVES: 0,
-            esSolvente: true,
-            esAdminReal,
-            totalCompradoHistoricoUSD,
-            totalCompradoHistoricoVES
-        };
-    }
-
     if (esAdminReal) {
         return {
             totalCompradoUSD: totalCompradoHistoricoUSD,
@@ -1784,15 +1766,7 @@ async function renderizarEstadoCuentaCliente() {
     // de modo que no vea su acumulado histórico de gasto en la bodega.
     // El Administrador sí conserva la visibilidad de la cifra histórica acumulada real.
     const metricas = calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abonosAprobados);
-    let { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente, totalCompradoHistoricoUSD } = metricas;
-
-    const esRebSesion = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(clienteEncontrado) || esIdentificadorRebeca(cedula))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-    if (esRebSesion) {
-        saldoDeudaUSD = 0;
-        saldoDeudaVES = 0;
-        esSolvente = true;
-    }
+    const { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente, totalCompradoHistoricoUSD } = metricas;
 
     window.ultimoSaldoDeudaUSD = saldoDeudaUSD;
     window.ultimoSaldoDeudaVES = saldoDeudaVES;
@@ -2568,12 +2542,6 @@ function abrirModalReportarPagoCliente(opciones = {}) {
 function obtenerDeudaActualCliente(opciones = {}) {
     const usuario = (opciones && opciones.usuario) || (typeof AppState !== 'undefined' ? AppState.usuarioActual : null);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-
-    const esRebDirecto = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(opciones?.clienteId) || esIdentificadorRebeca(opciones?.clienteCedula))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-    if (esRebDirecto) {
-        return { saldoUSD: 0, saldoVES: 0, tasa };
-    }
 
     let saldoUSD = 0;
     let saldoVES = 0;

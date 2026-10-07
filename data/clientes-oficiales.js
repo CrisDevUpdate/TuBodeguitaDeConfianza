@@ -23,7 +23,7 @@ const CLIENTES_OFICIALES = [
     { id: 'CLI-016', nombre: 'Luis Niño', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
     { id: 'CLI-017', nombre: 'Naomi', telefono: '', email: '', deudaUSD: 1.20, deudaInicialUSD: 1.20 },
     { id: 'CLI-018', nombre: 'Niceth', telefono: '', email: '', deudaUSD: 4.10, deudaInicialUSD: 4.10 },
-    { id: 'CLI-019', nombre: 'Rebeca', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
+    { id: 'CLI-019', nombre: 'Rebeca', telefono: '', email: '', deudaUSD: 1.00, deudaInicialUSD: 1.00 },
     { id: 'CLI-020', nombre: 'Selenia', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },
     { id: 'CLI-021', nombre: 'Sorana', telefono: '', email: '', deudaUSD: 9.50, deudaInicialUSD: 9.50 },
     { id: 'CLI-022', nombre: 'Sr Aguilar', telefono: '', email: '', deudaUSD: 0.00, deudaInicialUSD: 0.00 },

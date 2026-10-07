@@ -382,12 +382,12 @@ window.InventoryApp = window.InventoryApp || {};
             const helperEliminado = typeof esClienteEliminadoOExcluido === 'function' 
                 ? esClienteEliminadoOExcluido 
                 : (c, list) => {
-                    const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                    const idNorm = String(c?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                    const nomNorm = String(c?.nombre || '').trim().toLowerCase();
                     return list.some(e => {
-                        const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                        const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
+                        const eIdNorm = String(e?.id || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                        const eNom = String(e?.nombre || '').trim().toLowerCase();
+                        return (idNorm && eIdNorm && idNorm === eIdNorm) || (nomNorm && eNom && nomNorm === eNom);
                     });
                 };
 
@@ -455,10 +455,6 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.eliminaciones = AppState.eliminaciones || [];
         AppState.clientesEliminados = AppState.clientesEliminados || [];
         AppState.canjesPremios = AppState.canjesPremios || [];
-
-        if (typeof asegurarSolvenciaRebeca === 'function') {
-            asegurarSolvenciaRebeca();
-        }
 
         return true;
     }
