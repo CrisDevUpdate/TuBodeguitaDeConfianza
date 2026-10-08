@@ -2263,6 +2263,23 @@ function ejecutarCopiarInfoPortapapeles() {
 }
 window.ejecutarCopiarInfoPortapapeles = ejecutarCopiarInfoPortapapeles;
 
+/**
+ * Abre el formulario para redactar y emitir una Notificación In-App dirigida al cliente seleccionado
+ */
+function ejecutarEnvioNotificacionInAppDesdeModal() {
+    const ctx = window._ctxEnvioInfoActivo || (typeof obtenerDatosContextoCliente360 === 'function' ? obtenerDatosContextoCliente360() : null);
+    const cid = (ctx && ctx.cliente && ctx.cliente.id) || window.clienteSeleccionadoId;
+    cerrarModalEnviarInfo();
+    if (typeof abrirModalEnviarNotificacionCliente === 'function') {
+        abrirModalEnviarNotificacionCliente(cid);
+    } else if (window.abrirModalEnviarNotificacionCliente) {
+        window.abrirModalEnviarNotificacionCliente(cid);
+    } else if (window.InventoryApp?.Notifications?.abrirModalEnviar) {
+        window.InventoryApp.Notifications.abrirModalEnviar(cid);
+    }
+}
+window.ejecutarEnvioNotificacionInAppDesdeModal = ejecutarEnvioNotificacionInAppDesdeModal;
+
 function copiarFallbackTexto(texto, montoBsStr) {
     const ta = document.createElement('textarea');
     ta.value = texto;

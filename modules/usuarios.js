@@ -235,6 +235,17 @@ function configurarVistasPorRol(usuario) {
         if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
         if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+
+        // Consulta de Notificaciones In-App Dirigidas al Cliente (Recepción In-App prominente)
+        setTimeout(() => {
+            if (typeof verificarYMostrarNotificacionesPendientesCliente === 'function') {
+                verificarYMostrarNotificacionesPendientesCliente(usuario);
+            } else if (window.verificarYMostrarNotificacionesPendientesCliente) {
+                window.verificarYMostrarNotificacionesPendientesCliente(usuario);
+            } else if (window.InventoryApp?.Notifications?.verificarPendientesCliente) {
+                window.InventoryApp.Notifications.verificarPendientesCliente(usuario);
+            }
+        }, 600);
     }
 }
 

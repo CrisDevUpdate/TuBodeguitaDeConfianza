@@ -241,6 +241,11 @@ window.InventoryApp = window.InventoryApp || {};
                     localStorage.setItem(CACHE_USUARIOS_KEY, JSON.stringify(AppState.usuarios));
                 } catch (uErr) {}
             }
+            if (Array.isArray(AppState.notificaciones) && AppState.notificaciones.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_cache_notificaciones_v1', JSON.stringify(AppState.notificaciones));
+                } catch (nErr) {}
+            }
 
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
@@ -456,6 +461,17 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.eliminaciones = AppState.eliminaciones || [];
         AppState.clientesEliminados = AppState.clientesEliminados || [];
         AppState.canjesPremios = AppState.canjesPremios || [];
+
+        if (!Array.isArray(AppState.notificaciones) || AppState.notificaciones.length === 0) {
+            try {
+                const rawN = localStorage.getItem('bodeguita_cache_notificaciones_v1');
+                if (rawN) {
+                    const parsedN = JSON.parse(rawN);
+                    if (Array.isArray(parsedN)) AppState.notificaciones = parsedN;
+                }
+            } catch (e) {}
+            AppState.notificaciones = AppState.notificaciones || [];
+        }
 
         if (typeof asegurarSolvenciaRebeca === 'function') {
             asegurarSolvenciaRebeca();

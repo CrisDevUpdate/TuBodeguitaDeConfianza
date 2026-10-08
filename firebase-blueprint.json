@@ -181,6 +181,10 @@
         "titulo": "string",
         "mensaje": "string",
         "tipo": "string",
+        "tipo_destinatario": "string",
+        "id_cliente": "string",
+        "prioridad": "string",
+        "leido": "boolean",
         "leida": "boolean",
         "fecha": "string",
         "updatedAt": "string"

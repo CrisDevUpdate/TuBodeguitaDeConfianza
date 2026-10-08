@@ -61,28 +61,33 @@
         let resultado = [];
 
         if (esUsuarioAdmin()) {
-            // El administrador ve las notificaciones de gestión (pagos reportados, ventas, créditos, auditorías, etc.)
-            resultado = lista.filter(n => n.paraCliente !== true || n.paraAdmin === true);
+            // El administrador ve las notificaciones de gestión (pagos reportados, ventas, créditos, auditorías, etc.) y avisos enviados a clientes
+            resultado = lista;
         } else if (esUsuarioCliente()) {
             const miCedula = String(usuario.cedula || usuario.id || '').trim().toLowerCase();
             const miNombre = String(usuario.nombre || '').trim().toLowerCase();
 
             resultado = lista.filter(n => {
-                const notifClienteId = String(n.clienteId || n.clienteCedula || '').trim().toLowerCase();
+                const notifClienteId = String(n.id_cliente || n.clienteId || n.clienteCedula || '').trim().toLowerCase();
                 const notifClienteNom = String(n.clienteNombre || '').trim().toLowerCase();
                 const esMio = (notifClienteId && notifClienteId === miCedula) || 
                               (notifClienteNom && notifClienteNom === miNombre);
 
                 if (!esMio) return false;
 
-                // Debe ser estrictamente una notificación de aprobación de su transacción
+                // 1. Notificaciones In-App dirigidas a este cliente (avisos, recordatorios, promociones)
+                if (n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || (n.paraCliente === true && n.tipo !== 'aprobacion')) {
+                    return true;
+                }
+
+                // 2. Debe ser estrictamente una notificación de aprobación de su transacción
                 const esAprobacion = n.tipo === 'aprobacion' || 
                                      n.subTipo === 'aprobacion_admin' || 
                                      n.tipo === 'pago_aprobado' ||
                                      (String(n.titulo || '').toLowerCase().includes('aprobad') && !String(n.titulo || '').toLowerCase().includes('pendiente')) ||
                                      (String(n.mensaje || '').toLowerCase().includes('aprobó') || String(n.mensaje || '').toLowerCase().includes('aprobado') || String(n.mensaje || '').toLowerCase().includes('conciliado'));
 
-                // Excluir cualquier alerta administrativa (créditos dados, reportes pendientes, comentarios, inventario)
+                // Excluir cualquier alerta administrativa interna
                 const esAlertaAdmin = n.tipo === 'credito' || 
                                       n.tipo === 'inventario' || 
                                       n.tipo === 'sistema' ||
@@ -171,15 +176,28 @@
             AppState.notificaciones = [];
         }
 
+        const idCli = datos.id_cliente || datos.clienteId || null;
+        const esClienteDest = datos.tipo_destinatario === 'CLIENTE' || datos.paraCliente === true || (!datos.paraAdmin && Boolean(idCli) && datos.tipo === 'cliente_inapp');
+        const tipoDest = datos.tipo_destinatario || (esClienteDest ? 'CLIENTE' : 'ADMIN');
         const esAprob = datos.tipo === 'aprobacion' || datos.subTipo === 'aprobacion_admin';
+        const prioridadVal = String(datos.prioridad || (datos.tipo === 'pago' ? 'PAGO' : (datos.tipo === 'inventario' ? 'URGENTE' : 'INFO'))).toUpperCase();
+        const leidoVal = datos.leido !== undefined ? Boolean(datos.leido) : (datos.leida !== undefined ? Boolean(datos.leida) : false);
+
         const nuevaNotif = {
             id: datos.id || ('notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
-            tipo: datos.tipo || 'sistema', // 'aprobacion', 'pago', 'credito', 'comentario', 'venta', 'inventario', 'sistema'
-            subTipo: datos.subTipo || (esAprob ? 'aprobacion_admin' : (datos.subTipo || null)),
-            titulo: datos.titulo || (esAprob ? 'Transacción Aprobada' : 'Notificación del Sistema'),
-            mensaje: datos.mensaje,
-            clienteId: datos.clienteId || null,
+            tipo_destinatario: tipoDest, // 'ADMIN' o 'CLIENTE'
+            id_cliente: idCli,           // ID o Cédula del cliente (obligatorio si CLIENTE)
+            clienteId: idCli,            // retrocompatibilidad
             clienteNombre: datos.clienteNombre || null,
+            leido: leidoVal,             // booleano requerido
+            leida: leidoVal,             // retrocompatibilidad
+            prioridad: prioridadVal,     // 'INFO', 'PAGO' o 'URGENTE'
+            tipoAviso: datos.tipoAviso || datos.tipo_aviso || (prioridadVal === 'PAGO' ? 'Recordatorio de Pago' : 'Aviso General'),
+            tipo: datos.tipo || (tipoDest === 'CLIENTE' ? 'cliente_inapp' : (esAprob ? 'aprobacion' : 'sistema')),
+            subTipo: datos.subTipo || (esAprob ? 'aprobacion_admin' : (tipoDest === 'CLIENTE' ? 'aviso_admin' : null)),
+            titulo: datos.titulo || (tipoDest === 'CLIENTE' ? 'Aviso de la Tienda' : (esAprob ? 'Transacción Aprobada' : 'Notificación del Sistema')),
+            mensaje: datos.mensaje,
+            emisor: datos.emisor || (esUsuarioAdmin() ? (AppState.usuarioActual?.nombre || 'Administración') : 'Sistema'),
             montoUSD: Number(datos.montoUSD || 0),
             montoVES: Number(datos.montoVES || 0),
             esDivisasUSD: Boolean(datos.esDivisasUSD),
@@ -189,10 +207,11 @@
             estadoPago: datos.estadoPago || null,
             fecha: datos.fecha || new Date().toISOString().replace('T', ' ').substring(0, 16),
             timestamp: datos.timestamp || Date.now(),
-            leida: datos.leida !== undefined ? Boolean(datos.leida) : false,
-            paraCliente: datos.paraCliente !== undefined ? Boolean(datos.paraCliente) : esAprob,
-            paraAdmin: datos.paraAdmin !== undefined ? Boolean(datos.paraAdmin) : !esAprob,
-            destino: datos.destino || (esAprob ? { tab: 'cliente-cuenta' } : { tab: 'pos' })
+            paraCliente: tipoDest === 'CLIENTE' || Boolean(datos.paraCliente),
+            paraAdmin: tipoDest === 'ADMIN' || Boolean(datos.paraAdmin),
+            destino: datos.destino || (tipoDest === 'CLIENTE' ? { tab: 'cliente-cuenta' } : (esAprob ? { tab: 'cliente-cuenta' } : { tab: 'pos' })),
+            eliminada: false,
+            oculta: false
         };
 
         // Evitar duplicados idénticos: buscar si ya existe notificación para este pago/abono/transacción
@@ -264,8 +283,9 @@
     function marcarNotificacionLeida(id, evitarRender = false) {
         if (!Array.isArray(AppState.notificaciones)) return;
         const notif = AppState.notificaciones.find(n => n.id === id);
-        if (notif && !notif.leida) {
+        if (notif && (!notif.leida || !notif.leido)) {
             notif.leida = true;
+            notif.leido = true;
             if (window.InventoryApp?.Persistence?.guardar) {
                 window.InventoryApp.Persistence.guardar(true);
             }
@@ -288,6 +308,7 @@
 
         listaUsuario.forEach(n => { 
             n.leida = true; 
+            n.leido = true;
             if (window.InventoryApp?.Firebase?.marcarNotificacionLeida) {
                 window.InventoryApp.Firebase.marcarNotificacionLeida(n.id).catch(() => {});
             }
@@ -633,6 +654,664 @@
     };
 
     /**
+     * =========================================================================
+     * PANEL ADMINISTRATIVO: ENVÍO DE NOTIFICACIONES IN-APP DIRIGIDAS A CLIENTES
+     * =========================================================================
+     */
+
+    /**
+     * Abre el modal del Administrador para redactar y emitir una notificación dirigida a un cliente
+     */
+    function abrirModalEnviarNotificacionCliente(clienteIdPreseleccionado = null) {
+        let modal = document.getElementById('modal-enviar-notificacion-cliente');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-enviar-notificacion-cliente';
+            modal.className = 'modal-overlay';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
+            modal.innerHTML = `
+                <div class="card" style="width:100%; max-width:560px; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 30px -5px rgba(0,0,0,0.35); background:var(--bg-card);">
+                    <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="display:inline-flex; width:34px; height:34px; border-radius:8px; background:#e0f2fe; color:#0284c7; align-items:center; justify-content:center; font-size:1.1rem;">
+                                <i class="fas fa-paper-plane"></i>
+                            </span>
+                            <div>
+                                <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">Enviar Notificación In-App a Cliente</h3>
+                                <small style="color:var(--text-muted); font-size:0.78rem;">El cliente recibirá este aviso en pantalla de forma prominente al abrir la app</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalEnviarNotificacionCliente()" title="Cerrar (X)" style="border-radius:50%; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center;">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    
+                    <form onsubmit="enviarNotificacionACliente(event)" style="padding:20px; max-height:80vh; overflow-y:auto;">
+                        <!-- 1. Buscador y Selector de Cliente -->
+                        <div class="form-group" style="margin-bottom:14px;">
+                            <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
+                                Cliente Destinatario <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="text" id="notif-form-buscar-cliente" class="form-control" placeholder="🔍 Filtrar por nombre o cédula..." style="margin-bottom:8px; font-size:0.88rem;" oninput="filtrarOpcionesClientesNotif(this.value)">
+                            <select id="notif-form-select-cliente" class="form-control" required style="font-size:0.88rem; font-weight:600;" onchange="actualizarInfoClienteSeleccionadoNotif(this.value)">
+                                <option value="">-- Selecciona un cliente --</option>
+                            </select>
+                            <div id="notif-form-cliente-kpi" style="margin-top:6px; font-size:0.8rem; display:none; padding:8px 12px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color);"></div>
+                        </div>
+
+                        <!-- 2. Prioridad y Tipo de Aviso -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                            <div class="form-group">
+                                <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
+                                    Prioridad <span style="color:#ef4444;">*</span>
+                                </label>
+                                <select id="notif-form-prioridad" class="form-control" required style="font-size:0.88rem;">
+                                    <option value="INFO">🟢 INFO (Informativa)</option>
+                                    <option value="PAGO">🟡 PAGO (Recordatorio)</option>
+                                    <option value="URGENTE">🔴 URGENTE (Prioritaria)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
+                                    Tipo de Aviso
+                                </label>
+                                <select id="notif-form-tipo-aviso" class="form-control" style="font-size:0.88rem;" onchange="sugerirPlantillaPorTipoAviso(this.value)">
+                                    <option value="Recordatorio de Pago">Recordatorio de Pago</option>
+                                    <option value="Promoción">Promoción / Oferta</option>
+                                    <option value="Aviso General">Aviso General</option>
+                                    <option value="Estado de Cuenta">Estado de Cuenta</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 3. Botones de Plantillas Rápidas -->
+                        <div style="margin-bottom:14px;">
+                            <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">
+                                <i class="fas fa-bolt" style="color:#f59e0b;"></i> Plantillas rápidas de redacción:
+                            </label>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="aplicarPlantillaNotificacion('pago')" style="font-size:0.75rem; padding:3px 8px;">
+                                    💳 Cobro / Pago
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="aplicarPlantillaNotificacion('promocion')" style="font-size:0.75rem; padding:3px 8px;">
+                                    🏷️ Promoción
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="aplicarPlantillaNotificacion('aviso')" style="font-size:0.75rem; padding:3px 8px;">
+                                    📢 Comunicado
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" onclick="aplicarPlantillaNotificacion('urgente')" style="font-size:0.75rem; padding:3px 8px; color:#ef4444; border-color:#fca5a5;">
+                                    ⚠️ Urgente
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 4. Título -->
+                        <div class="form-group" style="margin-bottom:14px;">
+                            <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
+                                Título de la Alerta <span style="color:#ef4444;">*</span>
+                            </label>
+                            <input type="text" id="notif-form-titulo" class="form-control" placeholder="Ej: Recordatorio de Pago Pendiente" required style="font-size:0.9rem; font-weight:600;">
+                        </div>
+
+                        <!-- 5. Cuerpo del Mensaje -->
+                        <div class="form-group" style="margin-bottom:16px;">
+                            <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
+                                Mensaje a Mostrar en Pantalla <span style="color:#ef4444;">*</span>
+                            </label>
+                            <textarea id="notif-form-mensaje" class="form-control" rows="4" placeholder="Escribe el mensaje que el cliente leerá al abrir su pantalla..." required style="width:100%; font-size:0.9rem; line-height:1.5; padding:10px; border-radius:8px;"></textarea>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border-color); padding-top:14px;">
+                            <button type="button" class="btn btn-outline" onclick="cerrarModalEnviarNotificacionCliente()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="btn-enviar-notif-cliente-submit" style="font-weight:700;">
+                                <i class="fas fa-paper-plane"></i> Emitir Notificación
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Cerrar al hacer clic en el backdrop fuera de la tarjeta
+            modal.addEventListener('click', (ev) => {
+                if (ev.target === modal) cerrarModalEnviarNotificacionCliente();
+            });
+        }
+
+        poblarSelectClientesNotif(clienteIdPreseleccionado);
+        modal.style.display = 'flex';
+    }
+
+    /**
+     * Cierra el modal de envío de notificación a cliente
+     */
+    function cerrarModalEnviarNotificacionCliente() {
+        const modal = document.getElementById('modal-enviar-notificacion-cliente');
+        if (modal) modal.style.display = 'none';
+    }
+
+    /**
+     * Llena el selector de clientes en el formulario
+     */
+    function poblarSelectClientesNotif(preseleccionado = null) {
+        const select = document.getElementById('notif-form-select-cliente');
+        if (!select) return;
+
+        const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+        const clientesOrdenados = [...clientes].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+
+        select.innerHTML = '<option value="">-- Selecciona un cliente destinatario --</option>';
+
+        clientesOrdenados.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            const deudaUSD = Number(c.deudaUSD || 0);
+            const deudaStr = deudaUSD > 0.01 ? ` [Deuda: $${deudaUSD.toFixed(2)}]` : ' [Solvente]';
+            opt.textContent = `${c.nombre} (C.I. ${c.id})${deudaStr}`;
+            if (preseleccionado && String(c.id).toUpperCase() === String(preseleccionado).toUpperCase()) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+
+        if (preseleccionado) {
+            actualizarInfoClienteSeleccionadoNotif(preseleccionado);
+            aplicarPlantillaNotificacion('pago');
+        } else {
+            const kpi = document.getElementById('notif-form-cliente-kpi');
+            if (kpi) kpi.style.display = 'none';
+        }
+    }
+
+    /**
+     * Filtra dinámicamente las opciones del selector de cliente según la búsqueda
+     */
+    function filtrarOpcionesClientesNotif(query) {
+        const select = document.getElementById('notif-form-select-cliente');
+        if (!select) return;
+        const q = String(query || '').trim().toLowerCase();
+        const opts = select.querySelectorAll('option');
+        let primeroVisible = null;
+
+        opts.forEach((opt, idx) => {
+            if (idx === 0) return;
+            const txt = opt.textContent.toLowerCase();
+            const coincide = !q || txt.includes(q);
+            opt.style.display = coincide ? '' : 'none';
+            if (coincide && !primeroVisible) primeroVisible = opt;
+        });
+
+        if (q && primeroVisible) {
+            select.value = primeroVisible.value;
+            actualizarInfoClienteSeleccionadoNotif(primeroVisible.value);
+        }
+    }
+
+    /**
+     * Muestra resumen del cliente seleccionado (nombre, cédula y deuda actual)
+     */
+    function actualizarInfoClienteSeleccionadoNotif(clienteId) {
+        const kpi = document.getElementById('notif-form-cliente-kpi');
+        if (!kpi) return;
+        if (!clienteId) {
+            kpi.style.display = 'none';
+            return;
+        }
+
+        const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+        if (!cliente) {
+            kpi.style.display = 'none';
+            return;
+        }
+
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        let saldoDeudaUSD = 0;
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            const est = calcularEstadoFinancieroCliente(cliente.id);
+            saldoDeudaUSD = Number(est?.saldoDeudaUSD || 0);
+        } else {
+            saldoDeudaUSD = Number(cliente.deudaUSD || 0);
+        }
+        const saldoDeudaVES = saldoDeudaUSD * tasa;
+
+        kpi.style.display = 'block';
+        kpi.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <div>
+                    <strong><i class="fas fa-user-check" style="color:#0284c7; margin-right:4px;"></i> ${cliente.nombre}</strong>
+                    <span style="color:var(--text-muted); font-size:0.75rem;">(C.I. ${cliente.id})</span>
+                </div>
+                <div>
+                    <span style="font-weight:700; color:${saldoDeudaUSD > 0.01 ? '#b45309' : '#16a34a'};">
+                        ${saldoDeudaUSD > 0.01 ? `Deuda: $${saldoDeudaUSD.toFixed(2)} USD (Bs. ${saldoDeudaVES.toLocaleString('es-VE', {minimumFractionDigits:2})})` : 'Solvente ($0.00)'}
+                    </span>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Aplica plantillas de texto predefinidas para redactar más rápido
+     */
+    function aplicarPlantillaNotificacion(tipo) {
+        const selectCliente = document.getElementById('notif-form-select-cliente');
+        const selectPrioridad = document.getElementById('notif-form-prioridad');
+        const selectTipoAviso = document.getElementById('notif-form-tipo-aviso');
+        const inputTitulo = document.getElementById('notif-form-titulo');
+        const textareaMensaje = document.getElementById('notif-form-mensaje');
+
+        const clienteId = selectCliente?.value;
+        const cliente = clienteId ? (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase()) : null;
+        const nombreCliente = cliente ? cliente.nombre : 'Cliente';
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        let deudaUSD = 0;
+        if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
+            deudaUSD = Number(calcularEstadoFinancieroCliente(cliente.id)?.saldoDeudaUSD || 0);
+        } else if (cliente) {
+            deudaUSD = Number(cliente.deudaUSD || 0);
+        }
+        const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+
+        if (tipo === 'pago') {
+            if (selectPrioridad) selectPrioridad.value = 'PAGO';
+            if (selectTipoAviso) selectTipoAviso.value = 'Recordatorio de Pago';
+            if (inputTitulo) inputTitulo.value = 'Recordatorio de Pago Pendiente';
+            if (textareaMensaje) {
+                textareaMensaje.value = `Estimado(a) ${nombreCliente}, te saludamos cordialmente desde Tu Bodeguita de Confianza. Te recordamos que cuentas con un saldo pendiente de $${deudaUSD.toFixed(2)} USD (Bs. ${deudaVES}). Agradecemos conciliar tu abono vía Pago Móvil o en nuestra tienda para mantener tu crédito activo. ¡Muchas gracias por tu puntualidad!`;
+            }
+        } else if (tipo === 'promocion') {
+            if (selectPrioridad) selectPrioridad.value = 'INFO';
+            if (selectTipoAviso) selectTipoAviso.value = 'Promoción';
+            if (inputTitulo) inputTitulo.value = '¡Nuevas Ofertas y Promociones en Tu Bodeguita!';
+            if (textareaMensaje) {
+                textareaMensaje.value = `¡Hola ${nombreCliente}! Queremos invitarte a conocer nuestras nuevas ofertas y combos especiales disponibles esta semana. Pasa por nuestra tienda y aprovecha los mejores precios. ¡Te esperamos!`;
+            }
+        } else if (tipo === 'aviso') {
+            if (selectPrioridad) selectPrioridad.value = 'INFO';
+            if (selectTipoAviso) selectTipoAviso.value = 'Aviso General';
+            if (inputTitulo) inputTitulo.value = 'Aviso Importante para Nuestros Clientes';
+            if (textareaMensaje) {
+                textareaMensaje.value = `Estimado(a) ${nombreCliente}, te informamos que ahora puedes consultar tu estado de cuenta actualizado, verificar tus abonos y revisar promociones directamente desde nuestra aplicación. ¡Estamos a tu completa orden!`;
+            }
+        } else if (tipo === 'urgente') {
+            if (selectPrioridad) selectPrioridad.value = 'URGENTE';
+            if (selectTipoAviso) selectTipoAviso.value = 'Recordatorio de Pago';
+            if (inputTitulo) inputTitulo.value = 'Urgente: Regularización de Cuenta Requerida';
+            if (textareaMensaje) {
+                textareaMensaje.value = `Estimado(a) ${nombreCliente}, nos comunicamos para solicitarte regularizar a la brevedad tu saldo deudor pendiente de $${deudaUSD.toFixed(2)} USD en Tu Bodeguita de Confianza para evitar la suspensión temporal del beneficio de fiado. Agradecemos contactarnos pronto.`;
+            }
+        }
+    }
+
+    function sugerirPlantillaPorTipoAviso(tipoAviso) {
+        if (tipoAviso === 'Recordatorio de Pago' || tipoAviso === 'Estado de Cuenta') {
+            aplicarPlantillaNotificacion('pago');
+        } else if (tipoAviso === 'Promoción') {
+            aplicarPlantillaNotificacion('promocion');
+        } else if (tipoAviso === 'Aviso General') {
+            aplicarPlantillaNotificacion('aviso');
+        }
+    }
+
+    /**
+     * Procesa el formulario del Administrador y emite la notificación dirigida al cliente
+     */
+    function enviarNotificacionACliente(e) {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const selectCliente = document.getElementById('notif-form-select-cliente');
+        const selectPrioridad = document.getElementById('notif-form-prioridad');
+        const selectTipoAviso = document.getElementById('notif-form-tipo-aviso');
+        const inputTitulo = document.getElementById('notif-form-titulo');
+        const textareaMensaje = document.getElementById('notif-form-mensaje');
+        const btnSubmit = document.getElementById('btn-enviar-notif-cliente-submit');
+
+        const clienteId = selectCliente ? selectCliente.value.trim() : '';
+        const prioridad = selectPrioridad ? selectPrioridad.value : 'INFO';
+        const tipoAviso = selectTipoAviso ? selectTipoAviso.value : 'Aviso General';
+        const titulo = inputTitulo ? inputTitulo.value.trim() : '';
+        const mensaje = textareaMensaje ? textareaMensaje.value.trim() : '';
+
+        if (!clienteId) {
+            alert('Por favor selecciona el cliente destinatario de la notificación.');
+            if (selectCliente) selectCliente.focus();
+            return false;
+        }
+
+        if (!titulo || !mensaje) {
+            alert('El título y el cuerpo del mensaje son obligatorios.');
+            if (!titulo && inputTitulo) inputTitulo.focus();
+            else if (textareaMensaje) textareaMensaje.focus();
+            return false;
+        }
+
+        const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+        const clienteNombre = cliente ? cliente.nombre : clienteId;
+
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        let deudaUSD = 0;
+        if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
+            deudaUSD = Number(calcularEstadoFinancieroCliente(cliente.id)?.saldoDeudaUSD || 0);
+        } else if (cliente) {
+            deudaUSD = Number(cliente.deudaUSD || 0);
+        }
+        const deudaVES = deudaUSD * tasa;
+
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Emitiendo...';
+        }
+
+        try {
+            registrarNotificacion({
+                tipo_destinatario: 'CLIENTE',
+                id_cliente: clienteId,
+                clienteId: clienteId,
+                clienteNombre: clienteNombre,
+                tipo: 'cliente_inapp',
+                subTipo: 'aviso_admin',
+                tipoAviso: tipoAviso,
+                prioridad: prioridad,
+                titulo: titulo,
+                mensaje: mensaje,
+                leido: false,
+                leida: false,
+                paraCliente: true,
+                paraAdmin: true,
+                montoUSD: deudaUSD,
+                montoVES: deudaVES,
+                emisor: AppState.usuarioActual?.nombre || 'Administración'
+            });
+
+            cerrarModalEnviarNotificacionCliente();
+
+            if (window.InventoryApp?.Modal?.toast) {
+                window.InventoryApp.Modal.toast(`Notificación in-app emitida exitosamente a ${clienteNombre}`, 'success');
+            } else {
+                alert(`Notificación in-app emitida exitosamente a ${clienteNombre}`);
+            }
+
+            const vista = document.getElementById('notificaciones');
+            if (vista && vista.classList.contains('active')) {
+                renderizarNotificaciones(filtroActivo);
+            }
+        } finally {
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> Emitir Notificación';
+            }
+        }
+        return false;
+    }
+
+    /**
+     * =========================================================================
+     * INTERFAZ Y LÓGICA DEL CLIENTE: RECEPCIÓN IN-APP PROMINENTE Y ACTUALIZACIÓN
+     * =========================================================================
+     */
+
+    /**
+     * Consulta las notificaciones pendientes dirigidas a un cliente específico
+     */
+    async function consultarNotificacionesPendientesCliente(clienteId) {
+        if (!clienteId) return [];
+        const cId = String(clienteId).trim().toLowerCase();
+
+        // 1. Si Firebase está disponible, consultar en Firestore
+        if (window.InventoryApp?.Firebase?.consultarNotificacionesPendientesCliente) {
+            try {
+                const remotas = await window.InventoryApp.Firebase.consultarNotificacionesPendientesCliente(clienteId);
+                if (Array.isArray(remotas) && remotas.length > 0) {
+                    if (!Array.isArray(AppState.notificaciones)) AppState.notificaciones = [];
+                    remotas.forEach(r => {
+                        const idx = AppState.notificaciones.findIndex(n => n.id === r.id);
+                        if (idx >= 0) {
+                            AppState.notificaciones[idx] = { ...AppState.notificaciones[idx], ...r };
+                        } else {
+                            AppState.notificaciones.unshift(r);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('[Notificaciones] Error en consulta remota:', err);
+            }
+        }
+
+        // 2. Filtrar pendientes en AppState.notificaciones
+        const lista = Array.isArray(AppState.notificaciones) ? AppState.notificaciones : [];
+        const pendientes = lista.filter(n => {
+            const notifCliId = String(n.id_cliente || n.clienteId || n.clienteCedula || '').trim().toLowerCase();
+            const esMio = (notifCliId === cId);
+            const noLeido = (n.leido === false || n.leida === false);
+            const esDirigida = n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || n.paraCliente === true;
+            return esMio && noLeido && esDirigida && !n.eliminada && !n.oculta;
+        });
+
+        // Ordenar por prioridad (URGENTE > PAGO > INFO) y fecha descendente
+        const pesos = { URGENTE: 3, PAGO: 2, INFO: 1 };
+        pendientes.sort((a, b) => {
+            const pA = pesos[String(a.prioridad || '').toUpperCase()] || 1;
+            const pB = pesos[String(b.prioridad || '').toUpperCase()] || 1;
+            if (pA !== pB) return pB - pA;
+            return (b.timestamp || 0) - (a.timestamp || 0);
+        });
+
+        return pendientes;
+    }
+
+    /**
+     * Revisa al iniciar sesión o cargar la app si el cliente tiene notificaciones in-app
+     * pendientes y las presenta de forma prominente en pantalla.
+     */
+    let _notifInAppEnCurso = false;
+    async function verificarYMostrarNotificacionesPendientesCliente(usuario) {
+        if (!usuario) usuario = window.AppState?.usuarioActual;
+        if (!usuario || _notifInAppEnCurso) return;
+
+        const rol = String(usuario.rol || '').trim().toLowerCase();
+        const idDoc = String(usuario.cedula || usuario.id || '').trim();
+        if (rol === 'admin' || rol === 'superadmin' || idDoc === 'SuperAdmin') return;
+
+        try {
+            _notifInAppEnCurso = true;
+            const pendientes = await consultarNotificacionesPendientesCliente(idDoc);
+            if (pendientes && pendientes.length > 0) {
+                mostrarModalNotificacionInAppCliente(pendientes, 0);
+            }
+        } finally {
+            _notifInAppEnCurso = false;
+        }
+    }
+
+    /**
+     * Muestra el modal prominente in-app para el cliente
+     */
+    function mostrarModalNotificacionInAppCliente(listaNotificaciones, indice = 0) {
+        if (!Array.isArray(listaNotificaciones) || listaNotificaciones.length === 0) return;
+        if (indice >= listaNotificaciones.length) {
+            cerrarModalNotificacionInAppCliente();
+            return;
+        }
+
+        const notif = listaNotificaciones[indice];
+        const total = listaNotificaciones.length;
+
+        let modal = document.getElementById('modal-notificacion-inapp-cliente');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modal-notificacion-inapp-cliente';
+            modal.className = 'modal-overlay';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(4px);';
+            document.body.appendChild(modal);
+
+            // Click fuera de la tarjeta cierra el modal
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) cerrarModalNotificacionInAppCliente();
+            });
+        }
+
+        const prioridad = String(notif.prioridad || 'INFO').toUpperCase();
+        let configPrioridad = {
+            badgeColor: '#0284c7',
+            badgeBg: '#e0f2fe',
+            badgeIcon: 'fa-circle-info',
+            badgeLabel: notif.tipoAviso || 'INFORMACIÓN',
+            borderColor: '#38bdf8'
+        };
+
+        if (prioridad === 'URGENTE') {
+            configPrioridad = {
+                badgeColor: '#dc2626',
+                badgeBg: '#fee2e2',
+                badgeIcon: 'fa-triangle-exclamation',
+                badgeLabel: 'URGENTE',
+                borderColor: '#ef4444'
+            };
+        } else if (prioridad === 'PAGO') {
+            configPrioridad = {
+                badgeColor: '#b45309',
+                badgeBg: '#fef3c7',
+                badgeIcon: 'fa-hand-holding-dollar',
+                badgeLabel: 'RECORDATORIO DE PAGO',
+                borderColor: '#f59e0b'
+            };
+        }
+
+        // Obtener saldo del cliente si es aviso de pago
+        let bloqueSaldoHtml = '';
+        if (prioridad === 'PAGO' || (notif.tipoAviso || '').toLowerCase().includes('pago')) {
+            const usuarioSesion = window.AppState?.usuarioActual;
+            const cId = usuarioSesion ? (usuarioSesion.cedula || usuarioSesion.id) : notif.id_cliente;
+            const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(cId).toUpperCase());
+            const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+            let deudaUSD = 0;
+            if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
+                const est = calcularEstadoFinancieroCliente(cliente.id);
+                deudaUSD = Number(est?.saldoDeudaUSD || 0);
+            } else if (cliente) {
+                deudaUSD = Number(cliente.deudaUSD || 0);
+            } else if (notif.montoUSD > 0) {
+                deudaUSD = Number(notif.montoUSD);
+            }
+            const deudaVES = deudaUSD * tasa;
+
+            if (deudaUSD > 0.01) {
+                bloqueSaldoHtml = `
+                    <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin:14px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:#92400e; display:block;">Tu Saldo Pendiente Actual:</span>
+                            <span style="font-size:1.15rem; font-weight:800; color:#b45309;">$${deudaUSD.toFixed(2)} USD</span>
+                            <span style="font-size:0.85rem; font-weight:600; color:#78350f; margin-left:4px;">(Bs. ${deudaVES.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})})</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="irAEstadoCuentaDesdeInApp('${notif.id}', ${indice}, ${total})" style="font-weight:700; font-size:0.8rem;">
+                            <i class="fas fa-file-invoice-dollar"></i> Ver Mi Cuenta
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        modal.innerHTML = `
+            <div class="card" style="width:100%; max-width:520px; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 35px -5px rgba(0,0,0,0.4); border-top:5px solid ${configPrioridad.borderColor}; background:var(--bg-card); animation:modalInAppScale 0.22s ease-out;">
+                <!-- Cabecera -->
+                <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="background:${configPrioridad.badgeBg}; color:${configPrioridad.badgeColor}; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:14px; text-transform:uppercase; display:inline-flex; align-items:center; gap:5px;">
+                            <i class="fas ${configPrioridad.badgeIcon}"></i> ${configPrioridad.badgeLabel}
+                        </span>
+                        ${total > 1 ? `<span style="font-size:0.75rem; color:var(--text-muted); background:var(--bg-main); padding:2px 8px; border-radius:10px; font-weight:600;">Aviso ${indice + 1} de ${total}</span>` : ''}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalNotificacionInAppCliente()" title="Cerrar (X)" style="border-radius:50%; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center;">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Contenido -->
+                <div style="padding:22px 20px;">
+                    <h3 style="margin:0 0 6px; font-size:1.25rem; color:var(--text-main); font-weight:800; line-height:1.3;">
+                        ${notif.titulo}
+                    </h3>
+                    <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-store" style="color:var(--primary-accent);"></i>
+                        <span>Tu Bodeguita de Confianza</span> • <span>${notif.fecha}</span>
+                    </div>
+
+                    <div style="background:var(--bg-main); border:1px solid var(--border-color); border-radius:10px; padding:16px; font-size:0.95rem; line-height:1.6; color:var(--text-main); white-space:pre-wrap; word-break:break-word;">
+${notif.mensaje}
+                    </div>
+
+                    ${bloqueSaldoHtml}
+                </div>
+
+                <!-- Pie de Acciones -->
+                <div style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); flex-wrap:wrap; gap:8px;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalNotificacionInAppCliente()">
+                        Cerrar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="aceptarYMarcarLeidaNotificacionInApp('${notif.id}', ${indice}, ${total})" style="font-weight:700; padding:8px 18px; font-size:0.9rem;">
+                        <i class="fas fa-check"></i> ${indice + 1 < total ? 'Aceptar y Siguiente' : 'Aceptar / Marcar como leído'}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+    }
+
+    /**
+     * Cierra el modal de notificación in-app del cliente
+     */
+    function cerrarModalNotificacionInAppCliente() {
+        const modal = document.getElementById('modal-notificacion-inapp-cliente');
+        if (modal) modal.style.display = 'none';
+    }
+
+    /**
+     * Marca la notificación in-app como leída y avanza a la siguiente si hay más
+     */
+    async function aceptarYMarcarLeidaNotificacionInApp(notifId, indiceActual, total) {
+        marcarNotificacionLeida(notifId, false);
+        const usuarioSesion = window.AppState?.usuarioActual;
+        const cId = usuarioSesion ? (usuarioSesion.cedula || usuarioSesion.id) : null;
+        
+        if (cId && indiceActual + 1 < total) {
+            const restantes = await consultarNotificacionesPendientesCliente(cId);
+            if (restantes && restantes.length > 0) {
+                mostrarModalNotificacionInAppCliente(restantes, 0);
+                return;
+            }
+        }
+        cerrarModalNotificacionInAppCliente();
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Notificación marcada como leída.', 'info');
+        }
+    }
+
+    /**
+     * Conduce al cliente a su Estado de Cuenta marcando la notificación como leída
+     */
+    function irAEstadoCuentaDesdeInApp(notifId, indiceActual, total) {
+        aceptarYMarcarLeidaNotificacionInApp(notifId, indiceActual, total);
+        if (typeof switchTab === 'function') {
+            switchTab('cliente-cuenta');
+        }
+        setTimeout(() => {
+            if (typeof renderizarEstadoCuentaCliente === 'function') {
+                renderizarEstadoCuentaCliente();
+            }
+        }, 120);
+    }
+
+    // Escuchar tecla Escape para cerrar ambos modales
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            cerrarModalNotificacionInAppCliente();
+            cerrarModalEnviarNotificacionCliente();
+        }
+    });
+
+    /**
      * Actualiza los contadores y badges visuales de notificaciones en el header y navbar
      * respetando el rol del usuario (clientes sólo cuentan sus transacciones aprobadas).
      */
@@ -955,7 +1634,38 @@
                         </div>
                     ` : listaFiltrada.map(n => {
                         const tiempoRel = formatearTiempoRelativo(n.timestamp);
-                        const noLeidaClase = !n.leida ? 'background:#f0fdf4; border-left:4px solid #16a34a; font-weight:600;' : 'background:var(--bg-card); border-left:4px solid #16a34a;';
+                        const esDirigida = n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || (n.paraCliente && n.tipo !== 'aprobacion');
+                        const prioridad = String(n.prioridad || (n.tipo === 'pago' ? 'PAGO' : 'INFO')).toUpperCase();
+
+                        let badgeColor = '#16a34a';
+                        let badgeBg = '#dcfce7';
+                        let badgeIcon = 'fa-circle-check';
+                        let badgeTexto = 'TRANSACCIÓN APROBADA';
+                        let borderColor = '#16a34a';
+
+                        if (esDirigida) {
+                            if (prioridad === 'URGENTE') {
+                                badgeColor = '#dc2626';
+                                badgeBg = '#fee2e2';
+                                badgeIcon = 'fa-triangle-exclamation';
+                                badgeTexto = 'URGENTE';
+                                borderColor = '#ef4444';
+                            } else if (prioridad === 'PAGO' || (n.tipoAviso || '').toLowerCase().includes('pago')) {
+                                badgeColor = '#b45309';
+                                badgeBg = '#fef3c7';
+                                badgeIcon = 'fa-hand-holding-dollar';
+                                badgeTexto = n.tipoAviso || 'RECORDATORIO DE PAGO';
+                                borderColor = '#f59e0b';
+                            } else {
+                                badgeColor = '#0284c7';
+                                badgeBg = '#e0f2fe';
+                                badgeIcon = 'fa-circle-info';
+                                badgeTexto = n.tipoAviso || 'INFORMACIÓN';
+                                borderColor = '#38bdf8';
+                            }
+                        }
+
+                        const noLeidaClase = !n.leida ? `background:var(--bg-card); border-left:4px solid ${borderColor}; font-weight:600;` : `background:var(--bg-card); border-left:4px solid ${borderColor}; opacity:0.85;`;
 
                         return `
                             <div class="card notificacion-card-item" 
@@ -963,36 +1673,51 @@
                                  style="${noLeidaClase}">
                                 
                                 <div class="notif-item-left-block">
-                                    <div class="notif-item-icon-box" style="background:#dcfce7; color:#16a34a;">
-                                        <i class="fas fa-circle-check"></i>
+                                    <div class="notif-item-icon-box" style="background:${badgeBg}; color:${badgeColor};">
+                                        <i class="fas ${badgeIcon}"></i>
                                     </div>
                                     <div class="notif-item-body">
                                         <div class="notif-item-header-meta">
-                                            <span style="background:#dcfce7; color:#16a34a; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
-                                                TRANSACCIÓN APROBADA
+                                            <span style="background:${badgeBg}; color:${badgeColor}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
+                                                <i class="fas ${badgeIcon}" style="font-size:0.68rem; margin-right:3px;"></i> ${badgeTexto}
                                             </span>
                                             <span style="font-size:0.8rem; color:var(--text-muted);">
                                                 <i class="fas fa-clock" style="font-size:0.75rem; margin-right:3px;"></i> ${tiempoRel} • ${n.fecha}
                                             </span>
-                                            ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;" title="Nueva"></span>` : ''}
+                                            ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${badgeColor};" title="Nueva / No leída"></span>` : `<span style="font-size:0.72rem; color:var(--text-muted);"><i class="fas fa-check"></i> Leída</span>`}
                                         </div>
-                                        <div class="notif-item-msg">
+                                        ${n.titulo && esDirigida ? `<h4 style="margin:4px 0 2px; font-size:0.95rem; font-weight:800; color:var(--text-main);">${n.titulo}</h4>` : ''}
+                                        <div class="notif-item-msg" style="white-space:pre-wrap;">
                                             ${n.mensaje}
                                         </div>
-                                        <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
-                                            ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas')) 
-                                                ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>` 
-                                                : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
-                                            ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
-                                        </div>
+                                        ${(Number(n.montoUSD || 0) > 0 || Number(n.montoVES || 0) > 0) ? `
+                                            <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap; margin-top:4px;">
+                                                ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas')) 
+                                                    ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>` 
+                                                    : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
+                                                ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 </div>
 
-                                <div class="notif-item-actions-block">
-                                    <span class="btn btn-sm btn-outline" style="padding:6px 12px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; pointer-events:none; color:#16a34a; border-color:#86efac;">
-                                        <span>Ver Estado de Cuenta</span>
-                                        <i class="fas fa-arrow-right"></i>
-                                    </span>
+                                <div class="notif-item-actions-block" onclick="event.stopPropagation();">
+                                    ${!n.leida ? `
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline" 
+                                                onclick="marcarNotificacionLeida('${n.id}'); renderizarNotificaciones(filtroActivo); event.stopPropagation();" 
+                                                style="padding:6px 12px; font-size:0.8rem; font-weight:700; color:${badgeColor}; border-color:${borderColor};">
+                                            <i class="fas fa-check"></i> <span>Marcar Leída</span>
+                                        </button>
+                                    ` : ''}
+                                    ${(prioridad === 'PAGO' || (n.tipoAviso || '').toLowerCase().includes('pago')) ? `
+                                        <button type="button" 
+                                                class="btn btn-sm btn-primary" 
+                                                onclick="switchTab('cliente-cuenta'); event.stopPropagation();" 
+                                                style="padding:6px 12px; font-size:0.8rem; font-weight:700;">
+                                            <i class="fas fa-file-invoice-dollar"></i> <span>Mi Cuenta</span>
+                                        </button>
+                                    ` : ''}
                                     <button type="button" 
                                             class="btn btn-sm btn-outline" 
                                             onclick="eliminarNotificacion('${n.id}', event)" 
@@ -1016,12 +1741,15 @@
         const countCreditos = lista.filter(n => n.tipo === 'credito').length;
         const countComentarios = lista.filter(n => n.tipo === 'comentario').length;
         const countVentas = lista.filter(n => n.tipo === 'venta').length;
+        const countDirigidas = lista.filter(n => n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || n.paraCliente === true).length;
 
         // Filtrado de la lista
         let listaFiltrada = lista;
         if (!esVistaArchivoBD) {
             if (filtro === 'no_leidas') {
                 listaFiltrada = lista.filter(n => !n.leida);
+            } else if (filtro === 'cliente_inapp') {
+                listaFiltrada = lista.filter(n => n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || n.paraCliente === true);
             } else if (filtro !== 'todas') {
                 listaFiltrada = lista.filter(n => n.tipo === filtro);
             }
@@ -1029,6 +1757,20 @@
 
         // Definición de estilos y badges por tipo
         const configTipos = {
+            cliente_inapp: {
+                label: 'Aviso a Cliente',
+                icon: 'fa-paper-plane',
+                color: '#0284c7',
+                bgBadge: '#e0f2fe',
+                borderLeft: '#0284c7'
+            },
+            aviso_cliente: {
+                label: 'Aviso a Cliente',
+                icon: 'fa-paper-plane',
+                color: '#0284c7',
+                bgBadge: '#e0f2fe',
+                borderLeft: '#0284c7'
+            },
             aprobacion: {
                 label: 'Aprobación',
                 icon: 'fa-circle-check',
@@ -1101,8 +1843,11 @@
                         <button type="button" class="btn btn-sm btn-outline" onclick="limpiarNotificacionesLeidas()" title="Ocultar de la app las notificaciones leídas (se conservan en la base de datos)">
                             <i class="fas fa-trash-can"></i> Limpiar leídas
                         </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalComentarioCliente()">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalComentarioCliente()">
                             <i class="fas fa-plus"></i> Nuevo Comentario
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalEnviarNotificacionCliente()" style="background:#0284c7; border-color:#0284c7; color:#fff;" title="Enviar notificación in-app dirigida a la pantalla de un cliente">
+                            <i class="fas fa-paper-plane"></i> Enviar a Cliente
                         </button>
                     </div>
                 </div>
@@ -1114,6 +1859,9 @@
                     </button>
                     <button type="button" class="btn btn-sm ${filtro === 'no_leidas' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('no_leidas')">
                         Pendientes (${noLeidas})
+                    </button>
+                    <button type="button" class="btn btn-sm ${filtro === 'cliente_inapp' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('cliente_inapp')">
+                        <i class="fas fa-paper-plane" style="color:#0284c7;"></i> A Clientes (${countDirigidas})
                     </button>
                     <button type="button" class="btn btn-sm ${filtro === 'pago' ? 'btn-primary' : 'btn-outline'}" onclick="renderizarNotificaciones('pago')">
                         <i class="fas fa-hand-holding-dollar" style="color:#16a34a;"></i> Pagos (${countPagos})
@@ -1178,18 +1926,28 @@
                     const esRechazadoPago = estadoPago === 'RECHAZADO' || estadoPago === 'Rechazado';
                     const esPendientePago = esPagoOTransaccion && !esAprobadoPago && !esRechazadoPago;
 
+                    const esDirigidaACliente = n.tipo_destinatario === 'CLIENTE' || n.tipo === 'cliente_inapp' || n.tipo === 'aviso_cliente' || (n.paraCliente && !n.paraAdmin);
+                    const prioridadVal = String(n.prioridad || (n.tipo === 'pago' ? 'PAGO' : 'INFO')).toUpperCase();
+
                     return `
                         <div class="card notificacion-card-item" 
                              onclick="irANotificacion('${n.id}')"
-                             style="border-left:4px solid ${esPendientePago ? '#f59e0b' : cfg.borderLeft}; ${noLeidaClase}">
+                             style="border-left:4px solid ${esDirigidaACliente ? (prioridadVal === 'URGENTE' ? '#ef4444' : (prioridadVal === 'PAGO' ? '#f59e0b' : '#38bdf8')) : (esPendientePago ? '#f59e0b' : cfg.borderLeft)}; ${noLeidaClase}">
                             
                             <div class="notif-item-left-block">
-                                <div class="notif-item-icon-box" style="background:${esPendientePago ? '#fef3c7' : cfg.bgBadge}; color:${esPendientePago ? '#d97706' : cfg.color};">
-                                    <i class="fas ${cfg.icon}"></i>
+                                <div class="notif-item-icon-box" style="background:${esDirigidaACliente ? (prioridadVal === 'URGENTE' ? '#fee2e2' : (prioridadVal === 'PAGO' ? '#fef3c7' : '#e0f2fe')) : (esPendientePago ? '#fef3c7' : cfg.bgBadge)}; color:${esDirigidaACliente ? (prioridadVal === 'URGENTE' ? '#dc2626' : (prioridadVal === 'PAGO' ? '#b45309' : '#0284c7')) : (esPendientePago ? '#d97706' : cfg.color)};">
+                                    <i class="fas ${esDirigidaACliente ? (prioridadVal === 'URGENTE' ? 'fa-triangle-exclamation' : (prioridadVal === 'PAGO' ? 'fa-hand-holding-dollar' : 'fa-paper-plane')) : cfg.icon}"></i>
                                 </div>
                                 <div class="notif-item-body">
                                     <div class="notif-item-header-meta">
-                                        ${esPendientePago ? `
+                                        ${esDirigidaACliente ? `
+                                            <span style="background:${prioridadVal === 'URGENTE' ? '#fee2e2' : (prioridadVal === 'PAGO' ? '#fef3c7' : '#e0f2fe')}; color:${prioridadVal === 'URGENTE' ? '#dc2626' : (prioridadVal === 'PAGO' ? '#b45309' : '#0284c7')}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase; display:inline-flex; align-items:center; gap:4px;">
+                                                <i class="fas fa-paper-plane"></i> AVISO IN-APP: ${n.tipoAviso || prioridadVal}
+                                            </span>
+                                            <span style="background:#f1f5f9; color:#475569; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px;">
+                                                <i class="fas fa-user" style="color:#0284c7;"></i> ${n.clienteNombre || n.id_cliente || n.clienteId || 'Cliente'}
+                                            </span>
+                                        ` : (esPendientePago ? `
                                             <span style="background:#fef3c7; color:#b45309; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase; display:inline-flex; align-items:center; gap:4px;">
                                                 <i class="fas fa-hourglass-half"></i> Por Aprobar
                                             </span>
@@ -1197,27 +1955,40 @@
                                             <span style="background:${cfg.bgBadge}; color:${cfg.color}; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
                                                 ${cfg.label}
                                             </span>
-                                        `}
+                                        `)}
                                         <span style="font-size:0.8rem; color:var(--text-muted);">
                                             <i class="fas fa-clock" style="font-size:0.75rem; margin-right:3px;"></i> ${tiempoRel} • ${n.fecha}
                                         </span>
-                                        ${!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;" title="No leída"></span>` : ''}
+                                        ${esDirigidaACliente ? (
+                                            (n.leido || n.leida) 
+                                                ? `<span style="font-size:0.72rem; color:#16a34a; font-weight:700; display:inline-flex; align-items:center; gap:3px;"><i class="fas fa-check-double"></i> Leída</span>` 
+                                                : `<span style="font-size:0.72rem; color:#dc2626; font-weight:700; display:inline-flex; align-items:center; gap:3px;"><i class="fas fa-hourglass-start"></i> No vista</span>`
+                                        ) : (!n.leida ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;" title="No leída"></span>` : '')}
                                     </div>
-                                    <div class="notif-item-msg">
+                                    ${n.titulo ? `<div style="font-size:0.92rem; font-weight:700; margin:4px 0 2px; color:var(--text-main);">${n.titulo}</div>` : ''}
+                                    <div class="notif-item-msg" style="white-space:pre-wrap;">
                                         ${n.mensaje}
                                     </div>
-                                    <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap;">
-                                        ${n.clienteNombre ? `<span><i class="fas fa-user" style="margin-right:4px;"></i> ${n.clienteNombre}</span>` : ''}
+                                    <div style="display:flex; align-items:center; gap:12px; font-size:0.8rem; color:var(--text-muted); flex-wrap:wrap; margin-top:4px;">
+                                        ${n.clienteNombre && !esDirigidaACliente ? `<span><i class="fas fa-user" style="margin-right:4px;"></i> ${n.clienteNombre}</span>` : ''}
                                         ${(n.esDivisasUSD || String(n.mensaje || '').includes('divisas'))
                                             ? `<span style="color:var(--primary-accent); font-weight:700;">$${Number(n.montoUSD || 0).toFixed(2)} USD</span>`
-                                            : `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>`}
+                                            : (Number(n.montoVES || 0) > 0 ? `<span style="color:#16a34a; font-weight:700;">Bs. ${Number(n.montoVES || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>` : '')}
                                         ${n.referenciaId ? `<code>#${n.referenciaId}</code>` : ''}
                                     </div>
                                 </div>
                             </div>
 
                             <div class="notif-item-actions-block" onclick="event.stopPropagation();">
-                                ${esPendientePago ? `
+                                ${esDirigidaACliente ? `
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline" 
+                                            onclick="abrirModalEnviarNotificacionCliente('${n.id_cliente || n.clienteId}'); event.stopPropagation();" 
+                                            title="Enviar otro aviso in-app a este cliente" 
+                                            style="padding:6px 12px; font-weight:700; font-size:0.8rem; display:inline-flex; align-items:center; gap:6px; color:#0284c7; border-color:#0284c7;">
+                                        <i class="fas fa-paper-plane"></i> <span>Enviar Otro</span>
+                                    </button>
+                                ` : (esPendientePago ? `
                                     <button type="button" 
                                             class="btn btn-sm btn-outline" 
                                             onclick="irANotificacion('${n.id}'); event.stopPropagation();" 
@@ -1242,7 +2013,7 @@
                                         <span>Ir al sitio</span>
                                         <i class="fas fa-arrow-right"></i>
                                     </span>
-                                `))}
+                                `)))}
                                 ${esVistaArchivoBD ? `
                                     <button type="button" 
                                             class="btn btn-sm btn-outline" 
@@ -1361,7 +2132,14 @@
         actualizarBadges: actualizarBadgesNotificaciones,
         generarIniciales: generarNotificacionesInicialesSiVacio,
         aprobarDesdeNotificacion: aprobarPagoDesdeNotificacion,
-        rechazarDesdeNotificacion: rechazarPagoDesdeNotificacion
+        rechazarDesdeNotificacion: rechazarPagoDesdeNotificacion,
+        abrirModalEnviar: abrirModalEnviarNotificacionCliente,
+        cerrarModalEnviar: cerrarModalEnviarNotificacionCliente,
+        enviarACliente: enviarNotificacionACliente,
+        verificarPendientesCliente: verificarYMostrarNotificacionesPendientesCliente,
+        consultarPendientesCliente: consultarNotificacionesPendientesCliente,
+        mostrarModalInApp: mostrarModalNotificacionInAppCliente,
+        cerrarModalInApp: cerrarModalNotificacionInAppCliente
     };
 
     window.registrarNotificacion = registrarNotificacion;
@@ -1373,5 +2151,20 @@
     window.irANotificacion = irANotificacion;
     window.renderizarNotificaciones = renderizarNotificaciones;
     window.actualizarBadgesNotificaciones = actualizarBadgesNotificaciones;
+
+    // Métodos para Notificaciones In-App Dirigidas a Clientes
+    window.abrirModalEnviarNotificacionCliente = abrirModalEnviarNotificacionCliente;
+    window.cerrarModalEnviarNotificacionCliente = cerrarModalEnviarNotificacionCliente;
+    window.enviarNotificacionACliente = enviarNotificacionACliente;
+    window.filtrarOpcionesClientesNotif = filtrarOpcionesClientesNotif;
+    window.actualizarInfoClienteSeleccionadoNotif = actualizarInfoClienteSeleccionadoNotif;
+    window.aplicarPlantillaNotificacion = aplicarPlantillaNotificacion;
+    window.sugerirPlantillaPorTipoAviso = sugerirPlantillaPorTipoAviso;
+    window.verificarYMostrarNotificacionesPendientesCliente = verificarYMostrarNotificacionesPendientesCliente;
+    window.consultarNotificacionesPendientesCliente = consultarNotificacionesPendientesCliente;
+    window.mostrarModalNotificacionInAppCliente = mostrarModalNotificacionInAppCliente;
+    window.cerrarModalNotificacionInAppCliente = cerrarModalNotificacionInAppCliente;
+    window.aceptarYMarcarLeidaNotificacionInApp = aceptarYMarcarLeidaNotificacionInApp;
+    window.irAEstadoCuentaDesdeInApp = irAEstadoCuentaDesdeInApp;
 
 })();

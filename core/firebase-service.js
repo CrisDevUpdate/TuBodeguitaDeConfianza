@@ -857,7 +857,8 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.USUARIOS),
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
+                obtenerColeccionSegura(COLLECTIONS.NOTIFICACIONES)
             ];
 
             if (esAdmin) {
@@ -883,16 +884,17 @@ window.InventoryApp = window.InventoryApp || {};
             const snapCanjes = resultados[5];
             const snapConfig = resultados[6];
             const snapPagosPorVerificar = resultados[7];
+            const snapNotificaciones = resultados[8];
 
-            const snapTx = esAdmin ? resultados[8] : null;
-            const snapAud = esAdmin ? resultados[9] : null;
-            const snapElim = esAdmin ? resultados[10] : null;
-            const snapCliElim = esAdmin ? resultados[11] : null;
-            const snapFacturas = esAdmin ? resultados[12] : null;
-            const snapKardex = esAdmin ? resultados[13] : null;
-            const snapProveedores = esAdmin ? resultados[14] : null;
-            const snapTurnos = esAdmin ? resultados[15] : null;
-            const snapEgresos = esAdmin ? resultados[16] : null;
+            const snapTx = esAdmin ? resultados[9] : null;
+            const snapAud = esAdmin ? resultados[10] : null;
+            const snapElim = esAdmin ? resultados[11] : null;
+            const snapCliElim = esAdmin ? resultados[12] : null;
+            const snapFacturas = esAdmin ? resultados[13] : null;
+            const snapKardex = esAdmin ? resultados[14] : null;
+            const snapProveedores = esAdmin ? resultados[15] : null;
+            const snapTurnos = esAdmin ? resultados[16] : null;
+            const snapEgresos = esAdmin ? resultados[17] : null;
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
             const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
@@ -1103,6 +1105,19 @@ window.InventoryApp = window.InventoryApp || {};
                     pagos.push({ id: doc.id, ...data });
                 });
                 AppState.pagosPorVerificar = pagos;
+            }
+
+            if (snapNotificaciones && !snapNotificaciones.empty) {
+                const cloudNotifs = snapNotificaciones.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const mapNotifs = new Map();
+                (AppState.notificaciones || []).forEach(n => { if (n && n.id) mapNotifs.set(n.id, n); });
+                cloudNotifs.forEach(cn => {
+                    mapNotifs.set(cn.id, { ...(mapNotifs.get(cn.id) || {}), ...cn });
+                });
+                AppState.notificaciones = Array.from(mapNotifs.values()).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if (typeof actualizarBadgesNotificaciones === 'function') {
+                    actualizarBadgesNotificaciones();
+                }
             }
 
             if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
@@ -2116,6 +2131,36 @@ window.InventoryApp = window.InventoryApp || {};
                 console.warn('[Firebase] No se pudo inicializar listener gamification:', gErr);
             }
 
+            // Listener en tiempo real de Notificaciones
+            try {
+                const unsubNotifSync = db.collection(COLLECTIONS.NOTIFICACIONES).onSnapshot(snapshot => {
+                    if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+                    const cloudNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (cloudNotifs.length > 0) {
+                        const mapNotifs = new Map();
+                        (AppState.notificaciones || []).forEach(n => { if (n && n.id) mapNotifs.set(n.id, n); });
+                        cloudNotifs.forEach(cn => {
+                            mapNotifs.set(cn.id, { ...(mapNotifs.get(cn.id) || {}), ...cn });
+                        });
+                        AppState.notificaciones = Array.from(mapNotifs.values()).sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        guardarCacheLocal();
+                        if (typeof actualizarBadgesNotificaciones === 'function') {
+                            actualizarBadgesNotificaciones();
+                        }
+                        // Si la sesión activa corresponde a un cliente, verificar notificaciones in-app
+                        const usuAct = window.AppState?.usuarioActual;
+                        if (usuAct && (usuAct.rol === 'cliente' || (!usuAct.rol && usuAct.cedula !== 'SuperAdmin'))) {
+                            if (typeof window.verificarYMostrarNotificacionesPendientesCliente === 'function') {
+                                window.verificarYMostrarNotificacionesPendientesCliente(usuAct);
+                            }
+                        }
+                    }
+                }, err => console.warn('[Firebase] Aviso en listener de notificaciones:', err?.message));
+                syncListeners.push(unsubNotifSync);
+            } catch (notifErr) {
+                console.warn('[Firebase] No se pudo inicializar listener de notificaciones:', notifErr);
+            }
+
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
         }
@@ -2937,6 +2982,7 @@ window.InventoryApp = window.InventoryApp || {};
                 await docRef.set({
                     id,
                     leida: true,
+                    leido: true,
                     updatedAt: new Date().toISOString()
                 }, { merge: true });
             }
@@ -2948,6 +2994,39 @@ window.InventoryApp = window.InventoryApp || {};
                 console.error('[Firebase] Error al marcar notificación como leída:', error);
             }
             return false;
+        }
+    }
+
+    /**
+     * CRUD: Consultar Notificaciones In-App Pendientes dirigidas a un Cliente
+     */
+    async function consultarNotificacionesPendientesClienteCloud(idCliente) {
+        if (!idCliente) return [];
+        if (isQuotaExhausted) return [];
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return [];
+
+            const idStr = String(idCliente).trim();
+            const idUpper = idStr.toUpperCase();
+            const idLower = idStr.toLowerCase();
+
+            const snap = await db.collection(COLLECTIONS.NOTIFICACIONES).get();
+            const notifs = [];
+            snap.forEach(doc => {
+                const d = doc.data() || {};
+                const docIdCli = String(d.id_cliente || d.clienteId || '').trim();
+                const esMio = docIdCli === idStr || docIdCli.toUpperCase() === idUpper || docIdCli.toLowerCase() === idLower;
+                const noLeido = d.leido === false || d.leida === false;
+                const activo = !d.eliminada && !d.oculta;
+                if (esMio && noLeido && activo) {
+                    notifs.push({ id: doc.id, ...d });
+                }
+            });
+            return notifs;
+        } catch (error) {
+            console.warn('[Firebase] Aviso al consultar notificaciones pendientes de cliente:', error);
+            return [];
         }
     }
 
@@ -4111,6 +4190,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarNotificacion: guardarNotificacionCloud,
         ocultarNotificacion: ocultarNotificacionCloud,
         marcarNotificacionLeida: marcarNotificacionLeidaCloud,
+        consultarNotificacionesPendientesCliente: consultarNotificacionesPendientesClienteCloud,
         actualizarUIEstadoNube,
         guardarTurnoCaja: guardarTurnoCajaCloud,
         guardarEgresoCaja: guardarEgresoCajaCloud,
