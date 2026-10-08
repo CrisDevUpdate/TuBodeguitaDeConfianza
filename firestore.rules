@@ -74,6 +74,12 @@ service cloud.firestore {
     match /kardex_inventario/{kardexId} {
       allow read, write: if true;
     }
+    match /cajas_turnos/{turnoId} {
+      allow read, write: if true;
+    }
+    match /egresos_caja/{egresoId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

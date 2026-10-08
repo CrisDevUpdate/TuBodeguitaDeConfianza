@@ -587,7 +587,7 @@ function switchTab(tabId) {
                     tabId = 'kiosco-view';
                 }
             } else if (esVendedor) {
-                const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
+                const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones', 'caja-turnos'];
                 if (!vendedorAllowed.includes(tabId)) {
                     console.warn(`[switchTab] Acceso restringido a "${tabId}" para perfil vendedor.`);
                     tabId = 'pos';
@@ -676,6 +676,12 @@ function switchTab(tabId) {
             if (typeof renderizarCarrito === 'function') renderizarCarrito();
             if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
             if (typeof sincronizarClienteSelects === 'function') sincronizarClienteSelects('pos-cliente-select');
+            if (window.InventoryApp && window.InventoryApp.CajaTurnos) window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+        } else if (tabId === 'caja-turnos') {
+            if (window.InventoryApp && window.InventoryApp.CajaTurnos) {
+                window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                window.InventoryApp.CajaTurnos.renderizarVistaCajaTurnos();
+            }
         } else if (tabId === 'inventario') {
             if (typeof renderizarInventario === 'function') renderizarInventario();
             if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();

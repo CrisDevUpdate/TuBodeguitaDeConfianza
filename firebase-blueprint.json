@@ -221,6 +221,40 @@
         "fechaRegistro": "string",
         "updatedAt": "string"
       }
+    },
+    {
+      "collection": "cajas_turnos",
+      "fields": {
+        "id": "string",
+        "numeroTurno": "number",
+        "fechaApertura": "string",
+        "fechaCierre": "string",
+        "estado": "string",
+        "cajeroId": "string",
+        "cajeroNombre": "string",
+        "tasaBCVApertura": "number",
+        "tasaBCVCierre": "number",
+        "fondoInicialUSD": "number",
+        "fondoInicialVES": "number",
+        "fondoInicial": "object",
+        "sistemaEsperado": "object",
+        "cajeroDeclarado": "object",
+        "diferencias": "object",
+        "observaciones": "string"
+      }
+    },
+    {
+      "collection": "egresos_caja",
+      "fields": {
+        "id": "string",
+        "turnoId": "string",
+        "montoUSD": "number",
+        "montoVES": "number",
+        "moneda": "string",
+        "motivo": "string",
+        "autorizadoPor": "string",
+        "fecha": "string"
+      }
     }
   ]
 }

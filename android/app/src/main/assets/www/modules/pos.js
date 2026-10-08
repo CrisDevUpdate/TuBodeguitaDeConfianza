@@ -1026,6 +1026,33 @@ function procesarVenta() {
         }
     }
 
+    // Guardia de Bloqueo por Turno de Caja (exclusivo para rol Vendedor si está configurado por el Administrador)
+    const exigirTurno = Boolean(AppState.exigirTurnoVendedor);
+    const usuarioActual = AppState.usuarioActual;
+    const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : (usuarioActual?.rol === 'admin' || usuarioActual?.rol === 'superadmin' || usuarioActual?.id === 'SuperAdmin');
+    const esVendedor = !esAdmin && (usuarioActual?.rol === 'vendedor');
+
+    if (exigirTurno && esVendedor) {
+        const turnoActivo = AppState.turnoActivo && AppState.turnoActivo.estado === 'ABIERTO';
+        if (!turnoActivo) {
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert(
+                    'Apertura de Turno Requerida',
+                    'Como vendedor, debes realizar la Apertura de Turno con el fondo inicial de la gaveta antes de poder procesar ventas o créditos en la caja.',
+                    'warning'
+                );
+            } else {
+                alert('Como vendedor, debes realizar la Apertura de Turno de caja antes de vender.');
+            }
+            if (window.InventoryApp?.CajaTurnos?.abrirModalAperturaTurno) {
+                setTimeout(() => {
+                    window.InventoryApp.CajaTurnos.abrirModalAperturaTurno();
+                }, 400);
+            }
+            return;
+        }
+    }
+
     if (carrito.length === 0) {
         if (typeof showCustomAlert === 'function') {
             showCustomAlert('Carrito Vacío', 'Agrega al menos un producto al carrito para procesar la venta.', 'warning');
@@ -1258,6 +1285,7 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
 
     const nuevaVenta = {
         id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
+        turnoId: AppState.turnoActivo?.id || '',
         clienteId: clienteId,
         vendedorId: vendedor.cedula || vendedor.id || '',
         vendedorNombre: vendedor.nombre || '',
@@ -1423,8 +1451,9 @@ function abrirModalCheckoutPOS() {
                         <option value="Efectivo USD" selected>Efectivo ($ Dólares)</option>
                         <option value="Efectivo VES">Efectivo (Bs. Bolívares)</option>
                         <option value="Pago Móvil VES">Pago Móvil (Bolívares VES)</option>
-                        <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
                         <option value="Punto de Venta VES">Punto de Venta / Tarjeta (VES)</option>
+                        <option value="Biopago BDV">Biopago BDV (Bolívares VES)</option>
+                        <option value="Transferencia Bancaria VES">Transferencia Bancaria (Bolívares VES)</option>
                     </select>
                     <div style="text-align:right; margin-top:4px;">
                         <a href="javascript:void(0)" onclick="cambiarACreditoDesdeModal()" style="font-size:0.8rem; color:var(--primary-accent, #2563eb); text-decoration:underline;">
@@ -1533,6 +1562,7 @@ async function ejecutarFinalizacionCheckoutPOS() {
 
     const nuevaVenta = {
         id: "V" + (ventas.length + 1) + "_" + Date.now().toString().slice(-4),
+        turnoId: AppState.turnoActivo?.id || '',
         clienteId: clienteId,
         vendedorId: vendedor.cedula || vendedor.id || '',
         vendedorNombre: vendedor.nombre || '',

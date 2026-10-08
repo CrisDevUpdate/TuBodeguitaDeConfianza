@@ -57,6 +57,7 @@ window.InventoryApp = window.InventoryApp || {};
         'cicloRecuperacionActual',
         'categoriasPersonalizadas',
         'telefonoWhatsApp',
+        'exigirTurnoVendedor',
         'tasaUSD_BCV',
         'tasaEUR_BCV',
         'fechaTasaBCV',

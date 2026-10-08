@@ -2569,6 +2569,10 @@
     <div class="nav-tabs" id="main-nav-tabs">
         <!-- Pestañas EXCLUSIVAS de Administrador -->
         <button type="button" class="nav-btn nav-admin-only active" data-tab="pos" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> Punto de Venta</button>
+        <button type="button" class="nav-btn nav-admin-only" data-tab="caja-turnos" onclick="switchTab('caja-turnos')">
+            <i class="fas fa-calculator"></i> Caja & Arqueo (Cortes X/Z)
+            <span id="badge-turno-status" class="badge-pill-counter" style="background:#10b981; color:#ffffff; display:none;">Caja CERRADA</span>
+        </button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="inventario" onclick="switchTab('inventario')"><i class="fas fa-boxes-stacked"></i> Inventario & Precios</button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="clientes" onclick="switchTab('clientes')"><i class="fas fa-users"></i> Clientes & Cuentas x Cobrar</button>
         <button type="button" class="nav-btn nav-admin-only" data-tab="transacciones" onclick="switchTab('transacciones')">
@@ -3063,6 +3067,8 @@
     <div id="pos" class="view-content active pos-module-view">
         <!-- Banner de Guardia de Seguridad POS -->
         <div id="pos-user-security-banner" class="security-guard-banner banner-warning" style="display:none;"></div>
+        <!-- Banner de Control de Turno y Caja POS -->
+        <div id="pos-turno-banner"></div>
 
         <div class="pos-layout-wrapper">
             <!-- PANEL PRINCIPAL: CATÁLOGO DE PRODUCTOS -->
@@ -3342,6 +3348,9 @@
             </div>
         </div>
     </div>
+
+    <!-- VISTA: CONTROL DE CAJA, TURNOS Y ARQUEOS (CORTES X Y Z) -->
+    <div id="caja-turnos" class="view-content" style="display:none;"></div>
 
     <!-- VISTA 2: INVENTARIO -->
     <div id="inventario" class="view-content">
@@ -7002,6 +7011,7 @@
 <script src="components/TerminosPrivacidad.js?v=20260927_v1"></script>
 <script src="modules/productos.js?v=4.6.0_fix_loop"></script>
 <script src="modules/pos.js?v=4.6.0_fix_loop"></script>
+<script src="modules/caja-turnos.js?v=20261007_v1"></script>
 <script src="modules/clientes.js?v=4.6.0_fix_loop"></script>
 <script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
 <script src="modules/facturas.js?v=20260918_v1"></script>

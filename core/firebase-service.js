@@ -429,7 +429,9 @@ window.InventoryApp = window.InventoryApp || {};
         FACTURAS: 'facturas_compras',
         KARDEX: 'kardex_inventario',
         PROVEEDORES: 'proveedores',
-        NOTIFICACIONES: 'notifications'
+        NOTIFICACIONES: 'notifications',
+        TURNOS: 'cajas_turnos',
+        EGRESOS: 'egresos_caja'
     };
 
     /**
@@ -822,6 +824,7 @@ window.InventoryApp = window.InventoryApp || {};
                     const cfg = snapConfig.data() || {};
                     if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
                     if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                    if (typeof cfg.exigirTurnoVendedor === 'boolean') AppState.exigirTurnoVendedor = cfg.exigirTurnoVendedor;
                     if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                     if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
                     if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
@@ -865,7 +868,9 @@ window.InventoryApp = window.InventoryApp || {};
                     obtenerColeccionSegura(COLLECTIONS.CLIENTES_ELIMINADOS),
                     obtenerColeccionSegura(COLLECTIONS.FACTURAS),
                     obtenerColeccionSegura(COLLECTIONS.KARDEX),
-                    obtenerColeccionSegura(COLLECTIONS.PROVEEDORES)
+                    obtenerColeccionSegura(COLLECTIONS.PROVEEDORES),
+                    obtenerColeccionSegura(COLLECTIONS.TURNOS),
+                    obtenerColeccionSegura(COLLECTIONS.EGRESOS)
                 );
             }
 
@@ -886,6 +891,8 @@ window.InventoryApp = window.InventoryApp || {};
             const snapFacturas = esAdmin ? resultados[12] : null;
             const snapKardex = esAdmin ? resultados[13] : null;
             const snapProveedores = esAdmin ? resultados[14] : null;
+            const snapTurnos = esAdmin ? resultados[15] : null;
+            const snapEgresos = esAdmin ? resultados[16] : null;
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
             const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
@@ -1040,6 +1047,16 @@ window.InventoryApp = window.InventoryApp || {};
                 });
             }
 
+            if (snapTurnos && !snapTurnos.empty) {
+                AppState.turnosCaja = snapTurnos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const activo = AppState.turnosCaja.find(t => t.estado === 'ABIERTO');
+                if (activo) AppState.turnoActivo = activo;
+            }
+
+            if (snapEgresos && !snapEgresos.empty) {
+                AppState.egresosCaja = snapEgresos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
             if (snapUsuarios && !snapUsuarios.empty) {
                 const cloudUsuarios = snapUsuarios.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 const mapUsuarios = new Map();
@@ -1069,6 +1086,7 @@ window.InventoryApp = window.InventoryApp || {};
                 if (Array.isArray(cfg.ciclosRecuperacion)) AppState.ciclosRecuperacion = cfg.ciclosRecuperacion;
                 if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
                 if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
+                if (typeof cfg.exigirTurnoVendedor === 'boolean') AppState.exigirTurnoVendedor = cfg.exigirTurnoVendedor;
                 if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
                 if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                 if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
@@ -4010,6 +4028,46 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    /**
+     * CRUD: Guardar o actualizar Turno de Caja en Firestore
+     */
+    async function guardarTurnoCajaCloud(turno) {
+        if (!turno || !turno.id) return false;
+        try {
+            if (db) {
+                const docRef = db.collection(COLLECTIONS.TURNOS).doc(String(turno.id));
+                await docRef.set({
+                    ...turno,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar turno en la nube:', e);
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Guardar Egreso de Caja Chica en Firestore
+     */
+    async function guardarEgresoCajaCloud(egreso) {
+        if (!egreso || !egreso.id) return false;
+        try {
+            if (db) {
+                const docRef = db.collection(COLLECTIONS.EGRESOS).doc(String(egreso.id));
+                await docRef.set({
+                    ...egreso,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[Firebase] Error al guardar egreso en la nube:', e);
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -4054,6 +4112,8 @@ window.InventoryApp = window.InventoryApp || {};
         ocultarNotificacion: ocultarNotificacionCloud,
         marcarNotificacionLeida: marcarNotificacionLeidaCloud,
         actualizarUIEstadoNube,
+        guardarTurnoCaja: guardarTurnoCajaCloud,
+        guardarEgresoCaja: guardarEgresoCajaCloud,
         iniciarListeners: iniciarListenersTiempoReal,
         detenerListeners: detenerListenersTiempoReal,
         getConfig: obtenerConfiguracion

@@ -21,6 +21,7 @@ function renderizarConfiguracionAdmin() {
     const usuario = AppState.usuarioActual;
     const esSuperAdmin = usuario && (usuario.rol === 'admin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin');
     const inviernoActivo = !!AppState.temporadaInviernoActiva;
+    const exigirTurnoVendedorActivo = !!AppState.exigirTurnoVendedor;
     const telActualConfig = AppState.telefonoWhatsApp || '0412-5363849';
 
     container.innerHTML = `
@@ -80,6 +81,46 @@ function renderizarConfiguracionAdmin() {
 
         <!-- MÓDULO: Cuentas Bancarias & Métodos de Pago Móvil (Admin) -->
         <div id="config-cuentas-bancarias-box"></div>
+
+        <!-- MÓDULO: Bloqueo de POS por Turno Cerrado (Exclusivo Rol Vendedor) -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid #ef4444;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-cash-register" style="color:#ef4444;"></i> Bloqueo de POS por Turno Cerrado (Exclusivo Rol Vendedor)
+                    </h3>
+                    <p style="margin:2px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
+                        Exige apertura obligatoria de turno de caja antes de permitir vender o procesar compras para usuarios con rol de Vendedor.
+                    </p>
+                </div>
+                <div>
+                    <span class="badge" style="font-size:0.82rem; padding:5px 12px; background:${exigirTurnoVendedorActivo ? '#fee2e2' : '#dcfce7'}; color:${exigirTurnoVendedorActivo ? '#b91c1c' : '#15803d'}; font-weight:700;">
+                        <i class="fas ${exigirTurnoVendedorActivo ? 'fa-lock' : 'fa-lock-open'}"></i> ${exigirTurnoVendedorActivo ? 'BLOQUEO ACTIVO (Obligatorio para Vendedores)' : 'MODO FLEXIBLE (Venta Libre)'}
+                    </span>
+                </div>
+            </div>
+
+            <div style="background:${exigirTurnoVendedorActivo ? 'rgba(239,68,68,0.04)' : 'var(--bg-color, #f8fafc)'}; border:1px solid ${exigirTurnoVendedorActivo ? '#fecaca' : 'var(--border-light)'}; border-radius:10px; padding:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="flex:1; min-width:280px;">
+                        <strong style="color:var(--text-main); font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-user-shield" style="color:#2563eb;"></i> Control Antifuga para Empleados / Vendedores
+                        </strong>
+                        <p style="margin:4px 0 0 0; font-size:0.83rem; color:var(--text-muted); line-height:1.4;">
+                            ${exigirTurnoVendedorActivo
+                                ? '⚠️ <strong>Activo:</strong> Los usuarios con rol de <strong>Vendedor</strong> tienen bloqueado el botón de cobro en el POS hasta que abran un turno con su fondo inicial en gaveta. Como <strong>Administrador</strong>, tú siempre podrás vender y fiar libremente sin restricciones.'
+                                : '🔓 <strong>Inactivo:</strong> Los vendedores pueden registrar ventas y fiados libremente sin necesidad de tener un turno abierto (Modo flexible).'}
+                        </p>
+                    </div>
+                    <div>
+                        <button type="button" class="btn ${exigirTurnoVendedorActivo ? 'btn-danger' : 'btn-primary'}" onclick="alternarBloqueoTurnoVendedorAdmin()" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+                            <i class="fas ${exigirTurnoVendedorActivo ? 'fa-lock-open' : 'fa-lock'}"></i>
+                            ${exigirTurnoVendedorActivo ? 'Desactivar Bloqueo (Permitir Venta Libre)' : 'Activar Bloqueo Obligatorio'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- MÓDULO 3: Motor de Temas y Paletas Globales -->
         <div id="config-theme-manager-box"></div>
@@ -1684,4 +1725,54 @@ function rotarFraseAdminConfig() {
     }
 }
 window.rotarFraseAdminConfig = rotarFraseAdminConfig;
+
+/**
+ * Alterna el bloqueo estricto de ventas en POS para el rol de vendedor
+ */
+async function alternarBloqueoTurnoVendedorAdmin() {
+    const nuevoEstado = !AppState.exigirTurnoVendedor;
+    AppState.exigirTurnoVendedor = nuevoEstado;
+
+    try {
+        localStorage.setItem('bodeguita_exigir_turno_vendedor', String(nuevoEstado));
+    } catch (e) {}
+
+    // Sincronizar con Firestore
+    try {
+        if (typeof firebase !== 'undefined' && firebase.firestore) {
+            const db = firebase.firestore();
+            await db.collection('config').doc('global').set({
+                exigirTurnoVendedor: nuevoEstado,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+    } catch (e) {
+        console.warn('[configuracion] Error guardando exigirTurnoVendedor en Firestore:', e);
+    }
+
+    if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            exigirTurnoVendedor: nuevoEstado
+        }).catch(() => {});
+    }
+
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarConfiguracionAdmin();
+    if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+        window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(
+            nuevoEstado
+                ? '🔒 Bloqueo activo: Los vendedores deberán abrir turno obligatoriamente antes de vender.'
+                : '🔓 Bloqueo desactivado: Modo flexible permitido para ventas.',
+            nuevoEstado ? 'warning' : 'success'
+        );
+    }
+}
+window.alternarBloqueoTurnoVendedorAdmin = alternarBloqueoTurnoVendedorAdmin;
 
