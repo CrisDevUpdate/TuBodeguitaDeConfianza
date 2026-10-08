@@ -660,7 +660,7 @@
      */
 
     /**
-     * Abre el modal del Administrador para redactar y emitir una notificación dirigida a un cliente
+     * Abre el modal del Administrador para redactar y emitir una notificación dirigida a un cliente o masiva a todos
      */
     function abrirModalEnviarNotificacionCliente(clienteIdPreseleccionado = null) {
         let modal = document.getElementById('modal-enviar-notificacion-cliente');
@@ -668,17 +668,18 @@
             modal = document.createElement('div');
             modal.id = 'modal-enviar-notificacion-cliente';
             modal.className = 'modal-overlay';
-            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
+            modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px); overflow:hidden;';
             modal.innerHTML = `
-                <div class="card" style="width:100%; max-width:560px; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 30px -5px rgba(0,0,0,0.35); background:var(--bg-card);">
-                    <div style="padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                <div class="card" style="width:100%; max-width:580px; max-height:90vh; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 30px -5px rgba(0,0,0,0.35); background:var(--bg-card); display:flex; flex-direction:column; margin:auto;">
+                    <!-- Cabecera del Modal -->
+                    <div style="flex-shrink:0; padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="display:inline-flex; width:34px; height:34px; border-radius:8px; background:#e0f2fe; color:#0284c7; align-items:center; justify-content:center; font-size:1.1rem;">
-                                <i class="fas fa-paper-plane"></i>
+                            <span style="display:inline-flex; width:36px; height:36px; border-radius:9px; background:#e0f2fe; color:#0284c7; align-items:center; justify-content:center; font-size:1.15rem;">
+                                <i class="fas fa-bullhorn" id="notif-modal-icono-header"></i>
                             </span>
                             <div>
-                                <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">Enviar Notificación In-App a Cliente</h3>
-                                <small style="color:var(--text-muted); font-size:0.78rem;">El cliente recibirá este aviso en pantalla de forma prominente al abrir la app</small>
+                                <h3 style="margin:0; font-size:1.15rem; color:var(--text-main);">Enviar Notificación In-App</h3>
+                                <small style="color:var(--text-muted); font-size:0.78rem;">Mensaje directo y emergente en pantalla cuando el cliente abre su cuenta</small>
                             </div>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalEnviarNotificacionCliente()" title="Cerrar (X)" style="border-radius:50%; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center;">
@@ -686,31 +687,98 @@
                         </button>
                     </div>
                     
-                    <form onsubmit="enviarNotificacionACliente(event)" style="padding:20px; max-height:80vh; overflow-y:auto;">
-                        <!-- 1. Buscador y Selector de Cliente con Opción Masiva -->
-                        <div class="form-group" style="margin-bottom:14px;">
+                    <!-- Cuerpo del Formulario con Scroll Autocontenido -->
+                    <form onsubmit="enviarNotificacionACliente(event)" style="flex:1; padding:18px 20px; overflow-y:auto; overflow-x:hidden;">
+                        <!-- Inputs de Estado Interno -->
+                        <input type="hidden" id="notif-form-modo" value="TODOS">
+                        <input type="hidden" id="notif-form-destinatario-id" value="TODOS">
+                        <select id="notif-form-select-cliente" style="display:none;"></select>
+
+                        <!-- 1. SELECTOR PRINCIPAL DE DESTINATARIOS (TABS SEGMENTADAS) -->
+                        <div style="margin-bottom:14px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                 <label style="font-weight:700; font-size:0.85rem; margin:0; color:var(--text-main);">
-                                    Cliente Destinatario <span style="color:#ef4444;">*</span>
+                                    <i class="fas fa-users-viewfinder" style="color:#0284c7; margin-right:4px;"></i> Destinatario del Mensaje <span style="color:#ef4444;">*</span>
                                 </label>
-                                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Individual o A Todos</span>
+                                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;" id="notif-modo-descripcion-corta">A todos los clientes</span>
                             </div>
 
-                            <!-- Botones Rápidos para Selección Masiva -->
-                            <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
-                                <button type="button" class="btn btn-sm" id="btn-dest-todos" onclick="seleccionarDestinatarioMasivo('TODOS')" style="font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:6px; background:#e0f2fe; color:#0284c7; border:1px solid #7dd3fc; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
-                                    <i class="fas fa-bullhorn"></i> 📢 Enviar a Todos los Clientes
+                            <div class="notif-dest-tabs" style="margin-bottom:10px;">
+                                <button type="button" id="tab-notif-todos" class="notif-dest-tab-btn" onclick="cambiarModoDestinatarioNotif('TODOS')">
+                                    <span style="font-size:1rem;"><i class="fas fa-bullhorn"></i></span>
+                                    <span>A Todos</span>
                                 </button>
-                                <button type="button" class="btn btn-sm" id="btn-dest-con-deuda" onclick="seleccionarDestinatarioMasivo('TODOS_CON_DEUDA')" style="font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:6px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
-                                    <i class="fas fa-hand-holding-dollar"></i> 💳 Solo con Deuda Pendiente
+                                <button type="button" id="tab-notif-individual" class="notif-dest-tab-btn" onclick="cambiarModoDestinatarioNotif('INDIVIDUAL')">
+                                    <span style="font-size:1rem;"><i class="fas fa-user"></i></span>
+                                    <span>Un Cliente</span>
+                                </button>
+                                <button type="button" id="tab-notif-deuda" class="notif-dest-tab-btn" onclick="cambiarModoDestinatarioNotif('TODOS_CON_DEUDA')">
+                                    <span style="font-size:1rem;"><i class="fas fa-hand-holding-dollar"></i></span>
+                                    <span>Solo Deuda</span>
                                 </button>
                             </div>
 
-                            <input type="text" id="notif-form-buscar-cliente" class="form-control" placeholder="🔍 Filtrar o escribir nombre/cédula..." style="margin-bottom:8px; font-size:0.88rem;" oninput="filtrarOpcionesClientesNotif(this.value)">
-                            <select id="notif-form-select-cliente" class="form-control" required style="font-size:0.88rem; font-weight:600;" onchange="actualizarInfoClienteSeleccionadoNotif(this.value)">
-                                <option value="">-- Selecciona un cliente o difusión masiva --</option>
-                            </select>
-                            <div id="notif-form-cliente-kpi" style="margin-top:6px; font-size:0.8rem; display:none; padding:8px 12px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color);"></div>
+                            <!-- MODO A: Banner Informativo para Difusión Masiva a Todos -->
+                            <div id="notif-view-modo-todos" style="display:none; background:#e0f2fe; border:1px solid #7dd3fc; border-radius:10px; padding:12px 14px; color:#0369a1;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                                    <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
+                                        <i class="fas fa-bullhorn" style="font-size:1.15rem; color:#0284c7;"></i>
+                                        <span>Difusión Masiva: Todos los Clientes</span>
+                                    </div>
+                                    <span id="notif-badge-destinatarios-todos" class="badge" style="background:#0284c7; color:#fff; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.76rem;">
+                                        0 destinatarios
+                                    </span>
+                                </div>
+                                <div style="font-size:0.8rem; margin-top:6px; color:#0c4a6e; line-height:1.45;">
+                                    Se emitirá este mensaje <strong>a todos los clientes registrados de una sola vez</strong>. Cada cliente verá el aviso emergente en su pantalla en cuanto ingrese a la app.
+                                </div>
+                            </div>
+
+                            <!-- MODO B: Banner Informativo para Clientes con Saldo Deudor -->
+                            <div id="notif-view-modo-deuda" style="display:none; background:#fef3c7; border:1px solid #fde68a; border-radius:10px; padding:12px 14px; color:#92400e;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                                    <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
+                                        <i class="fas fa-hand-holding-dollar" style="font-size:1.15rem; color:#b45309;"></i>
+                                        <span>Cobro Masivo: Solo con Deuda Pendiente</span>
+                                    </div>
+                                    <span id="notif-badge-destinatarios-deuda" class="badge" style="background:#b45309; color:#fff; font-weight:800; padding:3px 10px; border-radius:12px; font-size:0.76rem;">
+                                        0 clientes
+                                    </span>
+                                </div>
+                                <div id="notif-resumen-deuda-global" style="font-size:0.8rem; margin-top:6px; color:#78350f; line-height:1.45;">
+                                    Calculando saldo deudor grupal...
+                                </div>
+                            </div>
+
+                            <!-- MODO C: Directorio de Clientes Autocontenido (Nunca desborda la pantalla) -->
+                            <div id="notif-view-modo-individual" style="display:none;">
+                                <!-- Tarjeta de Cliente Actualmente Seleccionado -->
+                                <div id="notif-card-cliente-seleccionado" style="display:none; margin-bottom:8px; padding:10px 14px; border-radius:10px; border:1px solid #7dd3fc; background:#f0f9ff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                                        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                                            <div id="notif-card-cli-avatar" style="width:34px; height:34px; border-radius:50%; background:#0284c7; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.85rem; flex-shrink:0;">C</div>
+                                            <div style="min-width:0; flex:1;">
+                                                <div id="notif-card-cli-nombre" style="font-weight:700; font-size:0.88rem; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Nombre Cliente</div>
+                                                <div id="notif-card-cli-sub" style="font-size:0.75rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">C.I. V-00000000</div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm" onclick="toggleDirectorioNotif(true)" style="background:#fff; border:1px solid #cbd5e1; color:#0369a1; font-weight:700; font-size:0.75rem; padding:4px 10px; border-radius:6px; flex-shrink:0; cursor:pointer;">
+                                            <i class="fas fa-arrows-rotate"></i> Cambiar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Panel Desplegable del Directorio (Acotado y con scroll interno) -->
+                                <div id="notif-panel-directorio" style="border:1px solid var(--border-color, #e2e8f0); border-radius:10px; padding:10px; background:var(--bg-main, #f8fafc); width:100%; box-sizing:border-box;">
+                                    <div style="position:relative; margin-bottom:8px;">
+                                        <input type="text" id="notif-input-buscar-cliente" class="form-control" placeholder="🔍 Escribe nombre o cédula para filtrar cliente..." style="width:100%; box-sizing:border-box; padding-left:34px; font-size:0.85rem; border-radius:8px;" oninput="filtrarDirectorioClientesNotif(this.value)">
+                                        <i class="fas fa-search" style="position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-muted, #94a3b8); font-size:0.82rem; pointer-events:none;"></i>
+                                    </div>
+                                    <div id="notif-lista-clientes-scroll" style="max-height:160px; overflow-y:auto; overflow-x:hidden; width:100%; box-sizing:border-box; border-radius:8px; border:1px solid var(--border-color, #e2e8f0); background:var(--bg-card, #fff);">
+                                        <!-- Items generados dinámicamente -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- 2. Prioridad y Tipo de Aviso -->
@@ -730,9 +798,9 @@
                                     Tipo de Aviso
                                 </label>
                                 <select id="notif-form-tipo-aviso" class="form-control" style="font-size:0.88rem;" onchange="sugerirPlantillaPorTipoAviso(this.value)">
+                                    <option value="Aviso General">Aviso General</option>
                                     <option value="Recordatorio de Pago">Recordatorio de Pago</option>
                                     <option value="Promoción">Promoción / Oferta</option>
-                                    <option value="Aviso General">Aviso General</option>
                                     <option value="Estado de Cuenta">Estado de Cuenta</option>
                                 </select>
                             </div>
@@ -764,7 +832,7 @@
                             <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
                                 Título de la Alerta <span style="color:#ef4444;">*</span>
                             </label>
-                            <input type="text" id="notif-form-titulo" class="form-control" placeholder="Ej: Recordatorio de Pago Pendiente" required style="font-size:0.9rem; font-weight:600;">
+                            <input type="text" id="notif-form-titulo" class="form-control" placeholder="Ej: Aviso Importante para Todos Nuestros Clientes" required style="font-size:0.9rem; font-weight:600;">
                         </div>
 
                         <!-- 5. Cuerpo del Mensaje -->
@@ -775,7 +843,7 @@
                             <textarea id="notif-form-mensaje" class="form-control" rows="4" placeholder="Escribe el mensaje que el cliente leerá al abrir su pantalla..." required style="width:100%; font-size:0.9rem; line-height:1.5; padding:10px; border-radius:8px;"></textarea>
                             <div style="font-size:0.74rem; color:var(--text-muted); margin-top:5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">
                                 <span><i class="fas fa-tags" style="color:#0284c7;"></i> Etiquetas: <code>{nombre}</code>, <code>{deuda_usd}</code>, <code>{deuda_ves}</code></span>
-                                <span>Se reemplazan automáticamente con los datos de cada cliente</span>
+                                <span>Se sustituyen automáticamente con los datos de cada cliente</span>
                             </div>
                         </div>
 
@@ -797,7 +865,21 @@
             });
         }
 
-        poblarSelectClientesNotif(clienteIdPreseleccionado);
+        // Determinar el modo inicial según el parámetro recibido
+        let modoInicial = 'TODOS';
+        let clienteIdInicial = null;
+        if (clienteIdPreseleccionado === 'TODOS_CON_DEUDA') {
+            modoInicial = 'TODOS_CON_DEUDA';
+        } else if (clienteIdPreseleccionado === 'TODOS') {
+            modoInicial = 'TODOS';
+        } else if (clienteIdPreseleccionado) {
+            modoInicial = 'INDIVIDUAL';
+            clienteIdInicial = clienteIdPreseleccionado;
+        } else {
+            modoInicial = 'TODOS';
+        }
+
+        cambiarModoDestinatarioNotif(modoInicial, clienteIdInicial);
         modal.style.display = 'flex';
     }
 
@@ -810,225 +892,326 @@
     }
 
     /**
-     * Llena el selector de clientes en el formulario con opciones individuales y de difusión masiva
+     * Cambia entre los 3 modos de destinatario: 'TODOS', 'INDIVIDUAL', 'TODOS_CON_DEUDA'
      */
-    function poblarSelectClientesNotif(preseleccionado = null) {
-        const select = document.getElementById('notif-form-select-cliente');
-        if (!select) return;
+    function cambiarModoDestinatarioNotif(modo, clienteIdEspecifico = null) {
+        const inputModo = document.getElementById('notif-form-modo');
+        const inputDestId = document.getElementById('notif-form-destinatario-id');
+        const selectLegacy = document.getElementById('notif-form-select-cliente');
+        const descCorta = document.getElementById('notif-modo-descripcion-corta');
+        const btnSubmit = document.getElementById('btn-enviar-notif-cliente-submit');
+        const iconoHeader = document.getElementById('notif-modal-icono-header');
+
+        const tabTodos = document.getElementById('tab-notif-todos');
+        const tabIndiv = document.getElementById('tab-notif-individual');
+        const tabDeuda = document.getElementById('tab-notif-deuda');
+
+        const viewTodos = document.getElementById('notif-view-modo-todos');
+        const viewIndiv = document.getElementById('notif-view-modo-individual');
+        const viewDeuda = document.getElementById('notif-view-modo-deuda');
+
+        if (inputModo) inputModo.value = modo;
+
+        // Limpiar estilos de pestañas
+        if (tabTodos) tabTodos.className = 'notif-dest-tab-btn' + (modo === 'TODOS' ? ' is-active-todos' : '');
+        if (tabIndiv) tabIndiv.className = 'notif-dest-tab-btn' + (modo === 'INDIVIDUAL' ? ' is-active-individual' : '');
+        if (tabDeuda) tabDeuda.className = 'notif-dest-tab-btn' + (modo === 'TODOS_CON_DEUDA' ? ' is-active-deuda' : '');
+
+        // Ocultar todas las vistas
+        if (viewTodos) viewTodos.style.display = 'none';
+        if (viewIndiv) viewIndiv.style.display = 'none';
+        if (viewDeuda) viewDeuda.style.display = 'none';
 
         const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
-        const clientesOrdenados = [...clientes].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
-
-        const clientesConDeuda = clientes.filter(c => {
-            const deudaUSD = (typeof calcularEstadoFinancieroCliente === 'function') 
-                ? Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0) 
-                : Number(c.deudaUSD || 0);
-            return deudaUSD > 0.01;
-        });
-
-        select.innerHTML = `
-            <option value="">-- Selecciona un cliente o difusión masiva --</option>
-            <optgroup label="📢 DIFUSIÓN MASIVA (A TODOS DE UNA VEZ)">
-                <option value="TODOS" ${preseleccionado === 'TODOS' ? 'selected' : ''} style="font-weight:700; color:#0284c7;">
-                    📢 [A TODOS] Enviar a todos los clientes registrados (${clientes.length})
-                </option>
-                <option value="TODOS_CON_DEUDA" ${preseleccionado === 'TODOS_CON_DEUDA' ? 'selected' : ''} style="font-weight:700; color:#b45309;">
-                    💳 [MASIVO] Enviar a todos los clientes con saldo deudor (${clientesConDeuda.length})
-                </option>
-            </optgroup>
-            <optgroup label="👤 CLIENTES INDIVIDUALES (${clientes.length})">
-                ${clientesOrdenados.map(c => {
-                    const deudaUSD = Number(c.deudaUSD || 0);
-                    const deudaStr = deudaUSD > 0.01 ? ` [Deuda: $${deudaUSD.toFixed(2)}]` : ' [Solvente]';
-                    const isSel = (preseleccionado && String(c.id).toUpperCase() === String(preseleccionado).toUpperCase()) ? 'selected' : '';
-                    return `<option value="${c.id}" ${isSel}>${c.nombre} (C.I. ${c.id})${deudaStr}</option>`;
-                }).join('')}
-            </optgroup>
-        `;
-
-        if (preseleccionado) {
-            actualizarInfoClienteSeleccionadoNotif(preseleccionado);
-            if (preseleccionado === 'TODOS_CON_DEUDA') {
-                aplicarPlantillaNotificacion('pago');
-            } else if (preseleccionado === 'TODOS') {
-                aplicarPlantillaNotificacion('aviso');
-            } else {
-                aplicarPlantillaNotificacion('pago');
-            }
-        } else {
-            const kpi = document.getElementById('notif-form-cliente-kpi');
-            if (kpi) kpi.style.display = 'none';
-        }
-    }
-
-    /**
-     * Permite seleccionar con un clic los modos de difusión masiva (Todos o Solo con Deuda)
-     */
-    function seleccionarDestinatarioMasivo(tipo) {
-        const select = document.getElementById('notif-form-select-cliente');
-        const searchInput = document.getElementById('notif-form-buscar-cliente');
-        if (searchInput) searchInput.value = '';
-        if (select) {
-            select.value = tipo;
-            actualizarInfoClienteSeleccionadoNotif(tipo);
-        }
-        if (tipo === 'TODOS_CON_DEUDA') {
-            aplicarPlantillaNotificacion('pago');
-        } else if (tipo === 'TODOS') {
-            aplicarPlantillaNotificacion('aviso');
-        }
-    }
-    window.seleccionarDestinatarioMasivo = seleccionarDestinatarioMasivo;
-
-    /**
-     * Filtra dinámicamente las opciones del selector de cliente según la búsqueda
-     */
-    function filtrarOpcionesClientesNotif(query) {
-        const select = document.getElementById('notif-form-select-cliente');
-        if (!select) return;
-        const q = String(query || '').trim().toLowerCase();
-        const opts = select.querySelectorAll('option');
-        let primeroVisible = null;
-
-        opts.forEach((opt, idx) => {
-            if (idx === 0) return;
-            const val = opt.value;
-            // Opciones de difusión masiva se mantienen siempre visibles o si coincide la búsqueda
-            if (val === 'TODOS' || val === 'TODOS_CON_DEUDA') {
-                const coincideMasivo = !q || q.includes('todo') || q.includes('masiv') || opt.textContent.toLowerCase().includes(q);
-                opt.style.display = coincideMasivo ? '' : 'none';
-                if (coincideMasivo && !primeroVisible && q) primeroVisible = opt;
-                return;
-            }
-            const txt = opt.textContent.toLowerCase();
-            const coincide = !q || txt.includes(q);
-            opt.style.display = coincide ? '' : 'none';
-            if (coincide && !primeroVisible) primeroVisible = opt;
-        });
-
-        if (q && primeroVisible) {
-            select.value = primeroVisible.value;
-            actualizarInfoClienteSeleccionadoNotif(primeroVisible.value);
-        }
-    }
-
-    /**
-     * Muestra resumen del cliente seleccionado o de la difusión masiva
-     */
-    function actualizarInfoClienteSeleccionadoNotif(clienteId) {
-        const kpi = document.getElementById('notif-form-cliente-kpi');
-        if (!kpi) return;
-        if (!clienteId) {
-            kpi.style.display = 'none';
-            return;
-        }
-
         const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
-        const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
 
-        // Caso 1: Enviar a TODOS los clientes
-        if (clienteId === 'TODOS') {
-            const total = clientes.length;
-            kpi.style.display = 'block';
-            kpi.innerHTML = `
-                <div style="background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:10px 12px; color:#0369a1;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
-                            <i class="fas fa-bullhorn" style="color:#0284c7; font-size:1.1rem;"></i>
-                            <span>Difusión Masiva: Todos los Clientes</span>
-                        </div>
-                        <span style="font-weight:800; background:#0284c7; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem;">${total} destinatarios</span>
-                    </div>
-                    <div style="font-size:0.8rem; margin-top:5px; color:#0c4a6e; line-height:1.4;">
-                        Se enviará este aviso in-app a los <strong>${total} clientes</strong> registrados. Cada cliente verá el mensaje en su pantalla de forma prominente al abrir la app.
-                    </div>
-                </div>
-            `;
-            return;
-        }
+        if (modo === 'TODOS') {
+            if (iconoHeader) iconoHeader.className = 'fas fa-bullhorn';
+            if (inputDestId) inputDestId.value = 'TODOS';
+            if (selectLegacy) selectLegacy.value = 'TODOS';
+            if (descCorta) descCorta.textContent = `A todos los clientes (${clientes.length})`;
+            if (viewTodos) viewTodos.style.display = 'block';
 
-        // Caso 2: Enviar a TODOS los clientes con saldo deudor
-        if (clienteId === 'TODOS_CON_DEUDA') {
+            const badgeTodos = document.getElementById('notif-badge-destinatarios-todos');
+            if (badgeTodos) badgeTodos.textContent = `${clientes.length} destinatarios`;
+
+            if (btnSubmit) {
+                btnSubmit.innerHTML = `<i class="fas fa-bullhorn"></i> Emitir a Todos (${clientes.length} clientes)`;
+                btnSubmit.style.background = '#4f46e5';
+                btnSubmit.style.borderColor = '#4f46e5';
+            }
+
+            const inputTitulo = document.getElementById('notif-form-titulo');
+            const textareaMensaje = document.getElementById('notif-form-mensaje');
+            if (!inputTitulo?.value && !textareaMensaje?.value) {
+                aplicarPlantillaNotificacion('aviso');
+            }
+        } else if (modo === 'TODOS_CON_DEUDA') {
+            if (iconoHeader) iconoHeader.className = 'fas fa-hand-holding-dollar';
+            if (inputDestId) inputDestId.value = 'TODOS_CON_DEUDA';
+            if (selectLegacy) selectLegacy.value = 'TODOS_CON_DEUDA';
+            if (viewDeuda) viewDeuda.style.display = 'block';
+
             let totalDeudaUSD = 0;
             let countConDeuda = 0;
             clientes.forEach(c => {
-                let deudaUSD = 0;
+                let d = 0;
                 if (typeof calcularEstadoFinancieroCliente === 'function') {
-                    deudaUSD = Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0);
+                    d = Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0);
                 } else {
-                    deudaUSD = Number(c.deudaUSD || 0);
+                    d = Number(c.deudaUSD || 0);
                 }
-                if (deudaUSD > 0.01) {
+                if (d > 0.01) {
                     countConDeuda++;
-                    totalDeudaUSD += deudaUSD;
+                    totalDeudaUSD += d;
                 }
             });
             const totalDeudaVES = totalDeudaUSD * tasa;
 
-            kpi.style.display = 'block';
-            kpi.innerHTML = `
-                <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; color:#92400e;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
-                            <i class="fas fa-hand-holding-dollar" style="color:#b45309; font-size:1.1rem;"></i>
-                            <span>Cobro Masivo: Solo Clientes con Deuda</span>
-                        </div>
-                        <span style="font-weight:800; background:#b45309; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem;">${countConDeuda} clientes pendientes</span>
-                    </div>
-                    <div style="font-size:0.8rem; margin-top:5px; color:#78350f; line-height:1.4;">
-                        Deuda total agrupada: <strong>$${totalDeudaUSD.toFixed(2)} USD (Bs. ${totalDeudaVES.toLocaleString('es-VE', {minimumFractionDigits:2})})</strong>. Cada cliente verá su aviso personalizado con <em>su saldo pendiente exacto</em>.
-                    </div>
+            if (descCorta) descCorta.textContent = `Solo con deuda (${countConDeuda} clientes)`;
+            const badgeDeuda = document.getElementById('notif-badge-destinatarios-deuda');
+            if (badgeDeuda) badgeDeuda.textContent = `${countConDeuda} clientes con saldo`;
+
+            const resumenDeuda = document.getElementById('notif-resumen-deuda-global');
+            if (resumenDeuda) {
+                resumenDeuda.innerHTML = `Deuda global agrupada: <strong>$${totalDeudaUSD.toFixed(2)} USD (Bs. ${totalDeudaVES.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})})</strong>. Cada cliente verá su aviso personalizado con <em>su saldo pendiente exacto</em>.`;
+            }
+
+            if (btnSubmit) {
+                btnSubmit.innerHTML = `<i class="fas fa-hand-holding-dollar"></i> Emitir a Clientes con Deuda (${countConDeuda})`;
+                btnSubmit.style.background = '#b45309';
+                btnSubmit.style.borderColor = '#b45309';
+            }
+
+            const inputTitulo = document.getElementById('notif-form-titulo');
+            const textareaMensaje = document.getElementById('notif-form-mensaje');
+            if (!inputTitulo?.value && !textareaMensaje?.value) {
+                aplicarPlantillaNotificacion('pago');
+            }
+        } else if (modo === 'INDIVIDUAL') {
+            if (iconoHeader) iconoHeader.className = 'fas fa-paper-plane';
+            if (descCorta) descCorta.textContent = 'Cliente específico';
+            if (viewIndiv) viewIndiv.style.display = 'block';
+
+            if (btnSubmit) {
+                btnSubmit.style.background = '#0284c7';
+                btnSubmit.style.borderColor = '#0284c7';
+            }
+
+            // Renderizar el directorio scrollable interno
+            renderizarListaDirectorioNotif('');
+
+            if (clienteIdEspecifico) {
+                seleccionarClienteIndividualNotif(clienteIdEspecifico);
+            } else {
+                const actualId = inputDestId?.value;
+                if (actualId && actualId !== 'TODOS' && actualId !== 'TODOS_CON_DEUDA') {
+                    seleccionarClienteIndividualNotif(actualId);
+                } else {
+                    // Abrir el directorio para que elija
+                    toggleDirectorioNotif(true);
+                    if (btnSubmit) btnSubmit.innerHTML = `<i class="fas fa-paper-plane"></i> Emitir Notificación`;
+                }
+            }
+        }
+    }
+    window.cambiarModoDestinatarioNotif = cambiarModoDestinatarioNotif;
+
+    /**
+     * Renderiza la lista autocontenida de clientes dentro del directorio del modal
+     */
+    function renderizarListaDirectorioNotif(filtroBusqueda = '') {
+        const contenedor = document.getElementById('notif-lista-clientes-scroll');
+        if (!contenedor) return;
+
+        const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+        const clientesOrdenados = [...clientes].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+        const q = String(filtroBusqueda || '').trim().toLowerCase();
+
+        const filtrados = clientesOrdenados.filter(c => {
+            if (!q) return true;
+            const nom = String(c.nombre || '').toLowerCase();
+            const id = String(c.id || c.cedula || '').toLowerCase();
+            const tel = String(c.telefono || '').toLowerCase();
+            return nom.includes(q) || id.includes(q) || tel.includes(q);
+        });
+
+        if (filtrados.length === 0) {
+            contenedor.innerHTML = `
+                <div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.82rem;">
+                    <i class="fas fa-user-slash" style="margin-right:6px;"></i> No se encontraron clientes con "<strong>${filtroBusqueda}</strong>"
                 </div>
             `;
             return;
         }
 
-        // Caso 3: Cliente individual
-        const cliente = clientes.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
-        if (!cliente) {
-            kpi.style.display = 'none';
-            return;
-        }
+        const idSeleccionado = document.getElementById('notif-form-destinatario-id')?.value;
 
-        let saldoDeudaUSD = 0;
-        if (typeof calcularEstadoFinancieroCliente === 'function') {
-            const est = calcularEstadoFinancieroCliente(cliente.id);
-            saldoDeudaUSD = Number(est?.saldoDeudaUSD || 0);
-        } else {
-            saldoDeudaUSD = Number(cliente.deudaUSD || 0);
-        }
-        const saldoDeudaVES = saldoDeudaUSD * tasa;
+        contenedor.innerHTML = filtrados.map(c => {
+            const cId = String(c.id || c.cedula || '');
+            const isSelected = String(idSeleccionado).toUpperCase() === cId.toUpperCase();
+            const avatarChar = (c.nombre || 'C').trim().charAt(0).toUpperCase();
 
-        kpi.style.display = 'block';
-        kpi.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                <div>
-                    <strong><i class="fas fa-user-check" style="color:#0284c7; margin-right:4px;"></i> ${cliente.nombre}</strong>
-                    <span style="color:var(--text-muted); font-size:0.75rem;">(C.I. ${cliente.id})</span>
+            let deudaUSD = 0;
+            if (typeof calcularEstadoFinancieroCliente === 'function') {
+                deudaUSD = Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0);
+            } else {
+                deudaUSD = Number(c.deudaUSD || 0);
+            }
+
+            const badgeHtml = deudaUSD > 0.01 
+                ? `<span style="background:#fef3c7; color:#b45309; padding:2px 7px; border-radius:5px; font-size:0.72rem; font-weight:700; white-space:nowrap;"><i class="fas fa-hand-holding-dollar"></i> Debe $${deudaUSD.toFixed(2)}</span>`
+                : `<span style="background:#f0fdf4; color:#16a34a; padding:2px 7px; border-radius:5px; font-size:0.72rem; font-weight:700; white-space:nowrap;"><i class="fas fa-check"></i> Solvente</span>`;
+
+            return `
+                <div class="notif-cli-picker-item ${isSelected ? 'is-selected' : ''}" 
+                     onclick="seleccionarClienteIndividualNotif('${cId}')"
+                     style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid var(--border-color, #f1f5f9); cursor:pointer; width:100%; box-sizing:border-box; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                        <div style="width:28px; height:28px; border-radius:50%; background:#e0f2fe; color:#0369a1; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.75rem; flex-shrink:0;">${avatarChar}</div>
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-weight:700; font-size:0.83rem; color:var(--text-main, #0f172a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.nombre || 'Sin nombre'}</div>
+                            <div style="font-size:0.72rem; color:var(--text-muted, #64748b); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">C.I. ${cId}</div>
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; display:flex; align-items:center; gap:6px;">
+                        ${badgeHtml}
+                        ${isSelected ? '<i class="fas fa-check-circle" style="color:#0284c7; font-size:0.85rem;"></i>' : ''}
+                    </div>
                 </div>
-                <div>
-                    <span style="font-weight:700; color:${saldoDeudaUSD > 0.01 ? '#b45309' : '#16a34a'};">
-                        ${saldoDeudaUSD > 0.01 ? `Deuda: $${saldoDeudaUSD.toFixed(2)} USD (Bs. ${saldoDeudaVES.toLocaleString('es-VE', {minimumFractionDigits:2})})` : 'Solvente ($0.00)'}
-                    </span>
-                </div>
-            </div>
-        `;
+            `;
+        }).join('');
     }
+
+    /**
+     * Filtra dinámicamente los clientes en el directorio autocontenido
+     */
+    function filtrarDirectorioClientesNotif(query) {
+        renderizarListaDirectorioNotif(query);
+    }
+    window.filtrarDirectorioClientesNotif = filtrarDirectorioClientesNotif;
+
+    /**
+     * Alterna la visibilidad del panel de búsqueda/directorio frente a la tarjeta seleccionada
+     */
+    function toggleDirectorioNotif(mostrar) {
+        const panel = document.getElementById('notif-panel-directorio');
+        const card = document.getElementById('notif-card-cliente-seleccionado');
+        const inputBusqueda = document.getElementById('notif-input-buscar-cliente');
+
+        if (panel) panel.style.display = mostrar ? 'block' : 'none';
+        if (card && mostrar) card.style.display = 'none';
+
+        if (mostrar && inputBusqueda) {
+            inputBusqueda.value = '';
+            renderizarListaDirectorioNotif('');
+            setTimeout(() => inputBusqueda.focus(), 50);
+        }
+    }
+    window.toggleDirectorioNotif = toggleDirectorioNotif;
+
+    /**
+     * Selecciona un cliente del directorio individual, actualiza tarjeta y ajusta el formulario
+     */
+    function seleccionarClienteIndividualNotif(clienteId) {
+        const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+        const cliente = clientes.find(c => String(c.id || c.cedula).toUpperCase() === String(clienteId).toUpperCase());
+        if (!cliente) return;
+
+        const cId = String(cliente.id || cliente.cedula);
+        const inputDestId = document.getElementById('notif-form-destinatario-id');
+        const selectLegacy = document.getElementById('notif-form-select-cliente');
+        const card = document.getElementById('notif-card-cliente-seleccionado');
+        const panel = document.getElementById('notif-panel-directorio');
+        const avatarEl = document.getElementById('notif-card-cli-avatar');
+        const nombreEl = document.getElementById('notif-card-cli-nombre');
+        const subEl = document.getElementById('notif-card-cli-sub');
+        const btnSubmit = document.getElementById('btn-enviar-notif-cliente-submit');
+
+        if (inputDestId) inputDestId.value = cId;
+        if (selectLegacy) {
+            selectLegacy.innerHTML = `<option value="${cId}" selected>${cliente.nombre}</option>`;
+            selectLegacy.value = cId;
+        }
+
+        let deudaUSD = 0;
+        if (typeof calcularEstadoFinancieroCliente === 'function') {
+            deudaUSD = Number(calcularEstadoFinancieroCliente(cliente.id)?.saldoDeudaUSD || 0);
+        } else {
+            deudaUSD = Number(cliente.deudaUSD || 0);
+        }
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const estadoDeudaStr = deudaUSD > 0.01 
+            ? `Deuda: $${deudaUSD.toFixed(2)} USD (Bs. ${deudaVES})` 
+            : 'Solvente ($0.00)';
+
+        if (avatarEl) avatarEl.textContent = (cliente.nombre || 'C').trim().charAt(0).toUpperCase();
+        if (nombreEl) nombreEl.textContent = cliente.nombre;
+        if (subEl) subEl.innerHTML = `C.I. ${cId} • <b style="color:${deudaUSD > 0.01 ? '#b45309' : '#16a34a'}">${estadoDeudaStr}</b>`;
+
+        // Ocultar directorio desplegable y mostrar tarjeta limpia seleccionada
+        if (panel) panel.style.display = 'none';
+        if (card) card.style.display = 'block';
+
+        if (btnSubmit) {
+            const primerNombre = (cliente.nombre || 'Cliente').split(' ')[0];
+            btnSubmit.innerHTML = `<i class="fas fa-paper-plane"></i> Emitir a ${primerNombre}`;
+        }
+
+        // Si el mensaje está vacío, aplicar plantilla acorde a si debe o está solvente
+        const inputTitulo = document.getElementById('notif-form-titulo');
+        const textareaMensaje = document.getElementById('notif-form-mensaje');
+        if (!inputTitulo?.value && !textareaMensaje?.value) {
+            aplicarPlantillaNotificacion(deudaUSD > 0.01 ? 'pago' : 'aviso');
+        }
+    }
+    window.seleccionarClienteIndividualNotif = seleccionarClienteIndividualNotif;
+
+    /**
+     * Mantiene compatibilidad con llamadas previas de selección masiva
+     */
+    function seleccionarDestinatarioMasivo(tipo) {
+        cambiarModoDestinatarioNotif(tipo);
+    }
+    window.seleccionarDestinatarioMasivo = seleccionarDestinatarioMasivo;
+
+    /**
+     * Muestra resumen del cliente o difusión (compatibilidad)
+     */
+    function actualizarInfoClienteSeleccionadoNotif(clienteId) {
+        if (clienteId === 'TODOS' || clienteId === 'TODOS_CON_DEUDA') {
+            cambiarModoDestinatarioNotif(clienteId);
+        } else if (clienteId) {
+            cambiarModoDestinatarioNotif('INDIVIDUAL', clienteId);
+        }
+    }
+    window.actualizarInfoClienteSeleccionadoNotif = actualizarInfoClienteSeleccionadoNotif;
+
+    /**
+     * Compatibilidad con filtro anterior
+     */
+    function filtrarOpcionesClientesNotif(query) {
+        filtrarDirectorioClientesNotif(query);
+    }
+    window.filtrarOpcionesClientesNotif = filtrarOpcionesClientesNotif;
 
     /**
      * Aplica plantillas de texto predefinidas para redactar más rápido
      * Soporta etiquetas dinámicas {nombre}, {deuda_usd}, {deuda_ves} tanto individual como masivo
      */
     function aplicarPlantillaNotificacion(tipo) {
-        const selectCliente = document.getElementById('notif-form-select-cliente');
+        const modo = document.getElementById('notif-form-modo')?.value || 'TODOS';
+        const destId = document.getElementById('notif-form-destinatario-id')?.value;
         const selectPrioridad = document.getElementById('notif-form-prioridad');
         const selectTipoAviso = document.getElementById('notif-form-tipo-aviso');
         const inputTitulo = document.getElementById('notif-form-titulo');
         const textareaMensaje = document.getElementById('notif-form-mensaje');
 
-        const clienteId = selectCliente?.value;
-        const esMasivo = (clienteId === 'TODOS' || clienteId === 'TODOS_CON_DEUDA');
-        const cliente = (!esMasivo && clienteId) ? (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase()) : null;
+        const esMasivo = (modo === 'TODOS' || modo === 'TODOS_CON_DEUDA' || destId === 'TODOS' || destId === 'TODOS_CON_DEUDA');
+        const cliente = (!esMasivo && destId) 
+            ? (AppState.clientes || []).find(c => String(c.id || c.cedula).toUpperCase() === String(destId).toUpperCase()) 
+            : null;
         const nombreCliente = cliente ? cliente.nombre : '{nombre}';
         const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
         let deudaUSD = 0;
@@ -1084,27 +1267,34 @@
     }
 
     /**
-     * Procesa el formulario del Administrador y emite la notificación dirigida (Individual o Masiva a Todos)
+     * Procesa el formulario del Administrador y emite la notificación dirigida (Individual o Masiva a Todos de una vez)
      */
     async function enviarNotificacionACliente(e) {
         if (e && e.preventDefault) e.preventDefault();
 
-        const selectCliente = document.getElementById('notif-form-select-cliente');
+        const modo = document.getElementById('notif-form-modo')?.value || 'TODOS';
+        const destId = (document.getElementById('notif-form-destinatario-id')?.value || '').trim();
         const selectPrioridad = document.getElementById('notif-form-prioridad');
         const selectTipoAviso = document.getElementById('notif-form-tipo-aviso');
         const inputTitulo = document.getElementById('notif-form-titulo');
         const textareaMensaje = document.getElementById('notif-form-mensaje');
         const btnSubmit = document.getElementById('btn-enviar-notif-cliente-submit');
 
-        const clienteId = selectCliente ? selectCliente.value.trim() : '';
+        let clienteId = '';
+        if (modo === 'TODOS' || modo === 'TODOS_CON_DEUDA') {
+            clienteId = modo;
+        } else {
+            clienteId = destId;
+        }
+
         const prioridad = selectPrioridad ? selectPrioridad.value : 'INFO';
         const tipoAviso = selectTipoAviso ? selectTipoAviso.value : 'Aviso General';
         const titulo = inputTitulo ? inputTitulo.value.trim() : '';
         const mensaje = textareaMensaje ? textareaMensaje.value.trim() : '';
 
-        if (!clienteId) {
-            alert('Por favor selecciona el cliente destinatario o la opción de difusión masiva (Todos).');
-            if (selectCliente) selectCliente.focus();
+        if (!clienteId || (modo === 'INDIVIDUAL' && (!clienteId || clienteId === 'TODOS' || clienteId === 'TODOS_CON_DEUDA'))) {
+            alert('Por favor selecciona un cliente destinatario del directorio.');
+            toggleDirectorioNotif(true);
             return false;
         }
 
@@ -2110,7 +2300,10 @@ ${notif.mensaje}
                         <button type="button" class="btn btn-sm btn-outline" onclick="abrirModalComentarioCliente()">
                             <i class="fas fa-plus"></i> Nuevo Comentario
                         </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalEnviarNotificacionCliente()" style="background:#0284c7; border-color:#0284c7; color:#fff;" title="Enviar notificación in-app dirigida a la pantalla de un cliente">
+                        <button type="button" class="btn btn-sm" onclick="abrirModalEnviarNotificacionCliente('TODOS')" style="background:#4f46e5; border-color:#4f46e5; color:#fff; font-weight:700; box-shadow:0 1px 3px rgba(79, 70, 229, 0.25);" title="Enviar una notificación o comunicado a todos los clientes de una sola vez">
+                            <i class="fas fa-bullhorn"></i> Enviar a Todos
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalEnviarNotificacionCliente('INDIVIDUAL')" style="background:#0284c7; border-color:#0284c7; color:#fff; font-weight:700;" title="Enviar notificación in-app dirigida a la pantalla de un cliente específico">
                             <i class="fas fa-paper-plane"></i> Enviar a Cliente
                         </button>
                     </div>
@@ -2431,5 +2624,10 @@ ${notif.mensaje}
     window.aceptarYMarcarLeidaNotificacionInApp = aceptarYMarcarLeidaNotificacionInApp;
     window.irAEstadoCuentaDesdeInApp = irAEstadoCuentaDesdeInApp;
     window.seleccionarDestinatarioMasivo = seleccionarDestinatarioMasivo;
+    window.cambiarModoDestinatarioNotif = cambiarModoDestinatarioNotif;
+    window.seleccionarClienteIndividualNotif = seleccionarClienteIndividualNotif;
+    window.filtrarDirectorioClientesNotif = filtrarDirectorioClientesNotif;
+    window.toggleDirectorioNotif = toggleDirectorioNotif;
+    window.renderizarListaDirectorioNotif = renderizarListaDirectorioNotif;
 
 })();

@@ -3715,7 +3715,10 @@
                     <h3 style="margin:0; font-size:1.1rem;"><i class="fas fa-address-book" style="color:var(--primary-accent, #2563eb);"></i> Directorio de Clientes</h3>
                     <small style="color:var(--text-muted);" id="cli-counter-badge">Cargando...</small>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-primary" onclick="abrirModalEnviarNotificacionCliente('TODOS')" style="font-weight:700; font-size:0.86rem; background:#4f46e5; border-color:#4f46e5; color:#fff; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:10px; cursor:pointer;" title="Enviar una notificación o comunicado a todos los clientes de una sola vez">
+                        <i class="fas fa-bullhorn"></i> Enviar a Todos
+                    </button>
                     <button type="button" class="btn btn-outline" onclick="abrirModalFusionarClientes()" style="font-weight:700; font-size:0.86rem; color:#4338ca; border-color:#c7d2fe; background:#eef2ff; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:10px;" title="Unificar dos clientes duplicados y consolidar sus deudas y compras">
                         <i class="fas fa-link" style="color:#4f46e5;"></i> Unificar / Fusionar Clientes
                     </button>

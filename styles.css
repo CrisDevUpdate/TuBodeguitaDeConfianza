@@ -6162,4 +6162,90 @@ body.dark-theme .audit-modal-reason-card.is-selected-faltante .audit-reason-titl
     border: 1px solid #bae6fd !important;
 }
 
+/* ==========================================================================
+   SELECTOR DE DESTINATARIO Y DIRECTORIO RESPONSIVO (MODAL NOTIFICACIONES)
+   ========================================================================== */
+.notif-dest-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    background: #f1f5f9;
+    padding: 5px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+body.dark-theme .notif-dest-tabs {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.notif-dest-tab-btn {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    padding: 8px 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.18s ease;
+}
+
+body.dark-theme .notif-dest-tab-btn {
+    color: #94a3b8;
+}
+
+.notif-dest-tab-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #0f172a;
+}
+
+body.dark-theme .notif-dest-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+}
+
+.notif-dest-tab-btn.is-active-todos {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+}
+
+.notif-dest-tab-btn.is-active-individual {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(2, 132, 199, 0.3);
+}
+
+.notif-dest-tab-btn.is-active-deuda {
+    background: #b45309 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(180, 83, 9, 0.3);
+}
+
+.notif-cli-picker-item {
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.notif-cli-picker-item:hover {
+    background: #f0f9ff !important;
+}
+
+body.dark-theme .notif-cli-picker-item:hover {
+    background: #1e293b !important;
+}
+
+.notif-cli-picker-item.is-selected {
+    background: #e0f2fe !important;
+}
+
+body.dark-theme .notif-cli-picker-item.is-selected {
+    background: #0f2c4d !important;
+}
+
 
