@@ -2935,6 +2935,44 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Guardar Lote de Notificaciones en Firestore (Batch write masivo)
+     */
+    async function guardarNotificacionesLoteCloud(listaNotifs) {
+        if (!Array.isArray(listaNotifs) || listaNotifs.length === 0) return true;
+        if (isQuotaExhausted) return true;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (db) {
+                const CHUNK_SIZE = 400;
+                for (let i = 0; i < listaNotifs.length; i += CHUNK_SIZE) {
+                    const chunk = listaNotifs.slice(i, i + CHUNK_SIZE);
+                    const batch = db.batch();
+                    chunk.forEach(notif => {
+                        if (notif && notif.id) {
+                            const id = String(notif.id);
+                            const docRef = db.collection(COLLECTIONS.NOTIFICACIONES).doc(id);
+                            const payload = sanitizarObjetoParaFirestore({ ...notif, id }) || {};
+                            payload.updatedAt = new Date().toISOString();
+                            batch.set(docRef, payload, { merge: true });
+                        }
+                    });
+                    await batch.commit();
+                }
+                console.log(`[Firebase] Lote de ${listaNotifs.length} notificaciones sincronizado en Firestore.`);
+            }
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar lote de notificaciones en Firestore:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Ocultar Notificación de la App sin borrarla de la Base de Datos
      * En lugar de borrar el documento, lo actualiza con eliminada: true y oculta: true
      */
@@ -4188,6 +4226,7 @@ window.InventoryApp = window.InventoryApp || {};
         guardarCuentasBancarias: guardarCuentasBancariasCloud,
         guardarCanjePremio: guardarCanjePremioCloud,
         guardarNotificacion: guardarNotificacionCloud,
+        guardarNotificacionesLote: guardarNotificacionesLoteCloud,
         ocultarNotificacion: ocultarNotificacionCloud,
         marcarNotificacionLeida: marcarNotificacionLeidaCloud,
         consultarNotificacionesPendientesCliente: consultarNotificacionesPendientesClienteCloud,

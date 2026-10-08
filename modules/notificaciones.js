@@ -687,14 +687,28 @@
                     </div>
                     
                     <form onsubmit="enviarNotificacionACliente(event)" style="padding:20px; max-height:80vh; overflow-y:auto;">
-                        <!-- 1. Buscador y Selector de Cliente -->
+                        <!-- 1. Buscador y Selector de Cliente con Opción Masiva -->
                         <div class="form-group" style="margin-bottom:14px;">
-                            <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px; color:var(--text-main);">
-                                Cliente Destinatario <span style="color:#ef4444;">*</span>
-                            </label>
-                            <input type="text" id="notif-form-buscar-cliente" class="form-control" placeholder="🔍 Filtrar por nombre o cédula..." style="margin-bottom:8px; font-size:0.88rem;" oninput="filtrarOpcionesClientesNotif(this.value)">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label style="font-weight:700; font-size:0.85rem; margin:0; color:var(--text-main);">
+                                    Cliente Destinatario <span style="color:#ef4444;">*</span>
+                                </label>
+                                <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Individual o A Todos</span>
+                            </div>
+
+                            <!-- Botones Rápidos para Selección Masiva -->
+                            <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+                                <button type="button" class="btn btn-sm" id="btn-dest-todos" onclick="seleccionarDestinatarioMasivo('TODOS')" style="font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:6px; background:#e0f2fe; color:#0284c7; border:1px solid #7dd3fc; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                                    <i class="fas fa-bullhorn"></i> 📢 Enviar a Todos los Clientes
+                                </button>
+                                <button type="button" class="btn btn-sm" id="btn-dest-con-deuda" onclick="seleccionarDestinatarioMasivo('TODOS_CON_DEUDA')" style="font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:6px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                                    <i class="fas fa-hand-holding-dollar"></i> 💳 Solo con Deuda Pendiente
+                                </button>
+                            </div>
+
+                            <input type="text" id="notif-form-buscar-cliente" class="form-control" placeholder="🔍 Filtrar o escribir nombre/cédula..." style="margin-bottom:8px; font-size:0.88rem;" oninput="filtrarOpcionesClientesNotif(this.value)">
                             <select id="notif-form-select-cliente" class="form-control" required style="font-size:0.88rem; font-weight:600;" onchange="actualizarInfoClienteSeleccionadoNotif(this.value)">
-                                <option value="">-- Selecciona un cliente --</option>
+                                <option value="">-- Selecciona un cliente o difusión masiva --</option>
                             </select>
                             <div id="notif-form-cliente-kpi" style="margin-top:6px; font-size:0.8rem; display:none; padding:8px 12px; border-radius:8px; background:var(--bg-main); border:1px solid var(--border-color);"></div>
                         </div>
@@ -759,6 +773,10 @@
                                 Mensaje a Mostrar en Pantalla <span style="color:#ef4444;">*</span>
                             </label>
                             <textarea id="notif-form-mensaje" class="form-control" rows="4" placeholder="Escribe el mensaje que el cliente leerá al abrir su pantalla..." required style="width:100%; font-size:0.9rem; line-height:1.5; padding:10px; border-radius:8px;"></textarea>
+                            <div style="font-size:0.74rem; color:var(--text-muted); margin-top:5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+                                <span><i class="fas fa-tags" style="color:#0284c7;"></i> Etiquetas: <code>{nombre}</code>, <code>{deuda_usd}</code>, <code>{deuda_ves}</code></span>
+                                <span>Se reemplazan automáticamente con los datos de cada cliente</span>
+                            </div>
                         </div>
 
                         <!-- Botones de Acción -->
@@ -792,7 +810,7 @@
     }
 
     /**
-     * Llena el selector de clientes en el formulario
+     * Llena el selector de clientes en el formulario con opciones individuales y de difusión masiva
      */
     function poblarSelectClientesNotif(preseleccionado = null) {
         const select = document.getElementById('notif-form-select-cliente');
@@ -801,28 +819,66 @@
         const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
         const clientesOrdenados = [...clientes].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
 
-        select.innerHTML = '<option value="">-- Selecciona un cliente destinatario --</option>';
-
-        clientesOrdenados.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            const deudaUSD = Number(c.deudaUSD || 0);
-            const deudaStr = deudaUSD > 0.01 ? ` [Deuda: $${deudaUSD.toFixed(2)}]` : ' [Solvente]';
-            opt.textContent = `${c.nombre} (C.I. ${c.id})${deudaStr}`;
-            if (preseleccionado && String(c.id).toUpperCase() === String(preseleccionado).toUpperCase()) {
-                opt.selected = true;
-            }
-            select.appendChild(opt);
+        const clientesConDeuda = clientes.filter(c => {
+            const deudaUSD = (typeof calcularEstadoFinancieroCliente === 'function') 
+                ? Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0) 
+                : Number(c.deudaUSD || 0);
+            return deudaUSD > 0.01;
         });
+
+        select.innerHTML = `
+            <option value="">-- Selecciona un cliente o difusión masiva --</option>
+            <optgroup label="📢 DIFUSIÓN MASIVA (A TODOS DE UNA VEZ)">
+                <option value="TODOS" ${preseleccionado === 'TODOS' ? 'selected' : ''} style="font-weight:700; color:#0284c7;">
+                    📢 [A TODOS] Enviar a todos los clientes registrados (${clientes.length})
+                </option>
+                <option value="TODOS_CON_DEUDA" ${preseleccionado === 'TODOS_CON_DEUDA' ? 'selected' : ''} style="font-weight:700; color:#b45309;">
+                    💳 [MASIVO] Enviar a todos los clientes con saldo deudor (${clientesConDeuda.length})
+                </option>
+            </optgroup>
+            <optgroup label="👤 CLIENTES INDIVIDUALES (${clientes.length})">
+                ${clientesOrdenados.map(c => {
+                    const deudaUSD = Number(c.deudaUSD || 0);
+                    const deudaStr = deudaUSD > 0.01 ? ` [Deuda: $${deudaUSD.toFixed(2)}]` : ' [Solvente]';
+                    const isSel = (preseleccionado && String(c.id).toUpperCase() === String(preseleccionado).toUpperCase()) ? 'selected' : '';
+                    return `<option value="${c.id}" ${isSel}>${c.nombre} (C.I. ${c.id})${deudaStr}</option>`;
+                }).join('')}
+            </optgroup>
+        `;
 
         if (preseleccionado) {
             actualizarInfoClienteSeleccionadoNotif(preseleccionado);
-            aplicarPlantillaNotificacion('pago');
+            if (preseleccionado === 'TODOS_CON_DEUDA') {
+                aplicarPlantillaNotificacion('pago');
+            } else if (preseleccionado === 'TODOS') {
+                aplicarPlantillaNotificacion('aviso');
+            } else {
+                aplicarPlantillaNotificacion('pago');
+            }
         } else {
             const kpi = document.getElementById('notif-form-cliente-kpi');
             if (kpi) kpi.style.display = 'none';
         }
     }
+
+    /**
+     * Permite seleccionar con un clic los modos de difusión masiva (Todos o Solo con Deuda)
+     */
+    function seleccionarDestinatarioMasivo(tipo) {
+        const select = document.getElementById('notif-form-select-cliente');
+        const searchInput = document.getElementById('notif-form-buscar-cliente');
+        if (searchInput) searchInput.value = '';
+        if (select) {
+            select.value = tipo;
+            actualizarInfoClienteSeleccionadoNotif(tipo);
+        }
+        if (tipo === 'TODOS_CON_DEUDA') {
+            aplicarPlantillaNotificacion('pago');
+        } else if (tipo === 'TODOS') {
+            aplicarPlantillaNotificacion('aviso');
+        }
+    }
+    window.seleccionarDestinatarioMasivo = seleccionarDestinatarioMasivo;
 
     /**
      * Filtra dinámicamente las opciones del selector de cliente según la búsqueda
@@ -836,6 +892,14 @@
 
         opts.forEach((opt, idx) => {
             if (idx === 0) return;
+            const val = opt.value;
+            // Opciones de difusión masiva se mantienen siempre visibles o si coincide la búsqueda
+            if (val === 'TODOS' || val === 'TODOS_CON_DEUDA') {
+                const coincideMasivo = !q || q.includes('todo') || q.includes('masiv') || opt.textContent.toLowerCase().includes(q);
+                opt.style.display = coincideMasivo ? '' : 'none';
+                if (coincideMasivo && !primeroVisible && q) primeroVisible = opt;
+                return;
+            }
             const txt = opt.textContent.toLowerCase();
             const coincide = !q || txt.includes(q);
             opt.style.display = coincide ? '' : 'none';
@@ -849,7 +913,7 @@
     }
 
     /**
-     * Muestra resumen del cliente seleccionado (nombre, cédula y deuda actual)
+     * Muestra resumen del cliente seleccionado o de la difusión masiva
      */
     function actualizarInfoClienteSeleccionadoNotif(clienteId) {
         const kpi = document.getElementById('notif-form-cliente-kpi');
@@ -859,13 +923,73 @@
             return;
         }
 
-        const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        const clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+
+        // Caso 1: Enviar a TODOS los clientes
+        if (clienteId === 'TODOS') {
+            const total = clientes.length;
+            kpi.style.display = 'block';
+            kpi.innerHTML = `
+                <div style="background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:10px 12px; color:#0369a1;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
+                            <i class="fas fa-bullhorn" style="color:#0284c7; font-size:1.1rem;"></i>
+                            <span>Difusión Masiva: Todos los Clientes</span>
+                        </div>
+                        <span style="font-weight:800; background:#0284c7; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem;">${total} destinatarios</span>
+                    </div>
+                    <div style="font-size:0.8rem; margin-top:5px; color:#0c4a6e; line-height:1.4;">
+                        Se enviará este aviso in-app a los <strong>${total} clientes</strong> registrados. Cada cliente verá el mensaje en su pantalla de forma prominente al abrir la app.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 2: Enviar a TODOS los clientes con saldo deudor
+        if (clienteId === 'TODOS_CON_DEUDA') {
+            let totalDeudaUSD = 0;
+            let countConDeuda = 0;
+            clientes.forEach(c => {
+                let deudaUSD = 0;
+                if (typeof calcularEstadoFinancieroCliente === 'function') {
+                    deudaUSD = Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0);
+                } else {
+                    deudaUSD = Number(c.deudaUSD || 0);
+                }
+                if (deudaUSD > 0.01) {
+                    countConDeuda++;
+                    totalDeudaUSD += deudaUSD;
+                }
+            });
+            const totalDeudaVES = totalDeudaUSD * tasa;
+
+            kpi.style.display = 'block';
+            kpi.innerHTML = `
+                <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; color:#92400e;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:0.92rem;">
+                            <i class="fas fa-hand-holding-dollar" style="color:#b45309; font-size:1.1rem;"></i>
+                            <span>Cobro Masivo: Solo Clientes con Deuda</span>
+                        </div>
+                        <span style="font-weight:800; background:#b45309; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem;">${countConDeuda} clientes pendientes</span>
+                    </div>
+                    <div style="font-size:0.8rem; margin-top:5px; color:#78350f; line-height:1.4;">
+                        Deuda total agrupada: <strong>$${totalDeudaUSD.toFixed(2)} USD (Bs. ${totalDeudaVES.toLocaleString('es-VE', {minimumFractionDigits:2})})</strong>. Cada cliente verá su aviso personalizado con <em>su saldo pendiente exacto</em>.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Caso 3: Cliente individual
+        const cliente = clientes.find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
         if (!cliente) {
             kpi.style.display = 'none';
             return;
         }
 
-        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
         let saldoDeudaUSD = 0;
         if (typeof calcularEstadoFinancieroCliente === 'function') {
             const est = calcularEstadoFinancieroCliente(cliente.id);
@@ -893,6 +1017,7 @@
 
     /**
      * Aplica plantillas de texto predefinidas para redactar más rápido
+     * Soporta etiquetas dinámicas {nombre}, {deuda_usd}, {deuda_ves} tanto individual como masivo
      */
     function aplicarPlantillaNotificacion(tipo) {
         const selectCliente = document.getElementById('notif-form-select-cliente');
@@ -902,8 +1027,9 @@
         const textareaMensaje = document.getElementById('notif-form-mensaje');
 
         const clienteId = selectCliente?.value;
-        const cliente = clienteId ? (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase()) : null;
-        const nombreCliente = cliente ? cliente.nombre : 'Cliente';
+        const esMasivo = (clienteId === 'TODOS' || clienteId === 'TODOS_CON_DEUDA');
+        const cliente = (!esMasivo && clienteId) ? (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase()) : null;
+        const nombreCliente = cliente ? cliente.nombre : '{nombre}';
         const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
         let deudaUSD = 0;
         if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
@@ -913,19 +1039,22 @@
         }
         const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2 });
 
+        const tagMontoUSD = esMasivo ? '{deuda_usd}' : `$${deudaUSD.toFixed(2)} USD`;
+        const tagMontoVES = esMasivo ? '{deuda_ves}' : `Bs. ${deudaVES}`;
+
         if (tipo === 'pago') {
             if (selectPrioridad) selectPrioridad.value = 'PAGO';
             if (selectTipoAviso) selectTipoAviso.value = 'Recordatorio de Pago';
             if (inputTitulo) inputTitulo.value = 'Recordatorio de Pago Pendiente';
             if (textareaMensaje) {
-                textareaMensaje.value = `Estimado(a) ${nombreCliente}, te saludamos cordialmente desde Tu Bodeguita de Confianza. Te recordamos que cuentas con un saldo pendiente de $${deudaUSD.toFixed(2)} USD (Bs. ${deudaVES}). Agradecemos conciliar tu abono vía Pago Móvil o en nuestra tienda para mantener tu crédito activo. ¡Muchas gracias por tu puntualidad!`;
+                textareaMensaje.value = `Estimado(a) ${nombreCliente}, te saludamos cordialmente desde Tu Bodeguita de Confianza. Te recordamos que cuentas con un saldo pendiente de ${tagMontoUSD} (${tagMontoVES}). Agradecemos conciliar tu abono vía Pago Móvil o en nuestra tienda para mantener tu crédito activo. ¡Muchas gracias por tu puntualidad!`;
             }
         } else if (tipo === 'promocion') {
             if (selectPrioridad) selectPrioridad.value = 'INFO';
             if (selectTipoAviso) selectTipoAviso.value = 'Promoción';
             if (inputTitulo) inputTitulo.value = '¡Nuevas Ofertas y Promociones en Tu Bodeguita!';
             if (textareaMensaje) {
-                textareaMensaje.value = `¡Hola ${nombreCliente}! Queremos invitarte a conocer nuestras nuevas ofertas y combos especiales disponibles esta semana. Pasa por nuestra tienda y aprovecha los mejores precios. ¡Te esperamos!`;
+                textareaMensaje.value = `¡Hola ${nombreCliente}! Queremos invitarte a conocer nuestras nuevas ofertas y combos especiales disponibles esta semana en Tu Bodeguita. Pasa por nuestra tienda y aprovecha los mejores precios. ¡Te esperamos!`;
             }
         } else if (tipo === 'aviso') {
             if (selectPrioridad) selectPrioridad.value = 'INFO';
@@ -939,7 +1068,7 @@
             if (selectTipoAviso) selectTipoAviso.value = 'Recordatorio de Pago';
             if (inputTitulo) inputTitulo.value = 'Urgente: Regularización de Cuenta Requerida';
             if (textareaMensaje) {
-                textareaMensaje.value = `Estimado(a) ${nombreCliente}, nos comunicamos para solicitarte regularizar a la brevedad tu saldo deudor pendiente de $${deudaUSD.toFixed(2)} USD en Tu Bodeguita de Confianza para evitar la suspensión temporal del beneficio de fiado. Agradecemos contactarnos pronto.`;
+                textareaMensaje.value = `Estimado(a) ${nombreCliente}, nos comunicamos para solicitarte regularizar a la brevedad tu saldo deudor pendiente de ${tagMontoUSD} en Tu Bodeguita de Confianza para evitar la suspensión temporal del beneficio de fiado. Agradecemos contactarnos pronto.`;
             }
         }
     }
@@ -955,9 +1084,9 @@
     }
 
     /**
-     * Procesa el formulario del Administrador y emite la notificación dirigida al cliente
+     * Procesa el formulario del Administrador y emite la notificación dirigida (Individual o Masiva a Todos)
      */
-    function enviarNotificacionACliente(e) {
+    async function enviarNotificacionACliente(e) {
         if (e && e.preventDefault) e.preventDefault();
 
         const selectCliente = document.getElementById('notif-form-select-cliente');
@@ -974,7 +1103,7 @@
         const mensaje = textareaMensaje ? textareaMensaje.value.trim() : '';
 
         if (!clienteId) {
-            alert('Por favor selecciona el cliente destinatario de la notificación.');
+            alert('Por favor selecciona el cliente destinatario o la opción de difusión masiva (Todos).');
             if (selectCliente) selectCliente.focus();
             return false;
         }
@@ -986,10 +1115,139 @@
             return false;
         }
 
+        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        const emisorNombre = AppState.usuarioActual?.nombre || 'Administración';
+        const nowTs = Date.now();
+        const fechaStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+        // =====================================================================
+        // CASO A: ENVÍO MASIVO A TODOS LOS CLIENTES O A TODOS CON DEUDA
+        // =====================================================================
+        if (clienteId === 'TODOS' || clienteId === 'TODOS_CON_DEUDA') {
+            const todosClientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+            let destinatarios = [];
+
+            if (clienteId === 'TODOS') {
+                destinatarios = todosClientes.filter(c => c && (c.id || c.cedula));
+            } else if (clienteId === 'TODOS_CON_DEUDA') {
+                destinatarios = todosClientes.filter(c => {
+                    let d = (typeof calcularEstadoFinancieroCliente === 'function') 
+                        ? Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0) 
+                        : Number(c.deudaUSD || 0);
+                    return d > 0.01;
+                });
+            }
+
+            if (destinatarios.length === 0) {
+                alert(clienteId === 'TODOS_CON_DEUDA' 
+                    ? 'No hay clientes con saldo deudor pendiente en este momento.' 
+                    : 'No hay clientes registrados en la base de datos.');
+                return false;
+            }
+
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Emitiendo a ${destinatarios.length} clientes...`;
+            }
+
+            try {
+                const loteNotifs = [];
+
+                destinatarios.forEach((c, idx) => {
+                    const cId = String(c.id || c.cedula);
+                    let dUSD = 0;
+                    if (typeof calcularEstadoFinancieroCliente === 'function') {
+                        dUSD = Number(calcularEstadoFinancieroCliente(c.id)?.saldoDeudaUSD || 0);
+                    } else {
+                        dUSD = Number(c.deudaUSD || 0);
+                    }
+                    const dVES = dUSD * tasa;
+
+                    // Reemplazo de variables dinámicas por cliente
+                    const msgPersonalizado = mensaje
+                        .replace(/{nombre}/gi, c.nombre || 'Cliente')
+                        .replace(/{cedula}/gi, cId)
+                        .replace(/{deuda_usd}/gi, `$${dUSD.toFixed(2)} USD`)
+                        .replace(/{deuda_ves}/gi, `Bs. ${dVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+                    loteNotifs.push({
+                        id: 'notif_' + (nowTs + idx) + '_' + Math.random().toString(36).substring(2, 6) + '_' + cId,
+                        tipo_destinatario: 'CLIENTE',
+                        id_cliente: cId,
+                        clienteId: cId,
+                        clienteNombre: c.nombre || cId,
+                        tipo: 'cliente_inapp',
+                        subTipo: 'aviso_admin',
+                        tipoAviso: tipoAviso,
+                        prioridad: prioridad,
+                        titulo: titulo,
+                        mensaje: msgPersonalizado,
+                        leido: false,
+                        leida: false,
+                        paraCliente: true,
+                        paraAdmin: true,
+                        montoUSD: dUSD,
+                        montoVES: dVES,
+                        emisor: emisorNombre,
+                        fecha: fechaStr,
+                        timestamp: nowTs + idx,
+                        destino: { tab: 'cliente-cuenta' },
+                        eliminada: false,
+                        oculta: false
+                    });
+                });
+
+                // Registrar en memoria local
+                if (!Array.isArray(AppState.notificaciones)) AppState.notificaciones = [];
+                AppState.notificaciones.unshift(...loteNotifs);
+                if (AppState.notificaciones.length > 500) {
+                    AppState.notificaciones = AppState.notificaciones.slice(0, 500);
+                }
+
+                if (window.InventoryApp?.Persistence?.guardar) {
+                    window.InventoryApp.Persistence.guardar(true);
+                }
+
+                // Sincronizar masivamente en Firestore
+                if (window.InventoryApp?.Firebase?.guardarNotificacionesLote) {
+                    await window.InventoryApp.Firebase.guardarNotificacionesLote(loteNotifs);
+                } else if (window.InventoryApp?.Firebase?.guardarNotificacion) {
+                    loteNotifs.forEach(n => window.InventoryApp.Firebase.guardarNotificacion(n).catch(() => {}));
+                }
+
+                cerrarModalEnviarNotificacionCliente();
+
+                const etiquetaExito = clienteId === 'TODOS_CON_DEUDA' 
+                    ? `Notificación in-app emitida exitosamente a los ${loteNotifs.length} clientes con deuda.`
+                    : `Difusión masiva emitida exitosamente a los ${loteNotifs.length} clientes registrados.`;
+
+                if (window.InventoryApp?.Modal?.toast) {
+                    window.InventoryApp.Modal.toast(etiquetaExito, 'success');
+                } else {
+                    alert(etiquetaExito);
+                }
+
+                actualizarBadgesNotificaciones();
+
+                const vista = document.getElementById('notificaciones');
+                if (vista && vista.classList.contains('active')) {
+                    renderizarNotificaciones(filtroActivo);
+                }
+            } finally {
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> Emitir Notificación';
+                }
+            }
+            return false;
+        }
+
+        // =====================================================================
+        // CASO B: ENVÍO INDIVIDUAL A UN CLIENTE SELECCIONADO
+        // =====================================================================
         const cliente = (AppState.clientes || []).find(c => String(c.id).toUpperCase() === String(clienteId).toUpperCase());
         const clienteNombre = cliente ? cliente.nombre : clienteId;
 
-        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
         let deudaUSD = 0;
         if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
             deudaUSD = Number(calcularEstadoFinancieroCliente(cliente.id)?.saldoDeudaUSD || 0);
@@ -997,6 +1255,12 @@
             deudaUSD = Number(cliente.deudaUSD || 0);
         }
         const deudaVES = deudaUSD * tasa;
+
+        const msgPersonalizado = mensaje
+            .replace(/{nombre}/gi, clienteNombre || 'Cliente')
+            .replace(/{cedula}/gi, clienteId)
+            .replace(/{deuda_usd}/gi, `$${deudaUSD.toFixed(2)} USD`)
+            .replace(/{deuda_ves}/gi, `Bs. ${deudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
         if (btnSubmit) {
             btnSubmit.disabled = true;
@@ -1014,14 +1278,14 @@
                 tipoAviso: tipoAviso,
                 prioridad: prioridad,
                 titulo: titulo,
-                mensaje: mensaje,
+                mensaje: msgPersonalizado,
                 leido: false,
                 leida: false,
                 paraCliente: true,
                 paraAdmin: true,
                 montoUSD: deudaUSD,
                 montoVES: deudaVES,
-                emisor: AppState.usuarioActual?.nombre || 'Administración'
+                emisor: emisorNombre
             });
 
             cerrarModalEnviarNotificacionCliente();
@@ -2166,5 +2430,6 @@ ${notif.mensaje}
     window.cerrarModalNotificacionInAppCliente = cerrarModalNotificacionInAppCliente;
     window.aceptarYMarcarLeidaNotificacionInApp = aceptarYMarcarLeidaNotificacionInApp;
     window.irAEstadoCuentaDesdeInApp = irAEstadoCuentaDesdeInApp;
+    window.seleccionarDestinatarioMasivo = seleccionarDestinatarioMasivo;
 
 })();
