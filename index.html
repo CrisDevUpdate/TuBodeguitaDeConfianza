@@ -3522,6 +3522,66 @@
                         </div>
                     </div>
 
+                    <!-- Configuraciones Avanzadas: Pesables (Balanza) y Doble Presentación (Empaque) -->
+                    <div style="background:var(--bg-main, #f8fafc); border:1px solid var(--border-color, #e2e8f0); border-radius:12px; padding:14px; margin-top:8px; margin-bottom:14px;">
+                        <div style="font-weight:800; font-size:0.88rem; color:var(--text-main); margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-sliders" style="color:#0284c7;"></i>
+                            <span>Modalidades Comerciales: Balanza y Doble Empaque</span>
+                        </div>
+
+                        <!-- 1. Switch Producto Pesable / Balanza -->
+                        <div style="border-bottom:1px solid var(--border-color, #e2e8f0); padding-bottom:10px; margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:700; font-size:0.86rem; color:var(--text-main);">
+                                <input type="checkbox" id="prod-es-pesable" onchange="toggleCamposPesables(this.checked)" style="width:18px; height:18px; accent-color:#f59e0b; cursor:pointer;">
+                                <span>⚖️ Producto Pesable / Venta por Peso (Balanza)</span>
+                            </label>
+                            <small style="display:block; margin-left:28px; color:var(--text-muted); font-size:0.75rem;">Permite vender fracciones decimales (ej. 0.350 kg de queso o 1.5 kg de harina) con calculadora de balanza integrada en POS.</small>
+
+                            <div id="wrapper-campos-pesables" style="display:none; margin-top:10px; margin-left:28px; background:var(--bg-card); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label style="font-size:0.8rem; font-weight:700;">Unidad de Medida</label>
+                                    <select id="prod-unidad-medida" class="form-control" style="font-size:0.85rem; padding:6px 10px;">
+                                        <option value="kg">Kilogramo (kg)</option>
+                                        <option value="g">Gramo (g)</option>
+                                        <option value="litro">Litro (l)</option>
+                                        <option value="metro">Metro (m)</option>
+                                        <option value="und">Unidad (und)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Switch Doble Presentación / Empaque Múltiple -->
+                        <div>
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:700; font-size:0.86rem; color:var(--text-main);">
+                                <input type="checkbox" id="prod-tiene-empaque" onchange="toggleCamposEmpaque(this.checked)" style="width:18px; height:18px; accent-color:#0284c7; cursor:pointer;">
+                                <span>📦 Habilitar Venta por Empaque Múltiple (Fardo / Bulto / Caja)</span>
+                            </label>
+                            <small style="display:block; margin-left:28px; color:var(--text-muted); font-size:0.75rem;">Permite vender tanto por Unidad al detal como por Fardo entero, vinculados al mismo inventario central.</small>
+
+                            <div id="wrapper-campos-empaque" style="display:none; margin-top:10px; margin-left:28px; background:var(--bg-card); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:0.8rem; font-weight:700;">Nombre Empaque</label>
+                                        <input type="text" id="prod-empaque-nombre" placeholder="Ej: Fardo, Bulto, Caja" style="font-size:0.85rem; padding:6px 10px;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:0.8rem; font-weight:700;">Contenido (Unidades)</label>
+                                        <input type="number" id="prod-empaque-contenido" min="2" step="1" placeholder="Ej: 20" style="font-size:0.85rem; padding:6px 10px;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:0.8rem; font-weight:700;">Precio Empaque ($)</label>
+                                        <input type="number" id="prod-empaque-precio" min="0" step="0.01" placeholder="Ej: 22.00" style="font-size:0.85rem; padding:6px 10px;">
+                                    </div>
+                                </div>
+                                <div style="margin-top:8px; font-size:0.74rem; color:#0369a1; background:#e0f2fe; padding:6px 10px; border-radius:6px; display:flex; align-items:center; gap:6px;">
+                                    <i class="fas fa-link"></i>
+                                    <span><b>Inventario Central Unificado:</b> El stock se descuenta proporcionalmente (vender 1 Fardo de 20 unidades descontará automáticamente 20 unidades de la existencia central).</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="product-form-actions">
                         <button type="submit" class="btn" id="btn-prod-save"><i class="fas fa-save"></i> Guardar Producto</button>
                     </div>
@@ -3732,7 +3792,7 @@
             <div class="clientes-toolbar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
                 <div style="position:relative; width:100%;">
                     <i class="fas fa-search" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.95rem;"></i>
-                    <input type="text" id="input-buscar-cliente" oninput="alBuscarCliente(this.value)" placeholder="Buscar cliente por nombre, cédula o teléfono..." style="width:100%; padding:10px 38px 10px 38px; border:1px solid #cbd5e1; border-radius:12px; font-size:0.9rem; box-sizing:border-box; outline:none; background:#f8fafc; transition:all 0.2s;">
+                    <input type="text" id="input-buscar-cliente" oninput="alBuscarCliente(this.value)" placeholder="Buscar cliente por nombre, cédula, usuario o teléfono..." style="width:100%; padding:10px 38px 10px 38px; border:1px solid #cbd5e1; border-radius:12px; font-size:0.9rem; box-sizing:border-box; outline:none; background:#f8fafc; transition:all 0.2s;">
                     <button type="button" id="btn-limpiar-buscar-cliente" onclick="limpiarBuscadorCliente()" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:0.95rem;"><i class="fas fa-times-circle"></i></button>
                 </div>
                 <div class="clientes-filter-chips" style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -6243,6 +6303,136 @@
                 <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane"></i> Enviar Pago para Aprobación</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal Calculadora de Balanza POS para Productos Pesables -->
+<div id="modal-calculadora-balanza-pos" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);" onclick="if(event.target === this) cerrarCalculadoraBalanzaPOS();">
+    <div class="card" style="width:100%; max-width:480px; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 30px -5px rgba(0,0,0,0.35); background:var(--bg-card); margin:auto;">
+        <!-- Header -->
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="display:inline-flex; width:36px; height:36px; border-radius:8px; background:#fef3c7; color:#b45309; align-items:center; justify-content:center; font-size:1.15rem;">
+                    <i class="fas fa-scale-balanced"></i>
+                </span>
+                <div>
+                    <h3 id="balanza-prod-nombre" style="margin:0; font-size:1.08rem; color:var(--text-main);">Producto Pesable</h3>
+                    <small id="balanza-prod-preciokg" style="color:var(--text-muted); font-size:0.78rem;">Precio: $0.00 / kg</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="cerrarCalculadoraBalanzaPOS()" title="Cerrar" style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:16px 20px;">
+            <input type="hidden" id="balanza-producto-id">
+            
+            <!-- Selector de Modo de Entrada (Por Peso vs Por Monto de Dinero) -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; background:var(--bg-main, #f1f5f9); padding:4px; border-radius:10px; margin-bottom:14px;">
+                <button type="button" id="btn-modo-balanza-peso" class="btn btn-sm" onclick="cambiarModoBalanza('peso')" style="border-radius:8px; font-weight:800; font-size:0.8rem; background:#0284c7; color:#fff; border:none; cursor:pointer;">
+                    ⚖️ Ingresar Peso (kg/g)
+                </button>
+                <button type="button" id="btn-modo-balanza-dinero" class="btn btn-sm" onclick="cambiarModoBalanza('dinero')" style="border-radius:8px; font-weight:700; font-size:0.8rem; background:transparent; color:var(--text-muted); border:none; cursor:pointer;">
+                    💵 Ingresar Monto ($ / Bs)
+                </button>
+            </div>
+
+            <!-- Display Digital de la Balanza -->
+            <div class="balanza-digital-display" style="margin-bottom:14px;">
+                <div>
+                    <div style="font-size:0.72rem; color:#86efac; letter-spacing:1px; text-transform:uppercase;">PESO A DESPACHAR</div>
+                    <div style="display:flex; align-items:baseline;">
+                        <span id="balanza-display-peso" class="balanza-digital-val">0.000</span>
+                        <span id="balanza-display-unidad" class="balanza-digital-unit">kg</span>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.72rem; color:#93c5fd; letter-spacing:1px; text-transform:uppercase;">TOTAL A COBRAR</div>
+                    <div style="color:#60a5fa; font-size:1.45rem; font-weight:900;" id="balanza-display-monto-usd">$0.00</div>
+                    <div style="color:#94a3b8; font-size:0.75rem;" id="balanza-display-monto-ves">Bs. 0.00</div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 1: ENTRADA POR PESO -->
+            <div id="seccion-balanza-peso">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.78rem; font-weight:700;">Peso en Kilogramos (kg)</label>
+                        <input type="number" id="balanza-input-kg" step="0.001" min="0.001" placeholder="Ej: 0.350" style="font-size:1.1rem; font-weight:800; text-align:center;" oninput="alCambiarPesoKg(this.value)">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.78rem; font-weight:700;">Equivalente en Gramos (g)</label>
+                        <input type="number" id="balanza-input-g" step="1" min="1" placeholder="Ej: 350" style="font-size:1.1rem; font-weight:800; text-align:center;" oninput="alCambiarPesoGramos(this.value)">
+                    </div>
+                </div>
+
+                <!-- Botones Rápidos de Peso Habituales -->
+                <div style="margin-bottom:14px;">
+                    <small style="color:var(--text-muted); font-size:0.72rem; font-weight:700; display:block; margin-bottom:5px;">PRESETS RÁPIDOS:</small>
+                    <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:4px;">
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(0.100)">100g</button>
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(0.250)">250g</button>
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(0.500)">500g</button>
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(0.750)">750g</button>
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(1.000)">1 kg</button>
+                        <button type="button" class="balanza-preset-btn" onclick="aplicarPresetPeso(2.000)">2 kg</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: ENTRADA POR MONTO (CÁLCULO INVERSO) -->
+            <div id="seccion-balanza-dinero" style="display:none; margin-bottom:14px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.78rem; font-weight:700;">Monto en Dólares ($)</label>
+                        <input type="number" id="balanza-input-monto-usd" step="0.01" min="0.01" placeholder="Ej: 2.00" style="font-size:1.1rem; font-weight:800; text-align:center;" oninput="alCambiarMontoDineroUSD(this.value)">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.78rem; font-weight:700;">Monto en Bolívares (Bs)</label>
+                        <input type="number" id="balanza-input-monto-ves" step="0.01" min="0.01" placeholder="Ej: 100.00" style="font-size:1.1rem; font-weight:800; text-align:center;" oninput="alCambiarMontoDineroVES(this.value)">
+                    </div>
+                </div>
+                <small style="color:var(--text-muted); font-size:0.73rem; margin-top:4px; display:block;">Calcula automáticamente el peso exacto a despachar según el dinero que desea pagar el cliente.</small>
+            </div>
+
+            <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:16px;">
+                <span id="balanza-stock-disponible"><i class="fas fa-boxes-stacked"></i> Stock disponible: —</span>
+                <span id="balanza-precio-unitario-info">$0.00 / kg</span>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" onclick="cerrarCalculadoraBalanzaPOS()">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-balanza-confirmar" onclick="confirmarAgregarBalanzaAlCarrito()" style="font-weight:800; font-size:0.92rem; padding:10px 18px;">
+                    <i class="fas fa-cart-plus"></i> Agregar al Carrito
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Selector de Presentación POS (Unidad vs Empaque Múltiple / Fardo) -->
+<div id="modal-selector-presentacion-pos" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);" onclick="if(event.target === this) cerrarModalSelectorPresentacionPOS();">
+    <div class="card" style="width:100%; max-width:460px; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 30px -5px rgba(0,0,0,0.35); background:var(--bg-card); margin:auto;">
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="display:inline-flex; width:36px; height:36px; border-radius:8px; background:#e0f2fe; color:#0284c7; align-items:center; justify-content:center; font-size:1.15rem;">
+                    <i class="fas fa-boxes-stacked"></i>
+                </span>
+                <div>
+                    <h3 id="presentacion-modal-nombre" style="margin:0; font-size:1.08rem; color:var(--text-main);">Seleccionar Presentación</h3>
+                    <small style="color:var(--text-muted); font-size:0.76rem;">Elige cómo deseas despachar el producto</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="cerrarModalSelectorPresentacionPOS()" title="Cerrar" style="border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div style="padding:18px;" id="presentacion-modal-opciones">
+            <!-- Renderizado dinámico de las 2 presentaciones vinculadas al mismo stock -->
+        </div>
     </div>
 </div>
 

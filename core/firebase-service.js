@@ -32,6 +32,7 @@ window.InventoryApp = window.InventoryApp || {};
     let isQuotaExhausted = false;
     let quotaCooldownTimer = null;
     let lastSyncAttempt = 0;
+    let syncInProgress = false;
 
     /**
      * Comprueba si un usuario corresponde a un Administrador activo del sistema
@@ -755,11 +756,19 @@ window.InventoryApp = window.InventoryApp || {};
         const usuarioSesion = window.AppState?.usuarioActual;
         const esAdmin = esUsuarioAdminActivo(usuarioSesion);
 
-        // Anti-ráfaga general: mínimo 30s entre sincronizaciones salvo que sea forzada por usuario
+        if (syncInProgress) {
+            return true;
+        }
+
+        // Anti-ráfaga general: mínimo 30s entre sincronizaciones salvo que sea forzada por usuario (mínimo 6s)
         if (!forzar && (now - lastSyncAttempt < 30000)) {
             return true;
         }
+        if (forzar && (now - lastSyncAttempt < 6000)) {
+            return true;
+        }
         lastSyncAttempt = now;
+        syncInProgress = true;
 
         // 🛡️ ESTRATEGIA PARA VISITANTES PÚBLICOS SIN SESIÓN
         // Si no hay usuario logueado en la app, únicamente se requiere catálogo y config
@@ -790,6 +799,7 @@ window.InventoryApp = window.InventoryApp || {};
             if (prodsCargados && (isQuotaExhausted || (now - lastClientSync < 6 * 60 * 60 * 1000))) {
                 actualizarUIEstadoNube('conectado', 'Catálogo cargado (Caché local)');
                 refrescarTodasLasVistas();
+                syncInProgress = false;
                 return true;
             }
         }
@@ -839,9 +849,11 @@ window.InventoryApp = window.InventoryApp || {};
                 }
                 refrescarTodasLasVistas();
                 actualizarUIEstadoNube('conectado', 'Catálogo actualizado');
+                syncInProgress = false;
                 return true;
             } catch (cliErr) {
                 if (esErrorDeCuota(cliErr)) manejarErrorCuota();
+                syncInProgress = false;
                 return true;
             }
         }
@@ -1074,7 +1086,7 @@ window.InventoryApp = window.InventoryApp || {};
 
             // Sincronizar regla de negocio: Cada usuario creado es automáticamente un cliente
             if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-                asegurarSincronizacionUsuariosAClientes();
+                asegurarSincronizacionUsuariosAClientes(false);
             }
 
             if (snapCanjes && !snapCanjes.empty) {
@@ -1174,6 +1186,8 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }
             return false;
+        } finally {
+            syncInProgress = false;
         }
     }
 
@@ -1343,7 +1357,7 @@ window.InventoryApp = window.InventoryApp || {};
             if (!data) return '';
             // Ignorar marcas de tiempo volátiles para evitar bucles de renderizado con serverTimestamp
             const replacer = (key, val) => {
-                if (key === 'updatedAt' || key === 'createdAt' || key === '_serverTimestamp') return undefined;
+                if (key === 'updatedAt' || key === 'createdAt' || key === '_serverTimestamp' || key === 'lastUpdated') return undefined;
                 return val;
             };
             return JSON.stringify(data, replacer);
@@ -1358,7 +1372,7 @@ window.InventoryApp = window.InventoryApp || {};
         }
         refreshDebounceTimer = setTimeout(() => {
             refrescarTodasLasVistas();
-        }, 250);
+        }, 350);
     }
 
     /**
@@ -1413,17 +1427,20 @@ window.InventoryApp = window.InventoryApp || {};
                 if (!snapshot.metadata.hasPendingWrites) {
                     let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
-                    const checkElim = typeof esClienteEliminadoOExcluido === 'function'
-                        ? esClienteEliminadoOExcluido
-                        : (c, list) => {
-                            const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                            return list.some(e => {
-                                const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                                if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                                const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                                return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
-                            });
-                        };
+                    const checkElim = (c, list) => {
+                        if (typeof window.esClienteEliminadoOExcluido === 'function') {
+                            return window.esClienteEliminadoOExcluido(c, list);
+                        }
+                        if (typeof esClienteEliminadoOExcluido === 'function') {
+                            return esClienteEliminadoOExcluido(c, list);
+                        }
+                        const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
+                        if (!idClean) return false;
+                        return (list || []).some(e => {
+                            const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
+                            return eIdClean && idClean === eIdClean;
+                        });
+                    };
 
                     newClientes = newClientes.filter(c => !checkElim(c, eliminados));
 
@@ -1470,6 +1487,7 @@ window.InventoryApp = window.InventoryApp || {};
             // Listener de usuarios con detección de nuevas solicitudes en tiempo real
             let primerCargaUsuarios = true;
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
+                if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
                 const newUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
                 // Analizar cambios específicos de documentos
@@ -1603,6 +1621,7 @@ window.InventoryApp = window.InventoryApp || {};
             let primerCargaAbonos = true;
             const abonosNotificadosIds = new Set();
             const unsubAbonos = db.collection(COLLECTIONS.ABONOS).onSnapshot(snapshot => {
+                if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
                 const newAbonos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 try {
@@ -1755,6 +1774,7 @@ window.InventoryApp = window.InventoryApp || {};
             let primerCargaPagosPorVerificar = true;
             const pagosPorVerificarNotificadosIds = new Set();
             const unsubPagosPorVerificar = db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).onSnapshot(snapshot => {
+                if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
                 const mapPagos = new Map();
                 snapshot.docs.forEach(doc => {
                     const data = doc.data() || {};
@@ -2463,32 +2483,50 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
-    // Control de escrituras redundantes de clientes (anti-bucle)
+    // Control de escrituras redundantes de clientes (anti-bucle y anti-ráfaga)
     const _clientesGuardadosHashes = new Map();
+    const _clientesUltimoGuardado = new Map();
 
     /**
      * CRUD: Guardar / Registrar Cliente en Firestore
      */
-    async function guardarClienteCloud(cliente) {
+    async function guardarClienteCloud(cliente, options = {}) {
         if (!cliente || !cliente.id) return false;
 
-        // Dirty-check para evitar escrituras redundantes a cada segundo y parpadeo visual en la UI
-        const keyHash = `${cliente.id}_${cliente.nombre || ''}_${cliente.telefono || ''}_${cliente.email || ''}_${Number(cliente.deudaUSD || 0)}_${Number(cliente.deudaInicialUSD || 0)}`;
-        if (_clientesGuardadosHashes.get(cliente.id) === keyHash) {
+        const silent = Boolean(options && options.silent);
+        const force = Boolean(options && options.force);
+
+        // Dirty-check integral para evitar escrituras redundantes y parpadeo visual en la UI
+        const keyHash = `${cliente.id}_${cliente.cedula || ''}_${cliente.usuarioId || ''}_${cliente.codigoOficial || ''}_${cliente.nombre || ''}_${cliente.telefono || ''}_${cliente.email || ''}_${Number(cliente.deudaUSD || 0)}_${Number(cliente.deudaInicialUSD || 0)}`;
+        
+        const now = Date.now();
+        const ultimoTimestamp = _clientesUltimoGuardado.get(cliente.id) || 0;
+
+        if (!force && _clientesGuardadosHashes.get(cliente.id) === keyHash) {
             return true;
         }
 
+        // Anti-ráfaga por cliente: mínimo 4s entre escrituras del mismo cliente salvo que sea forzado
+        if (!force && (now - ultimoTimestamp < 4000)) {
+            return true;
+        }
+
+        // Registrar hash e timestamp inmediatamente antes de la llamada asíncrona para absorber llamadas en paralelo
+        _clientesGuardadosHashes.set(cliente.id, keyHash);
+        _clientesUltimoGuardado.set(cliente.id, now);
+
         if (window.InventoryApp && window.InventoryApp.Persistence) {
-            window.InventoryApp.Persistence.guardar(true);
+            window.InventoryApp.Persistence.guardar(false);
         }
 
         if (isQuotaExhausted) {
-            _clientesGuardadosHashes.set(cliente.id, keyHash);
-            actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Cuota Firestore activa)');
+            if (!silent) actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Cuota Firestore activa)');
             return true;
         }
 
-        actualizarUIEstadoNube('sincronizando', 'Guardando cliente en Firestore...');
+        if (!silent) {
+            actualizarUIEstadoNube('sincronizando', 'Guardando cliente en Firestore...');
+        }
 
         try {
             if (db) {
@@ -2504,18 +2542,20 @@ window.InventoryApp = window.InventoryApp || {};
                 };
                 if (cliente.usuarioId) clienteData.usuarioId = String(cliente.usuarioId);
                 if (cliente.cedula) clienteData.cedula = String(cliente.cedula);
+                if (cliente.codigoOficial) clienteData.codigoOficial = String(cliente.codigoOficial);
                 await docRef.set(clienteData, { merge: true });
             }
 
-            _clientesGuardadosHashes.set(cliente.id, keyHash);
-            actualizarUIEstadoNube('conectado', 'Cliente guardado en Firestore');
+            if (!silent) {
+                actualizarUIEstadoNube('conectado', 'Cliente guardado en Firestore');
+            }
             return true;
         } catch (error) {
             if (esErrorDeCuota(error)) {
                 manejarErrorCuota();
             } else {
                 console.error('[Firebase] Error al guardar cliente en Firestore:', error);
-                actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Offline)');
+                if (!silent) actualizarUIEstadoNube('offline', 'Cliente guardado localmente (Offline)');
             }
             return true;
         }
@@ -3552,6 +3592,8 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    const _usuariosGuardadosHashes = new Map();
+
     /**
      * CRUD: Guardar / Actualizar Usuario en Firestore
      */
@@ -3559,8 +3601,14 @@ window.InventoryApp = window.InventoryApp || {};
         if (!usuario || (!usuario.id && !usuario.cedula)) return false;
         const id = usuario.id || usuario.cedula;
 
+        const uKeyHash = `${id}_${usuario.cedula || ''}_${usuario.nombre || ''}_${usuario.email || ''}_${usuario.telefono || ''}_${usuario.rol || ''}_${usuario.estado || ''}_${usuario.clienteId || ''}_${usuario.clienteVinculado || ''}_${(usuario.avatar || '').length}`;
+        if (_usuariosGuardadosHashes.get(String(id)) === uKeyHash) {
+            return true;
+        }
+        _usuariosGuardadosHashes.set(String(id), uKeyHash);
+
         if (window.InventoryApp && window.InventoryApp.Persistence) {
-            window.InventoryApp.Persistence.guardar(true);
+            window.InventoryApp.Persistence.guardar(false);
         }
 
         if (isQuotaExhausted) {
@@ -4086,12 +4134,20 @@ window.InventoryApp = window.InventoryApp || {};
         return true;
     }
 
+    let _lastSincronizarEstadoCuenta = 0;
+
     /**
      * Sincroniza exclusivamente el estado de cuenta y abonos del cliente en tiempo real desde Firestore.
      * Garantiza que pagos aprobados, abonos y deudas estén 100% al día en el portal del cliente sin desfase.
      */
     async function sincronizarEstadoCuentaCliente(identificador) {
         if (!db || isQuotaExhausted) return false;
+        const now = Date.now();
+        // Anti-ráfaga estricto: mínimo 30s entre consultas de colecciones completas
+        if (now - _lastSincronizarEstadoCuenta < 30000) {
+            return true;
+        }
+        _lastSincronizarEstadoCuenta = now;
         try {
             const [snapAbonos, snapCli, snapVentas, snapPagos] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.ABONOS),

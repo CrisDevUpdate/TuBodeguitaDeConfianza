@@ -62,25 +62,64 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
     const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
     const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : '';
 
-    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-    const idNorm = norm(id);
+    const idClean = String(id || '').trim().toUpperCase();
+    if (!idClean && !nom) return false;
+
+    // Si el cliente está asociado a un usuario del sistema o tiene ventas/pedidos registrados, NUNCA considerarlo eliminado
+    const usuariosList = Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : [];
+    const esUsuarioExistente = usuariosList.some(u => {
+        if (!u || u.id === 'SuperAdmin') return false;
+        const uId = String(u.id || '').trim().toUpperCase();
+        const uCed = String(u.cedula || '').trim().toUpperCase();
+        const uCliId = String(u.clienteId || '').trim().toUpperCase();
+        const uNom = String(u.nombre || '').trim().toLowerCase();
+        return (uId && uId === idClean) || 
+               (uCed && uCed === idClean) || 
+               (uCliId && uCliId === idClean) ||
+               (nom && uNom && uNom === nom);
+    });
+    if (esUsuarioExistente) return false;
+
+    // Normalizador seguro de códigos CLI (ej: CLI-O13 -> CLI-013) sin alterar nombres como "yoo"
+    const normCod = s => {
+        let str = String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
+        if (str.startsWith('CLIO')) str = 'CLI0' + str.slice(4);
+        return str;
+    };
+    const idNorm = normCod(idClean);
+
+    // Extraer dígitos limpios de cédula venezolana (V-12345678 -> 12345678)
+    const cedulaDigitos = s => {
+        const digits = String(s || '').replace(/^[VEJPG]/i, '').replace(/\D/g, '');
+        return digits.length >= 5 ? digits : '';
+    };
+    const idDigits = cedulaDigitos(idClean);
 
     return list.some(e => {
         if (!e) return false;
 
         // Si este cliente es el receptor / sobreviviente de una fusión, NUNCA debe considerarse eliminado
-        const fusionadoEnNorm = norm(e.fusionadoEn || e.idDestino || '');
-        if (fusionadoEnNorm && idNorm && (idNorm === fusionadoEnNorm || idNorm.endsWith(fusionadoEnNorm) || fusionadoEnNorm.endsWith(idNorm))) {
+        const fusId = String(e.fusionadoEn || e.idDestino || '').trim().toUpperCase();
+        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm)) {
             return false;
         }
 
-        const eIdNorm = norm(e.id || e.cedula || '');
-        // Coincidencia estricta por ID o cédula
-        if (idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm))) return true;
-        if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => norm(c) === idNorm)) return true;
+        const eIdClean = String(e.id || e.cedula || '').trim().toUpperCase();
+        const eIdNorm = normCod(eIdClean);
+        const eDigits = cedulaDigitos(eIdClean);
+
+        // Coincidencia exacta por ID, código normalizado o cédula limpia (sin sufijos ambiguos)
+        if (idClean && eIdClean && idClean === eIdClean) return true;
+        if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
+        if (idDigits && eDigits && idDigits === eDigits) return true;
+
+        if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => {
+            const cNorm = normCod(c);
+            return cNorm === idNorm || String(c).trim().toUpperCase() === idClean;
+        })) return true;
 
         // Caso específico CLI-013 / cli-o13 / Johan
-        if ((idNorm === 'CLI013' || (nom && nom === 'johan' && idNorm.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (e.nombre && String(e.nombre).trim().toLowerCase() === 'johan'))) return true;
+        if ((idNorm === 'CLI013' || (nom && nom === 'johan' && idClean.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (e.nombre && String(e.nombre).trim().toLowerCase() === 'johan'))) return true;
 
         // Si fue una fusión o unificación, JAMÁS comparar solo por nombre de pila, porque el cliente sobreviviente suele llamarse igual (ej: Rebeca)
         const esFusion = e.motivo === 'FUSIÓN / UNIFICACIÓN' || Boolean(e.fusionadoEn) || Boolean(e.idDestino);
@@ -160,12 +199,24 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         // SuperAdmin y Autoservicio no generan clientes comerciales repetitivos
         if (idUpper === 'SUPERADMIN' || (u.email || '').toLowerCase() === 'superadmin@tubodeguita.com') return;
 
-        // Si fue eliminado explícitamente y figura en clientesEliminados, respetamos la eliminación
-        if (esClienteEliminadoOExcluido({ id: idCed, cedula: idCed, nombre: u.nombre }, eliminadosList)) return;
-
         const uNom = String(u.nombre || '').trim().toUpperCase();
         const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
         const uCliId = String(u.clienteId || '').trim().toUpperCase();
+
+        // Si este usuario figuraba en clientesEliminados, desbloquearlo de inmediato
+        if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+            const prevLen = AppState.clientesEliminados.length;
+            AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+                if (!e) return false;
+                const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+                const eNom = String(e.nombre || '').trim().toUpperCase();
+                if (eId === idUpper) return false;
+                if (u.id && eId === String(u.id).trim().toUpperCase()) return false;
+                if (uNom && eNom === uNom) return false;
+                return true;
+            });
+            if (AppState.clientesEliminados.length !== prevLen) huboCambios = true;
+        }
 
         // Buscar si coincide con la libreta de CLIENTES_OFICIALES
         let coEncontrado = null;
@@ -211,7 +262,7 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
                 nombre: coEncontrado ? coEncontrado.nombre : (u.nombre || idCed),
                 telefono: u.telefono || '',
                 email: u.email || '',
-                usuarioId: u.id || null,
+                usuarioId: u.id || idCed,
                 deudaUSD: coEncontrado ? Number(coEncontrado.deudaUSD || 0) : 0,
                 deudaInicialUSD: coEncontrado ? Number(coEncontrado.deudaInicialUSD || coEncontrado.deudaUSD || 0) : 0
             };
@@ -256,6 +307,59 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             }
         }
     });
+
+    // 2.5 Asegurar que todo cliente con ventas o créditos registrados figure en AppState.clientes
+    const ventasList = Array.isArray(AppState.ventas) ? AppState.ventas : [];
+    ventasList.forEach(v => {
+        if (!v || (!v.clienteId && !v.clienteNombre)) return;
+        const vCliId = String(v.clienteId || v.clienteCedula || '').trim();
+        const vNom = String(v.clienteNombre || v.nombreCliente || vCliId).trim();
+        if (!vCliId && !vNom) return;
+
+        const yaExiste = AppState.clientes.some(c => 
+            (vCliId && (String(c.id).toUpperCase() === vCliId.toUpperCase() || String(c.cedula || '').toUpperCase() === vCliId.toUpperCase() || String(c.usuarioId || '').toUpperCase() === vCliId.toUpperCase())) ||
+            (vNom && String(c.nombre || '').trim().toUpperCase() === vNom.toUpperCase())
+        );
+
+        if (!yaExiste) {
+            const uCoinc = usuariosList.find(u => 
+                (vCliId && (String(u.id).toUpperCase() === vCliId.toUpperCase() || String(u.cedula || '').toUpperCase() === vCliId.toUpperCase())) ||
+                (vNom && String(u.nombre || '').trim().toUpperCase() === vNom.toUpperCase())
+            );
+
+            // Desbloquear si estaba en clientesEliminados
+            if (Array.isArray(AppState.clientesEliminados)) {
+                AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+                    if (!e) return false;
+                    const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+                    const eNom = String(e.nombre || '').trim().toUpperCase();
+                    if (vCliId && eId === vCliId.toUpperCase()) return false;
+                    if (vNom && eNom === vNom.toUpperCase()) return false;
+                    return true;
+                });
+            }
+
+            const nuevoCli = {
+                id: vCliId || (uCoinc ? (uCoinc.cedula || uCoinc.id) : ('CLI_' + Date.now().toString().slice(-4))),
+                cedula: uCoinc?.cedula || vCliId,
+                nombre: vNom || uCoinc?.nombre || vCliId,
+                telefono: uCoinc?.telefono || v.clienteTelefono || '',
+                email: uCoinc?.email || '',
+                usuarioId: uCoinc?.id || vCliId,
+                deudaUSD: 0,
+                deudaInicialUSD: 0
+            };
+            AppState.clientes.push(nuevoCli);
+            huboCambios = true;
+            if (sincronizarConNube && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+            }
+        }
+    });
+
+    if (huboCambios && typeof clientes !== 'undefined') {
+        clientes = AppState.clientes;
+    }
 
     // 3. RECUPERACIÓN Y RESOLUCIÓN EXPLÍCITA PARA REBECA:
     // Asegurar que si existe un usuario Rebeca, su registro de cliente esté activo en AppState.clientes,
@@ -345,7 +449,7 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
     }
 
     if (huboCambios && window.InventoryApp && window.InventoryApp.Persistence) {
-        window.InventoryApp.Persistence.guardar(true);
+        window.InventoryApp.Persistence.guardar(false);
     }
 
     return huboCambios;
@@ -422,7 +526,7 @@ function guardarCliente(e) {
 
 function actualizarSelectClientes() {
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-        asegurarSincronizacionUsuariosAClientes();
+        asegurarSincronizacionUsuariosAClientes(false);
     }
     const eliminadosList = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : (window.clientesEliminados || []);
     const lista = (Array.isArray(clientes) ? clientes : (AppState.clientes || [])).filter(c => !esClienteEliminadoOExcluido(c, eliminadosList));
@@ -1204,7 +1308,7 @@ function renderizarClientes() {
     asegurarClientesOficiales();
     asegurarDeudaConsolidadaYitxelCuenca();
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-        asegurarSincronizacionUsuariosAClientes();
+        asegurarSincronizacionUsuariosAClientes(false);
     }
     if (typeof verificarSugerenciasFusionClientes === 'function') {
         verificarSugerenciasFusionClientes();
@@ -1282,6 +1386,8 @@ function renderizarClientes() {
         countEliminados.textContent = eliminadosList.length;
     }
 
+    const usuariosListGlobal = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+
     // Filtrar lista según búsqueda y estado
     let clientesFiltrados = clientesConEstado.filter(c => {
         // Filtro por estado
@@ -1290,10 +1396,43 @@ function renderizarClientes() {
 
         // Filtro por texto de búsqueda
         if (busquedaCliente) {
+            const b = busquedaCliente.toLowerCase();
             const idLower = String(c.id || '').toLowerCase();
+            const cedLower = String(c.cedula || '').toLowerCase();
             const nomLower = String(c.nombre || '').toLowerCase();
             const telLower = String(c.telefono || '').toLowerCase();
-            if (!idLower.includes(busquedaCliente) && !nomLower.includes(busquedaCliente) && !telLower.includes(busquedaCliente)) {
+            const emLower = String(c.email || '').toLowerCase();
+            const uIdLower = String(c.usuarioId || '').toLowerCase();
+            const codLower = String(c.codigoOficial || '').toLowerCase();
+
+            // Buscar también en usuario vinculado de AppState.usuarios
+            const uVinc = usuariosListGlobal.find(u => 
+                (u.clienteId && u.clienteId === c.id) || 
+                (u.cedula && String(u.cedula).toUpperCase() === String(c.id).toUpperCase()) ||
+                (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
+                (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase()) ||
+                (c.nombre && u.nombre && String(u.nombre).trim().toUpperCase() === String(c.nombre).trim().toUpperCase())
+            );
+            const uIdVinc = String(uVinc?.id || '').toLowerCase();
+            const uCedVinc = String(uVinc?.cedula || '').toLowerCase();
+            const uNomVinc = String(uVinc?.nombre || '').toLowerCase();
+            const uEmVinc = String(uVinc?.email || '').toLowerCase();
+            const uTelVinc = String(uVinc?.telefono || '').toLowerCase();
+
+            const match = idLower.includes(b) || 
+                          cedLower.includes(b) || 
+                          nomLower.includes(b) || 
+                          telLower.includes(b) || 
+                          emLower.includes(b) || 
+                          uIdLower.includes(b) || 
+                          codLower.includes(b) ||
+                          uIdVinc.includes(b) ||
+                          uCedVinc.includes(b) ||
+                          uNomVinc.includes(b) ||
+                          uEmVinc.includes(b) ||
+                          uTelVinc.includes(b);
+
+            if (!match) {
                 return false;
             }
         }

@@ -329,6 +329,18 @@ function alCambiarCategoriaFormulario(val) {
 }
 window.alCambiarCategoriaFormulario = alCambiarCategoriaFormulario;
 
+function toggleCamposPesables(activo) {
+    const wrap = document.getElementById('wrapper-campos-pesables');
+    if (wrap) wrap.style.display = activo ? 'block' : 'none';
+}
+window.toggleCamposPesables = toggleCamposPesables;
+
+function toggleCamposEmpaque(activo) {
+    const wrap = document.getElementById('wrapper-campos-empaque');
+    if (wrap) wrap.style.display = activo ? 'block' : 'none';
+}
+window.toggleCamposEmpaque = toggleCamposEmpaque;
+
 function resetearFormularioProducto() {
     ultimoOrigenCalculo = 'costo';
     const form = document.getElementById('form-producto');
@@ -355,6 +367,16 @@ function resetearFormularioProducto() {
         catNueva.value = '';
         catNueva.required = false;
     }
+
+    // Resetear switches de balanza y empaque múltiple
+    const chkPesable = document.getElementById('prod-es-pesable');
+    if (chkPesable) chkPesable.checked = false;
+    toggleCamposPesables(false);
+
+    const chkEmpaque = document.getElementById('prod-tiene-empaque');
+    if (chkEmpaque) chkEmpaque.checked = false;
+    toggleCamposEmpaque(false);
+
     const boton = document.getElementById('btn-prod-save');
     if (boton) boton.innerHTML = '<i class="fas fa-save"></i> Guardar Producto';
 }
@@ -431,6 +453,14 @@ async function guardarProducto(e) {
         document.getElementById('prod-nombre').value.toLowerCase().includes('combo')
     );
 
+    const esPesable = Boolean(document.getElementById('prod-es-pesable')?.checked);
+    const unidadMedida = esPesable ? (document.getElementById('prod-unidad-medida')?.value || 'kg') : 'und';
+    const tieneEmpaque = Boolean(document.getElementById('prod-tiene-empaque')?.checked);
+    const empaqueNombre = document.getElementById('prod-empaque-nombre')?.value.trim() || 'Fardo';
+    const empaqueContenido = parseFloat(document.getElementById('prod-empaque-contenido')?.value) || 0;
+    const empaquePrecio = parseFloat(document.getElementById('prod-empaque-precio')?.value) || 0;
+    const empaqueCosto = parseFloat(document.getElementById('prod-empaque-costo')?.value) || 0;
+
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
     // Nunca usamos uno para construir o reemplazar el otro.
     const datosProducto = {
@@ -440,13 +470,27 @@ async function guardarProducto(e) {
         costo: parseFloat(document.getElementById('prod-costo').value),
         ganancia: parseFloat(document.getElementById('prod-ganancia').value),
         precio: parseFloat(document.getElementById('prod-precio').value),
-        stock: parseInt(document.getElementById('prod-stock').value),
+        stock: parseFloat(document.getElementById('prod-stock').value) || 0,
         descripcion,
         contenido,
         imagen: imagenFinal,
         esCombo: esComboDetectado,
         tipo: esComboDetectado ? 'combo' : 'producto',
-        isCombo: esComboDetectado
+        isCombo: esComboDetectado,
+        es_pesable: esPesable,
+        esPesable: esPesable,
+        unidad_medida: unidadMedida,
+        unidadMedida: unidadMedida,
+        tiene_empaque_multiple: tieneEmpaque,
+        tieneEmpaqueMultiple: tieneEmpaque,
+        empaque_nombre: empaqueNombre,
+        empaqueNombre: empaqueNombre,
+        empaque_contenido: empaqueContenido,
+        empaqueContenido: empaqueContenido,
+        empaque_precio: empaquePrecio,
+        empaquePrecio: empaquePrecio,
+        empaque_costo: empaqueCosto,
+        empaqueCosto: empaqueCosto
     };
 
     let productoGuardado = null;
@@ -566,6 +610,26 @@ function editarProducto(id) {
     actualizarVistaImagenProducto();
     actualizarIndicadorGananciaUnitaria();
 
+    // Cargar opciones de pesable y empaque múltiple
+    const esPes = Boolean(p.es_pesable || p.esPesable);
+    const chkPes = document.getElementById('prod-es-pesable');
+    if (chkPes) chkPes.checked = esPes;
+    toggleCamposPesables(esPes);
+    const selUnidad = document.getElementById('prod-unidad-medida');
+    if (selUnidad) selUnidad.value = p.unidad_medida || p.unidadMedida || 'kg';
+
+    const tieneEmp = Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple);
+    const chkEmp = document.getElementById('prod-tiene-empaque');
+    if (chkEmp) chkEmp.checked = tieneEmp;
+    toggleCamposEmpaque(tieneEmp);
+
+    const empNombre = document.getElementById('prod-empaque-nombre');
+    if (empNombre) empNombre.value = p.empaque_nombre || p.empaqueNombre || 'Fardo';
+    const empContenido = document.getElementById('prod-empaque-contenido');
+    if (empContenido) empContenido.value = p.empaque_contenido || p.empaqueContenido || '';
+    const empPrecio = document.getElementById('prod-empaque-precio');
+    if (empPrecio) empPrecio.value = p.empaque_precio || p.empaquePrecio || '';
+
     document.getElementById('btn-prod-save').innerHTML = '<i class="fas fa-save"></i> Actualizar Producto';
 }
 
@@ -585,6 +649,23 @@ function normalizarDatosProducto(p) {
     if (p.gananciaUnitaria === undefined || isNaN(p.gananciaUnitaria)) {
         p.gananciaUnitaria = Number((precio - costo).toFixed(2));
     }
+
+    // Normalizar pesable y empaque múltiple
+    p.es_pesable = Boolean(p.es_pesable || p.esPesable);
+    p.esPesable = p.es_pesable;
+    p.unidad_medida = p.unidad_medida || p.unidadMedida || (p.es_pesable ? 'kg' : 'und');
+    p.unidadMedida = p.unidad_medida;
+    p.tiene_empaque_multiple = Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple);
+    p.tieneEmpaqueMultiple = p.tiene_empaque_multiple;
+    p.empaque_nombre = p.empaque_nombre || p.empaqueNombre || 'Fardo';
+    p.empaqueNombre = p.empaque_nombre;
+    p.empaque_contenido = Number(p.empaque_contenido || p.empaqueContenido || 0);
+    p.empaqueContenido = p.empaque_contenido;
+    p.empaque_precio = Number(p.empaque_precio || p.empaquePrecio || 0);
+    p.empaquePrecio = p.empaque_precio;
+    p.empaque_costo = Number(p.empaque_costo || p.empaqueCosto || 0);
+    p.empaqueCosto = p.empaque_costo;
+    p.stock = Number(p.stock || 0);
 
     return p;
 }

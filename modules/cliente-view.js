@@ -1238,13 +1238,58 @@ async function ejecutarCompraConfirmadaCliente() {
         }
     }
 
-    // 2. Asegurar que el usuario esté en el listado de clientes
-    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === clienteCedula)) {
-        AppState.clientes.push({
-            id: clienteCedula,
-            nombre: usuario.nombre,
-            telefono: usuario.telefono || ''
+    // 2. Asegurar que el usuario esté en el listado de clientes y desbloquearlo si estaba en clientesEliminados
+    if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+
+    // Si figuraba erróneamente en clientesEliminados, desbloquearlo de inmediato
+    if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+        AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+            if (!e) return false;
+            const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+            const eNom = String(e.nombre || '').trim().toUpperCase();
+            if (eId === String(clienteCedula).trim().toUpperCase()) return false;
+            if (usuario.id && eId === String(usuario.id).trim().toUpperCase()) return false;
+            if (usuario.nombre && eNom === String(usuario.nombre).trim().toUpperCase()) return false;
+            return true;
         });
+    }
+
+    let cliExistente = AppState.clientes.find(c => 
+        (c.id && String(c.id).toUpperCase() === String(clienteCedula).toUpperCase()) ||
+        (c.cedula && String(c.cedula).toUpperCase() === String(clienteCedula).toUpperCase()) ||
+        (usuario.id && c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (usuario.nombre && c.nombre && String(c.nombre).trim().toUpperCase() === String(usuario.nombre).trim().toUpperCase())
+    );
+
+    if (!cliExistente) {
+        cliExistente = {
+            id: clienteCedula,
+            cedula: usuario.cedula || clienteCedula,
+            nombre: usuario.nombre || clienteCedula,
+            telefono: usuario.telefono || '',
+            email: usuario.email || '',
+            usuarioId: usuario.id || clienteCedula,
+            deudaUSD: 0,
+            deudaInicialUSD: 0
+        };
+        AppState.clientes.push(cliExistente);
+    } else {
+        if (!cliExistente.cedula) cliExistente.cedula = usuario.cedula || clienteCedula;
+        if (!cliExistente.usuarioId) cliExistente.usuarioId = usuario.id || clienteCedula;
+        if (!cliExistente.telefono && usuario.telefono) cliExistente.telefono = usuario.telefono;
+        if (!cliExistente.email && usuario.email) cliExistente.email = usuario.email;
+    }
+
+    usuario.clienteId = cliExistente.id;
+    usuario.clienteVinculado = cliExistente.nombre;
+
+    if (typeof clientes !== 'undefined') {
+        clientes = AppState.clientes;
+    }
+
+    // Persistir cliente en Firestore de inmediato para que no se pierda en los listeners
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(cliExistente).catch(() => {});
     }
 
     const nuevoPedidoId = (esCredito ? "CRE_" : "PED_") + (AppState.ventas.length + 1) + "_" + Date.now().toString().slice(-4);
@@ -1720,7 +1765,8 @@ async function renderizarEstadoCuentaCliente() {
     const now = Date.now();
     if (window.InventoryApp?.Firebase?.sincronizarEstadoCuentaCliente) {
         const tiempoSinSync = now - _ultimoSyncAccountStatus;
-        if (tiempoSinSync > 15000 || !AppState.abonos || AppState.abonos.length === 0) {
+        // Anti-ráfaga: los listeners en tiempo real ya mantienen abonos y ventas al día; no forzar peticiones repetitivas
+        if (tiempoSinSync > 60000) {
             _ultimoSyncAccountStatus = now;
             try {
                 await window.InventoryApp.Firebase.sincronizarEstadoCuentaCliente(cedula);
@@ -1728,7 +1774,7 @@ async function renderizarEstadoCuentaCliente() {
                 console.warn('[ClienteView] Aviso sincronizando estado de cuenta desde Firestore:', errSync);
             }
         }
-    } else if (now - _ultimoSyncAccountStatus > 30000) {
+    } else if (now - _ultimoSyncAccountStatus > 60000) {
         _ultimoSyncAccountStatus = now;
         try {
             const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);
@@ -2285,7 +2331,7 @@ function descargarHistorialDeudaClienteExcel() {
     }
 
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-        asegurarSincronizacionUsuariosAClientes();
+        asegurarSincronizacionUsuariosAClientes(false);
     }
 
     const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'

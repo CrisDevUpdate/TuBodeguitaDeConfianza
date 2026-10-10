@@ -27,7 +27,7 @@
         }
 
         if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-            asegurarSincronizacionUsuariosAClientes();
+            asegurarSincronizacionUsuariosAClientes(false);
         }
         renderizarPosProductos();
         renderizarInventario();

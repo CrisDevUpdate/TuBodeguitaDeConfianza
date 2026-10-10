@@ -1028,12 +1028,19 @@
         const clientesOrdenados = [...clientes].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
         const q = String(filtroBusqueda || '').trim().toLowerCase();
 
+        const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
+
         const filtrados = clientesOrdenados.filter(c => {
             if (!q) return true;
             const nom = String(c.nombre || '').toLowerCase();
             const id = String(c.id || c.cedula || '').toLowerCase();
             const tel = String(c.telefono || '').toLowerCase();
-            return nom.includes(q) || id.includes(q) || tel.includes(q);
+            const email = String(c.email || '').toLowerCase();
+            const uId = String(c.usuarioId || '').toLowerCase();
+            const uVinc = usuariosList.find(u => (u.clienteId && u.clienteId === c.id) || (u.cedula && String(u.cedula).toLowerCase() === id));
+            const uNom = String(uVinc?.nombre || '').toLowerCase();
+            const uIdVinc = String(uVinc?.id || '').toLowerCase();
+            return nom.includes(q) || id.includes(q) || tel.includes(q) || email.includes(q) || uId.includes(q) || uNom.includes(q) || uIdVinc.includes(q);
         });
 
         if (filtrados.length === 0) {

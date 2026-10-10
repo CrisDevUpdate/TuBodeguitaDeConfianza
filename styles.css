@@ -6248,4 +6248,161 @@ body.dark-theme .notif-cli-picker-item.is-selected {
     background: #0f2c4d !important;
 }
 
+/* ==========================================================================
+   PRODUCTOS FRACCIONADOS (PESABLES) Y EMPAQUES MÚLTIPLES (POS & BALANZA)
+   ========================================================================== */
+.badge-pesable-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    letter-spacing: 0.2px;
+}
+
+body.dark-theme .badge-pesable-tag {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.badge-empaque-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+body.dark-theme .badge-empaque-tag {
+    background: rgba(2, 132, 199, 0.15);
+    color: #38bdf8;
+    border-color: rgba(2, 132, 199, 0.3);
+}
+
+.pos-btn-balanza {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff;
+    border: none;
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pos-btn-balanza:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(217, 119, 6, 0.35);
+}
+
+.balanza-digital-display {
+    background: #0f172a;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: #22c55e;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.balanza-digital-val {
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+.balanza-digital-unit {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #86efac;
+    margin-left: 6px;
+}
+
+.balanza-preset-btn {
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-card, #ffffff);
+    color: var(--text-main, #1e293b);
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.balanza-preset-btn:hover {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #0369a1;
+}
+
+.presentacion-opt-card {
+    border: 2px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: var(--bg-card, #ffffff);
+}
+
+.presentacion-opt-card:hover {
+    border-color: #0284c7;
+    background: #f0f9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);
+}
+
+body.dark-theme .presentacion-opt-card:hover {
+    background: #0f2c4d;
+    border-color: #38bdf8;
+}
+
+.pos-dual-pills {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.pos-dual-pill-btn {
+    flex: 1;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 5px 6px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: var(--bg-card, #ffffff);
+    color: var(--text-main, #334155);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+}
+
+.pos-dual-pill-btn:hover {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+}
+
 

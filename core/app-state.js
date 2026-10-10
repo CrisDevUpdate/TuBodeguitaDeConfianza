@@ -214,36 +214,36 @@ window.InventoryApp.StockService = {
     sale(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);
-        if (!p || !Number.isInteger(qty) || qty <= 0 || qty > Number(p.stock || 0)) return false;
-        p.stock = Number(p.stock || 0) - qty;
+        if (!p || !Number.isFinite(qty) || qty <= 0 || qty > (Number(p.stock || 0) + 0.0001)) return false;
+        p.stock = Math.max(0, Number((Number(p.stock || 0) - qty).toFixed(4)));
         return true;
     },
     devolver(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);
         if (!p || !Number.isFinite(qty) || qty <= 0) return false;
-        p.stock = Math.max(0, Number(p.stock || 0) + qty);
+        p.stock = Number((Math.max(0, Number(p.stock || 0)) + qty).toFixed(4));
         return true;
     },
     retiro(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);
-        if (!p || !Number.isInteger(qty) || qty <= 0 || qty > Number(p.stock || 0)) return false;
-        p.stock = Number(p.stock || 0) - qty;
+        if (!p || !Number.isFinite(qty) || qty <= 0 || qty > (Number(p.stock || 0) + 0.0001)) return false;
+        p.stock = Math.max(0, Number((Number(p.stock || 0) - qty).toFixed(4)));
         return true;
     },
     ajuste(productId, stockFisico) {
         const p = this._get(productId);
         const qty = Number(stockFisico);
-        if (!p || !Number.isInteger(qty) || qty < 0) return false;
-        p.stock = qty;
+        if (!p || !Number.isFinite(qty) || qty < 0) return false;
+        p.stock = Number(qty.toFixed(4));
         return true;
     },
     inicial(productId, stockInicial) {
         const p = this._get(productId);
         const qty = Number(stockInicial);
-        if (!p || !Number.isInteger(qty) || qty < 0) return false;
-        p.stock = qty;
+        if (!p || !Number.isFinite(qty) || qty < 0) return false;
+        p.stock = Number(qty.toFixed(4));
         return true;
     },
     ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion', nuevoPrecioVenta = null, nuevoMargen = null) {

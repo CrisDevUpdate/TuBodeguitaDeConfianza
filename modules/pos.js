@@ -552,8 +552,51 @@ function renderizarPosProductos(filtro = null) {
                 
                 const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || ''));
 
+                const esPesable = Boolean(p.es_pesable || p.esPesable);
+                const unidadMedida = p.unidad_medida || p.unidadMedida || 'kg';
+                const tieneEmpaque = Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple);
+                const nombreEmpaque = p.empaque_nombre || p.empaqueNombre || 'Fardo';
+                const contenidoEmpaque = Number(p.empaque_contenido || p.empaqueContenido || 1);
+                const precioEmpaque = Number(p.empaque_precio || p.empaquePrecio || (precioUSD * contenidoEmpaque));
+                const empaquesDisponibles = contenidoEmpaque > 0 ? Math.floor(stock / contenidoEmpaque) : 0;
+
+                let actionHtml = '';
+                if (esPesable) {
+                    actionHtml = `
+                        <button type="button" class="btn pos-btn-balanza" onclick="event.stopPropagation(); abrirCalculadoraBalanzaPOS('${p.id}')" ${esAgotado ? 'disabled=""' : ''} title="Abrir báscula digital para ${p.nombre}">
+                            <i class="fas fa-scale-balanced"></i>
+                            <span class="cliente-btn-text">Balanza</span>
+                        </button>
+                    `;
+                } else if (tieneEmpaque) {
+                    actionHtml = `
+                        <div class="pos-dual-pills" style="margin-top:2px;">
+                            <button type="button" class="pos-dual-pill-btn" onclick="event.stopPropagation(); agregarAlCarritoConPresentacion('${p.id}', 'unidad', 1)" ${esAgotado ? 'disabled=""' : ''} title="Vender 1 Unidad al detal ($${precioUSD.toFixed(2)})">
+                                <i class="fas fa-cube"></i> Und
+                            </button>
+                            <button type="button" class="pos-dual-pill-btn" onclick="event.stopPropagation(); agregarAlCarritoConPresentacion('${p.id}', 'empaque', 1)" ${esAgotado || empaquesDisponibles <= 0 ? 'disabled=""' : ''} title="Vender 1 ${nombreEmpaque} ($${precioEmpaque.toFixed(2)})">
+                                <i class="fas fa-boxes-stacked"></i> ${nombreEmpaque}
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionHtml = `
+                        <button type="button" class="btn ${esAgotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" id="btn-pos-add-${p.id}" onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled=""' : ''} title="${esAgotado ? 'Agotado' : 'Agregar al carrito'}">
+                            <i class="fas fa-plus"></i>
+                            <span class="cliente-btn-text">${esAgotado ? 'Agotado' : 'Agregar'}</span>
+                        </button>
+                    `;
+                }
+
+                let badgeModalidad = '';
+                if (esPesable) {
+                    badgeModalidad = `<span class="badge-stock-tag" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a;" title="Producto pesable (balanza)"><i class="fas fa-scale-balanced"></i> ${unidadMedida}</span>`;
+                } else if (tieneEmpaque) {
+                    badgeModalidad = `<span class="badge-stock-tag" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd;" title="Venta por unidad o ${nombreEmpaque}"><i class="fas fa-boxes-stacked"></i> x${contenidoEmpaque}</span>`;
+                }
+
                 return `
-            <div class="cliente-prod-card pos-row-item ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : 'Toca para agregar al carrito'}">
+            <div class="cliente-prod-card pos-row-item ${esAgotado ? 'card-agotado' : ''} ${esCombo ? 'es-super-combo' : ''}" id="pos-card-${p.id}" onclick="if (!event.target.closest('button') && !${esAgotado}) agregarAlCarrito('${p.id}');" style="${esAgotado ? '' : 'cursor: pointer;'}" title="${esAgotado ? 'Producto agotado' : (esPesable ? 'Toca para pesar en balanza' : (tieneEmpaque ? 'Toca para elegir presentación' : 'Toca para agregar al carrito'))}">
                 <div class="cliente-prod-img-wrapper">
                     <img src="${imagenSrc}" data-original-src="${p.imagen || ''}" data-prod-nombre="${p.nombre ? p.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="${(p.categoria || 'Snacks').replace(/"/g, '&quot;')}" alt="${p.nombre}" class="cliente-prod-img" onerror="alFallarCargaImagen(this)">
                     ${esAgotado ? '<span class="badge-agotado-pill">Agotado</span>' : ''}
@@ -562,20 +605,18 @@ function renderizarPosProductos(filtro = null) {
                     <div class="cliente-prod-meta">
                         <span class="cliente-prod-code">Cód: ${p.codigo || p.id}</span>
                         <span class="cliente-prod-badge-cat">${esCombo ? '🔥 Combo' : (p.categoria || 'General')}</span>
-                        <span class="${stockBadgeClass}" title="Existencia: ${stock} unidades">Stock: ${stock}</span>
+                        ${badgeModalidad}
+                        <span class="${stockBadgeClass}" title="Existencia central: ${stock} ${esPesable ? unidadMedida : 'unidades'}">Stock: ${stock} ${esPesable ? unidadMedida : ''}</span>
                     </div>
                     <h4 class="cliente-prod-title" title="${p.nombre}">${p.nombre}</h4>
                     
                     <div class="cliente-prod-prices">
-                        <span class="price-usd">$${precioUSD.toFixed(2)}</span>
+                        <span class="price-usd">$${precioUSD.toFixed(2)}${esPesable ? `/${unidadMedida}` : ''}</span>
                         <span class="price-ves">Bs. ${precioVES > 0 ? precioVES.toFixed(2) : '—'}</span>
                     </div>
                 </div>
                 <div class="cliente-prod-action">
-                    <button type="button" class="btn ${esAgotado ? 'btn-secondary' : 'btn-primary'} cliente-btn-add" id="btn-pos-add-${p.id}" onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled=""' : ''} title="${esAgotado ? 'Agotado' : 'Agregar al carrito'}">
-                        <i class="fas fa-plus"></i>
-                        <span class="cliente-btn-text">${esAgotado ? 'Agotado' : 'Agregar'}</span>
-                    </button>
+                    ${actionHtml}
                 </div>
             </div>`;
             }).join('');
@@ -601,12 +642,51 @@ function renderizarPosProductos(filtro = null) {
                 const esAgotado = stock <= 0;
                 const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
                 const stockClase = esAgotado ? 'out-stock' : (stock > 0 && stock <= umbralBajo ? 'low-stock' : 'in-stock');
-                const stockTexto = esAgotado ? 'Agotado' : `${stock} disp.`;
+                
+                const esPesable = Boolean(p.es_pesable || p.esPesable);
+                const unidadMedida = p.unidad_medida || p.unidadMedida || 'kg';
+                const tieneEmpaque = Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple);
+                const nombreEmpaque = p.empaque_nombre || p.empaqueNombre || 'Fardo';
+                const contenidoEmpaque = Number(p.empaque_contenido || p.empaqueContenido || 1);
+                const precioEmpaque = Number(p.empaque_precio || p.empaquePrecio || (precioUSD * contenidoEmpaque));
+                const empaquesDisponibles = contenidoEmpaque > 0 ? Math.floor(stock / contenidoEmpaque) : 0;
+
+                const stockTexto = esAgotado ? 'Agotado' : `${stock} ${esPesable ? unidadMedida : 'disp.'}`;
 
                 const miniThumbHTML = `
                     <img src="${typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || '')}" data-original-src="${p.imagen || ''}" data-prod-nombre="${p.nombre ? p.nombre.replace(/"/g, '&quot;') : ''}" data-prod-cat="${(p.categoria || 'Snacks').replace(/"/g, '&quot;')}" alt="${p.nombre}" class="pos-list-thumb" loading="lazy" 
                          onerror="alFallarCargaImagen(this)">
                 `;
+
+                let accionFilaHtml = '';
+                if (esPesable) {
+                    accionFilaHtml = `
+                        <button type="button" class="btn pos-btn-balanza" style="padding: 5px 10px; font-size: 0.76rem; font-weight: 800; min-height: 32px;" 
+                                onclick="abrirCalculadoraBalanzaPOS('${p.id}')" ${esAgotado ? 'disabled' : ''}>
+                            <i class="fas fa-scale-balanced"></i> Balanza
+                        </button>
+                    `;
+                } else if (tieneEmpaque) {
+                    accionFilaHtml = `
+                        <div style="display:flex; gap:4px; justify-content:center;">
+                            <button type="button" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.74rem; font-weight: 700; min-height: 30px;" 
+                                    onclick="agregarAlCarritoConPresentacion('${p.id}', 'unidad', 1)" ${esAgotado ? 'disabled' : ''} title="Vender 1 unidad">
+                                + Und
+                            </button>
+                            <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.74rem; font-weight: 700; min-height: 30px;" 
+                                    onclick="agregarAlCarritoConPresentacion('${p.id}', 'empaque', 1)" ${esAgotado || empaquesDisponibles <= 0 ? 'disabled' : ''} title="Vender 1 ${nombreEmpaque} ($${precioEmpaque.toFixed(2)})">
+                                + ${nombreEmpaque}
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    accionFilaHtml = `
+                        <button type="button" class="btn btn-success" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 800; min-height: 32px;" 
+                                onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled' : ''}>
+                            ${esAgotado ? 'Agotado' : '+ Agregar'}
+                        </button>
+                    `;
+                }
 
                 return `
                     <tr>
@@ -615,17 +695,14 @@ function renderizarPosProductos(filtro = null) {
                         <td class="pos-list-cell-details">
                             <div class="pos-list-prod-info">
                                 <strong class="pos-list-name">${p.nombre}</strong>
-                                <span class="pos-list-code">${p.categoria || 'Sin categoría'}</span>
+                                <span class="pos-list-code">${p.categoria || 'Sin categoría'}${esPesable ? ` • ⚖️ Pesable (${unidadMedida})` : (tieneEmpaque ? ` • 📦 Doble Empaque (${nombreEmpaque})` : '')}</span>
                             </div>
                         </td>
-                        <td class="num" style="font-weight: 900; color: var(--accent-primary, #2563eb);">$${precioUSD.toFixed(2)}</td>
+                        <td class="num" style="font-weight: 900; color: var(--accent-primary, #2563eb);">$${precioUSD.toFixed(2)}${esPesable ? `/${unidadMedida}` : ''}</td>
                         <td class="num" style="font-size: 0.8rem; color: var(--text-muted);">Bs. ${tasa > 0 ? precioVES.toFixed(2) : '—'}</td>
                         <td class="num"><span class="pos-badge-stock ${stockClase}" style="position:static;">${stockTexto}</span></td>
                         <td class="pos-list-cell-action" style="text-align: center;">
-                            <button type="button" class="btn btn-success" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 800; min-height: 32px;" 
-                                    onclick="agregarAlCarrito('${p.id}')" ${esAgotado ? 'disabled' : ''}>
-                                ${esAgotado ? 'Agotado' : '+ Agregar'}
-                            </button>
+                            ${accionFilaHtml}
                         </td>
                     </tr>
                 `;
@@ -639,38 +716,360 @@ function filtrarPosProductos() {
     renderizarPosProductos(input ? input.value : "");
 }
 
-function agregarAlCarrito(id) {
-    const p = (productos || []).find(prod => prod.id === id);
+// =========================================================================
+// MOTOR DE PRODUCTOS PESABLES (BALANZA DIGITAL) Y DOBLE PRESENTACIÓN (EMPAQUES)
+// =========================================================================
+
+let balanzaProductoActual = null;
+let balanzaModoActual = 'peso'; // 'peso' | 'dinero'
+
+/**
+ * Abre la calculadora digital de balanza para productos fraccionados/pesables
+ */
+function abrirCalculadoraBalanzaPOS(productoId) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const p = prods.find(prod => prod.id === productoId);
     if (!p) return;
-    const itemEnCarrito = carrito.find(item => item.productoId === id);
+
+    balanzaProductoActual = p;
+    balanzaModoActual = 'peso';
+
+    const modal = document.getElementById('modal-calculadora-balanza-pos');
+    if (!modal) return;
+
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const precioKg = Number(p.precio || 0);
+    const stock = Number(p.stock || 0);
+    const unidad = p.unidad_medida || p.unidadMedida || 'kg';
+
+    const elNombre = document.getElementById('balanza-prod-nombre');
+    const elPrecioKg = document.getElementById('balanza-prod-preciokg');
+    const elStock = document.getElementById('balanza-stock-disponible');
+    const elUnitInfo = document.getElementById('balanza-precio-unitario-info');
+    const elUnidadDisplay = document.getElementById('balanza-display-unidad');
+    const inputId = document.getElementById('balanza-producto-id');
+
+    if (elNombre) elNombre.textContent = p.nombre;
+    if (elPrecioKg) elPrecioKg.textContent = `Precio: $${precioKg.toFixed(2)} / ${unidad}${tasa > 0 ? ` (Bs. ${(precioKg * tasa).toFixed(2)})` : ''}`;
+    if (elStock) elStock.innerHTML = `<i class="fas fa-boxes-stacked"></i> Stock disp: <strong>${stock} ${unidad}</strong>`;
+    if (elUnitInfo) elUnitInfo.textContent = `$${precioKg.toFixed(2)} / ${unidad}`;
+    if (elUnidadDisplay) elUnidadDisplay.textContent = unidad;
+    if (inputId) inputId.value = p.id;
+
+    // Resetear modos y valores iniciales
+    cambiarModoBalanza('peso');
+    const inputKg = document.getElementById('balanza-input-kg');
+    const inputG = document.getElementById('balanza-input-g');
+    const inputMontoUSD = document.getElementById('balanza-input-monto-usd');
+    const inputMontoVES = document.getElementById('balanza-input-monto-ves');
+
+    // Valor predeterminado sugerido
+    const pesoInicial = stock >= 0.5 ? 0.500 : (stock > 0 ? Number(stock.toFixed(3)) : 0.250);
+    if (inputKg) inputKg.value = pesoInicial.toFixed(3);
+    if (inputG) inputG.value = Math.round(pesoInicial * 1000);
+    if (inputMontoUSD) inputMontoUSD.value = (pesoInicial * precioKg).toFixed(2);
+    if (inputMontoVES) inputMontoVES.value = tasa > 0 ? (pesoInicial * precioKg * tasa).toFixed(2) : '';
+
+    actualizarDisplaysBalanza(pesoInicial);
+
+    modal.style.display = 'flex';
+    if (inputKg) {
+        setTimeout(() => {
+            inputKg.focus();
+            inputKg.select();
+        }, 120);
+    }
+}
+
+function cerrarCalculadoraBalanzaPOS() {
+    const modal = document.getElementById('modal-calculadora-balanza-pos');
+    if (modal) modal.style.display = 'none';
+    balanzaProductoActual = null;
+}
+
+function cambiarModoBalanza(modo) {
+    balanzaModoActual = modo;
+    const btnPeso = document.getElementById('btn-modo-balanza-peso');
+    const btnDinero = document.getElementById('btn-modo-balanza-dinero');
+    const secPeso = document.getElementById('seccion-balanza-peso');
+    const secDinero = document.getElementById('seccion-balanza-dinero');
+
+    if (modo === 'peso') {
+        if (btnPeso) {
+            btnPeso.style.background = '#0284c7';
+            btnPeso.style.color = '#ffffff';
+            btnPeso.style.fontWeight = '800';
+        }
+        if (btnDinero) {
+            btnDinero.style.background = 'transparent';
+            btnDinero.style.color = 'var(--text-muted)';
+            btnDinero.style.fontWeight = '700';
+        }
+        if (secPeso) secPeso.style.display = 'block';
+        if (secDinero) secDinero.style.display = 'none';
+        const inputKg = document.getElementById('balanza-input-kg');
+        if (inputKg) { inputKg.focus(); inputKg.select(); }
+    } else {
+        if (btnPeso) {
+            btnPeso.style.background = 'transparent';
+            btnPeso.style.color = 'var(--text-muted)';
+            btnPeso.style.fontWeight = '700';
+        }
+        if (btnDinero) {
+            btnDinero.style.background = '#0284c7';
+            btnDinero.style.color = '#ffffff';
+            btnDinero.style.fontWeight = '800';
+        }
+        if (secPeso) secPeso.style.display = 'none';
+        if (secDinero) secDinero.style.display = 'block';
+        const inputUSD = document.getElementById('balanza-input-monto-usd');
+        if (inputUSD) { inputUSD.focus(); inputUSD.select(); }
+    }
+}
+
+function alCambiarPesoKg(valor) {
+    if (!balanzaProductoActual) return;
+    const kg = Math.max(0, parseFloat(valor) || 0);
+    const inputG = document.getElementById('balanza-input-g');
+    if (inputG && document.activeElement !== inputG) {
+        inputG.value = Math.round(kg * 1000);
+    }
+    actualizarDisplaysBalanza(kg);
+}
+
+function alCambiarPesoGramos(valor) {
+    if (!balanzaProductoActual) return;
+    const g = Math.max(0, parseFloat(valor) || 0);
+    const kg = g / 1000;
+    const inputKg = document.getElementById('balanza-input-kg');
+    if (inputKg && document.activeElement !== inputKg) {
+        inputKg.value = kg.toFixed(3);
+    }
+    actualizarDisplaysBalanza(kg);
+}
+
+function aplicarPresetPeso(kg) {
+    const inputKg = document.getElementById('balanza-input-kg');
+    const inputG = document.getElementById('balanza-input-g');
+    if (inputKg) inputKg.value = Number(kg).toFixed(3);
+    if (inputG) inputG.value = Math.round(kg * 1000);
+    cambiarModoBalanza('peso');
+    actualizarDisplaysBalanza(kg);
+}
+
+function alCambiarMontoDineroUSD(valor) {
+    if (!balanzaProductoActual) return;
+    const montoUSD = Math.max(0, parseFloat(valor) || 0);
+    const precioKg = Number(balanzaProductoActual.precio || 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    const inputVES = document.getElementById('balanza-input-monto-ves');
+    if (inputVES && document.activeElement !== inputVES && tasa > 0) {
+        inputVES.value = (montoUSD * tasa).toFixed(2);
+    }
+
+    const kg = precioKg > 0 ? (montoUSD / precioKg) : 0;
+    const inputKg = document.getElementById('balanza-input-kg');
+    const inputG = document.getElementById('balanza-input-g');
+    if (inputKg && document.activeElement !== inputKg) inputKg.value = kg.toFixed(3);
+    if (inputG && document.activeElement !== inputG) inputG.value = Math.round(kg * 1000);
+
+    actualizarDisplaysBalanza(kg);
+}
+
+function alCambiarMontoDineroVES(valor) {
+    if (!balanzaProductoActual) return;
+    const montoVES = Math.max(0, parseFloat(valor) || 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const montoUSD = tasa > 0 ? (montoVES / tasa) : 0;
+
+    const inputUSD = document.getElementById('balanza-input-monto-usd');
+    if (inputUSD && document.activeElement !== inputUSD) {
+        inputUSD.value = montoUSD.toFixed(2);
+    }
+
+    const precioKg = Number(balanzaProductoActual.precio || 0);
+    const kg = precioKg > 0 ? (montoUSD / precioKg) : 0;
+    const inputKg = document.getElementById('balanza-input-kg');
+    const inputG = document.getElementById('balanza-input-g');
+    if (inputKg && document.activeElement !== inputKg) inputKg.value = kg.toFixed(3);
+    if (inputG && document.activeElement !== inputG) inputG.value = Math.round(kg * 1000);
+
+    actualizarDisplaysBalanza(kg);
+}
+
+function actualizarDisplaysBalanza(kg) {
+    if (!balanzaProductoActual) return;
+    const precioKg = Number(balanzaProductoActual.precio || 0);
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+    const totalUSD = kg * precioKg;
+    const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+
+    const dispPeso = document.getElementById('balanza-display-peso');
+    const dispUsd = document.getElementById('balanza-display-monto-usd');
+    const dispVes = document.getElementById('balanza-display-monto-ves');
+
+    if (dispPeso) dispPeso.textContent = kg.toFixed(3);
+    if (dispUsd) dispUsd.textContent = `$${totalUSD.toFixed(2)}`;
+    if (dispVes) dispVes.textContent = `Bs. ${tasa > 0 ? totalVES.toFixed(2) : '—'}`;
+}
+
+function confirmarAgregarBalanzaAlCarrito() {
+    if (!balanzaProductoActual) return;
+    const inputKg = document.getElementById('balanza-input-kg');
+    let kg = parseFloat(inputKg ? inputKg.value : 0) || 0;
+    kg = Number(kg.toFixed(3));
+
+    if (kg <= 0) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast('Ingresa un peso válido mayor a 0', 'warning');
+        }
+        return;
+    }
+
+    const stock = Number(balanzaProductoActual.stock || 0);
+    if (kg > stock) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast(`Stock insuficiente. Disponible: ${stock} ${balanzaProductoActual.unidad_medida || balanzaProductoActual.unidadMedida || 'kg'}`, 'error');
+        } else if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Stock Insuficiente', `Disponible en balanza: ${stock}.`, 'warning');
+        }
+        return;
+    }
+
+    agregarAlCarritoConPresentacion(balanzaProductoActual.id, 'unidad', kg);
+    cerrarCalculadoraBalanzaPOS();
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Balanza: Agregado ${kg.toFixed(3)} ${balanzaProductoActual.unidad_medida || balanzaProductoActual.unidadMedida || 'kg'} de ${balanzaProductoActual.nombre}`, 'success');
+    }
+}
+
+/**
+ * Modal para seleccionar si se vende por Unidad al detal o por Empaque Múltiple (Fardo / Bulto)
+ */
+function abrirModalSelectorPresentacionPOS(productoId) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const p = prods.find(prod => prod.id === productoId);
+    if (!p) return;
+
+    const modal = document.getElementById('modal-selector-presentacion-pos');
+    const nombreEl = document.getElementById('presentacion-modal-nombre');
+    const opcionesEl = document.getElementById('presentacion-modal-opciones');
+    if (!modal || !opcionesEl) return;
+
+    if (nombreEl) nombreEl.textContent = p.nombre;
+
+    const stock = Number(p.stock || 0);
+    const precioUnd = Number(p.precio || 0);
+    const contenidoEmpaque = Number(p.empaque_contenido || p.empaqueContenido || 1);
+    const nombreEmpaque = p.empaque_nombre || p.empaqueNombre || 'Fardo';
+    const precioEmpaque = Number(p.empaque_precio || p.empaquePrecio || (precioUnd * contenidoEmpaque));
+    const empaquesCompletos = contenidoEmpaque > 0 ? Math.floor(stock / contenidoEmpaque) : 0;
+    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
+    opcionesEl.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <!-- Opción 1: Unidad al Detal -->
+            <div class="presentacion-opt-card" onclick="agregarAlCarritoConPresentacion('${p.id}', 'unidad', 1); cerrarModalSelectorPresentacionPOS();">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:800; font-size:1rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-cube" style="color:#0284c7;"></i> Unidad al Detal
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                            Descuenta 1 unidad del inventario central (${stock} und disp.)
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:1.15rem; font-weight:900; color:#0284c7;">$${precioUnd.toFixed(2)}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${tasa > 0 ? `Bs. ${(precioUnd * tasa).toFixed(2)}` : ''}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Opción 2: Empaque Múltiple (Fardo / Bulto) -->
+            <div class="presentacion-opt-card" onclick="if(${empaquesCompletos} > 0) { agregarAlCarritoConPresentacion('${p.id}', 'empaque', 1); cerrarModalSelectorPresentacionPOS(); }" style="${empaquesCompletos <= 0 ? 'opacity:0.6; cursor:not-allowed;' : ''}">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:800; font-size:1rem; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-boxes-stacked" style="color:#10b981;"></i> ${nombreEmpaque} Completo
+                            <span style="background:#e0f2fe; color:#0284c7; font-size:0.7rem; padding:2px 6px; border-radius:6px; font-weight:700;">Contiene ${contenidoEmpaque} und</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                            Descuenta ${contenidoEmpaque} unidades del inventario central (${empaquesCompletos} ${nombreEmpaque.toLowerCase()}s disp.)
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:1.15rem; font-weight:900; color:#10b981;">$${precioEmpaque.toFixed(2)}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${tasa > 0 ? `Bs. ${(precioEmpaque * tasa).toFixed(2)}` : ''}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalSelectorPresentacionPOS() {
+    const modal = document.getElementById('modal-selector-presentacion-pos');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Agrega un producto al carrito respetando su presentación (Unidad o Empaque Múltiple)
+ * y permitiendo cantidades enteras o decimales (pesables).
+ */
+function agregarAlCarritoConPresentacion(id, tipoPresentacion = 'unidad', cantidadDeseada = 1) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const p = prods.find(prod => prod.id === id);
+    if (!p) return;
+
+    const stockActual = Number(p.stock || 0);
+    const esEmpaque = tipoPresentacion === 'empaque';
+    const factorStock = esEmpaque ? Number(p.empaque_contenido || p.empaqueContenido || 1) : 1;
+    const precio = esEmpaque 
+        ? Number(p.empaque_precio || p.empaquePrecio || (Number(p.precio || 0) * factorStock))
+        : Number(p.precio || 0);
+    const nombrePres = esEmpaque ? (p.empaque_nombre || p.empaqueNombre || 'Fardo') : 'Unidad';
+    const esPesable = Boolean(p.es_pesable || p.esPesable);
+    const unidadMedida = p.unidad_medida || p.unidadMedida || 'und';
+
+    // Stock central consumido actualmente en el carrito por este producto (sumando todas las presentaciones)
+    const stockConsumidoEnCarrito = carrito
+        .filter(item => item.productoId === id)
+        .reduce((sum, item) => sum + (Number(item.cantidad || 0) * Number(item.factorStock || 1)), 0);
+
+    const stockRequeridoParaEste = Number(cantidadDeseada) * factorStock;
+
+    if ((stockConsumidoEnCarrito + stockRequeridoParaEste) > stockActual + 0.0001) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast(`Stock insuficiente para ${p.nombre}. Disponible central: ${stockActual} ${unidadMedida}`, 'warning');
+        } else if (typeof showCustomAlert === 'function') {
+            showCustomAlert("Stock Insuficiente", `Stock insuficiente para ${p.nombre}. Disponible central: ${stockActual} ${unidadMedida}.`, 'warning');
+        }
+        return;
+    }
+
+    // Buscar si ya existe este ítem con la MISMA presentación en el carrito
+    const itemEnCarrito = carrito.find(item => item.productoId === id && (item.tipoPresentacion || 'unidad') === tipoPresentacion);
 
     if (itemEnCarrito) {
-        if (itemEnCarrito.cantidad < Number(p.stock || 0)) {
-            itemEnCarrito.cantidad++;
-        } else {
-            if (typeof showCustomToast === 'function') {
-                showCustomToast(`Stock máximo alcanzado para ${p.nombre}`, 'warning');
-            } else if (typeof showCustomAlert === 'function') {
-                showCustomAlert("Stock Máximo", `Stock máximo alcanzado para ${p.nombre}.`, 'warning');
-            } else {
-                alert("Stock máximo alcanzado");
-            }
-            return;
-        }
+        itemEnCarrito.cantidad = Number((Number(itemEnCarrito.cantidad || 0) + Number(cantidadDeseada)).toFixed(3));
     } else {
-        if (Number(p.stock || 0) <= 0) {
-            if (typeof showCustomToast === 'function') {
-                showCustomToast(`${p.nombre} está agotado`, 'error');
-            }
-            return;
-        }
         carrito.push({
             productoId: id,
-            nombre: p.nombre,
-            precio: Number(p.precio || 0),
-            cantidad: 1,
+            nombre: esEmpaque ? `${p.nombre} (${nombrePres})` : p.nombre,
+            nombreBase: p.nombre,
+            precio: precio,
+            cantidad: Number(Number(cantidadDeseada).toFixed(3)),
             imagen: p.imagen || '',
-            codigo: p.codigo || ''
+            codigo: p.codigo || '',
+            esPesable: esPesable,
+            unidadMedida: unidadMedida,
+            tipoPresentacion: tipoPresentacion,
+            nombrePresentacion: nombrePres,
+            factorStock: factorStock
         });
     }
 
@@ -683,26 +1082,65 @@ function agregarAlCarrito(id) {
     animarBarraCarritoMobile();
 }
 
+/**
+ * Entrada estándar de producto desde el catálogo POS
+ */
+function agregarAlCarrito(id) {
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const p = prods.find(prod => prod.id === id);
+    if (!p) return;
+
+    // Si es pesable, abrir directamente la balanza digital
+    if (p.es_pesable || p.esPesable) {
+        abrirCalculadoraBalanzaPOS(id);
+        return;
+    }
+
+    // Si tiene empaque múltiple (Fardo / Bulto), abrir selector de presentación
+    if (p.tiene_empaque_multiple || p.tieneEmpaqueMultiple) {
+        abrirModalSelectorPresentacionPOS(id);
+        return;
+    }
+
+    // Producto convencional por unidad
+    agregarAlCarritoConPresentacion(id, 'unidad', 1);
+}
+
 function modificarCantidadCarrito(idx, delta) {
     if (!carrito[idx]) return;
     const item = carrito[idx];
-    const prod = (productos || []).find(p => p.id === item.productoId);
-    const stockMax = prod ? Number(prod.stock || 0) : 9999;
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const prod = prods.find(p => p.id === item.productoId);
+    const stockCentral = prod ? Number(prod.stock || 0) : 9999;
+    const factorStock = Number(item.factorStock || 1);
+
+    // Calcular cuánto stock consumen los OTROS ítems del mismo producto en el carrito
+    const stockOtrosItems = carrito
+        .filter((it, i) => i !== idx && it.productoId === item.productoId)
+        .reduce((sum, it) => sum + (Number(it.cantidad || 0) * Number(it.factorStock || 1)), 0);
+
+    const stockDisponibleParaEste = Math.max(0, stockCentral - stockOtrosItems);
+    const cantMaxPermitida = factorStock > 0 ? (stockDisponibleParaEste / factorStock) : 9999;
+
+    const esPesable = Boolean(item.esPesable);
+    const paso = esPesable ? (item.cantidad <= 0.5 ? 0.050 : 0.100) : 1;
+    const incremento = delta > 0 ? paso : -paso;
 
     if (delta > 0) {
-        if (item.cantidad < stockMax) {
-            item.cantidad++;
+        if ((Number(item.cantidad) + incremento) <= (cantMaxPermitida + 0.0001)) {
+            item.cantidad = Number((Number(item.cantidad) + incremento).toFixed(3));
         } else {
             if (typeof showCustomToast === 'function') {
-                showCustomToast(`Stock máximo alcanzado (${stockMax} unid.)`, 'warning');
+                showCustomToast(`Stock máximo alcanzado (${stockCentral} disp. en inventario central)`, 'warning');
             } else if (typeof showCustomAlert === 'function') {
                 showCustomAlert('Stock Máximo', `Stock máximo alcanzado para ${item.nombre}.`, 'warning');
             }
             return;
         }
     } else if (delta < 0) {
-        if (item.cantidad > 1) {
-            item.cantidad--;
+        const umbralMin = esPesable ? 0.05 : 1;
+        if (Number(item.cantidad) > umbralMin) {
+            item.cantidad = Number((Number(item.cantidad) + incremento).toFixed(3));
         } else {
             eliminarDelCarrito(idx);
             return;
@@ -715,15 +1153,26 @@ function modificarCantidadCarrito(idx, delta) {
 function establecerCantidadCarrito(idx, valor) {
     if (!carrito[idx]) return;
     const item = carrito[idx];
-    const prod = (productos || []).find(p => p.id === item.productoId);
-    const stockMax = prod ? Number(prod.stock || 0) : 9999;
-    let cant = parseInt(valor, 10);
+    const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const prod = prods.find(p => p.id === item.productoId);
+    const stockCentral = prod ? Number(prod.stock || 0) : 9999;
+    const factorStock = Number(item.factorStock || 1);
 
-    if (isNaN(cant) || cant <= 0) cant = 1;
-    if (cant > stockMax) {
-        cant = stockMax;
+    const stockOtrosItems = carrito
+        .filter((it, i) => i !== idx && it.productoId === item.productoId)
+        .reduce((sum, it) => sum + (Number(it.cantidad || 0) * Number(it.factorStock || 1)), 0);
+
+    const stockDisponibleParaEste = Math.max(0, stockCentral - stockOtrosItems);
+    const cantMaxPermitida = factorStock > 0 ? (stockDisponibleParaEste / factorStock) : 9999;
+
+    let cant = parseFloat(valor);
+    if (isNaN(cant) || cant <= 0) cant = item.esPesable ? 0.05 : 1;
+    cant = Number(cant.toFixed(3));
+
+    if (cant > (cantMaxPermitida + 0.0001)) {
+        cant = Number(cantMaxPermitida.toFixed(3));
         if (typeof showCustomToast === 'function') {
-            showCustomToast(`Ajustado al stock máximo (${stockMax})`, 'warning');
+            showCustomToast(`Ajustado al stock máximo disponible (${cant})`, 'warning');
         }
     }
     item.cantidad = cant;
@@ -764,7 +1213,7 @@ function renderizarCarrito() {
 
     carrito.forEach(item => {
         totalUSD += Number(item.cantidad || 0) * Number(item.precio || 0);
-        totalItemsCount += Number(item.cantidad || 0);
+        totalItemsCount += (item.esPesable ? 1 : Math.ceil(Number(item.cantidad || 0)));
     });
 
     const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
@@ -808,18 +1257,32 @@ function renderizarCarrito() {
     // 2. Renderizar Tabla Desktop
     if (tbody) {
         tbody.innerHTML = carrito.map((item, idx) => {
-            const subtotal = item.cantidad * item.precio;
+            const subtotal = Number(item.cantidad) * Number(item.precio);
+            const esPesable = Boolean(item.esPesable);
+            const cantStr = esPesable ? Number(item.cantidad).toFixed(3) : item.cantidad;
+            const unidadMed = item.unidadMedida || 'und';
+            
+            const presBadge = item.tipoPresentacion === 'empaque'
+                ? `<span style="background:#e0f2fe; color:#0284c7; padding:1px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">📦 ${item.nombrePresentacion || 'Fardo'} (x${item.factorStock} und)</span>`
+                : (esPesable ? `<span style="background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">⚖️ Balanza (${unidadMed})</span>` : '');
+
             return `
                 <tr>
                     <td>
-                        <div style="font-weight: 800; color: var(--text-primary);">${item.nombre}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);">$${item.precio.toFixed(2)} c/u</div>
+                        <div style="font-weight: 800; color: var(--text-primary); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+                            <span>${item.nombre}</span>
+                            ${presBadge}
+                        </div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">$${item.precio.toFixed(2)} c/${item.tipoPresentacion === 'empaque' ? (item.nombrePresentacion || 'empaque') : unidadMed}</div>
                     </td>
                     <td class="num">
                         <div class="pos-stepper">
                             <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, -1)">-</button>
-                            <input type="number" class="pos-stepper-val" value="${item.cantidad}" min="1" 
-                                   onchange="establecerCantidadCarrito(${idx}, this.value)" inputmode="numeric">
+                            <input type="number" class="pos-stepper-val" value="${cantStr}" 
+                                   min="${esPesable ? '0.001' : '1'}" 
+                                   step="${esPesable ? '0.001' : '1'}" 
+                                   onchange="establecerCantidadCarrito(${idx}, this.value)" 
+                                   inputmode="decimal">
                             <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, 1)">+</button>
                         </div>
                     </td>
@@ -846,10 +1309,18 @@ function renderizarCarrito() {
             `;
         } else {
             drawerList.innerHTML = carrito.map((item, idx) => {
-                const subtotal = item.cantidad * item.precio;
-                const prod = (productos || []).find(p => p.id === item.productoId);
+                const subtotal = Number(item.cantidad) * Number(item.precio);
+                const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+                const prod = prods.find(p => p.id === item.productoId);
                 const rawImg = item.imagen || (prod ? prod.imagen : '');
                 const thumbSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(prod || item) : (rawImg || ''));
+                const esPesable = Boolean(item.esPesable);
+                const cantStr = esPesable ? Number(item.cantidad).toFixed(3) : item.cantidad;
+                const unidadMed = item.unidadMedida || 'und';
+
+                const presBadge = item.tipoPresentacion === 'empaque'
+                    ? `<span style="background:#e0f2fe; color:#0284c7; padding:1px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">📦 ${item.nombrePresentacion || 'Fardo'} (x${item.factorStock} und)</span>`
+                    : (esPesable ? `<span style="background:#fef3c7; color:#b45309; padding:1px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">⚖️ ${unidadMed}</span>` : '');
 
                 return `
                     <div class="pos-drawer-item-row" id="pos-drawer-item-${idx}">
@@ -859,19 +1330,25 @@ function renderizarCarrito() {
                         </div>
                         <div class="pos-drawer-item-content">
                             <div class="pos-drawer-item-header-row">
-                                <span class="pos-drawer-item-name" title="${item.nombre}">${item.nombre}</span>
+                                <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+                                    <span class="pos-drawer-item-name" title="${item.nombre}">${item.nombre}</span>
+                                    <div>${presBadge}</div>
+                                </div>
                                 <button type="button" class="pos-btn-del-item" onclick="eliminarDelCarrito(${idx})" title="Eliminar ítem" aria-label="Eliminar ${item.nombre}">
                                     <i class="fas fa-trash-can"></i>
                                 </button>
                             </div>
                             <div class="pos-drawer-item-footer-row">
                                 <div class="pos-drawer-item-prices">
-                                    <span class="pos-drawer-item-price">$${item.precio.toFixed(2)} c/u</span>
+                                    <span class="pos-drawer-item-price">$${item.precio.toFixed(2)} c/${item.tipoPresentacion === 'empaque' ? (item.nombrePresentacion || 'empaque') : unidadMed}</span>
                                 </div>
                                 <div class="pos-stepper">
                                     <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, -1)" aria-label="Disminuir">-</button>
-                                    <input type="number" class="pos-stepper-val" value="${item.cantidad}" min="1" 
-                                           onchange="establecerCantidadCarrito(${idx}, this.value)" inputmode="numeric">
+                                    <input type="number" class="pos-stepper-val" value="${cantStr}" 
+                                           min="${esPesable ? '0.001' : '1'}" 
+                                           step="${esPesable ? '0.001' : '1'}" 
+                                           onchange="establecerCantidadCarrito(${idx}, this.value)" 
+                                           inputmode="decimal">
                                     <button type="button" class="pos-stepper-btn" onclick="modificarCantidadCarrito(${idx}, 1)" aria-label="Aumentar">+</button>
                                 </div>
                                 <span class="pos-drawer-item-subtotal">$${subtotal.toFixed(2)}</span>
@@ -1062,11 +1539,18 @@ function procesarVenta() {
         return;
     }
 
-    // Prevalidamos todo el carrito antes de abrir el checkout
+    // Prevalidamos todo el carrito antes de abrir el checkout considerando factores de empaque y decimales
+    const consumoPorProducto = {};
     for (const item of carrito) {
-        const producto = productos.find(p => p.id === item.productoId);
-        if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
-            const msg = `Stock insuficiente para ${item.nombre}. Stock disponible: ${producto ? producto.stock : 0}.`;
+        const factor = Number(item.factorStock || 1);
+        const consumo = Number((Number(item.cantidad || 0) * factor).toFixed(4));
+        consumoPorProducto[item.productoId] = (consumoPorProducto[item.productoId] || 0) + consumo;
+    }
+
+    for (const [prodId, req] of Object.entries(consumoPorProducto)) {
+        const producto = (productos || []).find(p => p.id === prodId);
+        if (!producto || req <= 0 || req > (Number(producto.stock || 0) + 0.0001)) {
+            const msg = `Stock insuficiente para ${producto?.nombre || 'el producto'}. Requerido en inventario central: ${req}, disponible: ${producto ? producto.stock : 0}.`;
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('Stock Insuficiente', msg, 'warning');
             } else {
@@ -1259,26 +1743,40 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
         btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Asentando...';
     }
 
-    // Prevalidación de stock atómica
+    // Prevalidación de stock atómica considerando factores de empaque y decimales
+    const stockRequeridoCredito = {};
     for (const item of carrito) {
-        const producto = productos.find(p => p.id === item.productoId);
-        if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
+        const factor = Number(item.factorStock || 1);
+        const consumo = Number((Number(item.cantidad || 0) * factor).toFixed(4));
+        stockRequeridoCredito[item.productoId] = (stockRequeridoCredito[item.productoId] || 0) + consumo;
+    }
+
+    for (const [prodId, req] of Object.entries(stockRequeridoCredito)) {
+        const producto = (productos || []).find(p => p.id === prodId);
+        if (!producto || req <= 0 || req > (Number(producto.stock || 0) + 0.0001)) {
             if (typeof showCustomAlert === 'function') {
-                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${item.nombre}. Operación cancelada.`, 'warning');
+                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${producto?.nombre || 'el producto'}. Requerido: ${req}, disponible central: ${producto?.stock || 0}. Operación cancelada.`, 'warning');
             }
             cerrarModalConfirmacionCreditoPOS();
             return;
         }
     }
 
-    // Débito atómico de inventario
+    // Débito atómico proporcional de inventario central
     for (const item of carrito) {
-        InventoryApp.StockService.sale(item.productoId, item.cantidad);
+        const factor = Number(item.factorStock || 1);
+        const cantADescontar = Number((Number(item.cantidad || 0) * factor).toFixed(4));
+        InventoryApp.StockService.sale(item.productoId, cantADescontar);
     }
 
     const itemsVendidos = carrito.map(item => {
-        const producto = productos.find(p => p.id === item.productoId);
-        return { ...item, costo: Number(producto?.costo || item.costo || 0) };
+        const producto = (productos || []).find(p => p.id === item.productoId);
+        const factor = Number(item.factorStock || 1);
+        return { 
+            ...item, 
+            costo: Number(producto?.costo || item.costo || 0) * factor,
+            stockDescontado: Number((Number(item.cantidad || 0) * factor).toFixed(4))
+        };
     });
 
     const vendedor = AppState.usuarioActual || { cedula: 'SuperAdmin', nombre: 'SuperAdmin' };
@@ -1536,26 +2034,40 @@ async function ejecutarFinalizacionCheckoutPOS() {
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
     const totalVES = tasa > 0 ? (total * tasa) : 0;
 
-    // Prevalidación de stock atómica
+    // Prevalidación de stock atómica considerando factores de empaque y decimales
+    const stockRequeridoContado = {};
     for (const item of carrito) {
-        const producto = productos.find(p => p.id === item.productoId);
-        if (!producto || Number(item.cantidad) <= 0 || Number(item.cantidad) > Number(producto.stock || 0)) {
+        const factor = Number(item.factorStock || 1);
+        const consumo = Number((Number(item.cantidad || 0) * factor).toFixed(4));
+        stockRequeridoContado[item.productoId] = (stockRequeridoContado[item.productoId] || 0) + consumo;
+    }
+
+    for (const [prodId, req] of Object.entries(stockRequeridoContado)) {
+        const producto = (productos || []).find(p => p.id === prodId);
+        if (!producto || req <= 0 || req > (Number(producto.stock || 0) + 0.0001)) {
             if (typeof showCustomAlert === 'function') {
-                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${item.nombre}. Operación cancelada.`, 'warning');
+                showCustomAlert('Stock Insuficiente', `Stock insuficiente para ${producto?.nombre || 'el producto'}. Requerido: ${req}, disponible central: ${producto?.stock || 0}. Operación cancelada.`, 'warning');
             }
             cerrarModalCheckoutPOS();
             return;
         }
     }
 
-    // Débito atómico de inventario
+    // Débito atómico proporcional de inventario central
     for (const item of carrito) {
-        InventoryApp.StockService.sale(item.productoId, item.cantidad);
+        const factor = Number(item.factorStock || 1);
+        const cantADescontar = Number((Number(item.cantidad || 0) * factor).toFixed(4));
+        InventoryApp.StockService.sale(item.productoId, cantADescontar);
     }
 
     const itemsVendidos = carrito.map(item => {
-        const producto = productos.find(p => p.id === item.productoId);
-        return { ...item, costo: Number(producto?.costo || item.costo || 0) };
+        const producto = (productos || []).find(p => p.id === item.productoId);
+        const factor = Number(item.factorStock || 1);
+        return { 
+            ...item, 
+            costo: Number(producto?.costo || item.costo || 0) * factor,
+            stockDescontado: Number((Number(item.cantidad || 0) * factor).toFixed(4))
+        };
     });
 
     const vendedor = AppState.usuarioActual || { cedula: 'SuperAdmin', nombre: 'SuperAdmin' };
@@ -2083,5 +2595,19 @@ window.cerrarDropdownClientePOS = cerrarDropdownClientePOS;
 window.seleccionarClientePOS = seleccionarClientePOS;
 window.filtrarClientesDropdownPOS = filtrarClientesDropdownPOS;
 window.limpiarBusquedaClienteDropdownPOS = limpiarBusquedaClienteDropdownPOS;
+
+// Métodos de Balanza Digital y Múltiples Empaques
+window.abrirCalculadoraBalanzaPOS = abrirCalculadoraBalanzaPOS;
+window.cerrarCalculadoraBalanzaPOS = cerrarCalculadoraBalanzaPOS;
+window.cambiarModoBalanza = cambiarModoBalanza;
+window.alCambiarPesoKg = alCambiarPesoKg;
+window.alCambiarPesoGramos = alCambiarPesoGramos;
+window.aplicarPresetPeso = aplicarPresetPeso;
+window.alCambiarMontoDineroUSD = alCambiarMontoDineroUSD;
+window.alCambiarMontoDineroVES = alCambiarMontoDineroVES;
+window.confirmarAgregarBalanzaAlCarrito = confirmarAgregarBalanzaAlCarrito;
+window.abrirModalSelectorPresentacionPOS = abrirModalSelectorPresentacionPOS;
+window.cerrarModalSelectorPresentacionPOS = cerrarModalSelectorPresentacionPOS;
+window.agregarAlCarritoConPresentacion = agregarAlCarritoConPresentacion;
 
 // --- CLIENTES Y DEUDAS MULTIMONEDA ---
