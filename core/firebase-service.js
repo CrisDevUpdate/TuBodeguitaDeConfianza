@@ -1010,6 +1010,9 @@ window.InventoryApp = window.InventoryApp || {};
                     .filter(v => v && v.id && !cloudIds.has(String(v.id)));
 
                 AppState.ventas = [...cloudVentas, ...localExtras];
+                if (typeof window.normalizarTodasLasVentas === 'function') {
+                    window.normalizarTodasLasVentas();
+                }
                 if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
                     VENTAS_INICIALES_FIADOS.forEach(vf => {
                         const exists = AppState.ventas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));
@@ -1597,6 +1600,11 @@ window.InventoryApp = window.InventoryApp || {};
                 let newVentas = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(v => v.id && v.id !== 'PagosPorVerificar' && v.id !== 'app_state' && v.id !== 'config');
+                if (typeof window.normalizarFechaVenta === 'function') {
+                    newVentas.forEach(v => {
+                        v.fecha = window.normalizarFechaVenta(v);
+                    });
+                }
                 if (typeof VENTAS_INICIALES_FIADOS !== 'undefined' && Array.isArray(VENTAS_INICIALES_FIADOS)) {
                     VENTAS_INICIALES_FIADOS.forEach(vf => {
                         const exists = newVentas.some(v => v.id === vf.id || (v.clienteId === vf.clienteId && (String(v.id).startsWith('V_FIADO_') || (Array.isArray(v.items) && v.items.some(i => i.productoId === 'SALDO_INICIAL')))));

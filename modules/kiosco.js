@@ -1088,7 +1088,7 @@
             // Generar identificador de pedido único de Auto-servicio de Confianza
             const consecutivo = (window.AppState?.ventas?.length || 0) + 1;
             const pedidoId = `AUT_${consecutivo}_${Date.now().toString().slice(-4)}`;
-            const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
 
             const itemsPedido = carritoKiosco.map(item => ({
                 productoId: item.productoId,

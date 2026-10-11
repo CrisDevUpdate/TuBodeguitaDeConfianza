@@ -3562,7 +3562,7 @@ async function guardarCargoManualCliente(event) {
         const clienteId = inputId ? inputId.value : '';
         const monto = parseFloat(inputMonto ? inputMonto.value : 0) || 0;
         const motivo = (inputMotivo ? inputMotivo.value : '').trim();
-        const fechaHora = (inputFecha ? inputFecha.value : '').trim() || new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const fechaHora = (inputFecha ? inputFecha.value : '').trim() || ((typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5)));
 
         if (!clienteId) {
             if (typeof showCustomAlert === 'function') {

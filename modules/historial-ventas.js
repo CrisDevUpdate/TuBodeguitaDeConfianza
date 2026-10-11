@@ -274,6 +274,11 @@ function renderizarHistorialVentasAdmin() {
     // para que la notificación de ventas vuelva a cero
     marcarHistorialVentasRevisado();
 
+    // Normalizar fechas de todas las ventas para resolver desfases de zona horaria UTC
+    if (typeof normalizarTodasLasVentas === 'function') {
+        normalizarTodasLasVentas();
+    }
+
     // Filtrar ventas reales y válidas (excluyendo documentos de control o no-ventas)
     const ventas = (AppState.ventas || []).filter(v => {
         if (!v || !v.id) return false;
@@ -282,7 +287,7 @@ function renderizarHistorialVentasAdmin() {
     });
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const fechaHoy = obtenerFechaHoyISO();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
 
     // 1. Filtrar ventas de hoy
     const ventasHoy = ventas.filter(v => {
@@ -389,7 +394,8 @@ function renderizarHistorialVentasAdmin() {
             tbodyHoy.innerHTML = ventasHoyOrdenadas.map((v, idx) => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const hora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const rawHora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const hora = (typeof formatearHoraLegible === 'function') ? formatearHoraLegible(rawHora) : rawHora;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                 const itemsDetalle = Array.isArray(v.items) 
                     ? v.items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ')
@@ -414,7 +420,7 @@ function renderizarHistorialVentasAdmin() {
                         </td>
                         <td>
                             <i class="far fa-clock" style="color:var(--text-muted); margin-right:4px;"></i>
-                            <strong>${hora}</strong>
+                            <strong style="font-size:0.88rem;">${hora}</strong>
                         </td>
                         <td>
                             <div style="font-weight:600;">${clienteNom}</div>
@@ -470,7 +476,8 @@ function renderizarHistorialVentasAdmin() {
             mobileListHoy.innerHTML = ventasHoyOrdenadas.map(v => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const hora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const rawHora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const hora = (typeof formatearHoraLegible === 'function') ? formatearHoraLegible(rawHora) : rawHora;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                 const metodo = v.tipo || v.tipoPago || 'Crédito';
                 const esCredito = (metodo === 'Crédito');
@@ -631,7 +638,8 @@ function renderizarHistorialVentasAdmin() {
             tbodyGeneral.innerHTML = ordenadas.map(v => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const fecha = v.fecha || '—';
+                const fechaRaw = v.fecha || '—';
+                const fechaFmt = (typeof formatearFechaLegible === 'function') ? formatearFechaLegible(fechaRaw) : fechaRaw;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                 const metodo = v.tipo || v.tipoPago || 'Crédito';
                 const esCredito = (metodo === 'Crédito');
@@ -649,7 +657,9 @@ function renderizarHistorialVentasAdmin() {
                 return `
                     <tr>
                         <td style="font-weight:700; color:var(--primary-accent);">#${v.id}</td>
-                        <td style="font-size:0.85rem; color:var(--text-muted);">${fecha}</td>
+                        <td style="font-size:0.85rem; color:var(--text-muted); font-weight:600; white-space:nowrap;">
+                            <i class="far fa-calendar-alt" style="margin-right:4px; opacity:0.7;"></i>${fechaFmt}
+                        </td>
                         <td>
                             <div style="font-weight:600;">${clienteNom}</div>
                             <small style="color:var(--text-muted); font-size:0.75rem;">ID: ${v.clienteId || 'N/A'}</small>
@@ -698,7 +708,8 @@ function renderizarHistorialVentasAdmin() {
                 mobileListGeneral.innerHTML = ordenadas.map(v => {
                     const totalUSD = Number(v.total || 0);
                     const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                    const fecha = v.fecha || '—';
+                    const fechaRaw = v.fecha || '—';
+                    const fechaFmt = (typeof formatearFechaLegible === 'function') ? formatearFechaLegible(fechaRaw) : fechaRaw;
                     const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                     const metodo = v.tipo || v.tipoPago || 'Crédito';
                     const esCredito = (metodo === 'Crédito');
@@ -717,7 +728,7 @@ function renderizarHistorialVentasAdmin() {
                             <div class="ventas-item-top">
                                 <div class="ventas-item-id-time">
                                     <span class="ventas-item-id">#${v.id}</span>
-                                    <span class="ventas-item-time"><i class="far fa-calendar-alt"></i> ${fecha}</span>
+                                    <span class="ventas-item-time"><i class="far fa-calendar-alt"></i> ${fechaFmt}</span>
                                 </div>
                                 <div class="ventas-item-amounts">
                                     <span class="ventas-item-usd">$${totalUSD.toFixed(2)}</span>
@@ -873,7 +884,7 @@ function abrirModalDetalleVenta(ventaId) {
                     </div>
                     <div>
                         <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Fecha y Hora</span>
-                        <strong>${venta.fecha || '—'}</strong>
+                        <strong>${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(venta.fecha) : (venta.fecha || '—')}</strong>
                     </div>
                     <div>
                         <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Método de Pago</span>
@@ -950,8 +961,9 @@ function cerrarModalDetalleVenta() {
  * Abre el modal del limpiador de historial de ventas
  */
 function abrirModalLimpiadorVentas() {
+    if (typeof normalizarTodasLasVentas === 'function') normalizarTodasLasVentas();
     const ventas = AppState.ventas || [];
-    const fechaHoy = obtenerFechaHoyISO();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
     const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
     const totalHoyUSD = ventasHoy.reduce((s, v) => s + Number(v.total || 0), 0);
     const totalHistoricoUSD = ventas.reduce((s, v) => s + Number(v.total || 0), 0);
@@ -1168,7 +1180,8 @@ function obtenerVentasNoRevisadasCount() {
         return idLower !== 'pagosporverificar' && idLower !== 'app_state' && idLower !== 'config' && idLower !== 'global';
     });
 
-    const fechaHoy = obtenerFechaHoyISO();
+    if (typeof normalizarTodasLasVentas === 'function') normalizarTodasLasVentas();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
     const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
 
     let ultimaRevision = 0;

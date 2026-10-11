@@ -1,7 +1,10 @@
-# Inventario + POS — Versión Beta 1.0.0
+# Tu Bodeguita de Confianza — POS, ERP & Gestión Comercial
+
+> 📖 **Guía Maestra para Desarrolladores e Inteligencias Artificiales:**  
+> Consulta el archivo [`AI_DEVELOPER_GUIDE.md`](./AI_DEVELOPER_GUIDE.md) para acceder a la especificación técnica completa, arquitectura, esquemas de Firestore y reglas de negocio inviolables del proyecto.
 
 ## Nombre de versión
-**Versión Beta — Arquitectura Producción**
+**Versión Producción Multi-Dispositivo (Web + PWA + Android)**
 
 Esta entrega es la **primera mejora beta sobre la Versión 0** del proyecto. Conserva el contrato de handlers inline del HTML y reorganiza la aplicación para una evolución segura.
 

@@ -430,6 +430,11 @@ window.InventoryApp = window.InventoryApp || {};
             });
         }
 
+        // Normalizar fechas de ventas en memoria
+        if (typeof window.normalizarTodasLasVentas === 'function') {
+            window.normalizarTodasLasVentas();
+        }
+
         // 7. Cargar abonos y transacciones desde caché local persistente
         if (!Array.isArray(AppState.abonos) || AppState.abonos.length === 0) {
             try {

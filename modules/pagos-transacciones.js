@@ -579,7 +579,7 @@ function agregarTransaccionesAlLote() {
                 montoVES: Number(montoVES.toFixed(2)),
                 montoUSD: calcularMontoUSDDesdeBs(montoVES),
                 tasaMomento: tasaActiva,
-                fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                fecha: (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5)),
                 estado: 'Confirmando',
                 verificando: false,
                 observacion: 'Cargada en lote. Esperando verificación.'
@@ -828,7 +828,7 @@ function registrarTransaccion(event) {
         montoUSD = calcularMontoUSDDesdeBs(montoVES);
     }
 
-    const fechaAhora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaAhora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
 
     let tx = editId ? transacciones.find(t => t.id === editId) : null;
     if (!tx && !esEfectivo) {
@@ -1496,7 +1496,7 @@ function guardarAbono(e) {
     }
 
     const clienteObj = (clientes || []).find(c => c.id === clienteId);
-    const fechaAhora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaAhora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
     const tipoTx = metodo === 'Pago Móvil VES' ? 'Pago Móvil' : (metodo === 'Transferencia VES' ? 'Transferencia Bancaria' : metodo);
 
     // Crear la transacción como "Confirmando" (PENDIENTE de aprobación)
@@ -1663,7 +1663,7 @@ async function aprobarAbonoReportadoAdmin(abonoId) {
 
     // 1. Marcar abono como confirmado
     abono.estado = 'Pago agregado';
-    abono.fechaAprobacion = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    abono.fechaAprobacion = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
 
     // 2. Actualizar último abono y pausar mora
     const cliente = (AppState.clientes || []).find(c => c.id === abono.clienteId);
@@ -1808,7 +1808,7 @@ async function rechazarAbonoReportadoAdmin(abonoId) {
     if (!confirmado) return;
 
     abono.estado = 'RECHAZADO';
-    abono.fechaRechazo = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    abono.fechaRechazo = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
 
     // Actualizar transacción asociada si existe
     if (abono.transaccionId) {

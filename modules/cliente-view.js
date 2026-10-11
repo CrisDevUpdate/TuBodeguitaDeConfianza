@@ -1293,7 +1293,7 @@ async function ejecutarCompraConfirmadaCliente() {
     }
 
     const nuevoPedidoId = (esCredito ? "CRE_" : "PED_") + (AppState.ventas.length + 1) + "_" + Date.now().toString().slice(-4);
-    const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
     // 3. Otorgar puntos de fidelización al cliente (Solo si la temporada está activa y NO es crédito)
@@ -2083,7 +2083,7 @@ async function renderizarEstadoCuentaCliente() {
                                                 ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
                                             </span>
                                             <span class="tx-date">
-                                                <i class="far fa-calendar-alt"></i> ${v.fecha || 'Fecha N/A'}
+                                                <i class="far fa-calendar-alt"></i> ${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(v.fecha) : (v.fecha || 'Fecha N/A')}
                                             </span>
                                         </div>
                                     </div>
@@ -2264,7 +2264,7 @@ async function renderizarEstadoCuentaCliente() {
                                             ${a.nota ? `Nota: ${a.nota}` : metodoTxt}
                                         </span>
                                         <span class="tx-date">
-                                            <i class="far fa-calendar-alt"></i> ${a.fecha || 'Fecha N/A'}
+                                            <i class="far fa-calendar-alt"></i> ${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(a.fecha) : (a.fecha || 'Fecha N/A')}
                                         </span>
                                     </div>
                                 </div>
@@ -3116,7 +3116,7 @@ async function procesarReportePagoCliente() {
         montoUSD = tasa > 0 ? Number((montoVES / tasa).toFixed(2)) : 0;
     }
 
-    const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
     const cliVinculado = (AppState.clientes || []).find(c => 
         (usuario.clienteId && String(c.id).toUpperCase() === String(usuario.clienteId).toUpperCase()) ||
         (c.cedula && String(c.cedula).toUpperCase() === String(usuario.cedula || usuario.id).toUpperCase()) ||
