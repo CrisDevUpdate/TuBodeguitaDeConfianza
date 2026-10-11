@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=3000 node server.js",
-    "start": "PORT=3000 node server.js",
+    "dev": "node server.js",
+    "start": "node server.js",
     "build": "echo 'Static build ready'",
     "lint": "node -c server.js"
   },
