@@ -1322,8 +1322,11 @@ async function ejecutarCompraConfirmadaCliente() {
         items: itemsVendidos,
         total: totalUSD,
         totalVES: totalVES,
-        tipo: tipoPago,
-        tipoPago: tipoPago,
+        tipo: esCredito ? 'Crédito' : tipoPago,
+        tipoPago: esCredito ? 'Crédito' : tipoPago,
+        metodoPago: esCredito ? 'Crédito' : tipoPago,
+        modalidad: esCredito ? 'CREDITO' : 'CONTADO',
+        esCredito: esCredito,
         referencia: referencia || (esCredito ? 'CRÉDITO-REGISTRADO' : 'N/A'),
         estado: esCredito ? 'CONFIRMADO' : 'PENDIENTE_CONFIRMACION',
         confirmada: esCredito ? true : false,
@@ -1339,7 +1342,9 @@ async function ejecutarCompraConfirmadaCliente() {
             id: 'TX_' + Date.now(),
             pedidoId: nuevoPedidoId,
             clienteId: clienteCedula,
-            tipo: tipoPago,
+            tipo: esCredito ? 'Crédito' : tipoPago,
+            tipoPago: esCredito ? 'Crédito' : tipoPago,
+            esCredito: esCredito,
             referencia: referencia || (esCredito ? 'CRÉDITO-REGISTRADO' : 'VENTA-WEB'),
             montoVES: totalVES,
             montoUSD: totalUSD,
@@ -1947,7 +1952,19 @@ async function renderizarEstadoCuentaCliente() {
                         const totalUSD = Number(v.total || 0);
                         const tasaVenta = Number(v.tasa || tasa || 1);
                         const totalVES = tasaVenta > 0 ? (totalUSD * tasaVenta) : (tasa > 0 ? totalUSD * tasa : 0);
-                        const esCredito = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.modalidad === 'CREDITO' || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.metodoDetalle || '').toLowerCase().includes('crédito');
+                        const esCredito = v.tipo === 'Crédito' || 
+                                          v.tipo === 'credito' || 
+                                          v.tipoPago === 'Crédito' || 
+                                          v.tipoPago === 'credito' || 
+                                          v.metodoPago === 'Crédito' || 
+                                          v.metodoPago === 'credito' || 
+                                          v.modalidad === 'CREDITO' || 
+                                          String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                                          v.referencia === 'CRÉDITO-REGISTRADO' || 
+                                          String(v.referencia || '').toLowerCase().includes('crédito') || 
+                                          String(v.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                                          v.esCargoManual === true ||
+                                          v.esCredito === true;
                         const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
                         const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
                         const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';

@@ -29,14 +29,15 @@ function esIdentificadorRebeca(objOId) {
     }
     if (typeof objOId === 'object') {
         const id = String(objOId.id || '').toLowerCase();
-        const ced = String(objOId.cedula || '').toLowerCase();
-        const nom = String(objOId.nombre || '').toLowerCase();
+        const ced = String(objOId.cedula || objOId.clienteCedula || '').toLowerCase();
+        const nom = String(objOId.nombre || objOId.clienteNombre || objOId.nombreCliente || '').toLowerCase();
         const cod = String(objOId.codigoOficial || '').toLowerCase();
         const vin = String(objOId.clienteVinculado || '').toLowerCase();
         const cId = String(objOId.clienteId || '').toLowerCase();
+        const uId = String(objOId.usuarioId || '').toLowerCase();
         const em = String(objOId.email || '').toLowerCase();
-        if (id === 'cli-019' || id === 'cli_019' || cod === 'cli-019' || cId === 'cli-019' || ced === '23791705' || id === '23791705') return true;
-        if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca')) return true;
+        if (id === 'cli-019' || id === 'cli_019' || cod === 'cli-019' || cId === 'cli-019' || ced === '23791705' || id === '23791705' || uId === '23791705') return true;
+        if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca') || uId.includes('rebeca')) return true;
         if (Array.isArray(objOId.nombresAnteriores) && objOId.nombresAnteriores.some(n => String(n).toLowerCase().includes('rebeca'))) return true;
         if (Array.isArray(objOId.codigosAnteriores) && objOId.codigosAnteriores.some(c => String(c).toUpperCase() === 'CLI-019')) return true;
     }
@@ -635,14 +636,22 @@ function asegurarSolvenciaRebeca() {
                 // Si es una compra o pedido a crédito, preservar y asegurar su condición de Crédito y estado
                 const esCred = vId.startsWith('CRE_') || 
                                v.referencia === 'CRÉDITO-REGISTRADO' || 
+                               String(v.referencia || '').toLowerCase().includes('crédito') ||
                                v.tipoPago === 'Crédito' || 
+                               v.tipoPago === 'credito' || 
                                v.tipo === 'Crédito' || 
                                v.tipo === 'credito' || 
+                               v.metodoPago === 'Crédito' || 
+                               v.metodoPago === 'credito' || 
                                v.modalidad === 'CREDITO' || 
+                               v.esCredito === true || 
+                               v.esCargoManual === true || 
                                String(v.metodoDetalle || '').toLowerCase().includes('crédito');
                 if (esCred) {
                     v.tipo = 'Crédito';
                     v.tipoPago = 'Crédito';
+                    v.metodoPago = 'Crédito';
+                    v.esCredito = true;
                     if (!v.estado || v.estado === 'PAGADA') {
                         v.estado = 'CONFIRMADO';
                     }
@@ -982,9 +991,33 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         return st === 'pago agregado' || st === 'confirmado' || st === 'aprobado' || !a.estado;
     });
 
+    // Normalizar y asegurar inmutabilidad de condición Crédito en todas las ventas del cliente
+    ventasCli.forEach(v => {
+        const vId = String(v.id || '').toUpperCase();
+        const esCred = vId.startsWith('CRE_') || 
+                       v.referencia === 'CRÉDITO-REGISTRADO' || 
+                       String(v.referencia || '').toLowerCase().includes('crédito') ||
+                       v.tipoPago === 'Crédito' || 
+                       v.tipoPago === 'credito' || 
+                       v.tipo === 'Crédito' || 
+                       v.tipo === 'credito' || 
+                       v.metodoPago === 'Crédito' || 
+                       v.metodoPago === 'credito' || 
+                       v.modalidad === 'CREDITO' || 
+                       v.esCredito === true || 
+                       v.esCargoManual === true || 
+                       String(v.metodoDetalle || '').toLowerCase().includes('crédito');
+        if (esCred) {
+            v.tipo = 'Crédito';
+            v.tipoPago = 'Crédito';
+            v.metodoPago = 'Crédito';
+            v.esCredito = true;
+        }
+    });
+
     const totalCompradoUSD = ventasCli.reduce((sum, v) => sum + Number(v.total || v.totalUSD || 0), 0);
     const totalCreditoVentas = ventasCli
-        .filter(v => v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id).startsWith('CARGO_') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'))
+        .filter(v => v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id).startsWith('CARGO_') || String(v.id).toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'))
         .reduce((sum, v) => sum + Number(v.total || v.totalUSD || 0), 0);
 
     // Sumar abonos sanitizados
@@ -1061,14 +1094,22 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
             const vId = String(v.id || '').toUpperCase();
             const esCred = vId.startsWith('CRE_') || 
                            v.referencia === 'CRÉDITO-REGISTRADO' || 
+                           String(v.referencia || '').toLowerCase().includes('crédito') ||
                            v.tipoPago === 'Crédito' || 
+                           v.tipoPago === 'credito' || 
                            v.tipo === 'Crédito' || 
                            v.tipo === 'credito' || 
+                           v.metodoPago === 'Crédito' || 
+                           v.metodoPago === 'credito' || 
                            v.modalidad === 'CREDITO' || 
+                           v.esCredito === true || 
+                           v.esCargoManual === true || 
                            String(v.metodoDetalle || '').toLowerCase().includes('crédito');
             if (esCred) {
                 v.tipo = 'Crédito';
                 v.tipoPago = 'Crédito';
+                v.metodoPago = 'Crédito';
+                v.esCredito = true;
             }
         });
     }
@@ -1080,7 +1121,19 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         eventos.push({ tipo: 'venta', monto: deudaDirecta, fecha: 0 });
     }
     ventasCli.forEach(v => {
-        const esCred = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id || '').toUpperCase().startsWith('CRE_');
+        const esCred = v.tipo === 'Crédito' || 
+                       v.tipo === 'credito' || 
+                       v.tipoPago === 'Crédito' || 
+                       v.tipoPago === 'credito' || 
+                       v.metodoPago === 'Crédito' || 
+                       v.modalidad === 'CREDITO' || 
+                       v.esCredito === true || 
+                       v.esCargoManual === true || 
+                       (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || 
+                       String(v.id || '').toUpperCase().startsWith('CRE_') ||
+                       v.referencia === 'CRÉDITO-REGISTRADO' ||
+                       String(v.referencia || '').toLowerCase().includes('crédito') ||
+                       String(v.metodoDetalle || '').toLowerCase().includes('crédito');
         if (esCred) {
             const f = v.fecha ? new Date(v.fecha).getTime() : 0;
             eventos.push({ tipo: 'venta', monto: Number(v.total || v.totalUSD || 0), fecha: isNaN(f) ? 0 : f, id: v.id });

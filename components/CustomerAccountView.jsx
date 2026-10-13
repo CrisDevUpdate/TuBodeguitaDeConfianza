@@ -83,7 +83,19 @@ export default function CustomerAccountView({
   // Cálculos financieros
   const totalCreditoUSD = useMemo(() => {
     return clientSales
-      .filter(v => v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.modalidad === 'CREDITO' || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.metodoDetalle || '').toLowerCase().includes('crédito'))
+      .filter(v => v.tipo === 'Crédito' || 
+                   v.tipo === 'credito' || 
+                   v.tipoPago === 'Crédito' || 
+                   v.tipoPago === 'credito' || 
+                   v.metodoPago === 'Crédito' || 
+                   v.metodoPago === 'credito' || 
+                   v.modalidad === 'CREDITO' || 
+                   String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                   v.referencia === 'CRÉDITO-REGISTRADO' || 
+                   String(v.referencia || '').toLowerCase().includes('crédito') || 
+                   String(v.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                   v.esCargoManual === true ||
+                   v.esCredito === true)
       .reduce((sum, v) => sum + Number(v.total || 0), 0);
   }, [clientSales]);
 
@@ -101,7 +113,19 @@ export default function CustomerAccountView({
   const saldoDeudaUSD = useMemo(() => {
     const eventos = [];
     clientSales.forEach(s => {
-      const esCred = s.tipo === 'Crédito' || s.tipo === 'credito' || s.tipoPago === 'Crédito' || s.modalidad === 'CREDITO' || String(s.id || '').toUpperCase().startsWith('CRE_') || s.referencia === 'CRÉDITO-REGISTRADO' || String(s.metodoDetalle || '').toLowerCase().includes('crédito');
+      const esCred = s.tipo === 'Crédito' || 
+                     s.tipo === 'credito' || 
+                     s.tipoPago === 'Crédito' || 
+                     s.tipoPago === 'credito' || 
+                     s.metodoPago === 'Crédito' || 
+                     s.metodoPago === 'credito' || 
+                     s.modalidad === 'CREDITO' || 
+                     String(s.id || '').toUpperCase().startsWith('CRE_') || 
+                     s.referencia === 'CRÉDITO-REGISTRADO' || 
+                     String(s.referencia || '').toLowerCase().includes('crédito') || 
+                     String(s.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                     s.esCargoManual === true ||
+                     s.esCredito === true;
       if (esCred) {
         const f = s.fecha ? new Date(s.fecha).getTime() : 0;
         eventos.push({ tipo: 'venta', monto: Number(s.total || s.totalUSD || 0), fecha: isNaN(f) ? 0 : f });
@@ -335,7 +359,19 @@ export default function CustomerAccountView({
               const totalUSD = Number(sale.total || 0);
               const tasaVenta = Number(sale.tasa || tasa || 1);
               const totalVES = tasaVenta > 0 ? totalUSD * tasaVenta : 0;
-              const esCredito = sale.tipo === 'Crédito' || sale.tipo === 'credito';
+              const esCredito = sale.tipo === 'Crédito' || 
+                                sale.tipo === 'credito' || 
+                                sale.tipoPago === 'Crédito' || 
+                                sale.tipoPago === 'credito' || 
+                                sale.metodoPago === 'Crédito' || 
+                                sale.metodoPago === 'credito' || 
+                                sale.modalidad === 'CREDITO' || 
+                                String(sale.id || '').toUpperCase().startsWith('CRE_') || 
+                                sale.referencia === 'CRÉDITO-REGISTRADO' || 
+                                String(sale.referencia || '').toLowerCase().includes('crédito') || 
+                                String(sale.metodoDetalle || '').toLowerCase().includes('crédito') || 
+                                sale.esCargoManual === true || 
+                                sale.esCredito === true;
               const esPendiente = sale.estado === 'PENDIENTE_CONFIRMACION';
               const itemsCount = (sale.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
               const itemsDesc = (sale.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
@@ -405,7 +441,7 @@ export default function CustomerAccountView({
                       <div className="tx-details">
                         <div className="tx-ref">
                           <span>#{sale.id}</span>
-                          <span className="tx-type-tag">{sale.tipo || 'Contado'}</span>
+                          <span className="tx-type-tag">{esCredito ? 'Crédito' : (sale.tipo || 'Contado')}</span>
                         </div>
                         <span className="tx-desc" title={itemsDesc}>
                           {itemsCount > 0 ? `${itemsCount} art. • ` : ''}{itemsDesc}

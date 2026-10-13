@@ -1252,12 +1252,32 @@ window.InventoryApp = window.InventoryApp || {};
             // Ventas
             AppState.ventas.forEach(v => {
                 const ref = db.collection(COLLECTIONS.VENTAS).doc(String(v.id));
+                const esCredV = v.tipo === 'Crédito' || 
+                                v.tipo === 'credito' || 
+                                v.tipoPago === 'Crédito' || 
+                                v.tipoPago === 'credito' || 
+                                v.metodoPago === 'Crédito' || 
+                                v.modalidad === 'CREDITO' || 
+                                v.esCredito === true || 
+                                String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                                v.referencia === 'CRÉDITO-REGISTRADO' || 
+                                String(v.referencia || '').toLowerCase().includes('crédito') || 
+                                String(v.metodoDetalle || '').toLowerCase().includes('crédito');
                 batch.set(ref, {
                     clienteId: v.clienteId || '',
+                    clienteNombre: v.clienteNombre || '',
+                    clienteCedula: v.clienteCedula || '',
                     fecha: v.fecha || '',
                     items: v.items || [],
                     total: Number(v.total) || 0,
-                    tipo: v.tipo || 'Contado',
+                    totalUSD: Number(v.totalUSD || v.total) || 0,
+                    tipo: esCredV ? 'Crédito' : (v.tipo || 'Contado'),
+                    tipoPago: esCredV ? 'Crédito' : (v.tipoPago || v.tipo || 'Contado'),
+                    metodoPago: esCredV ? 'Crédito' : (v.metodoPago || v.tipo || 'Contado'),
+                    esCredito: esCredV,
+                    modalidad: esCredV ? 'CREDITO' : (v.modalidad || 'CONTADO'),
+                    referencia: v.referencia || '',
+                    metodoDetalle: v.metodoDetalle || '',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });
@@ -2400,8 +2420,11 @@ window.InventoryApp = window.InventoryApp || {};
                     items: venta.items || [],
                     total: Number(venta.total) || 0,
                     totalUSD: Number(venta.totalUSD || venta.total) || 0,
-                    tipo: venta.tipo || 'Contado',
-                    tipoPago: venta.tipoPago || venta.tipo || 'Contado',
+                    tipo: (venta.tipo === 'Crédito' || venta.tipoPago === 'Crédito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito')) ? 'Crédito' : (venta.tipo || 'Contado'),
+                    tipoPago: (venta.tipo === 'Crédito' || venta.tipoPago === 'Crédito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito')) ? 'Crédito' : (venta.tipoPago || venta.tipo || 'Contado'),
+                    metodoPago: (venta.tipo === 'Crédito' || venta.tipoPago === 'Crédito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito')) ? 'Crédito' : (venta.metodoPago || venta.tipo || 'Contado'),
+                    modalidad: (venta.tipo === 'Crédito' || venta.tipoPago === 'Crédito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito')) ? 'CREDITO' : (venta.modalidad || 'CONTADO'),
+                    esCredito: Boolean(venta.tipo === 'Crédito' || venta.tipoPago === 'Crédito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito')),
                     metodoDetalle: venta.metodoDetalle || '',
                     referencia: venta.referencia || '',
                     motivo: venta.motivo || '',

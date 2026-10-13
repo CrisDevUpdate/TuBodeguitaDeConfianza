@@ -1238,17 +1238,62 @@ async function ejecutarCompraConfirmadaCliente() {
         }
     }
 
-    // 2. Asegurar que el usuario esté en el listado de clientes
-    if (Array.isArray(AppState.clientes) && !AppState.clientes.find(c => c.id === clienteCedula)) {
-        AppState.clientes.push({
-            id: clienteCedula,
-            nombre: usuario.nombre,
-            telefono: usuario.telefono || ''
+    // 2. Asegurar que el usuario esté en el listado de clientes y desbloquearlo si estaba en clientesEliminados
+    if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+
+    // Si figuraba erróneamente en clientesEliminados, desbloquearlo de inmediato
+    if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+        AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+            if (!e) return false;
+            const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+            const eNom = String(e.nombre || '').trim().toUpperCase();
+            if (eId === String(clienteCedula).trim().toUpperCase()) return false;
+            if (usuario.id && eId === String(usuario.id).trim().toUpperCase()) return false;
+            if (usuario.nombre && eNom === String(usuario.nombre).trim().toUpperCase()) return false;
+            return true;
         });
     }
 
+    let cliExistente = AppState.clientes.find(c => 
+        (c.id && String(c.id).toUpperCase() === String(clienteCedula).toUpperCase()) ||
+        (c.cedula && String(c.cedula).toUpperCase() === String(clienteCedula).toUpperCase()) ||
+        (usuario.id && c.usuarioId && String(c.usuarioId).toUpperCase() === String(usuario.id).toUpperCase()) ||
+        (usuario.nombre && c.nombre && String(c.nombre).trim().toUpperCase() === String(usuario.nombre).trim().toUpperCase())
+    );
+
+    if (!cliExistente) {
+        cliExistente = {
+            id: clienteCedula,
+            cedula: usuario.cedula || clienteCedula,
+            nombre: usuario.nombre || clienteCedula,
+            telefono: usuario.telefono || '',
+            email: usuario.email || '',
+            usuarioId: usuario.id || clienteCedula,
+            deudaUSD: 0,
+            deudaInicialUSD: 0
+        };
+        AppState.clientes.push(cliExistente);
+    } else {
+        if (!cliExistente.cedula) cliExistente.cedula = usuario.cedula || clienteCedula;
+        if (!cliExistente.usuarioId) cliExistente.usuarioId = usuario.id || clienteCedula;
+        if (!cliExistente.telefono && usuario.telefono) cliExistente.telefono = usuario.telefono;
+        if (!cliExistente.email && usuario.email) cliExistente.email = usuario.email;
+    }
+
+    usuario.clienteId = cliExistente.id;
+    usuario.clienteVinculado = cliExistente.nombre;
+
+    if (typeof clientes !== 'undefined') {
+        clientes = AppState.clientes;
+    }
+
+    // Persistir cliente en Firestore de inmediato para que no se pierda en los listeners
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(cliExistente).catch(() => {});
+    }
+
     const nuevoPedidoId = (esCredito ? "CRE_" : "PED_") + (AppState.ventas.length + 1) + "_" + Date.now().toString().slice(-4);
-    const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
 
     // 3. Otorgar puntos de fidelización al cliente (Solo si la temporada está activa y NO es crédito)
@@ -1277,8 +1322,11 @@ async function ejecutarCompraConfirmadaCliente() {
         items: itemsVendidos,
         total: totalUSD,
         totalVES: totalVES,
-        tipo: tipoPago,
-        tipoPago: tipoPago,
+        tipo: esCredito ? 'Crédito' : tipoPago,
+        tipoPago: esCredito ? 'Crédito' : tipoPago,
+        metodoPago: esCredito ? 'Crédito' : tipoPago,
+        modalidad: esCredito ? 'CREDITO' : 'CONTADO',
+        esCredito: esCredito,
         referencia: referencia || (esCredito ? 'CRÉDITO-REGISTRADO' : 'N/A'),
         estado: esCredito ? 'CONFIRMADO' : 'PENDIENTE_CONFIRMACION',
         confirmada: esCredito ? true : false,
@@ -1294,7 +1342,9 @@ async function ejecutarCompraConfirmadaCliente() {
             id: 'TX_' + Date.now(),
             pedidoId: nuevoPedidoId,
             clienteId: clienteCedula,
-            tipo: tipoPago,
+            tipo: esCredito ? 'Crédito' : tipoPago,
+            tipoPago: esCredito ? 'Crédito' : tipoPago,
+            esCredito: esCredito,
             referencia: referencia || (esCredito ? 'CRÉDITO-REGISTRADO' : 'VENTA-WEB'),
             montoVES: totalVES,
             montoUSD: totalUSD,
@@ -1589,6 +1639,7 @@ function calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abon
     const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
     const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
 
+
     if (esAdminReal) {
         return {
             totalCompradoUSD: totalCompradoHistoricoUSD,
@@ -1702,7 +1753,8 @@ async function renderizarEstadoCuentaCliente() {
     const now = Date.now();
     if (window.InventoryApp?.Firebase?.sincronizarEstadoCuentaCliente) {
         const tiempoSinSync = now - _ultimoSyncAccountStatus;
-        if (tiempoSinSync > 15000 || !AppState.abonos || AppState.abonos.length === 0) {
+        // Anti-ráfaga: los listeners en tiempo real ya mantienen abonos y ventas al día; no forzar peticiones repetitivas
+        if (tiempoSinSync > 60000) {
             _ultimoSyncAccountStatus = now;
             try {
                 await window.InventoryApp.Firebase.sincronizarEstadoCuentaCliente(cedula);
@@ -1710,7 +1762,7 @@ async function renderizarEstadoCuentaCliente() {
                 console.warn('[ClienteView] Aviso sincronizando estado de cuenta desde Firestore:', errSync);
             }
         }
-    } else if (now - _ultimoSyncAccountStatus > 30000) {
+    } else if (now - _ultimoSyncAccountStatus > 60000) {
         _ultimoSyncAccountStatus = now;
         try {
             const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);
@@ -1900,7 +1952,19 @@ async function renderizarEstadoCuentaCliente() {
                         const totalUSD = Number(v.total || 0);
                         const tasaVenta = Number(v.tasa || tasa || 1);
                         const totalVES = tasaVenta > 0 ? (totalUSD * tasaVenta) : (tasa > 0 ? totalUSD * tasa : 0);
-                        const esCredito = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.modalidad === 'CREDITO' || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.metodoDetalle || '').toLowerCase().includes('crédito');
+                        const esCredito = v.tipo === 'Crédito' || 
+                                          v.tipo === 'credito' || 
+                                          v.tipoPago === 'Crédito' || 
+                                          v.tipoPago === 'credito' || 
+                                          v.metodoPago === 'Crédito' || 
+                                          v.metodoPago === 'credito' || 
+                                          v.modalidad === 'CREDITO' || 
+                                          String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                                          v.referencia === 'CRÉDITO-REGISTRADO' || 
+                                          String(v.referencia || '').toLowerCase().includes('crédito') || 
+                                          String(v.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                                          v.esCargoManual === true ||
+                                          v.esCredito === true;
                         const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
                         const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
                         const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
@@ -2011,7 +2075,7 @@ async function renderizarEstadoCuentaCliente() {
                                                 ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
                                             </span>
                                             <span class="tx-date">
-                                                <i class="far fa-calendar-alt"></i> ${v.fecha || 'Fecha N/A'}
+                                                <i class="far fa-calendar-alt"></i> ${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(v.fecha) : (v.fecha || 'Fecha N/A')}
                                             </span>
                                         </div>
                                     </div>
@@ -2192,7 +2256,7 @@ async function renderizarEstadoCuentaCliente() {
                                             ${a.nota ? `Nota: ${a.nota}` : metodoTxt}
                                         </span>
                                         <span class="tx-date">
-                                            <i class="far fa-calendar-alt"></i> ${a.fecha || 'Fecha N/A'}
+                                            <i class="far fa-calendar-alt"></i> ${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(a.fecha) : (a.fecha || 'Fecha N/A')}
                                         </span>
                                     </div>
                                 </div>
@@ -2259,7 +2323,7 @@ function descargarHistorialDeudaClienteExcel() {
     }
 
     if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-        asegurarSincronizacionUsuariosAClientes();
+        asegurarSincronizacionUsuariosAClientes(false);
     }
 
     const estadoFin = typeof calcularEstadoFinancieroCliente === 'function'
@@ -2542,6 +2606,7 @@ function abrirModalReportarPagoCliente(opciones = {}) {
 function obtenerDeudaActualCliente(opciones = {}) {
     const usuario = (opciones && opciones.usuario) || (typeof AppState !== 'undefined' ? AppState.usuarioActual : null);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
+
 
     let saldoUSD = 0;
     let saldoVES = 0;
@@ -3038,7 +3103,7 @@ async function procesarReportePagoCliente() {
         montoUSD = tasa > 0 ? Number((montoVES / tasa).toFixed(2)) : 0;
     }
 
-    const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
     const cliVinculado = (AppState.clientes || []).find(c => 
         (usuario.clienteId && String(c.id).toUpperCase() === String(usuario.clienteId).toUpperCase()) ||
         (c.cedula && String(c.cedula).toUpperCase() === String(usuario.cedula || usuario.id).toUpperCase()) ||

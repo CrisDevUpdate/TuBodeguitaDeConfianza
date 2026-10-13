@@ -274,6 +274,11 @@ function renderizarHistorialVentasAdmin() {
     // para que la notificación de ventas vuelva a cero
     marcarHistorialVentasRevisado();
 
+    // Normalizar fechas de todas las ventas para resolver desfases de zona horaria UTC
+    if (typeof normalizarTodasLasVentas === 'function') {
+        normalizarTodasLasVentas();
+    }
+
     // Filtrar ventas reales y válidas (excluyendo documentos de control o no-ventas)
     const ventas = (AppState.ventas || []).filter(v => {
         if (!v || !v.id) return false;
@@ -282,7 +287,7 @@ function renderizarHistorialVentasAdmin() {
     });
 
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const fechaHoy = obtenerFechaHoyISO();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
 
     // 1. Filtrar ventas de hoy
     const ventasHoy = ventas.filter(v => {
@@ -301,7 +306,7 @@ function renderizarHistorialVentasAdmin() {
 
     ventas.forEach(v => {
         const total = Number(v.total || 0);
-        const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
+        const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
         const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
             ? window.esVentaOTransaccionConfirmada(v)
             : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
@@ -389,7 +394,8 @@ function renderizarHistorialVentasAdmin() {
             tbodyHoy.innerHTML = ventasHoyOrdenadas.map((v, idx) => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const hora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const rawHora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const hora = (typeof formatearHoraLegible === 'function') ? formatearHoraLegible(rawHora) : rawHora;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                 const itemsDetalle = Array.isArray(v.items) 
                     ? v.items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ')
@@ -414,7 +420,7 @@ function renderizarHistorialVentasAdmin() {
                         </td>
                         <td>
                             <i class="far fa-clock" style="color:var(--text-muted); margin-right:4px;"></i>
-                            <strong>${hora}</strong>
+                            <strong style="font-size:0.88rem;">${hora}</strong>
                         </td>
                         <td>
                             <div style="font-weight:600;">${clienteNom}</div>
@@ -470,10 +476,11 @@ function renderizarHistorialVentasAdmin() {
             mobileListHoy.innerHTML = ventasHoyOrdenadas.map(v => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const hora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const rawHora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
+                const hora = (typeof formatearHoraLegible === 'function') ? formatearHoraLegible(rawHora) : rawHora;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
-                const metodo = v.tipo || v.tipoPago || 'Crédito';
-                const esCredito = (metodo === 'Crédito');
+                const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const metodo = esCredito ? 'Crédito' : (v.tipo || v.tipoPago || 'Contado');
                 const badgeMetodo = esCredito
                     ? '<span class="badge-status-pill badge-warning" style="font-size:0.72rem;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
                     : `<span class="badge-status-pill badge-success" style="font-size:0.72rem;"><i class="fas fa-money-bill-wave"></i> ${metodo}</span>`;
@@ -572,11 +579,12 @@ function renderizarHistorialVentasAdmin() {
         // Filtro por método
         if (filtroHistorialMetodo !== 'TODOS') {
             filtradas = filtradas.filter(v => {
-                const m = String(v.tipo || v.tipoPago || '');
+                const esCred = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const m = esCred ? 'Crédito' : String(v.tipo || v.tipoPago || '');
                 if (filtroHistorialMetodo === 'Crédito') {
-                    return m === 'Crédito';
+                    return esCred;
                 } else if (filtroHistorialMetodo === 'Contado') {
-                    return m !== 'Crédito';
+                    return !esCred;
                 } else {
                     return m.toLowerCase().includes(filtroHistorialMetodo.toLowerCase());
                 }
@@ -631,10 +639,11 @@ function renderizarHistorialVentasAdmin() {
             tbodyGeneral.innerHTML = ordenadas.map(v => {
                 const totalUSD = Number(v.total || 0);
                 const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                const fecha = v.fecha || '—';
+                const fechaRaw = v.fecha || '—';
+                const fechaFmt = (typeof formatearFechaLegible === 'function') ? formatearFechaLegible(fechaRaw) : fechaRaw;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
-                const metodo = v.tipo || v.tipoPago || 'Crédito';
-                const esCredito = (metodo === 'Crédito');
+                const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const metodo = esCredito ? 'Crédito' : (v.tipo || v.tipoPago || 'Contado');
                 
                 const badgeMetodo = esCredito
                     ? '<span class="badge-status-pill badge-warning" style="font-weight:700;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
@@ -649,7 +658,9 @@ function renderizarHistorialVentasAdmin() {
                 return `
                     <tr>
                         <td style="font-weight:700; color:var(--primary-accent);">#${v.id}</td>
-                        <td style="font-size:0.85rem; color:var(--text-muted);">${fecha}</td>
+                        <td style="font-size:0.85rem; color:var(--text-muted); font-weight:600; white-space:nowrap;">
+                            <i class="far fa-calendar-alt" style="margin-right:4px; opacity:0.7;"></i>${fechaFmt}
+                        </td>
                         <td>
                             <div style="font-weight:600;">${clienteNom}</div>
                             <small style="color:var(--text-muted); font-size:0.75rem;">ID: ${v.clienteId || 'N/A'}</small>
@@ -698,7 +709,8 @@ function renderizarHistorialVentasAdmin() {
                 mobileListGeneral.innerHTML = ordenadas.map(v => {
                     const totalUSD = Number(v.total || 0);
                     const totalVES = Number(v.totalVES || 0) || (tasa > 0 ? (totalUSD * tasa) : 0);
-                    const fecha = v.fecha || '—';
+                    const fechaRaw = v.fecha || '—';
+                    const fechaFmt = (typeof formatearFechaLegible === 'function') ? formatearFechaLegible(fechaRaw) : fechaRaw;
                     const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
                     const metodo = v.tipo || v.tipoPago || 'Crédito';
                     const esCredito = (metodo === 'Crédito');
@@ -717,7 +729,7 @@ function renderizarHistorialVentasAdmin() {
                             <div class="ventas-item-top">
                                 <div class="ventas-item-id-time">
                                     <span class="ventas-item-id">#${v.id}</span>
-                                    <span class="ventas-item-time"><i class="far fa-calendar-alt"></i> ${fecha}</span>
+                                    <span class="ventas-item-time"><i class="far fa-calendar-alt"></i> ${fechaFmt}</span>
                                 </div>
                                 <div class="ventas-item-amounts">
                                     <span class="ventas-item-usd">$${totalUSD.toFixed(2)}</span>
@@ -873,7 +885,7 @@ function abrirModalDetalleVenta(ventaId) {
                     </div>
                     <div>
                         <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Fecha y Hora</span>
-                        <strong>${venta.fecha || '—'}</strong>
+                        <strong>${(typeof formatearFechaLegible === 'function') ? formatearFechaLegible(venta.fecha) : (venta.fecha || '—')}</strong>
                     </div>
                     <div>
                         <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Método de Pago</span>
@@ -950,8 +962,9 @@ function cerrarModalDetalleVenta() {
  * Abre el modal del limpiador de historial de ventas
  */
 function abrirModalLimpiadorVentas() {
+    if (typeof normalizarTodasLasVentas === 'function') normalizarTodasLasVentas();
     const ventas = AppState.ventas || [];
-    const fechaHoy = obtenerFechaHoyISO();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
     const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
     const totalHoyUSD = ventasHoy.reduce((s, v) => s + Number(v.total || 0), 0);
     const totalHistoricoUSD = ventas.reduce((s, v) => s + Number(v.total || 0), 0);
@@ -1168,7 +1181,8 @@ function obtenerVentasNoRevisadasCount() {
         return idLower !== 'pagosporverificar' && idLower !== 'app_state' && idLower !== 'config' && idLower !== 'global';
     });
 
-    const fechaHoy = obtenerFechaHoyISO();
+    if (typeof normalizarTodasLasVentas === 'function') normalizarTodasLasVentas();
+    const fechaHoy = (typeof window.obtenerFechaHoyISO === 'function') ? window.obtenerFechaHoyISO() : obtenerFechaHoyISO();
     const ventasHoy = ventas.filter(v => String(v.fecha || '').trim().startsWith(fechaHoy));
 
     let ultimaRevision = 0;
@@ -1309,31 +1323,47 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
     const items = Array.isArray(venta.items) ? venta.items : [];
     const resumenItems = items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Productos despachados';
     const totalUSD = Number(venta.total || venta.totalUSD || 0).toFixed(2);
-    const tipoPago = venta.tipo || venta.tipoPago || 'Contado';
-    const esCredito = tipoPago === 'Crédito' || String(venta.metodoDetalle || '').toLowerCase().includes('crédito');
+    const esCredito = Boolean(venta.tipo === 'Crédito' || venta.tipo === 'credito' || venta.tipoPago === 'Crédito' || venta.tipoPago === 'credito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito === true || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito'));
+    const tipoPago = esCredito ? 'Crédito' : (venta.tipo || venta.tipoPago || 'Contado');
     const fechaVenta = venta.fecha || 'Sin fecha';
     const clienteNombre = venta.clienteNombre || (clienteIdOpcional ? (AppState.clientes?.find(c => c.id === clienteIdOpcional)?.nombre || clienteIdOpcional) : 'Cliente');
+    const esCargoManual = venta.esCargoManual || (venta.items && venta.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(venta.id).startsWith('CARGO_');
 
-    const mensajeConfirm = `¿Confirmas que deseas deshacer y anular la compra <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> (${tipoPago}) realizada el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
-        `📦 <b>Productos a devolver al inventario:</b><br>${resumenItems}<br><br>` +
-        (esCredito 
-            ? `💳 <b>Cuenta Corriente:</b> Se descontará el cargo de $${totalUSD} USD de la deuda del cliente.<br><br>` 
-            : `💰 <b>Venta Contado:</b> Se revertirá el cargo registrado en caja.<br><br>`) +
-        `⚠️ <b>Esta acción eliminará permanentemente la compra y repondrá las unidades al stock.</b>`;
+    let mensajeConfirm = '';
+    let tituloConfirm = 'Deshacer Compra';
+
+    if (esCargoManual) {
+        tituloConfirm = 'Anular Préstamo / Cargo';
+        const motivoCargo = venta.motivo || venta.referencia || 'Préstamo de dinero en efectivo';
+        mensajeConfirm = `¿Confirmas que deseas anular el préstamo / cargo manual <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> registrado el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
+            `📝 <b>Motivo registrado:</b><br>${motivoCargo}<br><br>` +
+            `💳 <b>Cuenta Corriente:</b> Se descontarán los $${totalUSD} USD de la deuda del cliente.<br>` +
+            `📦 <b>Inventario:</b> No se modificará el stock ya que fue un préstamo / cargo directo de saldo.<br><br>` +
+            `⚠️ <b>Esta acción eliminará el cargo y actualizará el saldo del cliente inmediatamente.</b>`;
+    } else {
+        mensajeConfirm = `¿Confirmas que deseas deshacer y anular la compra <b>#${venta.id}</b> de <b>$${totalUSD} USD</b> (${tipoPago}) realizada el <b>${fechaVenta}</b> para <b>${clienteNombre}</b>?<br><br>` +
+            `📦 <b>Productos a devolver al inventario:</b><br>${resumenItems}<br><br>` +
+            (esCredito 
+                ? `💳 <b>Cuenta Corriente:</b> Se descontará el cargo de $${totalUSD} USD de la deuda del cliente.<br><br>` 
+                : `💰 <b>Venta Contado:</b> Se revertirá el cargo registrado en caja.<br><br>`) +
+            `⚠️ <b>Esta acción eliminará permanentemente la compra y repondrá las unidades al stock.</b>`;
+    }
 
     let confirmado = false;
     if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Deshacer Compra', mensajeConfirm, 'danger');
+        confirmado = await showCustomConfirm(tituloConfirm, mensajeConfirm, 'danger');
     } else {
-        confirmado = confirm(`¿Deshacer la compra #${venta.id} por $${totalUSD} USD?\n\nProductos: ${resumenItems}\n\nSe devolverá el stock y se descontará la deuda.`);
+        confirmado = confirm(esCargoManual 
+            ? `¿Anular el préstamo / cargo #${venta.id} por $${totalUSD} USD a ${clienteNombre}?\n\nMotivo: ${venta.motivo || 'Préstamo'}\nSe descontará de la deuda sin alterar inventario.`
+            : `¿Deshacer la compra #${venta.id} por $${totalUSD} USD?\n\nProductos: ${resumenItems}\n\nSe devolverá el stock y se descontará la deuda.`);
     }
 
     if (!confirmado) return;
 
-    // 1. Devolver los productos al inventario
+    // 1. Devolver los productos al inventario (si no es cargo manual)
     const prodsList = Array.isArray(AppState.productos) ? AppState.productos : (typeof productos !== 'undefined' ? productos : []);
     items.forEach(it => {
-        if (!it || !it.productoId || it.productoId === 'SALDO_INICIAL') return;
+        if (!it || !it.productoId || it.productoId === 'SALDO_INICIAL' || it.productoId === 'CARGO_MANUAL') return;
         const prod = prodsList.find(p => p.id === it.productoId || p.codigo === it.productoId);
         if (prod) {
             const cant = Number(it.cantidad || 1);
@@ -1414,9 +1444,11 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
         window.registrarNotificacion({
             id: 'notif_anul_' + Date.now(),
             tipo: 'auditoria',
-            subTipo: 'venta_anulada',
-            titulo: 'Compra Deshecha / Anulada',
-            mensaje: `Se deshizo con éxito la compra #${venta.id} por $${totalUSD} USD (${clienteNombre}). El stock fue reincorporado al inventario.`,
+            subTipo: esCargoManual ? 'cargo_anulado' : 'venta_anulada',
+            titulo: esCargoManual ? 'Préstamo / Cargo Anulado' : 'Compra Deshecha / Anulada',
+            mensaje: esCargoManual 
+                ? `Se anuló el préstamo / cargo #${venta.id} por $${totalUSD} USD (${clienteNombre}). La deuda fue recalculada sin afectar inventario.`
+                : `Se deshizo con éxito la compra #${venta.id} por $${totalUSD} USD (${clienteNombre}). El stock fue reincorporado al inventario.`,
             montoUSD: Number(totalUSD),
             paraAdmin: true,
             paraCliente: false
@@ -1448,9 +1480,12 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
     if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
     // 9. Feedback visual
+    const msgExito = esCargoManual 
+        ? `✅ Préstamo / cargo #${venta.id} anulado con éxito. Se reajustó la deuda sin alterar inventario.`
+        : `✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`;
     if (typeof showCustomToast === 'function') {
-        showCustomToast(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`, 'success');
-    } else {
-        alert(`✅ Compra #${venta.id} deshecha con éxito. Se reincorporaron las unidades al inventario y se ajustó la deuda.`);
+        showCustomToast(msgExito, 'success');
+    } else if (typeof alert === 'function') {
+        alert(msgExito);
     }
 }

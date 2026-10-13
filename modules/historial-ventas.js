@@ -306,7 +306,7 @@ function renderizarHistorialVentasAdmin() {
 
     ventas.forEach(v => {
         const total = Number(v.total || 0);
-        const esCredito = (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.esCredito === true);
+        const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
         const esConf = typeof window.esVentaOTransaccionConfirmada === 'function'
             ? window.esVentaOTransaccionConfirmada(v)
             : (v.confirmada === true && !['PENDIENTE', 'PENDIENTE_CONFIRMACION', 'PENDIENTE_VERIFICACION', 'POR_VERIFICAR', 'CONFIRMANDO', 'FALLIDO', 'RECHAZADO', 'CANCELADO'].includes(String(v.estado || '').toUpperCase()));
@@ -479,8 +479,8 @@ function renderizarHistorialVentasAdmin() {
                 const rawHora = v.fecha ? v.fecha.split(' ')[1] || v.fecha : '—';
                 const hora = (typeof formatearHoraLegible === 'function') ? formatearHoraLegible(rawHora) : rawHora;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
-                const metodo = v.tipo || v.tipoPago || 'Crédito';
-                const esCredito = (metodo === 'Crédito');
+                const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const metodo = esCredito ? 'Crédito' : (v.tipo || v.tipoPago || 'Contado');
                 const badgeMetodo = esCredito
                     ? '<span class="badge-status-pill badge-warning" style="font-size:0.72rem;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
                     : `<span class="badge-status-pill badge-success" style="font-size:0.72rem;"><i class="fas fa-money-bill-wave"></i> ${metodo}</span>`;
@@ -579,11 +579,12 @@ function renderizarHistorialVentasAdmin() {
         // Filtro por método
         if (filtroHistorialMetodo !== 'TODOS') {
             filtradas = filtradas.filter(v => {
-                const m = String(v.tipo || v.tipoPago || '');
+                const esCred = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const m = esCred ? 'Crédito' : String(v.tipo || v.tipoPago || '');
                 if (filtroHistorialMetodo === 'Crédito') {
-                    return m === 'Crédito';
+                    return esCred;
                 } else if (filtroHistorialMetodo === 'Contado') {
-                    return m !== 'Crédito';
+                    return !esCred;
                 } else {
                     return m.toLowerCase().includes(filtroHistorialMetodo.toLowerCase());
                 }
@@ -641,8 +642,8 @@ function renderizarHistorialVentasAdmin() {
                 const fechaRaw = v.fecha || '—';
                 const fechaFmt = (typeof formatearFechaLegible === 'function') ? formatearFechaLegible(fechaRaw) : fechaRaw;
                 const itemsCount = Array.isArray(v.items) ? v.items.reduce((s, i) => s + Number(i.cantidad || 1), 0) : 1;
-                const metodo = v.tipo || v.tipoPago || 'Crédito';
-                const esCredito = (metodo === 'Crédito');
+                const esCredito = Boolean(v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.metodoPago === 'Crédito' || v.modalidad === 'CREDITO' || v.esCredito === true || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.referencia || '').toLowerCase().includes('crédito') || String(v.metodoDetalle || '').toLowerCase().includes('crédito'));
+                const metodo = esCredito ? 'Crédito' : (v.tipo || v.tipoPago || 'Contado');
                 
                 const badgeMetodo = esCredito
                     ? '<span class="badge-status-pill badge-warning" style="font-weight:700;"><i class="fas fa-hand-holding-dollar"></i> Crédito</span>'
@@ -1322,8 +1323,8 @@ async function deshacerVentaCompra(ventaId, clienteIdOpcional) {
     const items = Array.isArray(venta.items) ? venta.items : [];
     const resumenItems = items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Productos despachados';
     const totalUSD = Number(venta.total || venta.totalUSD || 0).toFixed(2);
-    const tipoPago = venta.tipo || venta.tipoPago || 'Contado';
-    const esCredito = tipoPago === 'Crédito' || String(venta.metodoDetalle || '').toLowerCase().includes('crédito');
+    const esCredito = Boolean(venta.tipo === 'Crédito' || venta.tipo === 'credito' || venta.tipoPago === 'Crédito' || venta.tipoPago === 'credito' || venta.metodoPago === 'Crédito' || venta.modalidad === 'CREDITO' || venta.esCredito === true || String(venta.id || '').toUpperCase().startsWith('CRE_') || venta.referencia === 'CRÉDITO-REGISTRADO' || String(venta.referencia || '').toLowerCase().includes('crédito') || String(venta.metodoDetalle || '').toLowerCase().includes('crédito'));
+    const tipoPago = esCredito ? 'Crédito' : (venta.tipo || venta.tipoPago || 'Contado');
     const fechaVenta = venta.fecha || 'Sin fecha';
     const clienteNombre = venta.clienteNombre || (clienteIdOpcional ? (AppState.clientes?.find(c => c.id === clienteIdOpcional)?.nombre || clienteIdOpcional) : 'Cliente');
     const esCargoManual = venta.esCargoManual || (venta.items && venta.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(venta.id).startsWith('CARGO_');

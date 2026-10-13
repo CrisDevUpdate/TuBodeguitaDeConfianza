@@ -26,13 +26,49 @@ export default function CustomerAccountView({
 
   // Filtrar ventas del cliente actual
   const clientSales = useMemo(() => {
-    return (sales || []).filter(v => v.clienteId === cedula || v.clienteId === currentUser?.id);
-  }, [sales, cedula, currentUser?.id]);
+    return (sales || []).filter(v => {
+      if (!v) return false;
+      const vCId = String(v.clienteId || '').trim().toUpperCase();
+      const vCCed = String(v.clienteCedula || '').trim().toUpperCase();
+      const vNom = String(v.clienteNombre || '').trim().toUpperCase();
+      const curId = String(currentUser?.id || '').trim().toUpperCase();
+      const curCed = String(cedula || currentUser?.cedula || '').trim().toUpperCase();
+      const curCliId = String(currentUser?.clienteId || '').trim().toUpperCase();
+      const curNom = String(currentUser?.nombre || '').trim().toUpperCase();
+
+      if (curCed && (vCId === curCed || vCCed === curCed)) return true;
+      if (curId && (vCId === curId || vCCed === curId)) return true;
+      if (curCliId && (vCId === curCliId || vCCed === curCliId)) return true;
+      if (curNom && vNom && (vNom === curNom || (curNom.length >= 4 && (vNom.startsWith(curNom) || curNom.startsWith(vNom))))) return true;
+      if (typeof window !== 'undefined' && typeof window.esIdentificadorRebeca === 'function') {
+        if (window.esIdentificadorRebeca(currentUser) && window.esIdentificadorRebeca(v)) return true;
+      }
+      return false;
+    });
+  }, [sales, cedula, currentUser]);
 
   // Filtrar abonos del cliente actual
   const clientPayments = useMemo(() => {
-    return (payments || []).filter(a => a.clienteId === cedula || a.clienteId === currentUser?.id);
-  }, [payments, cedula, currentUser?.id]);
+    return (payments || []).filter(a => {
+      if (!a) return false;
+      const aCId = String(a.clienteId || '').trim().toUpperCase();
+      const aCCed = String(a.clienteCedula || '').trim().toUpperCase();
+      const aNom = String(a.clienteNombre || '').trim().toUpperCase();
+      const curId = String(currentUser?.id || '').trim().toUpperCase();
+      const curCed = String(cedula || currentUser?.cedula || '').trim().toUpperCase();
+      const curCliId = String(currentUser?.clienteId || '').trim().toUpperCase();
+      const curNom = String(currentUser?.nombre || '').trim().toUpperCase();
+
+      if (curCed && (aCId === curCed || aCCed === curCed)) return true;
+      if (curId && (aCId === curId || aCCed === curId)) return true;
+      if (curCliId && (aCId === curCliId || aCCed === curCliId)) return true;
+      if (curNom && aNom && (aNom === curNom || (curNom.length >= 4 && (aNom.startsWith(curNom) || curNom.startsWith(aNom))))) return true;
+      if (typeof window !== 'undefined' && typeof window.esIdentificadorRebeca === 'function') {
+        if (window.esIdentificadorRebeca(currentUser) && window.esIdentificadorRebeca(a)) return true;
+      }
+      return false;
+    });
+  }, [payments, cedula, currentUser]);
 
   // Abonos aprobados/conciliados
   const approvedPayments = useMemo(() => {
@@ -47,7 +83,19 @@ export default function CustomerAccountView({
   // Cálculos financieros
   const totalCreditoUSD = useMemo(() => {
     return clientSales
-      .filter(v => v.tipo === 'Crédito' || v.tipo === 'credito')
+      .filter(v => v.tipo === 'Crédito' || 
+                   v.tipo === 'credito' || 
+                   v.tipoPago === 'Crédito' || 
+                   v.tipoPago === 'credito' || 
+                   v.metodoPago === 'Crédito' || 
+                   v.metodoPago === 'credito' || 
+                   v.modalidad === 'CREDITO' || 
+                   String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                   v.referencia === 'CRÉDITO-REGISTRADO' || 
+                   String(v.referencia || '').toLowerCase().includes('crédito') || 
+                   String(v.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                   v.esCargoManual === true ||
+                   v.esCredito === true)
       .reduce((sum, v) => sum + Number(v.total || 0), 0);
   }, [clientSales]);
 
@@ -61,7 +109,44 @@ export default function CustomerAccountView({
     }, 0);
   }, [approvedPayments, tasa]);
 
-  const saldoDeudaUSD = Math.max(0, Number((totalCreditoUSD - totalAbonadoUSD).toFixed(2)));
+  // Conciliación cronológica de saldo por ciclo de crédito
+  const saldoDeudaUSD = useMemo(() => {
+    const eventos = [];
+    clientSales.forEach(s => {
+      const esCred = s.tipo === 'Crédito' || 
+                     s.tipo === 'credito' || 
+                     s.tipoPago === 'Crédito' || 
+                     s.tipoPago === 'credito' || 
+                     s.metodoPago === 'Crédito' || 
+                     s.metodoPago === 'credito' || 
+                     s.modalidad === 'CREDITO' || 
+                     String(s.id || '').toUpperCase().startsWith('CRE_') || 
+                     s.referencia === 'CRÉDITO-REGISTRADO' || 
+                     String(s.referencia || '').toLowerCase().includes('crédito') || 
+                     String(s.metodoDetalle || '').toLowerCase().includes('crédito') ||
+                     s.esCargoManual === true ||
+                     s.esCredito === true;
+      if (esCred) {
+        const f = s.fecha ? new Date(s.fecha).getTime() : 0;
+        eventos.push({ tipo: 'venta', monto: Number(s.total || s.totalUSD || 0), fecha: isNaN(f) ? 0 : f });
+      }
+    });
+    approvedPayments.forEach(p => {
+      const f = p.fecha ? new Date(p.fecha).getTime() : 0;
+      const usdVal = Number(p.montoUSD || 0);
+      const vesVal = Number(p.montoVES || 0);
+      let monto = usdVal > 0 ? usdVal : (vesVal > 0 && tasa > 0 ? vesVal / tasa : Number(p.monto || 0));
+      eventos.push({ tipo: 'abono', monto, fecha: isNaN(f) ? 0 : f });
+    });
+    eventos.sort((a, b) => a.fecha - b.fecha);
+    let bal = 0;
+    eventos.forEach(ev => {
+      if (ev.tipo === 'venta') bal += ev.monto;
+      else if (ev.tipo === 'abono') bal = Math.max(0, bal - ev.monto);
+    });
+    return Number(bal.toFixed(2));
+  }, [clientSales, approvedPayments, tasa]);
+
   const saldoDeudaVES = tasa > 0 ? saldoDeudaUSD * tasa : 0;
   const esSolvente = saldoDeudaUSD <= 0.01;
 
@@ -274,7 +359,19 @@ export default function CustomerAccountView({
               const totalUSD = Number(sale.total || 0);
               const tasaVenta = Number(sale.tasa || tasa || 1);
               const totalVES = tasaVenta > 0 ? totalUSD * tasaVenta : 0;
-              const esCredito = sale.tipo === 'Crédito' || sale.tipo === 'credito';
+              const esCredito = sale.tipo === 'Crédito' || 
+                                sale.tipo === 'credito' || 
+                                sale.tipoPago === 'Crédito' || 
+                                sale.tipoPago === 'credito' || 
+                                sale.metodoPago === 'Crédito' || 
+                                sale.metodoPago === 'credito' || 
+                                sale.modalidad === 'CREDITO' || 
+                                String(sale.id || '').toUpperCase().startsWith('CRE_') || 
+                                sale.referencia === 'CRÉDITO-REGISTRADO' || 
+                                String(sale.referencia || '').toLowerCase().includes('crédito') || 
+                                String(sale.metodoDetalle || '').toLowerCase().includes('crédito') || 
+                                sale.esCargoManual === true || 
+                                sale.esCredito === true;
               const esPendiente = sale.estado === 'PENDIENTE_CONFIRMACION';
               const itemsCount = (sale.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
               const itemsDesc = (sale.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
@@ -344,7 +441,7 @@ export default function CustomerAccountView({
                       <div className="tx-details">
                         <div className="tx-ref">
                           <span>#{sale.id}</span>
-                          <span className="tx-type-tag">{sale.tipo || 'Contado'}</span>
+                          <span className="tx-type-tag">{esCredito ? 'Crédito' : (sale.tipo || 'Contado')}</span>
                         </div>
                         <span className="tx-desc" title={itemsDesc}>
                           {itemsCount > 0 ? `${itemsCount} art. • ` : ''}{itemsDesc}

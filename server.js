@@ -495,14 +495,29 @@ app.get('/api/account/status', (req, res) => {
     (p.estado === 'Pago agregado' || p.estado === 'APROBADO' || !p.estado)
   );
 
+  const isCreditSale = (s) => Boolean(
+    s.tipo === 'Crédito' || 
+    s.tipo === 'credito' || 
+    s.tipoPago === 'Crédito' || 
+    s.tipoPago === 'credito' || 
+    s.metodoPago === 'Crédito' || 
+    s.metodoPago === 'credito' || 
+    s.modalidad === 'CREDITO' || 
+    s.esCredito === true || 
+    String(s.id || '').toUpperCase().startsWith('CRE_') || 
+    s.referencia === 'CRÉDITO-REGISTRADO' || 
+    String(s.referencia || '').toLowerCase().includes('crédito') || 
+    String(s.metodoDetalle || '').toLowerCase().includes('crédito')
+  );
+
   const totalCompradoHistoricoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
-  const totalCreditoUSD = userSales.filter(s => s.tipo === 'Crédito' || s.tipoPago === 'Crédito').reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const totalCreditoUSD = userSales.filter(isCreditSale).reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalAbonadoUSD = userPayments.reduce((acc, p) => acc + Number(p.montoUSD || 0), 0);
 
   // Conciliación cronológica de saldo por ciclo
   const eventos = [];
   userSales.forEach(s => {
-    if (s.tipo === 'Crédito' || s.tipoPago === 'Crédito') {
+    if (isCreditSale(s)) {
       const f = s.fecha ? new Date(s.fecha).getTime() : 0;
       eventos.push({ tipo: 'venta', monto: Number(s.total || 0), fecha: isNaN(f) ? 0 : f });
     }
@@ -523,7 +538,7 @@ app.get('/api/account/status', (req, res) => {
   // REGLA DE NEGOCIO: Al pagar toda su deuda (esSolvente), el total comprado para el cliente vuelve a 0.00
   const totalCompradoUSD = esSolvente ? 0 : totalCompradoHistoricoUSD;
 
-  const facturasPendientes = userSales.filter(s => (s.tipo === 'Crédito' || s.tipoPago === 'Crédito') && (s.estadoPago !== 'CANCELADO'));
+  const facturasPendientes = userSales.filter(s => isCreditSale(s) && (s.estadoPago !== 'CANCELADO'));
 
   res.json({
     success: true,
