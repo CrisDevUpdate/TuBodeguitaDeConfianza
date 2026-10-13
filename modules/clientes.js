@@ -5,7 +5,7 @@ function esIdentificadorRebeca(objOId) {
     if (!objOId) return false;
     if (typeof objOId === 'string') {
         const s = objOId.trim().toLowerCase();
-        if (s === 'cli-019' || s === 'cli_019' || s.includes('rebeca') || s.includes('rebecca')) return true;
+        if (s === 'cli-019' || s === 'cli_019' || s === '23791705' || s.includes('rebeca') || s.includes('rebecca')) return true;
         const sUpper = objOId.trim().toUpperCase();
         const u = (Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : []).find(u => 
             String(u.id || '').toUpperCase() === sUpper || String(u.cedula || '').toUpperCase() === sUpper
@@ -35,7 +35,7 @@ function esIdentificadorRebeca(objOId) {
         const vin = String(objOId.clienteVinculado || '').toLowerCase();
         const cId = String(objOId.clienteId || '').toLowerCase();
         const em = String(objOId.email || '').toLowerCase();
-        if (id === 'cli-019' || id === 'cli_019' || cod === 'cli-019' || cId === 'cli-019') return true;
+        if (id === 'cli-019' || id === 'cli_019' || cod === 'cli-019' || cId === 'cli-019' || ced === '23791705' || id === '23791705') return true;
         if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca')) return true;
         if (Array.isArray(objOId.nombresAnteriores) && objOId.nombresAnteriores.some(n => String(n).toLowerCase().includes('rebeca'))) return true;
         if (Array.isArray(objOId.codigosAnteriores) && objOId.codigosAnteriores.some(c => String(c).toUpperCase() === 'CLI-019')) return true;
@@ -428,17 +428,17 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             });
         }
 
-        // Liquidar y marcar como PAGADAS las ventas a crédito generadas para Rebeca
+        // Garantizar que las ventas a crédito registradas (como pedidos CRE_) conserven su condición de crédito
         if (Array.isArray(AppState.ventas)) {
             AppState.ventas.forEach(v => {
                 if (!v) return;
-                const vNom = String(v.clienteNombre || v.nombreCliente || '').toLowerCase();
-                const vCId = String(v.clienteId || '').toUpperCase();
                 const vId = String(v.id || '').toUpperCase();
-                if ((vNom.includes('rebeca') || vCId === 'CLI-019' || vId.includes('CLI-019') || vId.includes('CLI_019')) && (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || v.estado === 'PENDIENTE')) {
-                    v.estado = 'PAGADA';
-                    v.confirmada = true;
-                    huboCambios = true;
+                if (vId.startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || v.tipoPago === 'Crédito') {
+                    if (v.tipo !== 'Crédito' || v.tipoPago !== 'Crédito') {
+                        v.tipo = 'Crédito';
+                        v.tipoPago = 'Crédito';
+                        huboCambios = true;
+                    }
                 }
             });
         }
@@ -589,23 +589,21 @@ function asegurarSolvenciaRebeca() {
         huboCambios = true;
     }
     
-    // Asegurar saldo 0.00 en todos los clientes correspondientes a Rebeca
+    // Asegurar que la deuda inicial histórica (libreta antigua) sea 0.00 en Rebeca, permitiendo deudas de compras activas
     lista.forEach(c => {
         if (esIdentificadorRebeca(c)) {
-            if (c.deudaUSD !== 0 || c.deudaInicialUSD !== 0) {
-                c.deudaUSD = 0;
+            if (c.deudaInicialUSD !== 0) {
                 c.deudaInicialUSD = 0;
                 huboCambios = true;
             }
         }
     });
 
-    // Asegurar saldo 0.00 en todos los usuarios correspondientes a Rebeca
+    // Sincronizar usuario de Rebeca con su cliente sin anular compras a crédito activas
     usuariosList.forEach(u => {
         if (esIdentificadorRebeca(u)) {
-            if (u.deudaUSD !== 0 || u.saldoDeudaUSD !== 0) {
-                u.deudaUSD = 0;
-                u.saldoDeudaUSD = 0;
+            if (u.deudaInicialUSD !== 0) {
+                u.deudaInicialUSD = 0;
                 huboCambios = true;
             }
             if (cReb && (!u.clienteId || u.clienteId !== cReb.id)) {
@@ -616,7 +614,7 @@ function asegurarSolvenciaRebeca() {
         }
     });
     
-    // 2. Limpiar ventas de fiado y liquidar compras de Rebeca a pagadas (contado)
+    // 2. Limpiar ventas de fiado heredadas de libretas y preservar compras a crédito
     if (Array.isArray(AppState.ventas)) {
         const cantAntes = AppState.ventas.length;
         AppState.ventas = AppState.ventas.filter(v => {
@@ -630,17 +628,25 @@ function asegurarSolvenciaRebeca() {
 
             if (esDeReb) {
                 const vId = String(v.id || '').toUpperCase();
-                // Si es un saldo inicial o transferencia por fusión, retirarlo completamente
+                // Si es un saldo inicial o transferencia por fusión antigua de libreta, retirarlo completamente
                 if (vId.startsWith('V_FIADO_') || vId.includes('FUSION')) return false;
                 if (v.items && v.items.some(i => i.productoId === 'SALDO_INICIAL')) return false;
                 
-                // Si es una compra regular, marcarla como PAGADA de CONTADO
-                v.tipo = 'Contado';
-                v.tipoPago = 'Contado';
-                v.estado = 'PAGADA';
-                v.confirmada = true;
-                v.esCargoManual = false;
-                v.metodoDetalle = 'Pagado / Solvente';
+                // Si es una compra o pedido a crédito, preservar y asegurar su condición de Crédito y estado
+                const esCred = vId.startsWith('CRE_') || 
+                               v.referencia === 'CRÉDITO-REGISTRADO' || 
+                               v.tipoPago === 'Crédito' || 
+                               v.tipo === 'Crédito' || 
+                               v.tipo === 'credito' || 
+                               v.modalidad === 'CREDITO' || 
+                               String(v.metodoDetalle || '').toLowerCase().includes('crédito');
+                if (esCred) {
+                    v.tipo = 'Crédito';
+                    v.tipoPago = 'Crédito';
+                    if (!v.estado || v.estado === 'PAGADA') {
+                        v.estado = 'CONFIRMADO';
+                    }
+                }
             }
             return true;
         });
@@ -1019,7 +1025,7 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         totalCreditoEfectivo = totalCreditoVentas + deudaDirecta;
     }
 
-    // Regla de Negocio: Rebeca ya pagó toda deuda previa y no debe nada ($0.00)
+    // Para Rebeca: asegurar que no cargue con saldos iniciales de libretas duplicadas pero respetar compras a crédito reales (ej: CRE_)
     const esRebecaFin = (typeof esIdentificadorRebeca === 'function' && (
             esIdentificadorRebeca(identificadorOEntidad) ||
             esIdentificadorRebeca(targetId) ||
@@ -1036,14 +1042,12 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
 
     if (esRebecaFin) {
         if (clienteObj) {
-            clienteObj.deudaUSD = 0;
             clienteObj.deudaInicialUSD = 0;
         }
         if (usuarioObj) {
-            usuarioObj.deudaUSD = 0;
-            usuarioObj.saldoDeudaUSD = 0;
+            usuarioObj.deudaInicialUSD = 0;
         }
-        // Purgar de ventasCli cualquier venta de fiado transferida
+        // Purgar únicamente ventas de fiado heredadas de libretas iniciales o fusiones de saldo
         ventasCli = ventasCli.filter(v => {
             if (!v || !v.id) return true;
             const vId = String(v.id).toUpperCase();
@@ -1052,32 +1056,70 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
             return true;
         });
 
-        // Convertir cualquier compra de crédito previa a pagada de contado
+        // Asegurar que cualquier pedido o compra a crédito mantenga su condición inmutable de Crédito
         ventasCli.forEach(v => {
-            v.tipo = 'Contado';
-            v.tipoPago = 'Contado';
-            v.estado = 'PAGADA';
-            v.confirmada = true;
-            v.esCargoManual = false;
-            v.metodoDetalle = 'Pagado / Solvente';
+            const vId = String(v.id || '').toUpperCase();
+            const esCred = vId.startsWith('CRE_') || 
+                           v.referencia === 'CRÉDITO-REGISTRADO' || 
+                           v.tipoPago === 'Crédito' || 
+                           v.tipo === 'Crédito' || 
+                           v.tipo === 'credito' || 
+                           v.modalidad === 'CREDITO' || 
+                           String(v.metodoDetalle || '').toLowerCase().includes('crédito');
+            if (esCred) {
+                v.tipo = 'Crédito';
+                v.tipoPago = 'Crédito';
+            }
         });
-
-        totalCreditoEfectivo = totalAbonadoUSD;
     }
 
-    let saldoDeudaUSD = Math.max(0, Number((totalCreditoEfectivo - totalAbonadoUSD).toFixed(2)));
-    if (esRebecaFin) {
-        saldoDeudaUSD = 0;
+    // Conciliación cronológica de saldo por ciclo de crédito:
+    // Los abonos pasados saldan ventas pasadas; compras a crédito nuevas generan saldo deudor activo
+    const eventos = [];
+    if (deudaDirecta > 0 && !tieneVentaFiadoInicial) {
+        eventos.push({ tipo: 'venta', monto: deudaDirecta, fecha: 0 });
     }
+    ventasCli.forEach(v => {
+        const esCred = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id || '').toUpperCase().startsWith('CRE_');
+        if (esCred) {
+            const f = v.fecha ? new Date(v.fecha).getTime() : 0;
+            eventos.push({ tipo: 'venta', monto: Number(v.total || v.totalUSD || 0), fecha: isNaN(f) ? 0 : f, id: v.id });
+        }
+    });
+    abonosCli.forEach(a => {
+        const { montoUSD } = typeof sanitizarAbonoMonedas === 'function'
+            ? sanitizarAbonoMonedas(a, tasa)
+            : { montoUSD: Number(a.montoUSD || a.monto || 0) };
+        const f = a.fecha ? new Date(a.fecha).getTime() : 0;
+        eventos.push({ tipo: 'abono', monto: montoUSD, fecha: isNaN(f) ? 0 : f, id: a.id });
+    });
+
+    eventos.sort((a, b) => a.fecha - b.fecha);
+
+    let saldoBalance = 0;
+    eventos.forEach(ev => {
+        if (ev.tipo === 'venta') saldoBalance += ev.monto;
+        else if (ev.tipo === 'abono') saldoBalance = Math.max(0, saldoBalance - ev.monto);
+    });
+    let saldoDeudaUSD = Number(saldoBalance.toFixed(2));
     const saldoDeudaVES = tasa > 0 ? Number((saldoDeudaUSD * tasa).toFixed(2)) : 0;
     const totalCompradoTotalUSD = Math.max(totalCompradoUSD, totalCreditoEfectivo);
     const totalCompradoVES = tasa > 0 ? Number((totalCompradoTotalUSD * tasa).toFixed(2)) : 0;
     const totalAbonadoVES = tasa > 0 ? Number((totalAbonadoUSD * tasa).toFixed(2)) : 0;
+    const esSolvente = saldoDeudaUSD <= 0.01;
+
+    if (clienteObj) {
+        clienteObj.deudaUSD = saldoDeudaUSD;
+    }
+    if (usuarioObj) {
+        usuarioObj.deudaUSD = saldoDeudaUSD;
+        usuarioObj.saldoDeudaUSD = saldoDeudaUSD;
+    }
 
     return {
         totalCompradoUSD: totalCompradoTotalUSD,
         totalCompradoVES,
-        totalCreditoUSD: esRebecaFin ? totalAbonadoUSD : totalCreditoEfectivo,
+        totalCreditoUSD: totalCreditoEfectivo,
         totalAbonadoUSD,
         totalAbonadoVES,
         saldoDeudaUSD,
@@ -1086,7 +1128,7 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
         usuarioObj,
         ventasCliente: ventasCli,
         abonosCliente: abonosCli,
-        esSolvente: esRebecaFin ? true : (saldoDeudaUSD <= 0.01)
+        esSolvente
     };
 }
 window.calcularEstadoFinancieroCliente = calcularEstadoFinancieroCliente;
@@ -1854,8 +1896,9 @@ function verDetalleCliente(id, abrirModal = true) {
     (ventasCliente || []).forEach(v => {
         const esCargoManual = v.esCargoManual || (v.items && v.items.some(i => i.productoId === 'CARGO_MANUAL')) || String(v.id).startsWith('CARGO_');
         const esPrestamo = v.esPrestamo || String(v.motivo || '').toLowerCase().includes('préstamo') || String(v.motivo || '').toLowerCase().includes('prestamo');
+        const esCredito = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.modalidad === 'CREDITO' || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.metodoDetalle || '').toLowerCase().includes('crédito');
 
-        let concepto = `Venta (${v.tipo || 'Contado'})`;
+        let concepto = esCredito ? 'Venta (Crédito)' : `Venta (${v.tipo || 'Contado'})`;
         let detalle = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || v.detalle || v.referencia || 'Compra de productos';
 
         if (esCargoManual) {
@@ -1873,7 +1916,7 @@ function verDetalleCliente(id, abrirModal = true) {
             fecha: v.fecha || '2026-09-23 12:00',
             concepto: concepto,
             detalle: detalle,
-            cargoUSD: (v.tipo === 'Crédito' || v.tipoPago === 'Crédito' || esCargoManual) ? Number(v.total || v.totalUSD || 0) : 0,
+            cargoUSD: (esCredito || esCargoManual) ? Number(v.total || v.totalUSD || 0) : 0,
             abonoUSD: 0,
             montoPagoVES: '-'
         });

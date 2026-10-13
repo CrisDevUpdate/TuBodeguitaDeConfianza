@@ -211,6 +211,46 @@ let serverPayments = [];
 let serverLoyaltyClaims = [];
 let serverInventoryAdjustments = [];
 
+// Sincronización automática de usuarios desde Firestore (Fuente de Verdad en la Nube)
+async function syncUsersFromFirestore() {
+  try {
+    const fsUrl = 'https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents/usuarios?key=AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA&pageSize=100';
+    const res = await fetch(fsUrl);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.documents) {
+      data.documents.forEach(doc => {
+        const f = doc.fields || {};
+        const userObj = {
+          id: f.id?.stringValue || doc.name.split('/').pop(),
+          cedula: f.cedula?.stringValue || f.id?.stringValue || '',
+          nombre: f.nombre?.stringValue || '',
+          telefono: f.telefono?.stringValue || '',
+          email: f.email?.stringValue || '',
+          password: f.password?.stringValue || '',
+          rol: f.rol?.stringValue || 'cliente',
+          estado: f.estado?.stringValue || 'ACTIVO',
+          clienteId: f.clienteId?.stringValue || '',
+          clienteVinculado: f.clienteVinculado?.stringValue || '',
+          puntosAcumulados: Number(f.puntosAcumulados?.integerValue || 0),
+          puntosCanjeados: Number(f.puntosCanjeados?.integerValue || 0),
+          fechaRegistro: f.fechaRegistro?.stringValue || ''
+        };
+        const idx = serverUsers.findIndex(u => (u.cedula && u.cedula === userObj.cedula) || (u.id && u.id === userObj.id));
+        if (idx !== -1) {
+          serverUsers[idx] = { ...serverUsers[idx], ...userObj };
+        } else {
+          serverUsers.push(userObj);
+        }
+      });
+      console.log(`[Firestore Sync] ${serverUsers.length} usuarios sincronizados desde Firestore.`);
+    }
+  } catch (err) {
+    console.warn('[Firestore Sync] Aviso al sincronizar usuarios:', err.message);
+  }
+}
+syncUsersFromFirestore().catch(() => {});
+
 // API Database Reset (100% Virgin State): POST /api/database/reset
 app.post('/api/database/reset', (req, res) => {
   serverSales = [];
@@ -339,11 +379,29 @@ app.delete('/api/users/:id?', (req, res) => {
 });
 
 // API Users: Get and Post Users
-app.get('/api/users', (req, res) => {
+app.get('/api/users', async (req, res) => {
   const userId = req.query.userId || req.query.id || req.query.cedula;
   if (userId) {
-    const user = serverUsers.find(u => u.cedula === userId || u.id === userId);
+    const q = String(userId).trim().toLowerCase();
+    let user = serverUsers.find(u => 
+      (u.cedula && String(u.cedula).toLowerCase() === q) || 
+      (u.id && String(u.id).toLowerCase() === q) || 
+      (u.email && String(u.email).toLowerCase() === q) || 
+      (u.nombre && String(u.nombre).toLowerCase().includes(q))
+    );
+    if (!user) {
+      await syncUsersFromFirestore();
+      user = serverUsers.find(u => 
+        (u.cedula && String(u.cedula).toLowerCase() === q) || 
+        (u.id && String(u.id).toLowerCase() === q) || 
+        (u.email && String(u.email).toLowerCase() === q) || 
+        (u.nombre && String(u.nombre).toLowerCase().includes(q))
+      );
+    }
     return res.json({ success: true, user: user || null });
+  }
+  if (serverUsers.length <= 1) {
+    await syncUsersFromFirestore();
   }
   res.json({ success: true, users: serverUsers, count: serverUsers.length });
 });
@@ -440,10 +498,26 @@ app.get('/api/account/status', (req, res) => {
   const totalCompradoHistoricoUSD = userSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalCreditoUSD = userSales.filter(s => s.tipo === 'Crédito' || s.tipoPago === 'Crédito').reduce((acc, s) => acc + Number(s.total || 0), 0);
   const totalAbonadoUSD = userPayments.reduce((acc, p) => acc + Number(p.montoUSD || 0), 0);
-  let saldoDeudaUSD = Math.max(0, totalCreditoUSD - totalAbonadoUSD);
-  if (uidLower.includes('rebeca') || String(userId).toUpperCase() === 'CLI-019') {
-    saldoDeudaUSD = 0;
-  }
+
+  // Conciliación cronológica de saldo por ciclo
+  const eventos = [];
+  userSales.forEach(s => {
+    if (s.tipo === 'Crédito' || s.tipoPago === 'Crédito') {
+      const f = s.fecha ? new Date(s.fecha).getTime() : 0;
+      eventos.push({ tipo: 'venta', monto: Number(s.total || 0), fecha: isNaN(f) ? 0 : f });
+    }
+  });
+  userPayments.forEach(p => {
+    const f = p.fecha ? new Date(p.fecha).getTime() : 0;
+    eventos.push({ tipo: 'abono', monto: Number(p.montoUSD || 0), fecha: isNaN(f) ? 0 : f });
+  });
+  eventos.sort((a, b) => a.fecha - b.fecha);
+  let bal = 0;
+  eventos.forEach(ev => {
+    if (ev.tipo === 'venta') bal += ev.monto;
+    else if (ev.tipo === 'abono') bal = Math.max(0, bal - ev.monto);
+  });
+  let saldoDeudaUSD = Number(bal.toFixed(2));
   const esSolvente = saldoDeudaUSD <= 0.01;
 
   // REGLA DE NEGOCIO: Al pagar toda su deuda (esSolvente), el total comprado para el cliente vuelve a 0.00

@@ -1589,24 +1589,6 @@ function calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abon
     const saldoDeudaVES = estadoFin ? Number(estadoFin.saldoDeudaVES || 0) : 0;
     const esSolvente = estadoFin ? estadoFin.esSolvente : (saldoDeudaUSD <= 0.01);
 
-    const esRebDirecto = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(estadoFin))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-
-    if (esRebDirecto) {
-        return {
-            totalCompradoUSD: 0,
-            totalCompradoVES: 0,
-            totalAbonadoUSD: 0,
-            totalAbonadoVES: 0,
-            saldoDeudaUSD: 0,
-            saldoDeudaVES: 0,
-            esSolvente: true,
-            esAdminReal,
-            totalCompradoHistoricoUSD,
-            totalCompradoHistoricoVES
-        };
-    }
-
     if (esAdminReal) {
         return {
             totalCompradoUSD: totalCompradoHistoricoUSD,
@@ -1786,14 +1768,6 @@ async function renderizarEstadoCuentaCliente() {
     const metricas = calcularMetricasCompradoCliente(estadoFin, usuario, ventasCliente, abonosAprobados);
     let { totalCompradoUSD, totalCompradoVES, totalAbonadoUSD, totalAbonadoVES, saldoDeudaUSD, saldoDeudaVES, esSolvente, totalCompradoHistoricoUSD } = metricas;
 
-    const esRebSesion = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(clienteEncontrado) || esIdentificadorRebeca(cedula))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-    if (esRebSesion) {
-        saldoDeudaUSD = 0;
-        saldoDeudaVES = 0;
-        esSolvente = true;
-    }
-
     window.ultimoSaldoDeudaUSD = saldoDeudaUSD;
     window.ultimoSaldoDeudaVES = saldoDeudaVES;
     window.ultimoEstadoFinancieroCliente = estadoFin;
@@ -1926,7 +1900,7 @@ async function renderizarEstadoCuentaCliente() {
                         const totalUSD = Number(v.total || 0);
                         const tasaVenta = Number(v.tasa || tasa || 1);
                         const totalVES = tasaVenta > 0 ? (totalUSD * tasaVenta) : (tasa > 0 ? totalUSD * tasa : 0);
-                        const esCredito = v.tipo === 'Crédito';
+                        const esCredito = v.tipo === 'Crédito' || v.tipo === 'credito' || v.tipoPago === 'Crédito' || v.tipoPago === 'credito' || v.modalidad === 'CREDITO' || String(v.id || '').toUpperCase().startsWith('CRE_') || v.referencia === 'CRÉDITO-REGISTRADO' || String(v.metodoDetalle || '').toLowerCase().includes('crédito');
                         const esPendiente = v.estado === 'PENDIENTE_CONFIRMACION';
                         const itemsCount = (v.items || []).reduce((acc, it) => acc + (Number(it.cantidad) || 1), 0);
                         const itemsDesc = (v.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ') || 'Compra de productos';
@@ -2031,7 +2005,7 @@ async function renderizarEstadoCuentaCliente() {
                                         <div class="tx-details">
                                             <div class="tx-ref">
                                                 <span>#${v.id}</span>
-                                                <span class="tx-type-tag">${v.tipo || 'Contado'}</span>
+                                                <span class="tx-type-tag">${esCredito ? 'Crédito' : (v.tipo || 'Contado')}</span>
                                             </div>
                                             <span class="tx-desc" title="${itemsDesc}">
                                                 ${itemsCount > 0 ? `${itemsCount} art. • ` : ''}${itemsDesc}
@@ -2568,12 +2542,6 @@ function abrirModalReportarPagoCliente(opciones = {}) {
 function obtenerDeudaActualCliente(opciones = {}) {
     const usuario = (opciones && opciones.usuario) || (typeof AppState !== 'undefined' ? AppState.usuarioActual : null);
     const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-
-    const esRebDirecto = (typeof esIdentificadorRebeca === 'function' && (esIdentificadorRebeca(usuario) || esIdentificadorRebeca(opciones?.clienteId) || esIdentificadorRebeca(opciones?.clienteCedula))) ||
-        (usuario && (String(usuario.nombre || '').toLowerCase().includes('rebeca') || String(usuario.id || '').toUpperCase() === 'CLI-019' || String(usuario.clienteId || '').toUpperCase() === 'CLI-019'));
-    if (esRebDirecto) {
-        return { saldoUSD: 0, saldoVES: 0, tasa };
-    }
 
     let saldoUSD = 0;
     let saldoVES = 0;
