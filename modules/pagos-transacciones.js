@@ -535,11 +535,15 @@ function limpiarVistaConciliacion() {
     } catch (e) {
         console.warn('[Transacciones] Error al limpiar lote:', e);
     }
-    const busqueda = document.getElementById('transaccion-busqueda');
-    if (busqueda) {
-        busqueda.value = '';
+    if (typeof limpiarTodosFiltrosTransacciones === 'function') {
+        limpiarTodosFiltrosTransacciones();
+    } else {
+        const busqueda = document.getElementById('transaccion-busqueda');
+        if (busqueda) {
+            busqueda.value = '';
+        }
+        renderizarTransacciones('');
     }
-    renderizarTransacciones('');
 }
 
 function agregarTransaccionesAlLote() {
@@ -1005,10 +1009,11 @@ function actualizarSelectTransacciones() {
     }
 }
 
-function obtenerNombreClienteTransaccion(clienteId) {
+function obtenerNombreClienteTransaccion(clienteId, txObj = null) {
+    if (txObj && txObj.clienteNombre) return txObj.clienteNombre;
     const listadoClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const encontrado = listadoClientes.find(c => c.id === clienteId);
-    return encontrado ? (encontrado.nombre || encontrado.id) : 'Cliente eliminado';
+    const encontrado = listadoClientes.find(c => c.id === clienteId || c.cedula === clienteId);
+    return encontrado ? (encontrado.nombre || encontrado.id) : (clienteId || 'Cliente general');
 }
 
 function transaccionesPendientesCliente(clienteId) {
@@ -1025,15 +1030,237 @@ function transaccionesPendientesCliente(clienteId) {
     }));
 }
 
+// Variable de estado para el filtro de fecha actual de Transacciones / Pagos
+window.filtroFechaTxActual = window.filtroFechaTxActual || 'todos';
+
+/**
+ * Normaliza y extrae la fecha ISO (YYYY-MM-DD) de cualquier transacción o abono
+ */
+function extraerFechaISOTx(t) {
+    if (!t) return '';
+    const raw = t.fecha || t.fechaVerificacion || t.fechaAprobacion || '';
+    if (typeof raw === 'string' && raw.trim()) {
+        const str = raw.trim();
+        const mIso = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+        if (mIso) {
+            const y = mIso[1];
+            const m = String(mIso[2]).padStart(2, '0');
+            const d = String(mIso[3]).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+    }
+    const ts = t.timestamp || t.createdAt;
+    if (typeof ts === 'number' && ts > 0) {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+    }
+    return '';
+}
+
+/**
+ * Normaliza la categoría del método de pago para agrupar y filtrar
+ */
+function normalizarMetodoPagoTx(tipo) {
+    if (!tipo) return 'Otro';
+    const s = String(tipo).trim().toLowerCase();
+    if (s.includes('efectivo') && (s.includes('usd') || s.includes('dolar') || s.includes('$'))) return 'Efectivo USD';
+    if (s.includes('efectivo') && (s.includes('ves') || s.includes('bs') || s.includes('bolivar'))) return 'Efectivo VES';
+    if (s.includes('efectivo')) return 'Efectivo USD';
+    if (s.includes('movil') || s.includes('móvil') || s.includes('pago movil')) return 'Pago Móvil';
+    if (s.includes('transferencia') || s.includes('banco') || s.includes('bancaria')) return 'Transferencia Bancaria';
+    if (s.includes('punto') || s.includes('pos') || s.includes('tarjeta') || s.includes('debito') || s.includes('crédito')) return 'Punto de Venta';
+    if (s.includes('zelle')) return 'Zelle';
+    return tipo;
+}
+
+/**
+ * Establece el modo de filtro rápido de fecha: 'todos', 'hoy', 'ayer', 'semana', 'mes'
+ */
+function establecerFiltroFechaTransaccion(modo) {
+    window.filtroFechaTxActual = modo;
+    const inputFecha = document.getElementById('transaccion-filtro-fecha');
+    const hoyISO = typeof obtenerFechaHoyISO === 'function' ? obtenerFechaHoyISO() : new Date().toLocaleDateString('en-CA');
+
+    const botones = ['todos', 'hoy', 'ayer', 'semana', 'mes'];
+    botones.forEach(b => {
+        const el = document.getElementById(`btn-tx-fecha-${b}`);
+        if (el) {
+            if (b === modo) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        }
+    });
+
+    if (modo === 'hoy') {
+        if (inputFecha) inputFecha.value = hoyISO;
+    } else if (modo === 'ayer') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        const pad = n => String(n).padStart(2, '0');
+        const ayerISO = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (inputFecha) inputFecha.value = ayerISO;
+    } else if (modo === 'todos') {
+        if (inputFecha) inputFecha.value = '';
+    } else {
+        if (inputFecha) inputFecha.value = '';
+    }
+
+    renderizarTransacciones();
+}
+
+/**
+ * Maneja el cambio manual en el input de fecha (cualquier día del calendario)
+ */
+function alCambiarFiltroFechaTransacciones(fechaStr) {
+    if (!fechaStr) {
+        establecerFiltroFechaTransaccion('todos');
+        return;
+    }
+    window.filtroFechaTxActual = fechaStr;
+    const hoyISO = typeof obtenerFechaHoyISO === 'function' ? obtenerFechaHoyISO() : new Date().toLocaleDateString('en-CA');
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const pad = n => String(n).padStart(2, '0');
+    const ayerISO = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const botones = ['todos', 'hoy', 'ayer', 'semana', 'mes'];
+    botones.forEach(b => {
+        const el = document.getElementById(`btn-tx-fecha-${b}`);
+        if (!el) return;
+        if (b === 'hoy' && fechaStr === hoyISO) el.classList.add('active');
+        else if (b === 'ayer' && fechaStr === ayerISO) el.classList.add('active');
+        else el.classList.remove('active');
+    });
+
+    renderizarTransacciones();
+}
+
+/**
+ * Ajusta la fecha seleccionada navegando un día hacia adelante o atrás (+1 o -1)
+ */
+function ajustarFechaFiltroTx(diasDelta) {
+    const input = document.getElementById('transaccion-filtro-fecha');
+    const hoyISO = typeof obtenerFechaHoyISO === 'function' ? obtenerFechaHoyISO() : new Date().toLocaleDateString('en-CA');
+    let fechaBaseStr = (input && input.value) ? input.value : (window.filtroFechaTxActual && window.filtroFechaTxActual.length === 10 ? window.filtroFechaTxActual : hoyISO);
+    
+    const partes = fechaBaseStr.split('-').map(Number);
+    const dateObj = new Date(partes[0], partes[1] - 1, partes[2]);
+    dateObj.setDate(dateObj.getDate() + diasDelta);
+    
+    const pad = n => String(n).padStart(2, '0');
+    const nuevaFecha = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
+    
+    if (input) input.value = nuevaFecha;
+    alCambiarFiltroFechaTransacciones(nuevaFecha);
+}
+
+/**
+ * Restablece todos los filtros de búsqueda, fecha, método y estado
+ */
+function limpiarTodosFiltrosTransacciones() {
+    const inputBusqueda = document.getElementById('transaccion-busqueda');
+    if (inputBusqueda) inputBusqueda.value = '';
+
+    const selectMetodo = document.getElementById('transaccion-filtro-metodo');
+    if (selectMetodo) selectMetodo.value = '';
+
+    const selectEstado = document.getElementById('transaccion-filtro-estado');
+    if (selectEstado) selectEstado.value = 'TODOS';
+
+    establecerFiltroFechaTransaccion('todos');
+}
+
+/**
+ * Filtra rápidamente por un método de pago al hacer click en su chip
+ */
+function seleccionarMetodoFiltroTx(metodoNombre) {
+    const select = document.getElementById('transaccion-filtro-metodo');
+    if (!select) return;
+    if (select.value === metodoNombre) {
+        select.value = '';
+    } else {
+        select.value = metodoNombre;
+    }
+    renderizarTransacciones();
+}
+
+/**
+ * Renderiza la vista de Transacciones/Pagos con filtros de fecha (cualquier día),
+ * método de pago, estado de conciliación, y cálculo en vivo del monto total y suma.
+ */
 function renderizarTransacciones(filtro = null) {
     const tbody = document.getElementById('transacciones-body');
     const mobileList = document.getElementById('transacciones-mobile-list');
     if (!tbody && !mobileList) return;
+
+    // Obtener valores de los filtros
     const texto = filtro === null ? (document.getElementById('transaccion-busqueda')?.value || '') : filtro;
     const normalizado = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(texto) : (texto || '').trim().toUpperCase();
-    const listadoTx = Array.isArray(transacciones) ? transacciones : (AppState.transacciones || []);
+    const filtroMetodo = (document.getElementById('transaccion-filtro-metodo')?.value || '').trim();
+    const filtroEstado = (document.getElementById('transaccion-filtro-estado')?.value || 'TODOS').trim();
+    const inputFechaVal = (document.getElementById('transaccion-filtro-fecha')?.value || '').trim();
+    
+    // Determinar criterio de fecha activo
+    let criterioFecha = window.filtroFechaTxActual || 'todos';
+    if (inputFechaVal && inputFechaVal.length === 10) {
+        criterioFecha = inputFechaVal;
+    }
 
-    const lista = listadoTx.slice().sort((a, b) => {
+    const hoyISO = typeof obtenerFechaHoyISO === 'function' ? obtenerFechaHoyISO() : new Date().toLocaleDateString('en-CA');
+    const dAyer = new Date();
+    dAyer.setDate(dAyer.getDate() - 1);
+    const pad = n => String(n).padStart(2, '0');
+    const ayerISO = `${dAyer.getFullYear()}-${pad(dAyer.getMonth() + 1)}-${pad(dAyer.getDate())}`;
+
+    const dSemana = new Date();
+    dSemana.setDate(dSemana.getDate() - 7);
+    const semanaInicioISO = `${dSemana.getFullYear()}-${pad(dSemana.getMonth() + 1)}-${pad(dSemana.getDate())}`;
+    const esteMesISO = hoyISO.slice(0, 7); // YYYY-MM
+
+    // Obtener listado unificado de transacciones y abonos
+    const listadoTxBase = Array.isArray(AppState.transacciones) ? AppState.transacciones : (Array.isArray(transacciones) ? transacciones : []);
+    const listadoAbonosBase = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+
+    // Deduplicar: asegurar que no se dupliquen transacciones y abonos
+    const txConocidas = new Set();
+    listadoTxBase.forEach(t => {
+        if (t.id) txConocidas.add(String(t.id));
+        if (t.referencia) txConocidas.add('REF:' + String(t.referencia).trim().toUpperCase());
+    });
+
+    const listaUnificada = [...listadoTxBase];
+    listadoAbonosBase.forEach(a => {
+        const yaExiste = (a.transaccionId && txConocidas.has(String(a.transaccionId))) ||
+                         (a.id && txConocidas.has(String(a.id))) ||
+                         (a.referencia && txConocidas.has('REF:' + String(a.referencia).trim().toUpperCase()));
+        if (!yaExiste) {
+            listaUnificada.push({
+                id: a.transaccionId || a.id || ('ABO_' + Date.now()),
+                clienteId: a.clienteId,
+                clienteNombre: a.clienteNombre || '',
+                tipo: a.metodo || 'Abono',
+                referencia: a.referencia || 'S/R',
+                montoVES: Number(a.montoVES || 0),
+                montoUSD: Number(a.montoUSD || 0),
+                tasaMomento: a.tasaMomento || AppState.tasaActiva,
+                fecha: a.fecha || a.fechaAprobacion || '',
+                fechaVerificacion: a.fechaAprobacion || null,
+                estado: a.estado || 'Pago agregado',
+                observacion: 'Abono registrado a cuenta'
+            });
+        }
+    });
+
+    // Tasa BCV actual para conversiones de respaldo
+    const tasaActivaHoy = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
+
+    // Filtrar y ordenar la lista
+    const listaFiltrada = listaUnificada.slice().sort((a, b) => {
         const parseDate = (item) => {
             if (!item) return 0;
             if (typeof item.timestamp === 'number') return item.timestamp;
@@ -1050,39 +1277,228 @@ function renderizarTransacciones(filtro = null) {
         if (tsB !== tsA) return tsB - tsA;
         return String(b.id || '').localeCompare(String(a.id || ''));
     }).filter(t => {
-        if (!normalizado) return true;
-        const refNorm = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(t.referencia) : (t.referencia || '').trim().toUpperCase();
-        const nomNorm = (obtenerNombreClienteTransaccion(t.clienteId) || '').toUpperCase();
-        return refNorm.includes(normalizado) || nomNorm.includes(texto.toUpperCase());
+        // 1. Filtro por Fecha / Día
+        const fechaTxISO = extraerFechaISOTx(t);
+        if (criterioFecha === 'todos' || !criterioFecha) {
+            // Todos los días
+        } else if (criterioFecha === 'hoy') {
+            if (fechaTxISO !== hoyISO) return false;
+        } else if (criterioFecha === 'ayer') {
+            if (fechaTxISO !== ayerISO) return false;
+        } else if (criterioFecha === 'semana') {
+            if (fechaTxISO < semanaInicioISO || fechaTxISO > hoyISO) return false;
+        } else if (criterioFecha === 'mes') {
+            if (!fechaTxISO.startsWith(esteMesISO)) return false;
+        } else if (criterioFecha.length === 10) {
+            // Día específico seleccionado en datepicker
+            if (fechaTxISO !== criterioFecha) return false;
+        }
+
+        // 2. Filtro por Método de Pago
+        if (filtroMetodo) {
+            const metodoNorm = normalizarMetodoPagoTx(t.tipo);
+            if (metodoNorm !== filtroMetodo && !String(t.tipo || '').toLowerCase().includes(filtroMetodo.toLowerCase())) {
+                return false;
+            }
+        }
+
+        // 3. Filtro por Estado
+        if (filtroEstado && filtroEstado !== 'TODOS') {
+            if (filtroEstado === 'Pago agregado') {
+                const esAprobado = t.estado === 'Pago agregado' || t.estado === 'Aprobado' || t.estado === 'CONCILIADO';
+                if (!esAprobado) return false;
+            } else if (filtroEstado === 'Confirmando') {
+                const esPendiente = t.estado === 'Confirmando' || t.estado === 'PENDIENTE_CONFIRMACION' || t.estado === 'PENDIENTE';
+                if (!esPendiente) return false;
+            } else if (filtroEstado === 'Fallido') {
+                const esFallido = t.estado === 'Fallido' || t.estado === 'Rechazado';
+                if (!esFallido) return false;
+            }
+        }
+
+        // 4. Búsqueda por texto (referencia o cliente)
+        if (normalizado) {
+            const refNorm = typeof referenciaNormalizada === 'function' ? referenciaNormalizada(t.referencia) : (t.referencia || '').trim().toUpperCase();
+            const nomNorm = (obtenerNombreClienteTransaccion(t.clienteId, t) || '').toUpperCase();
+            if (!refNorm.includes(normalizado) && !nomNorm.includes(texto.toUpperCase())) {
+                return false;
+            }
+        }
+
+        return true;
     });
 
-    const pendientes = listadoTx.filter(t => t.estado === 'Confirmando').length;
-    const agregados = listadoTx.filter(t => t.estado === 'Pago agregado').length;
-    const fallidos = listadoTx.filter(t => t.estado === 'Fallido' || t.estado === 'Rechazado').length;
-    const resumen = document.getElementById('transaccion-resumen');
-    if (resumen) {
-        resumen.textContent = `${pendientes} pendiente${pendientes === 1 ? '' : 's'} · ${fallidos} rechazado/fallido${fallidos === 1 ? '' : 's'} · ${agregados} pago${agregados === 1 ? '' : 's'} agregado${agregados === 1 ? '' : 's'}`;
+    // CALCULAR TOTALES Y SUMAS
+    let sumaUSD = 0;
+    let sumaVES = 0;
+    let totalConciliados = 0;
+    let totalPendientes = 0;
+    let totalFallidos = 0;
+
+    const desgloseMetodos = {
+        'Efectivo USD': { count: 0, usd: 0, ves: 0, icon: '💵', label: 'Efectivo USD' },
+        'Efectivo VES': { count: 0, usd: 0, ves: 0, icon: '🇻🇪', label: 'Efectivo VES' },
+        'Pago Móvil': { count: 0, usd: 0, ves: 0, icon: '📱', label: 'Pago Móvil' },
+        'Transferencia Bancaria': { count: 0, usd: 0, ves: 0, icon: '🏦', label: 'Transferencia' },
+        'Punto de Venta': { count: 0, usd: 0, ves: 0, icon: '💳', label: 'Punto de Venta' },
+        'Otros': { count: 0, usd: 0, ves: 0, icon: '⭐', label: 'Otros / Divisas' }
+    };
+
+    listaFiltrada.forEach(t => {
+        let mUSD = Number(t.montoUSD || 0);
+        let mVES = Number(t.montoVES || 0);
+        const tasaT = Number(t.tasaMomento || tasaActivaHoy || 1);
+
+        if (mUSD <= 0 && mVES > 0 && tasaT > 0) {
+            mUSD = Number((mVES / tasaT).toFixed(2));
+        } else if (mVES <= 0 && mUSD > 0 && tasaT > 0) {
+            mVES = Number((mUSD * tasaT).toFixed(2));
+        }
+
+        sumaUSD += mUSD;
+        sumaVES += mVES;
+
+        const est = t.estado || 'Confirmando';
+        if (est === 'Pago agregado' || est === 'Aprobado') totalConciliados++;
+        else if (est === 'Confirmando' || est === 'PENDIENTE_CONFIRMACION') totalPendientes++;
+        else totalFallidos++;
+
+        const catMetodo = normalizarMetodoPagoTx(t.tipo);
+        const target = desgloseMetodos[catMetodo] || desgloseMetodos['Otros'];
+        target.count++;
+        target.usd += mUSD;
+        target.ves += mVES;
+    });
+
+    const cantidadTotal = listaFiltrada.length;
+    const promedioUSD = cantidadTotal > 0 ? (sumaUSD / cantidadTotal) : 0;
+
+    // ACTUALIZAR TARJETAS KPI DE TOTALES
+    const kpiTotalUsdEl = document.getElementById('tx-kpi-total-usd');
+    const kpiSubUsdEl = document.getElementById('tx-kpi-sub-usd');
+    const kpiTotalVesEl = document.getElementById('tx-kpi-total-ves');
+    const kpiSubVesEl = document.getElementById('tx-kpi-sub-ves');
+    const kpiTotalCantEl = document.getElementById('tx-kpi-total-cant');
+    const kpiSubCantEl = document.getElementById('tx-kpi-sub-cant');
+    const kpiPromedioUsdEl = document.getElementById('tx-kpi-promedio-usd');
+    const kpiSubPromedioEl = document.getElementById('tx-kpi-sub-promedio');
+
+    if (kpiTotalUsdEl) kpiTotalUsdEl.textContent = `$${sumaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (kpiSubUsdEl) kpiSubUsdEl.textContent = `${totalConciliados} pago${totalConciliados === 1 ? '' : 's'} agregado${totalConciliados === 1 ? '' : 's'}`;
+    if (kpiTotalVesEl) kpiTotalVesEl.textContent = `Bs. ${sumaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (kpiSubVesEl) kpiSubVesEl.textContent = tasaActivaHoy > 0 ? `Tasa BCV: Bs. ${tasaActivaHoy.toFixed(2)}` : 'Tasa oficial BCV';
+    if (kpiTotalCantEl) kpiTotalCantEl.textContent = String(cantidadTotal);
+    if (kpiSubCantEl) kpiSubCantEl.textContent = `${totalConciliados} agregado${totalConciliados === 1 ? '' : 's'} · ${totalPendientes} pendiente${totalPendientes === 1 ? '' : 's'}`;
+    if (kpiPromedioUsdEl) kpiPromedioUsdEl.textContent = `$${promedioUSD.toFixed(2)}`;
+    if (kpiSubPromedioEl) kpiSubPromedioEl.textContent = `Equiv: Bs. ${(promedioUSD * tasaActivaHoy).toFixed(2)}`;
+
+    // ACTUALIZAR BADGE DE PERIODO / DÍA SELECCIONADO
+    const periodoTextoEl = document.getElementById('tx-periodo-texto');
+    if (periodoTextoEl) {
+        if (criterioFecha === 'todos' || !criterioFecha) {
+            periodoTextoEl.textContent = 'Todos los días (Histórico completo)';
+        } else if (criterioFecha === 'hoy') {
+            periodoTextoEl.textContent = `Pagos de Hoy (${hoyISO})`;
+        } else if (criterioFecha === 'ayer') {
+            periodoTextoEl.textContent = `Pagos de Ayer (${ayerISO})`;
+        } else if (criterioFecha === 'semana') {
+            periodoTextoEl.textContent = `Últimos 7 días (${semanaInicioISO} al ${hoyISO})`;
+        } else if (criterioFecha === 'mes') {
+            periodoTextoEl.textContent = `Mes actual (${esteMesISO})`;
+        } else if (criterioFecha.length === 10) {
+            const [y, m, d] = criterioFecha.split('-');
+            periodoTextoEl.textContent = `Día: ${d}/${m}/${y} ${criterioFecha === hoyISO ? '(Hoy)' : (criterioFecha === ayerISO ? '(Ayer)' : '')}`;
+        }
     }
 
-    if (!lista.length) {
+    // ACTUALIZAR BADGE DE MÉTODO
+    const metodoTextoEl = document.getElementById('tx-metodo-texto');
+    if (metodoTextoEl) {
+        metodoTextoEl.textContent = filtroMetodo ? `Método: ${filtroMetodo}` : 'Todos los métodos';
+    }
+
+    // RENDERIZAR CHIPS DE DESGLOSE POR MÉTODO
+    const desgloseContainer = document.getElementById('tx-metodos-desglose');
+    if (desgloseContainer) {
+        const metodosArray = Object.keys(desgloseMetodos).map(k => ({ nombre: k, ...desgloseMetodos[k] }));
+        desgloseContainer.innerHTML = metodosArray.map(m => {
+            const esActivo = filtroMetodo === m.nombre;
+            const tienePagos = m.count > 0;
+            return `
+                <div class="tx-metodo-chip ${esActivo ? 'active' : ''}" onclick="seleccionarMetodoFiltroTx('${m.nombre}')" style="${!tienePagos ? 'opacity:0.65;' : ''}" title="Filtrar por ${m.label}">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; font-weight:700;">
+                        <span>${m.icon} ${m.label}</span>
+                        <span class="badge" style="background:#f1f5f9; color:#475569; font-size:0.72rem; padding:1px 6px; border-radius:999px;">${m.count}</span>
+                    </div>
+                    <div style="font-size:1.05rem; font-weight:800; color:var(--text-main); margin-top:2px;">
+                        $${m.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">
+                        Bs. ${m.ves.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ACTUALIZAR RESUMEN DE TEXTO
+    const resumen = document.getElementById('transaccion-resumen');
+    if (resumen) {
+        resumen.textContent = `${cantidadTotal} pago(s) encontrado(s) · Suma: $${sumaUSD.toFixed(2)} (Bs. ${sumaVES.toFixed(2)})`;
+    }
+
+    // ACTUALIZAR TFOOT DE LA TABLA DE ESCRITORIO
+    const tfootVes = document.getElementById('tx-tfoot-monto-ves');
+    const tfootUsd = document.getElementById('tx-tfoot-monto-usd');
+    const tfootCount = document.getElementById('tx-tfoot-resumen');
+    if (tfootVes) tfootVes.textContent = `Bs. ${sumaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (tfootUsd) tfootUsd.textContent = `$${sumaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (tfootCount) tfootCount.textContent = `${cantidadTotal} pagos (${totalConciliados} agregados)`;
+
+    // ACTUALIZAR RESUMEN MÓVIL
+    const mobileTotalesCard = document.getElementById('transacciones-mobile-totales-card');
+    if (mobileTotalesCard) {
+        mobileTotalesCard.innerHTML = `
+            <div class="card" style="background:linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%); border:1px solid #bbf7d0; padding:14px; border-radius:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:700; font-size:0.85rem; color:#166534; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-calculator"></i> TOTAL PAGOS FILTRADOS
+                    </span>
+                    <span class="badge" style="background:#dcfce7; color:#15803d; font-weight:700;">${cantidadTotal} pagos</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <div style="font-size:1.4rem; font-weight:800; color:#16a34a;">
+                        $${sumaUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size:1.15rem; font-weight:700; color:#2563eb;">
+                        Bs. ${sumaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // SI NO HAY RESULTADOS
+    if (!listaFiltrada.length) {
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:25px;">No hay transacciones que coincidan con la búsqueda.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;"><i class="fas fa-filter" style="margin-right:8px; opacity:0.5;"></i>No hay transacciones ni pagos registrados para el día o filtro seleccionado.</td></tr>';
         }
         if (mobileList) {
-            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-receipt" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No hay transacciones que coincidan con la búsqueda.</div>';
+            mobileList.innerHTML = '<div class="card" style="text-align:center; padding:30px 16px; color:var(--text-muted);"><i class="fas fa-receipt" style="font-size:2rem; opacity:0.4; margin-bottom:8px; display:block;"></i>No hay transacciones que coincidan con la fecha o filtro seleccionado.</div>';
         }
         return;
     }
 
+    // RENDERIZAR TABLA DE ESCRITORIO
     if (tbody) {
-        tbody.innerHTML = lista.map(t => {
+        tbody.innerHTML = listaFiltrada.map(t => {
             const cliente = typeof escaparHtmlInventario === 'function'
-                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
-                : obtenerNombreClienteTransaccion(t.clienteId);
-            const estadoClass = t.estado === 'Pago agregado'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId, t))
+                : obtenerNombreClienteTransaccion(t.clienteId, t);
+            const estadoClass = (t.estado === 'Pago agregado' || t.estado === 'Aprobado')
                 ? 'transaction-approved'
                 : (t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'transaction-failed' : 'transaction-pending');
-            const accion = t.estado === 'Pago agregado'
+            const accion = (t.estado === 'Pago agregado' || t.estado === 'Aprobado')
                 ? `<div style="display:flex;gap:8px;align-items:center;">
                     <span class="transaction-verified" style="color:var(--success); font-weight:600;"><i class="fas fa-check-circle"></i> Conciliado</span>
                     <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarTransaccion('${t.id}')" title="Eliminar transacción del historial"><i class="fas fa-trash-alt"></i></button>
@@ -1094,32 +1510,42 @@ function renderizarTransacciones(filtro = null) {
                 </div>`;
             const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
             const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
+            const tasaMom = Number(t.tasaMomento || tasaActivaHoy || 1);
+            let mUSD = Number(t.montoUSD || 0);
+            let mVES = Number(t.montoVES || 0);
+            if (mUSD <= 0 && mVES > 0) mUSD = Number((mVES / tasaMom).toFixed(2));
+            if (mVES <= 0 && mUSD > 0) mVES = Number((mUSD * tasaMom).toFixed(2));
+
             return `<tr>
                 <td>${t.fecha || ''}</td>
                 <td>${cliente}</td>
                 <td>${tipoStr}</td>
                 <td><strong>${refStr}</strong></td>
-                <td class="num">Bs. ${Number(t.montoVES || 0).toFixed(2)}</td>
-                <td class="num">$${Number(t.montoUSD || 0).toFixed(2)}</td>
+                <td class="num">Bs. ${mVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="num">$${mUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td><span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span></td>
                 <td>${accion}</td>
             </tr>`;
         }).join('');
     }
 
+    // RENDERIZAR LISTA MÓVIL
     if (mobileList) {
-        mobileList.innerHTML = lista.map(t => {
+        mobileList.innerHTML = listaFiltrada.map(t => {
             const cliente = typeof escaparHtmlInventario === 'function'
-                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId))
-                : obtenerNombreClienteTransaccion(t.clienteId);
-            const estadoClass = t.estado === 'Pago agregado'
+                ? escaparHtmlInventario(obtenerNombreClienteTransaccion(t.clienteId, t))
+                : obtenerNombreClienteTransaccion(t.clienteId, t);
+            const estadoClass = (t.estado === 'Pago agregado' || t.estado === 'Aprobado')
                 ? 'transaction-approved'
                 : (t.estado === 'Fallido' || t.estado === 'Rechazado' ? 'transaction-failed' : 'transaction-pending');
             const tipoStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.tipo || 'Pago') : (t.tipo || 'Pago');
             const refStr = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(t.referencia || 'S/R') : (t.referencia || 'S/R');
-            const esConciliado = t.estado === 'Pago agregado';
-            const montoUSD = Number(t.montoUSD || 0).toFixed(2);
-            const montoVES = Number(t.montoVES || 0).toFixed(2);
+            const esConciliado = (t.estado === 'Pago agregado' || t.estado === 'Aprobado');
+            const tasaMom = Number(t.tasaMomento || tasaActivaHoy || 1);
+            let mUSD = Number(t.montoUSD || 0);
+            let mVES = Number(t.montoVES || 0);
+            if (mUSD <= 0 && mVES > 0) mUSD = Number((mVES / tasaMom).toFixed(2));
+            if (mVES <= 0 && mUSD > 0) mVES = Number((mUSD * tasaMom).toFixed(2));
 
             let statusIcon = '<i class="fas fa-clock" style="color:#d97706;"></i>';
             if (esConciliado) statusIcon = '<i class="fas fa-circle-check" style="color:#16a34a;"></i>';
@@ -1142,8 +1568,8 @@ function renderizarTransacciones(filtro = null) {
                             <span class="transaction-badge ${estadoClass}">${t.estado || 'Confirmando'}</span>
                         </div>
                         <div class="transacciones-item-amounts">
-                            <div class="amount-usd">$${montoUSD}</div>
-                            <div class="amount-ves">Bs. ${montoVES}</div>
+                            <div class="amount-usd">$${mUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div class="amount-ves">Bs. ${mVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                     </div>
 
@@ -1167,8 +1593,9 @@ function renderizarTransacciones(filtro = null) {
 }
 
 function filtrarTransacciones() {
-    renderizarTransacciones(document.getElementById('transaccion-busqueda')?.value || '');
+    renderizarTransacciones();
 }
+
 
 // --- ELIMINACIÓN Y VACIADO DE HISTORIAL DE TRANSACCIONES ---
 async function eliminarTransaccion(id) {
@@ -2556,5 +2983,12 @@ window.eliminarTransaccion = eliminarTransaccion;
 window.abrirModalVaciarHistorialTransacciones = abrirModalVaciarHistorialTransacciones;
 window.cerrarModalVaciarHistorialTransacciones = cerrarModalVaciarHistorialTransacciones;
 window.ejecutarVaciarHistorialTransacciones = ejecutarVaciarHistorialTransacciones;
+window.extraerFechaISOTx = extraerFechaISOTx;
+window.normalizarMetodoPagoTx = normalizarMetodoPagoTx;
+window.establecerFiltroFechaTransaccion = establecerFiltroFechaTransaccion;
+window.alCambiarFiltroFechaTransacciones = alCambiarFiltroFechaTransacciones;
+window.ajustarFechaFiltroTx = ajustarFechaFiltroTx;
+window.limpiarTodosFiltrosTransacciones = limpiarTodosFiltrosTransacciones;
+window.seleccionarMetodoFiltroTx = seleccionarMetodoFiltroTx;
 
 

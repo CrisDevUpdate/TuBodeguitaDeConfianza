@@ -1871,6 +1871,42 @@ th {
 .transaction-info-card p { margin:5px 0 0; color:var(--text-muted); line-height:1.5; }
 #det-historial-body .transaction-badge { margin-left:6px; }
 
+/* --- Mejoras de Totales, Sumas y Filtros de Transacciones/Pagos --- */
+.tx-metodo-chip {
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+    user-select: none;
+}
+.tx-metodo-chip:hover {
+    border-color: var(--primary-accent, #2563eb);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+.tx-metodo-chip.active {
+    border-color: #2563eb !important;
+    background: #eff6ff !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+}
+body.dark-theme .tx-metodo-chip {
+    background: #1e293b;
+    border-color: #334155;
+}
+body.dark-theme .tx-metodo-chip:hover {
+    border-color: #38bdf8;
+}
+body.dark-theme .tx-metodo-chip.active {
+    background: #0f2744 !important;
+    border-color: #38bdf8 !important;
+}
+
 @media (max-width: 1080px) {
     .transaction-form { grid-template-columns:repeat(2, minmax(0,1fr)); gap: 14px 12px; }
     .transaction-submit { grid-column:1 / -1; }

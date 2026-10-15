@@ -3924,19 +3924,191 @@
                 </div>
             </form>
 
-            <div class="transaction-search-row">
-                <div class="form-group" style="flex:1; min-width:240px;">
-                    <label><i class="fas fa-magnifying-glass"></i> Buscar por Referencia o Cliente</label>
-                    <input type="search" id="transaccion-busqueda" placeholder="Escribe el nombre del cliente o referencia..." oninput="filtrarTransacciones()">
+            <!-- ======================================================== -->
+            <!-- PANEL DE CONTROL, TOTALES Y FILTROS DE PAGOS (DÍA Y MÉTODO) -->
+            <!-- ======================================================== -->
+            <div id="seccion-totales-pagos" style="margin-top:24px; padding-top:20px; border-top:1.5px solid var(--border-color, #e2e8f0);">
+                <!-- Encabezado de la Sección de Totales -->
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                    <div>
+                        <h4 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; background:#ecfdf5; color:#10b981;">
+                                <i class="fas fa-hand-holding-dollar"></i>
+                            </span>
+                            Monto Total y Suma de Pagos Recibidos
+                        </h4>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap;">
+                            <span id="tx-badge-periodo" style="font-size:0.82rem; font-weight:700; color:#0369a1; background:#e0f2fe; padding:2px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+                                <i class="fas fa-calendar-day"></i> <span id="tx-periodo-texto">Todos los días (Histórico completo)</span>
+                            </span>
+                            <span id="tx-badge-metodo" style="font-size:0.82rem; font-weight:700; color:#475569; background:#f1f5f9; padding:2px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+                                <i class="fas fa-wallet"></i> <span id="tx-metodo-texto">Todos los métodos</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="limpiarTodosFiltrosTransacciones()" title="Restablecer todos los filtros y ver todos los días">
+                            <i class="fas fa-rotate-left"></i> Restablecer Filtros
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="abrirModalVaciarHistorialTransacciones()" title="Eliminar o vaciar registros del historial de transacciones">
+                            <i class="fas fa-trash-alt"></i> Eliminar Historial
+                        </button>
+                    </div>
                 </div>
-                <div id="transaccion-resumen" class="transaction-summary">0 pagos registrados</div>
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline transaction-reset-view" onclick="limpiarVistaConciliacion()"><i class="fas fa-broom"></i> Limpiar filtro</button>
-                    <button type="button" class="btn btn-outline-danger transaction-reset-view" onclick="abrirModalVaciarHistorialTransacciones()" title="Eliminar o vaciar registros del historial de transacciones"><i class="fas fa-trash-alt"></i> Eliminar Historial</button>
+
+                <!-- Tarjetas KPI de Totales y Sumas -->
+                <div class="kpi-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; margin-bottom:16px;">
+                    <!-- KPI 1: TOTAL SUMA EN DÓLARES -->
+                    <div class="kpi-card" style="border-left-color:#16a34a; background:var(--card-bg, #ffffff); box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div class="kpi-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-sack-dollar" style="color:#16a34a;"></i> TOTAL SUMA PAGOS ($)</span>
+                            <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:4px;">USD</span>
+                        </div>
+                        <div class="kpi-value-usd" id="tx-kpi-total-usd" style="color:#16a34a; font-size:1.6rem; font-weight:800; margin-top:6px;">$0.00</div>
+                        <div class="kpi-value-ves" id="tx-kpi-sub-usd" style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">0 pagos registrados</div>
+                    </div>
+
+                    <!-- KPI 2: TOTAL SUMA EN BOLÍVARES -->
+                    <div class="kpi-card" style="border-left-color:#2563eb; background:var(--card-bg, #ffffff); box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div class="kpi-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-money-bill-wave" style="color:#2563eb;"></i> TOTAL SUMA PAGOS (Bs)</span>
+                            <span class="badge" style="background:#dbeafe; color:#1e40af; font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:4px;">VES</span>
+                        </div>
+                        <div class="kpi-value-usd" id="tx-kpi-total-ves" style="color:#2563eb; font-size:1.5rem; font-weight:800; margin-top:6px;">Bs. 0.00</div>
+                        <div class="kpi-value-ves" id="tx-kpi-sub-ves" style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tasa BCV del día</div>
+                    </div>
+
+                    <!-- KPI 3: CANTIDAD DE PAGOS Y CONCILIADOS -->
+                    <div class="kpi-card" style="border-left-color:#8b5cf6; background:var(--card-bg, #ffffff); box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div class="kpi-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-receipt" style="color:#8b5cf6;"></i> CANTIDAD DE PAGOS</span>
+                            <span class="badge" style="background:#ede9fe; color:#6d28d9; font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:4px;">TRANSACCIONES</span>
+                        </div>
+                        <div class="kpi-value-usd" id="tx-kpi-total-cant" style="color:#6d28d9; font-size:1.5rem; font-weight:800; margin-top:6px;">0</div>
+                        <div class="kpi-value-ves" id="tx-kpi-sub-cant" style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">0 agregados · 0 pendientes</div>
+                    </div>
+
+                    <!-- KPI 4: TICKET PROMEDIO -->
+                    <div class="kpi-card" style="border-left-color:#f59e0b; background:var(--card-bg, #ffffff); box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                        <div class="kpi-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fas fa-chart-pie" style="color:#f59e0b;"></i> MONTO PROMEDIO</span>
+                            <span class="badge" style="background:#fef3c7; color:#b45309; font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:4px;">PROMEDIO</span>
+                        </div>
+                        <div class="kpi-value-usd" id="tx-kpi-promedio-usd" style="color:#b45309; font-size:1.5rem; font-weight:800; margin-top:6px;">$0.00</div>
+                        <div class="kpi-value-ves" id="tx-kpi-sub-promedio" style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Por cada pago recibido</div>
+                    </div>
+                </div>
+
+                <!-- Desglose por Método de Pago (Mini-tarjetas interactivas) -->
+                <div style="margin-bottom:18px;">
+                    <div style="font-size:0.82rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-layer-group"></i> Desglose de Sumas por Método de Pago:
+                    </div>
+                    <div id="tx-metodos-desglose" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
+                        <!-- Se generará dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- ============================================== -->
+                <!-- BARRA DE FILTROS: DÍA (FECHA), MÉTODO, ESTADO Y BÚSQUEDA -->
+                <!-- ============================================== -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:18px;">
+                    <!-- FILA 1: FILTROS DE FECHA / CUALQUIER DÍA -->
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px dashed #cbd5e1;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:0.88rem; font-weight:700; color:var(--text-main); display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fas fa-calendar-days" style="color:var(--primary-accent);"></i> Filtrar por Día:
+                            </span>
+                            <div class="btn-group" style="display:inline-flex; gap:4px; flex-wrap:wrap;">
+                                <button type="button" class="btn btn-sm btn-outline active" id="btn-tx-fecha-todos" onclick="establecerFiltroFechaTransaccion('todos')" style="font-weight:700;">
+                                    Todos los días
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-tx-fecha-hoy" onclick="establecerFiltroFechaTransaccion('hoy')" style="font-weight:700;">
+                                    📅 Hoy
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-tx-fecha-ayer" onclick="establecerFiltroFechaTransaccion('ayer')" style="font-weight:700;">
+                                    ⏪ Ayer
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-tx-fecha-semana" onclick="establecerFiltroFechaTransaccion('semana')" style="font-weight:700;">
+                                    🗓️ Últimos 7 días
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-tx-fecha-mes" onclick="establecerFiltroFechaTransaccion('mes')" style="font-weight:700;">
+                                    📆 Este mes
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Selector de Cualquier Día con Navegación Anterior/Siguiente -->
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="ajustarFechaFiltroTx(-1)" title="Ver día anterior" style="padding:6px 10px;">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <div style="position:relative;">
+                                <input type="date" id="transaccion-filtro-fecha" class="input-control" style="padding:6px 10px; font-size:0.88rem; font-weight:700; max-width:170px;" onchange="alCambiarFiltroFechaTransacciones(this.value)" title="Elige cualquier día específico del calendario">
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="ajustarFechaFiltroTx(1)" title="Ver día siguiente" style="padding:6px 10px;">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="establecerFiltroFechaTransaccion('todos')" title="Quitar filtro de fecha y ver todos los días" style="padding:6px 10px; color:var(--text-muted);">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FILA 2: MÉTODO DE PAGO, ESTADO Y BÚSQUEDA -->
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; align-items:end;">
+                        <!-- Filtro Método de Pago -->
+                        <div>
+                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                                <i class="fas fa-wallet" style="color:#0284c7;"></i> Método de Pago:
+                            </label>
+                            <select id="transaccion-filtro-metodo" class="input-control" style="width:100%; font-weight:600;" onchange="filtrarTransacciones()">
+                                <option value="">Todos los Métodos de Pago</option>
+                                <option value="Efectivo USD">💵 Efectivo ($ USD)</option>
+                                <option value="Efectivo VES">🇻🇪 Efectivo (Bs. VES)</option>
+                                <option value="Pago Móvil">📱 Pago Móvil</option>
+                                <option value="Transferencia Bancaria">🏦 Transferencia Bancaria</option>
+                                <option value="Punto de Venta">💳 Punto de Venta / Tarjeta</option>
+                            </select>
+                        </div>
+
+                        <!-- Filtro Estado -->
+                        <div>
+                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                                <i class="fas fa-filter" style="color:#8b5cf6;"></i> Estado del Pago:
+                            </label>
+                            <select id="transaccion-filtro-estado" class="input-control" style="width:100%; font-weight:600;" onchange="filtrarTransacciones()">
+                                <option value="TODOS">Todos los Estados (Aprobados y Pendientes)</option>
+                                <option value="Pago agregado" selected>✅ Solo Pagos Validados / Agregados (Efectivos)</option>
+                                <option value="Confirmando">⏳ Solo Pendientes de Confirmación</option>
+                                <option value="Fallido">❌ Rechazados / Fallidos</option>
+                            </select>
+                        </div>
+
+                        <!-- Búsqueda por Texto -->
+                        <div>
+                            <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                                <i class="fas fa-magnifying-glass" style="color:var(--text-muted);"></i> Buscar Cliente o Referencia:
+                            </label>
+                            <input type="search" id="transaccion-busqueda" placeholder="Nombre de cliente o referencia..." style="width:100%;" oninput="filtrarTransacciones()">
+                        </div>
+                    </div>
+
+                    <!-- Resumen rápido de texto -->
+                    <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div id="transaccion-resumen" class="transaction-summary" style="font-size:0.85rem; padding:6px 12px;">0 pagos registrados</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted);">
+                            <i class="fas fa-info-circle"></i> Los totales reflejan los filtros aplicados arriba.
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            <!-- Contenedor móvil y tarjeta de total en vista móvil -->
+            <div id="transacciones-mobile-totales-card" style="margin-bottom:12px;"></div>
             <div id="transacciones-mobile-list" class="transacciones-mobile-list"></div>
+
+            <!-- Tabla de Transacciones con TFoot de Suma y Totales -->
             <div class="table-responsive transacciones-table-desktop">
                 <table class="transactions-table">
                     <thead>
@@ -3952,6 +4124,16 @@
                         </tr>
                     </thead>
                     <tbody id="transacciones-body"></tbody>
+                    <tfoot id="transacciones-tfoot">
+                        <tr style="background:#f1f5f9; font-weight:800; border-top:2px solid #cbd5e1;">
+                            <td colspan="4" style="text-align:right; font-weight:800; color:var(--text-main); padding:12px;">
+                                <i class="fas fa-calculator" style="color:var(--primary-accent); margin-right:6px;"></i> TOTAL / SUMA DEL DÍA Y FILTRO:
+                            </td>
+                            <td class="num" id="tx-tfoot-monto-ves" style="font-weight:800; color:#2563eb; font-size:1.05rem; padding:12px;">Bs. 0.00</td>
+                            <td class="num" id="tx-tfoot-monto-usd" style="font-weight:800; color:#16a34a; font-size:1.1rem; padding:12px;">$0.00</td>
+                            <td colspan="2" id="tx-tfoot-resumen" style="font-weight:700; color:var(--text-muted); font-size:0.85rem; padding:12px;">0 pagos</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
