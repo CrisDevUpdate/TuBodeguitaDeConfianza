@@ -5891,6 +5891,10 @@
         <p style="color:var(--text-muted); margin:0 0 14px 0; font-size:0.86rem; line-height:1.4;">
             El cliente se quitará del directorio activo. Sus ventas y pagos permanecerán archivados para conservar la auditoría del negocio.
         </p>
+
+        <!-- Indicador de verificación de usuario vinculado -->
+        <div id="eliminar-cliente-alerta-usuario" style="margin-bottom:14px;"></div>
+
         <form style="margin-top:10px;" onsubmit="confirmarEliminacionCliente(event)">
             <input type="hidden" id="eliminar-cliente-id">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
@@ -5915,6 +5919,7 @@
                 <label style="font-size:0.8rem; font-weight:700; color:#475569;">Motivo de eliminación</label>
                 <select id="eliminar-cliente-motivo" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:8px 10px; font-weight:600;">
                     <option value="Cliente inactivo" selected>Cliente inactivo / sin compras</option>
+                    <option value="Depuración / Registro huérfano">Depuración / Registro fantasma o huérfano</option>
                     <option value="Datos duplicados">Datos duplicados / registro incorrecto</option>
                     <option value="Solicitud del cliente">Solicitud del cliente</option>
                     <option value="Relación comercial terminada">Relación comercial terminada</option>

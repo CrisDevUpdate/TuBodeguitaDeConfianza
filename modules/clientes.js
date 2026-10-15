@@ -45,6 +45,29 @@ function esIdentificadorRebeca(objOId) {
 }
 window.esIdentificadorRebeca = esIdentificadorRebeca;
 
+/**
+ * Verifica con precisión si un cliente o ID está vinculado a alguna cuenta de usuario del sistema (AppState.usuarios).
+ * Retorna el objeto usuario si existe vinculación, o null si es un cliente comercial independiente / huérfano.
+ */
+function obtenerUsuarioVinculadoACliente(clienteOId) {
+    if (!clienteOId) return null;
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    const cId = typeof clienteOId === 'object' ? String(clienteOId.id || '').trim().toUpperCase() : String(clienteOId).trim().toUpperCase();
+    const cCed = typeof clienteOId === 'object' ? String(clienteOId.cedula || '').trim().toUpperCase() : '';
+    const cUid = typeof clienteOId === 'object' ? String(clienteOId.usuarioId || '').trim().toUpperCase() : '';
+
+    return usuariosList.find(u => {
+        if (!u) return false;
+        const uId = String(u.id || '').trim().toUpperCase();
+        const uCed = String(u.cedula || '').trim().toUpperCase();
+        const uCli = String(u.clienteId || '').trim().toUpperCase();
+        return (uCli && uCli === cId) ||
+               (uCed && (uCed === cId || (cCed && uCed === cCed))) ||
+               (uId && (uId === cId || (cUid && uId === cUid)));
+    }) || null;
+}
+window.obtenerUsuarioVinculadoACliente = obtenerUsuarioVinculadoACliente;
+
 var clienteSeleccionadoId = (typeof window !== 'undefined' && window.clienteSeleccionadoId) ? window.clienteSeleccionadoId : null;
 
 /**
@@ -286,13 +309,20 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         }
     });
 
-    // 2.5 Asegurar que todo cliente con ventas o créditos registrados figure en AppState.clientes
+    // 2.5 Asegurar que clientes con compras históricas figuren en AppState.clientes SI Y SOLO SI no fueron eliminados
     const ventasList = Array.isArray(AppState.ventas) ? AppState.ventas : [];
     ventasList.forEach(v => {
         if (!v || (!v.clienteId && !v.clienteNombre)) return;
         const vCliId = String(v.clienteId || v.clienteCedula || '').trim();
         const vNom = String(v.clienteNombre || v.nombreCliente || vCliId).trim();
         if (!vCliId && !vNom) return;
+
+        // CRÍTICO: Si el cliente fue eliminado o excluido por el administrador, NUNCA resucitarlo
+        if (esClienteEliminadoOExcluido(vCliId, eliminadosList) || 
+            esClienteEliminadoOExcluido({ id: vCliId, nombre: vNom }, eliminadosList) ||
+            (vNom && esClienteEliminadoOExcluido(vNom, eliminadosList))) {
+            return;
+        }
 
         const yaExiste = AppState.clientes.some(c => 
             (vCliId && (String(c.id).toUpperCase() === vCliId.toUpperCase() || String(c.cedula || '').toUpperCase() === vCliId.toUpperCase() || String(c.usuarioId || '').toUpperCase() === vCliId.toUpperCase())) ||
@@ -305,16 +335,9 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
                 (vNom && String(u.nombre || '').trim().toUpperCase() === vNom.toUpperCase())
             );
 
-            // Desbloquear si estaba en clientesEliminados
-            if (Array.isArray(AppState.clientesEliminados)) {
-                AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
-                    if (!e) return false;
-                    const eId = String(e.id || e.cedula || '').trim().toUpperCase();
-                    const eNom = String(e.nombre || '').trim().toUpperCase();
-                    if (vCliId && eId === vCliId.toUpperCase()) return false;
-                    if (vNom && eNom === vNom.toUpperCase()) return false;
-                    return true;
-                });
+            // Si el usuario coincide con un usuario eliminado o bloqueado, no recrearlo
+            if (uCoinc && (esClienteEliminadoOExcluido(uCoinc, eliminadosList) || uCoinc.bloqueadoOClienteEliminado)) {
+                return;
             }
 
             const nuevoCli = {
@@ -1413,61 +1436,137 @@ async function guardarCompletarDatosCliente(event) {
 window.guardarCompletarDatosCliente = guardarCompletarDatosCliente;
 
 /**
- * Elimina registros huérfanos que tengan $0 de deuda y ninguna venta asociada
+ * Elimina registros huérfanos / fantasma verificando seguridad de usuarios y permitiendo depuración definitiva
  */
 async function eliminarRegistroHuerfano(clienteId) {
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
-    const cli = lista.find(c => c.id === clienteId);
+    const idUpper = String(clienteId || '').trim().toUpperCase();
+    const cli = lista.find(c => c && (
+        String(c.id || '').trim().toUpperCase() === idUpper ||
+        (c.cedula && String(c.cedula).trim().toUpperCase() === idUpper) ||
+        (c.codigoOficial && String(c.codigoOficial).trim().toUpperCase() === idUpper)
+    ));
     if (!cli) return;
 
-    const estFin = calcularEstadoFinancieroCliente(cli.id);
-    if (estFin.saldoDeudaUSD > 0 || (estFin.ventasCliente && estFin.ventasCliente.length > 0)) {
-        if (typeof showCustomToast === 'function') {
-            showCustomToast(`Este registro tiene movimientos ($${estFin.saldoDeudaUSD.toFixed(2)}). Abriendo confirmación de eliminación...`, 'info');
+    // 1. Verificación estricta: ¿Está vinculado a algún usuario del sistema?
+    const usuarioVinc = typeof obtenerUsuarioVinculadoACliente === 'function' 
+        ? obtenerUsuarioVinculadoACliente(cli)
+        : null;
+
+    if (usuarioVinc) {
+        const msg = `El cliente <strong>"${cli.nombre || cli.id}"</strong> (ID: <code>${cli.id}</code>) está vinculado al usuario del sistema <strong>"${usuarioVinc.nombre || usuarioVinc.cedula}"</strong> (Cédula: <code>${usuarioVinc.cedula}</code>).<br><br>Por integridad del sistema, <strong>no es un registro huérfano</strong>. Si deseas eliminarlo, gestiona primero su cuenta de usuario en el módulo de Usuarios.`;
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Cliente con Usuario Vinculado', msg, 'warning');
+        } else if (typeof alert === 'function') {
+            alert(`El cliente ${cli.nombre || cli.id} tiene un usuario vinculado (${usuarioVinc.cedula}). No se puede eliminar.`);
         }
-        abrirModalEliminarCliente(cli.id);
         return;
     }
 
+    const estFin = typeof calcularEstadoFinancieroCliente === 'function'
+        ? calcularEstadoFinancieroCliente(cli.id)
+        : { saldoDeudaUSD: Number(cli.deudaUSD || 0), ventasCliente: [], totalCompradoUSD: 0 };
+
+    const tieneDeuda = (estFin.saldoDeudaUSD || 0) > 0;
+    const cantVentas = Array.isArray(estFin.ventasCliente) ? estFin.ventasCliente.length : 0;
+
+    let mensajeConfirm = '';
+    if (tieneDeuda || cantVentas > 0) {
+        mensajeConfirm = `
+            <div style="font-size:0.9rem; line-height:1.5;">
+                <p>Estás a punto de depurar el registro huérfano <strong>"${cli.nombre || cli.id}"</strong> (ID: <code>${cli.id}</code>).</p>
+                <div style="background:#fff1f2; border:1.5px solid #fecdd3; border-radius:10px; padding:12px 14px; margin:12px 0; color:#991b1b;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span><strong>Saldo Registrado:</strong></span>
+                        <strong style="font-size:1.05rem; color:#be123c;">$${(estFin.saldoDeudaUSD || 0).toFixed(2)}</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span><strong>Historial de Compras:</strong></span>
+                        <span>${cantVentas} movimientos</span>
+                    </div>
+                    <div style="border-top:1px dashed #fca5a5; padding-top:6px; font-size:0.8rem; color:#15803d; font-weight:700; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-shield-check"></i> Verificado: 0 cuentas de usuario vinculadas.
+                    </div>
+                </div>
+                <p style="color:#64748b; font-size:0.82rem; margin:0;">
+                    Al confirmar, se archivará en la lista de eliminados como <strong>Registro Erróneo / Huérfano</strong> sin generar pérdidas de inventario físico y se limpiará del directorio activo.
+                </p>
+            </div>
+        `;
+    } else {
+        mensajeConfirm = `
+            <div style="font-size:0.9rem; line-height:1.5;">
+                <p>¿Seguro que deseas eliminar definitivamente el registro huérfano <strong>"${cli.nombre || cli.id}"</strong> (ID: <code>${cli.id}</code>)?</p>
+                <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:12px 14px; margin:12px 0; color:#166534;">
+                    <div style="font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-check-circle" style="color:#16a34a;"></i> 100% Seguro de Eliminar
+                    </div>
+                    <div style="font-size:0.83rem;">
+                        No tiene saldo pendiente, no tiene compras y <strong>no está vinculado a ningún usuario</strong> del sistema.
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     let confirmado = false;
-    const msg = `¿Seguro que deseas eliminar definitivamente el registro huérfano "${cli.nombre || cli.id}" (${cli.id})? No tiene ventas ni saldo pendiente.`;
     if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Eliminar Registro Huérfano', `<p>${msg}</p>`, 'warning');
+        confirmado = await showCustomConfirm('Depurar Registro Huérfano', mensajeConfirm, {
+            tipo: 'danger',
+            confirmText: 'Sí, Eliminar Registro',
+            cancelText: 'Cancelar'
+        });
     } else if (typeof confirm === 'function') {
-        confirmado = confirm(msg);
+        confirmado = confirm(`¿Seguro que deseas eliminar el registro huérfano ${cli.id}?`);
     }
     if (!confirmado) return;
 
-    // Eliminar de AppState.clientes y window.clientes
-    AppState.clientes = (AppState.clientes || []).filter(c => c.id !== cli.id);
-    clientes = AppState.clientes;
-
-    // Registrar en clientes eliminados
-    if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
-    AppState.clientesEliminados.push({
+    const fecha = typeof obtenerFechaHoraLocal === 'function' ? obtenerFechaHoraLocal() : new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const registroEliminado = {
         id: cli.id,
+        cedula: cli.cedula || cli.id,
         nombre: cli.nombre || cli.id,
-        fecha: typeof obtenerFechaHoraLocal === 'function' ? obtenerFechaHoraLocal() : new Date().toISOString().replace('T', ' ').substring(0, 16),
-        deudaUSD: 0,
+        telefono: cli.telefono || '',
+        fecha,
+        totalCompradoUSD: estFin.totalCompradoUSD || 0,
+        deudaUSD: estFin.saldoDeudaUSD || 0,
         perdidaUSD: 0,
-        motivo: 'DEPURACIÓN_REGISTRO_HUÉRFANO_VACÍO',
-        esDuplicadoOError: true
-    });
+        motivo: 'DEPURACIÓN_REGISTRO_HUÉRFANO_ERROR',
+        comentario: 'Eliminación administrativa de registro fantasma/huérfano sin datos de contacto ni usuario',
+        esDuplicado: true,
+        eliminadoManualmente: true
+    };
 
+    if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
+    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+    const targetNorm = norm(cli.id);
+    AppState.clientesEliminados = AppState.clientesEliminados.filter(e => e && e.id !== cli.id && norm(e.id) !== targetNorm);
+    AppState.clientesEliminados.push(registroEliminado);
+    if (typeof clientesEliminados !== 'undefined' && Array.isArray(clientesEliminados)) {
+        clientesEliminados = AppState.clientesEliminados;
+    }
+
+    // Purgar de AppState.clientes y window.clientes
+    AppState.clientes = (AppState.clientes || []).filter(c => c && c.id !== cli.id && norm(c.id) !== targetNorm);
+    clientes = AppState.clientes;
+    if (typeof window.clientes !== 'undefined') window.clientes = AppState.clientes;
+
+    // Persistir localmente y sincronizar en Firestore
     if (window.InventoryApp && window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
-        window.InventoryApp.Firebase.eliminarCliente(cli.id, { motivo: 'DEPURACIÓN_REGISTRO_HUÉRFANO' }).catch(() => {});
+        window.InventoryApp.Firebase.eliminarCliente(cli.id, registroEliminado).catch(() => {});
     }
 
     renderizarClientes();
     actualizarSelectClientes();
+    if (typeof renderizarHistorialClientesEliminados === 'function') {
+        renderizarHistorialClientesEliminados();
+    }
 
     if (typeof showCustomToast === 'function') {
         showCustomToast(`Registro huérfano ${cli.id} eliminado correctamente.`, 'success');
-    } else if (typeof alert === 'function') {
-        alert(`Registro huérfano ${cli.id} eliminado correctamente.`);
     }
 }
 window.eliminarRegistroHuerfano = eliminarRegistroHuerfano;
