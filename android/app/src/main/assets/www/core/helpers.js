@@ -44,9 +44,195 @@ function normalizarMontoTransaccion(valor) {
     return Number.isFinite(numero) ? numero : NaN;
 }
 
-function fechaHoraActual() {
-    return new Date().toISOString().replace('T', ' ').substring(0, 16);
+/**
+ * Obtiene la fecha y hora en zona horaria local del dispositivo en formato YYYY-MM-DD HH:mm.
+ * Regla de Oro: NUNCA usar new Date().toISOString() para registrar transacciones locales,
+ * ya que en horas de la tarde/noche (ej. > 8:00 PM en UTC-4) UTC adelanta el calendario al día siguiente.
+ */
+function obtenerFechaHoraLocal(d = new Date()) {
+    const fecha = (d instanceof Date && !isNaN(d.getTime())) ? d : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const anio = fecha.getFullYear();
+    const mes = pad(fecha.getMonth() + 1);
+    const dia = pad(fecha.getDate());
+    const horas = pad(fecha.getHours());
+    const minutos = pad(fecha.getMinutes());
+    return `${anio}-${mes}-${dia} ${horas}:${minutos}`;
 }
+window.obtenerFechaHoraLocal = obtenerFechaHoraLocal;
+
+function fechaHoraActual(d = new Date()) {
+    return obtenerFechaHoraLocal(d);
+}
+window.fechaHoraActual = fechaHoraActual;
+
+/**
+ * Obtiene la fecha de hoy en formato YYYY-MM-DD en la zona horaria local del dispositivo.
+ */
+function obtenerFechaHoyISO(d = new Date()) {
+    const fecha = (d instanceof Date && !isNaN(d.getTime())) ? d : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+}
+window.obtenerFechaHoyISO = obtenerFechaHoyISO;
+
+/**
+ * Convierte una fecha en formato YYYY-MM-DD HH:mm o ISO al formato legible en español:
+ * DD/MM/YYYY hh:mm a.m./p.m. (ejemplo: 10/10/2026 08:11 p.m.)
+ */
+function formatearFechaLegible(fechaStr) {
+    if (!fechaStr || fechaStr === '—' || fechaStr === '-') return '—';
+    const partes = String(fechaStr).trim().split(' ');
+    const f = partes[0] || '';
+    const h = partes[1] || '';
+
+    // Si viene en formato YYYY-MM-DD
+    const mIso = f.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    let fechaFmt = f;
+    if (mIso) {
+        const dia = String(mIso[3]).padStart(2, '0');
+        const mes = String(mIso[2]).padStart(2, '0');
+        const anio = mIso[1];
+        fechaFmt = `${dia}/${mes}/${anio}`;
+    }
+
+    if (!h) return fechaFmt;
+
+    // Convertir HH:mm a formato 12 horas con am/pm
+    const mHora = h.match(/^(\d{1,2}):(\d{1,2})/);
+    if (mHora) {
+        let horas = parseInt(mHora[1], 10);
+        const mins = String(mHora[2]).padStart(2, '0');
+        const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+        horas = horas % 12;
+        horas = horas ? horas : 12;
+        const hora12 = `${String(horas).padStart(2, '0')}:${mins} ${ampm}`;
+        return `${fechaFmt} ${hora12}`;
+    }
+
+    return `${fechaFmt} ${h}`;
+}
+window.formatearFechaLegible = formatearFechaLegible;
+
+/**
+ * Convierte una hora en formato HH:mm a formato 12 horas con a.m. / p.m.
+ */
+function formatearHoraLegible(horaStr) {
+    if (!horaStr || horaStr === '—' || horaStr === '-') return '—';
+    const m = String(horaStr).trim().match(/^(\d{1,2}):(\d{1,2})/);
+    if (!m) return horaStr;
+    let horas = parseInt(m[1], 10);
+    const mins = String(m[2]).padStart(2, '0');
+    const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+    horas = horas % 12;
+    horas = horas ? horas : 12;
+    return `${String(horas).padStart(2, '0')}:${mins} ${ampm}`;
+}
+window.formatearHoraLegible = formatearHoraLegible;
+
+/**
+ * Normaliza y sanea la fecha de un registro de venta o transacción.
+ * Si la fecha fue guardada con UTC ISO adelantando el día (ej. en la noche), la convierte a la fecha local real.
+ */
+function normalizarFechaVenta(v) {
+    if (!v) return '—';
+
+    // 1. Timestamp numérico o Firestore Timestamp
+    let ts = 0;
+    if (v.createdAt && typeof v.createdAt.toDate === 'function') {
+        ts = v.createdAt.toDate().getTime();
+    } else if (v.createdAt && typeof v.createdAt.seconds === 'number') {
+        ts = v.createdAt.seconds * 1000;
+    } else if (typeof v.timestamp === 'number' && v.timestamp > 0) {
+        ts = v.timestamp;
+    } else if (typeof v.createdAt === 'number' && v.createdAt > 0) {
+        ts = v.createdAt;
+    } else if (v.creadoEn && typeof v.creadoEn.toDate === 'function') {
+        ts = v.creadoEn.toDate().getTime();
+    } else if (v.fecha && typeof v.fecha.toDate === 'function') {
+        ts = v.fecha.toDate().getTime();
+    }
+
+    // 2. Si no tiene timestamp directo, verificar si hay transacción contable vinculada
+    if (!ts && v.id && window.AppState && Array.isArray(window.AppState.transacciones)) {
+        const tx = window.AppState.transacciones.find(t => t.pedidoId === v.id || t.id === v.id);
+        if (tx && tx.id && String(tx.id).startsWith('TX_')) {
+            const num = parseInt(String(tx.id).replace('TX_', ''), 10);
+            if (!isNaN(num) && num > 1000000000000) {
+                ts = num;
+            }
+        }
+    }
+
+    // Si tenemos timestamp numérico confiable, retornar la fecha local exacta
+    if (ts > 0) {
+        return obtenerFechaHoraLocal(new Date(ts));
+    }
+
+    // 3. Inspeccionar v.fecha como cadena
+    if (v.fecha && typeof v.fecha === 'string') {
+        const str = v.fecha.trim();
+        if (!str || str === '—' || str === '-') return '—';
+
+        // Si es formato ISO completo (contiene 'T' y 'Z' u offset)
+        if (str.includes('T') && (str.includes('Z') || str.includes('+') || (str.split('-').length > 3))) {
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+                return obtenerFechaHoraLocal(parsed);
+            }
+        }
+
+        // Si es formato "YYYY-MM-DD HH:mm"
+        const mIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+        if (mIso) {
+            const y = parseInt(mIso[1], 10);
+            const mo = parseInt(mIso[2], 10);
+            const d = parseInt(mIso[3], 10);
+            const h = mIso[4] ? parseInt(mIso[4], 10) : 0;
+            const mi = mIso[5] ? parseInt(mIso[5], 10) : 0;
+
+            const ahora = new Date();
+            const hoyISO = obtenerFechaHoyISO(ahora);
+            const fechaStr = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+            // Detección de desfase UTC: Si la fecha registrada es mañana y en horas de madrugada (<= 5:00 AM),
+            // se trata de una fecha generada por new Date().toISOString() en UTC 0 durante la noche anterior.
+            if (fechaStr > hoyISO && h <= 5) {
+                const dUtc = new Date(Date.UTC(y, mo - 1, d, h, mi));
+                return obtenerFechaHoraLocal(dUtc);
+            }
+
+            return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')} ${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+        }
+
+        // Formato DD/MM/YYYY
+        const mLat = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+        if (mLat) {
+            const d = parseInt(mLat[1], 10);
+            const mo = parseInt(mLat[2], 10);
+            const y = parseInt(mLat[3], 10);
+            const h = mLat[4] ? parseInt(mLat[4], 10) : 0;
+            const mi = mLat[5] ? parseInt(mLat[5], 10) : 0;
+            return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')} ${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+        }
+    }
+
+    return v.fecha || '—';
+}
+window.normalizarFechaVenta = normalizarFechaVenta;
+
+/**
+ * Normaliza y sanea las fechas de todas las ventas en AppState.ventas
+ */
+function normalizarTodasLasVentas() {
+    if (!window.AppState || !Array.isArray(window.AppState.ventas)) return;
+    window.AppState.ventas.forEach(v => {
+        if (v) {
+            v.fecha = normalizarFechaVenta(v);
+        }
+    });
+}
+window.normalizarTodasLasVentas = normalizarTodasLasVentas;
 
 /**
  * Determina si una venta o transacción se encuentra debidamente confirmada.
@@ -940,12 +1126,113 @@ window.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
 window.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
 window.mostrarModalSeleccionWhatsApp = mostrarModalSeleccionWhatsApp;
 
+/**
+ * Normaliza y verifica si un identificador corresponde a Rebeca (excluido de purgas por fusión)
+ */
+function esIdentificadorRebeca(objOId) {
+    if (!objOId) return false;
+    if (typeof objOId === 'string') {
+        const s = objOId.trim().toLowerCase();
+        return s === 'rebeca' || s === 'rebecca' || s.includes('rebeca') || s.includes('rebecca');
+    }
+    if (typeof objOId === 'object') {
+        const nom = String(objOId.nombre || '').toLowerCase();
+        const id = String(objOId.id || '').toLowerCase();
+        const vin = String(objOId.clienteVinculado || '').toLowerCase();
+        const em = String(objOId.email || '').toLowerCase();
+        const ced = String(objOId.cedula || '').toLowerCase();
+        const cId = String(objOId.clienteId || '').toLowerCase();
+        const uId = String(objOId.usuarioId || '').toLowerCase();
+        if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca') || uId.includes('rebeca')) return true;
+        if (Array.isArray(objOId.nombresAnteriores) && objOId.nombresAnteriores.some(n => String(n).toLowerCase().includes('rebeca'))) return true;
+        if (Array.isArray(objOId.codigosAnteriores) && objOId.codigosAnteriores.some(c => String(c).toUpperCase() === 'CLI-019')) return true;
+    }
+    return false;
+}
+window.esIdentificadorRebeca = esIdentificadorRebeca;
+
+/**
+ * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
+ * Soporta variantes por ID, código normalizado (CLI-002 vs CLI002), cédula limpia y nombre de pila (salvo fusiones).
+ */
+function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
+    const list = Array.isArray(eliminadosList) 
+        ? eliminadosList 
+        : (Array.isArray(window.AppState?.clientesEliminados) ? window.AppState.clientesEliminados : (window.clientesEliminados || []));
+    if (!list || !list.length) return false;
+
+    if (esIdentificadorRebeca(clienteOId)) {
+        return false;
+    }
+
+    const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
+    const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : String(clienteOId || '').trim().toLowerCase();
+
+    const idClean = String(id || '').trim().toUpperCase();
+    const nomClean = String(nom || '').trim().toLowerCase();
+    if (!idClean && !nomClean) return false;
+
+    const normCod = s => {
+        let str = String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
+        if (str.startsWith('CLIO')) str = 'CLI0' + str.slice(4);
+        return str;
+    };
+    const idNorm = normCod(idClean);
+
+    const cedulaDigitos = s => {
+        const digits = String(s || '').replace(/^[VEJPG]/i, '').replace(/\D/g, '');
+        return digits.length >= 5 ? digits : '';
+    };
+    const idDigits = cedulaDigitos(idClean);
+
+    return list.some(e => {
+        if (!e) return false;
+
+        const fusId = String(e.fusionadoEn || e.idDestino || '').trim().toUpperCase();
+        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm)) {
+            return false;
+        }
+
+        const eIdClean = String(e.id || e.cedula || '').trim().toUpperCase();
+        const eIdNorm = normCod(eIdClean);
+        const eDigits = cedulaDigitos(eIdClean);
+        const eNom = String(e.nombre || '').trim().toLowerCase();
+
+        // Coincidencia exacta por ID, código normalizado o cédula limpia
+        if (idClean && eIdClean && idClean === eIdClean) return true;
+        if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
+        if (idDigits && eDigits && idDigits === eDigits) return true;
+
+        if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => {
+            const cNorm = normCod(c);
+            return cNorm === idNorm || String(c).trim().toUpperCase() === idClean;
+        })) return true;
+
+        // Caso específico CLI-013 / Johan
+        if ((idNorm === 'CLI013' || (nomClean && nomClean === 'johan' && idClean.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (eNom && eNom === 'johan'))) return true;
+
+        // Comparación por nombre (únicamente si no fue una fusión, para no bloquear al sobreviviente)
+        const esFusion = e.motivo === 'FUSIÓN / UNIFICACIÓN' || Boolean(e.fusionadoEn) || Boolean(e.idDestino);
+        if (!esFusion) {
+            if (nomClean && eNom && nomClean === eNom && nomClean.length >= 2) return true;
+            if (idClean && eNom && idClean === eNom.toUpperCase() && idClean.length >= 2) return true;
+            if (nomClean && eIdClean && nomClean.toUpperCase() === eIdClean) return true;
+            if (Array.isArray(e.nombresAnteriores) && e.nombresAnteriores.some(n => String(n).trim().toLowerCase() === nomClean)) return true;
+        }
+
+        return false;
+    });
+}
+window.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
+
 if (window.InventoryApp) {
     window.InventoryApp.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
     window.InventoryApp.fijarUmbralStockBajo = fijarUmbralStockBajo;
     window.InventoryApp.obtenerAppWhatsAppPreferida = obtenerAppWhatsAppPreferida;
     window.InventoryApp.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
     window.InventoryApp.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
+    window.InventoryApp.esIdentificadorRebeca = esIdentificadorRebeca;
+    window.InventoryApp.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
 }
 
 window.switchTab = switchTab;
@@ -962,5 +1249,8 @@ window.InventoryApp.Helpers = Object.freeze({
     obtenerUmbralStockBajo,
     fijarUmbralStockBajo,
     switchTab,
-    esUsuarioAdmin
+    esUsuarioAdmin,
+    esIdentificadorRebeca,
+    esClienteEliminadoOExcluido
 });
+

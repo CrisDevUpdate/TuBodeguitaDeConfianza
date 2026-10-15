@@ -952,17 +952,19 @@ window.InventoryApp = window.InventoryApp || {};
                 });
 
                 const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
-                const checkElim = typeof esClienteEliminadoOExcluido === 'function'
-                    ? esClienteEliminadoOExcluido
-                    : (c, list) => {
-                        const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        return list.some(e => {
-                            const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                            if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                            const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                            return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
+                const checkElim = (typeof window !== 'undefined' && typeof window.esClienteEliminadoOExcluido === 'function')
+                    ? window.esClienteEliminadoOExcluido
+                    : (typeof esClienteEliminadoOExcluido === 'function'
+                        ? esClienteEliminadoOExcluido
+                        : (c, list) => {
+                            const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
+                            const nomClean = String(c?.nombre || '').trim().toLowerCase();
+                            return (list || []).some(e => {
+                                const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
+                                const eNom = String(e?.nombre || '').trim().toLowerCase();
+                                return (idClean && eIdClean && idClean === eIdClean) || (nomClean && eNom && nomClean === eNom);
+                            });
                         });
-                    };
 
                 // Purgar de loadedClients cualquier cliente que haya sido eliminado
                 loadedClients = loadedClients.filter(c => !checkElim(c, eliminados));
@@ -1451,17 +1453,19 @@ window.InventoryApp = window.InventoryApp || {};
                     let newClientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     const eliminados = Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : [];
                     const checkElim = (c, list) => {
-                        if (typeof window.esClienteEliminadoOExcluido === 'function') {
+                        if (typeof window !== 'undefined' && typeof window.esClienteEliminadoOExcluido === 'function') {
                             return window.esClienteEliminadoOExcluido(c, list);
                         }
                         if (typeof esClienteEliminadoOExcluido === 'function') {
                             return esClienteEliminadoOExcluido(c, list);
                         }
                         const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
-                        if (!idClean) return false;
+                        const nomClean = String(c?.nombre || '').trim().toLowerCase();
+                        if (!idClean && !nomClean) return false;
                         return (list || []).some(e => {
                             const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
-                            return eIdClean && idClean === eIdClean;
+                            const eNom = String(e?.nombre || '').trim().toLowerCase();
+                            return (idClean && eIdClean && idClean === eIdClean) || (nomClean && eNom && nomClean === eNom);
                         });
                     };
 
@@ -1995,17 +1999,19 @@ window.InventoryApp = window.InventoryApp || {};
                         if (lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] !== hash) {
                             lastCollectionHashes[COLLECTIONS.CLIENTES_ELIMINADOS] = hash;
                             AppState.clientesEliminados = newCliElim;
-                            const checkElim = typeof esClienteEliminadoOExcluido === 'function'
-                                ? esClienteEliminadoOExcluido
-                                : (c, list) => {
-                                    const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                                    return list.some(e => {
-                                        const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                                        if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                                        const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                                        return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
+                            const checkElim = (typeof window !== 'undefined' && typeof window.esClienteEliminadoOExcluido === 'function')
+                                ? window.esClienteEliminadoOExcluido
+                                : (typeof esClienteEliminadoOExcluido === 'function'
+                                    ? esClienteEliminadoOExcluido
+                                    : (c, list) => {
+                                        const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
+                                        const nomClean = String(c?.nombre || '').trim().toLowerCase();
+                                        return (list || []).some(e => {
+                                            const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
+                                            const eNom = String(e?.nombre || '').trim().toLowerCase();
+                                            return (idClean && eIdClean && idClean === eIdClean) || (nomClean && eNom && nomClean === eNom);
+                                        });
                                     });
-                                };
                             if (Array.isArray(AppState.clientes)) {
                                 AppState.clientes = AppState.clientes.filter(c => !checkElim(c, newCliElim));
                                 if (typeof clientes !== 'undefined') clientes = AppState.clientes;
@@ -2634,13 +2640,20 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 const batch = db.batch();
-                // Eliminar de colección activa tanto el id directo como sus variantes si aplica (ej CLI-013 y cli-o13)
                 const idsAEliminarDoc = new Set([String(clienteId)]);
+                if (registroEliminado) {
+                    if (registroEliminado.id) idsAEliminarDoc.add(String(registroEliminado.id));
+                    if (registroEliminado.cedula) idsAEliminarDoc.add(String(registroEliminado.cedula));
+                    if (Array.isArray(registroEliminado.codigosAnteriores)) {
+                        registroEliminado.codigosAnteriores.forEach(c => idsAEliminarDoc.add(String(c)));
+                    }
+                }
                 if (/^CLI-[0O]13$/i.test(clienteId)) {
                     idsAEliminarDoc.add('CLI-013');
                     idsAEliminarDoc.add('cli-o13');
                     idsAEliminarDoc.add('CLI-O13');
                 }
+
                 idsAEliminarDoc.forEach(idDoc => {
                     const cliRef = db.collection(COLLECTIONS.CLIENTES).doc(idDoc);
                     batch.delete(cliRef);

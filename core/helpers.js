@@ -1126,12 +1126,113 @@ window.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
 window.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
 window.mostrarModalSeleccionWhatsApp = mostrarModalSeleccionWhatsApp;
 
+/**
+ * Normaliza y verifica si un identificador corresponde a Rebeca (excluido de purgas por fusión)
+ */
+function esIdentificadorRebeca(objOId) {
+    if (!objOId) return false;
+    if (typeof objOId === 'string') {
+        const s = objOId.trim().toLowerCase();
+        return s === 'rebeca' || s === 'rebecca' || s.includes('rebeca') || s.includes('rebecca');
+    }
+    if (typeof objOId === 'object') {
+        const nom = String(objOId.nombre || '').toLowerCase();
+        const id = String(objOId.id || '').toLowerCase();
+        const vin = String(objOId.clienteVinculado || '').toLowerCase();
+        const em = String(objOId.email || '').toLowerCase();
+        const ced = String(objOId.cedula || '').toLowerCase();
+        const cId = String(objOId.clienteId || '').toLowerCase();
+        const uId = String(objOId.usuarioId || '').toLowerCase();
+        if (nom.includes('rebeca') || nom.includes('rebecca') || id.includes('rebeca') || vin.includes('rebeca') || em.includes('rebeca') || ced.includes('rebeca') || cId.includes('rebeca') || uId.includes('rebeca')) return true;
+        if (Array.isArray(objOId.nombresAnteriores) && objOId.nombresAnteriores.some(n => String(n).toLowerCase().includes('rebeca'))) return true;
+        if (Array.isArray(objOId.codigosAnteriores) && objOId.codigosAnteriores.some(c => String(c).toUpperCase() === 'CLI-019')) return true;
+    }
+    return false;
+}
+window.esIdentificadorRebeca = esIdentificadorRebeca;
+
+/**
+ * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
+ * Soporta variantes por ID, código normalizado (CLI-002 vs CLI002), cédula limpia y nombre de pila (salvo fusiones).
+ */
+function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
+    const list = Array.isArray(eliminadosList) 
+        ? eliminadosList 
+        : (Array.isArray(window.AppState?.clientesEliminados) ? window.AppState.clientesEliminados : (window.clientesEliminados || []));
+    if (!list || !list.length) return false;
+
+    if (esIdentificadorRebeca(clienteOId)) {
+        return false;
+    }
+
+    const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
+    const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : String(clienteOId || '').trim().toLowerCase();
+
+    const idClean = String(id || '').trim().toUpperCase();
+    const nomClean = String(nom || '').trim().toLowerCase();
+    if (!idClean && !nomClean) return false;
+
+    const normCod = s => {
+        let str = String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
+        if (str.startsWith('CLIO')) str = 'CLI0' + str.slice(4);
+        return str;
+    };
+    const idNorm = normCod(idClean);
+
+    const cedulaDigitos = s => {
+        const digits = String(s || '').replace(/^[VEJPG]/i, '').replace(/\D/g, '');
+        return digits.length >= 5 ? digits : '';
+    };
+    const idDigits = cedulaDigitos(idClean);
+
+    return list.some(e => {
+        if (!e) return false;
+
+        const fusId = String(e.fusionadoEn || e.idDestino || '').trim().toUpperCase();
+        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm)) {
+            return false;
+        }
+
+        const eIdClean = String(e.id || e.cedula || '').trim().toUpperCase();
+        const eIdNorm = normCod(eIdClean);
+        const eDigits = cedulaDigitos(eIdClean);
+        const eNom = String(e.nombre || '').trim().toLowerCase();
+
+        // Coincidencia exacta por ID, código normalizado o cédula limpia
+        if (idClean && eIdClean && idClean === eIdClean) return true;
+        if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
+        if (idDigits && eDigits && idDigits === eDigits) return true;
+
+        if (Array.isArray(e.codigosAnteriores) && e.codigosAnteriores.some(c => {
+            const cNorm = normCod(c);
+            return cNorm === idNorm || String(c).trim().toUpperCase() === idClean;
+        })) return true;
+
+        // Caso específico CLI-013 / Johan
+        if ((idNorm === 'CLI013' || (nomClean && nomClean === 'johan' && idClean.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (eNom && eNom === 'johan'))) return true;
+
+        // Comparación por nombre (únicamente si no fue una fusión, para no bloquear al sobreviviente)
+        const esFusion = e.motivo === 'FUSIÓN / UNIFICACIÓN' || Boolean(e.fusionadoEn) || Boolean(e.idDestino);
+        if (!esFusion) {
+            if (nomClean && eNom && nomClean === eNom && nomClean.length >= 2) return true;
+            if (idClean && eNom && idClean === eNom.toUpperCase() && idClean.length >= 2) return true;
+            if (nomClean && eIdClean && nomClean.toUpperCase() === eIdClean) return true;
+            if (Array.isArray(e.nombresAnteriores) && e.nombresAnteriores.some(n => String(n).trim().toLowerCase() === nomClean)) return true;
+        }
+
+        return false;
+    });
+}
+window.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
+
 if (window.InventoryApp) {
     window.InventoryApp.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
     window.InventoryApp.fijarUmbralStockBajo = fijarUmbralStockBajo;
     window.InventoryApp.obtenerAppWhatsAppPreferida = obtenerAppWhatsAppPreferida;
     window.InventoryApp.fijarAppWhatsAppPreferida = fijarAppWhatsAppPreferida;
     window.InventoryApp.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
+    window.InventoryApp.esIdentificadorRebeca = esIdentificadorRebeca;
+    window.InventoryApp.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
 }
 
 window.switchTab = switchTab;
@@ -1148,5 +1249,8 @@ window.InventoryApp.Helpers = Object.freeze({
     obtenerUmbralStockBajo,
     fijarUmbralStockBajo,
     switchTab,
-    esUsuarioAdmin
+    esUsuarioAdmin,
+    esIdentificadorRebeca,
+    esClienteEliminadoOExcluido
 });
+

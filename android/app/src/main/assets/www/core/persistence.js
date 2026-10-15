@@ -241,6 +241,11 @@ window.InventoryApp = window.InventoryApp || {};
                     localStorage.setItem(CACHE_USUARIOS_KEY, JSON.stringify(AppState.usuarios));
                 } catch (uErr) {}
             }
+            if (Array.isArray(AppState.notificaciones) && AppState.notificaciones.length > 0) {
+                try {
+                    localStorage.setItem('bodeguita_cache_notificaciones_v1', JSON.stringify(AppState.notificaciones));
+                } catch (nErr) {}
+            }
 
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
             purgarResiduosEntidadesLocalStorage();
@@ -380,17 +385,26 @@ window.InventoryApp = window.InventoryApp || {};
             } catch (e) {}
 
             const eliminados = AppState.clientesEliminados || [];
-            const helperEliminado = typeof esClienteEliminadoOExcluido === 'function' 
-                ? esClienteEliminadoOExcluido 
-                : (c, list) => {
-                    const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                    return list.some(e => {
-                        const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                        const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
+            const helperEliminado = (typeof window !== 'undefined' && typeof window.esClienteEliminadoOExcluido === 'function')
+                ? window.esClienteEliminadoOExcluido
+                : (typeof esClienteEliminadoOExcluido === 'function' 
+                    ? esClienteEliminadoOExcluido 
+                    : (c, list) => {
+                        const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
+                        const nomClean = String(c?.nombre || '').trim().toLowerCase();
+                        const idNorm = idClean.replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                        return list.some(e => {
+                            const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
+                            const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
+                            const eIdNorm = eIdClean.replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            const eNom = String(e?.nombre || '').trim().toLowerCase();
+                            if (idClean && eIdClean && idClean === eIdClean) return true;
+                            if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
+                            if (nomClean && eNom && nomClean === eNom) return true;
+                            return false;
+                        });
                     });
-                };
 
             const listaBase = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
                 ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
@@ -425,6 +439,11 @@ window.InventoryApp = window.InventoryApp || {};
             });
         }
 
+        // Normalizar fechas de ventas en memoria
+        if (typeof window.normalizarTodasLasVentas === 'function') {
+            window.normalizarTodasLasVentas();
+        }
+
         // 7. Cargar abonos y transacciones desde caché local persistente
         if (!Array.isArray(AppState.abonos) || AppState.abonos.length === 0) {
             try {
@@ -456,6 +475,17 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.eliminaciones = AppState.eliminaciones || [];
         AppState.clientesEliminados = AppState.clientesEliminados || [];
         AppState.canjesPremios = AppState.canjesPremios || [];
+
+        if (!Array.isArray(AppState.notificaciones) || AppState.notificaciones.length === 0) {
+            try {
+                const rawN = localStorage.getItem('bodeguita_cache_notificaciones_v1');
+                if (rawN) {
+                    const parsedN = JSON.parse(rawN);
+                    if (Array.isArray(parsedN)) AppState.notificaciones = parsedN;
+                }
+            } catch (e) {}
+            AppState.notificaciones = AppState.notificaciones || [];
+        }
 
         if (typeof asegurarSolvenciaRebeca === 'function') {
             asegurarSolvenciaRebeca();

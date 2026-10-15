@@ -86,12 +86,13 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
     }
 
     const id = typeof clienteOId === 'object' && clienteOId ? (clienteOId.id || clienteOId.cedula || '') : String(clienteOId || '');
-    const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : '';
+    const nom = typeof clienteOId === 'object' && clienteOId ? String(clienteOId.nombre || '').trim().toLowerCase() : String(clienteOId || '').trim().toLowerCase();
 
     const idClean = String(id || '').trim().toUpperCase();
-    if (!idClean && !nom) return false;
+    const nomClean = String(nom || '').trim().toLowerCase();
+    if (!idClean && !nomClean) return false;
 
-    // Normalizador seguro de códigos CLI (ej: CLI-O13 -> CLI-013) sin alterar nombres como "yoo"
+    // Normalizador seguro de códigos CLI (ej: CLI-O13 -> CLI-013)
     const normCod = s => {
         let str = String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
         if (str.startsWith('CLIO')) str = 'CLI0' + str.slice(4);
@@ -118,8 +119,9 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
         const eIdClean = String(e.id || e.cedula || '').trim().toUpperCase();
         const eIdNorm = normCod(eIdClean);
         const eDigits = cedulaDigitos(eIdClean);
+        const eNom = String(e.nombre || '').trim().toLowerCase();
 
-        // Coincidencia exacta por ID, código normalizado o cédula limpia (sin sufijos ambiguos)
+        // Coincidencia exacta por ID, código normalizado o cédula limpia
         if (idClean && eIdClean && idClean === eIdClean) return true;
         if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
         if (idDigits && eDigits && idDigits === eDigits) return true;
@@ -129,12 +131,17 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
             return cNorm === idNorm || String(c).trim().toUpperCase() === idClean;
         })) return true;
 
-        // Caso específico CLI-013 / cli-o13 / Johan
-        if ((idNorm === 'CLI013' || (nom && nom === 'johan' && idClean.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (e.nombre && String(e.nombre).trim().toLowerCase() === 'johan'))) return true;
+        // Caso específico CLI-013 / Johan
+        if ((idNorm === 'CLI013' || (nomClean && nomClean === 'johan' && idClean.startsWith('CLI'))) && (eIdNorm === 'CLI013' || (eNom && eNom === 'johan'))) return true;
 
-        // Si fue una fusión o unificación, JAMÁS comparar solo por nombre de pila, porque el cliente sobreviviente suele llamarse igual (ej: Rebeca)
+        // Comparación por nombre (únicamente si no fue una fusión, para proteger al receptor de fusión)
         const esFusion = e.motivo === 'FUSIÓN / UNIFICACIÓN' || Boolean(e.fusionadoEn) || Boolean(e.idDestino);
-        if (esFusion) return false;
+        if (!esFusion) {
+            if (nomClean && eNom && nomClean === eNom && nomClean.length >= 2) return true;
+            if (idClean && eNom && idClean === eNom.toUpperCase() && idClean.length >= 2) return true;
+            if (nomClean && eIdClean && nomClean.toUpperCase() === eIdClean) return true;
+            if (Array.isArray(e.nombresAnteriores) && e.nombresAnteriores.some(n => String(n).trim().toLowerCase() === nomClean)) return true;
+        }
 
         return false;
     });
@@ -214,8 +221,13 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
         const uCliId = String(u.clienteId || '').trim().toUpperCase();
 
-        // Si este usuario/cliente fue eliminado por el administrador, NO recrearlo en la lista activa de clientes
-        if (esClienteEliminadoOExcluido(u, eliminadosList) || esClienteEliminadoOExcluido(idUpper, eliminadosList)) {
+        // Si este usuario/cliente fue eliminado o desvinculado por el administrador, NO recrearlo en la lista activa de clientes
+        if (u.bloqueadoOClienteEliminado || 
+            u.clienteEliminado || 
+            esClienteEliminadoOExcluido(u, eliminadosList) || 
+            esClienteEliminadoOExcluido(idUpper, eliminadosList) ||
+            (uNom && esClienteEliminadoOExcluido(uNom, eliminadosList)) ||
+            (uCliId && esClienteEliminadoOExcluido(uCliId, eliminadosList))) {
             return;
         }
 
@@ -1454,12 +1466,8 @@ async function eliminarRegistroHuerfano(clienteId) {
         : null;
 
     if (usuarioVinc) {
-        const msg = `El cliente <strong>"${cli.nombre || cli.id}"</strong> (ID: <code>${cli.id}</code>) está vinculado al usuario del sistema <strong>"${usuarioVinc.nombre || usuarioVinc.cedula}"</strong> (Cédula: <code>${usuarioVinc.cedula}</code>).<br><br>Por integridad del sistema, <strong>no es un registro huérfano</strong>. Si deseas eliminarlo, gestiona primero su cuenta de usuario en el módulo de Usuarios.`;
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Cliente con Usuario Vinculado', msg, 'warning');
-        } else if (typeof alert === 'function') {
-            alert(`El cliente ${cli.nombre || cli.id} tiene un usuario vinculado (${usuarioVinc.cedula}). No se puede eliminar.`);
-        }
+        // En lugar de bloquear al administrador, abrir el modal de eliminación con la advertencia explicativa para desvincular con total seguridad
+        abrirModalEliminarCliente(cli.id);
         return;
     }
 
@@ -2087,10 +2095,37 @@ function abrirModalEliminarCliente(clienteId) {
     if (elMotivo) elMotivo.value = 'Cliente inactivo';
     if (elComentario) elComentario.value = 'Eliminación administrativa confirmada';
 
+    // Banner informativo y de seguridad sobre cuentas de usuario vinculadas
+    const alertaUsuario = document.getElementById('eliminar-cliente-alerta-usuario');
+    const usuarioVinc = typeof obtenerUsuarioVinculadoACliente === 'function' ? obtenerUsuarioVinculadoACliente(cliente) : null;
+    if (alertaUsuario) {
+        if (usuarioVinc) {
+            alertaUsuario.innerHTML = `
+                <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:10px; padding:12px 14px; color:#1e40af; font-size:0.85rem; line-height:1.45;">
+                    <div style="font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                        <i class="fas fa-user-shield" style="color:#2563eb; font-size:1.05rem;"></i> Cuenta de Usuario Vinculada: <strong>${usuarioVinc.nombre || usuarioVinc.cedula}</strong> (${usuarioVinc.cedula})
+                    </div>
+                    <div>
+                        <strong>¿Qué pasa al eliminarlo?</strong> Su cuenta de usuario de acceso/login <strong>permanecerá 100% segura e intacta</strong> en el sistema, pero su ficha comercial de cliente será desvinculada y eliminada del directorio activo sin riesgo.
+                    </div>
+                </div>
+            `;
+        } else {
+            alertaUsuario.innerHTML = `
+                <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:10px 14px; color:#166534; font-size:0.85rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-circle-check" style="color:#16a34a; font-size:1.1rem; flex-shrink:0;"></i>
+                    <div>
+                        <strong>Sin cuenta de usuario vinculada:</strong> Este cliente es únicamente un registro comercial. Es <strong>100% seguro eliminarlo</strong> sin afectar cuentas ni accesos de usuarios.
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     modal.style.display = 'flex';
     modal.classList.add('active');
     setTimeout(() => {
-        if (elMotivo) elMotivo.focus();
+        if (elMotivo && typeof elMotivo.focus === 'function') elMotivo.focus();
     }, 50);
 }
 window.abrirModalEliminarCliente = abrirModalEliminarCliente;
@@ -2190,18 +2225,30 @@ async function confirmarEliminacionCliente(event) {
         clientesEliminados = AppState.clientesEliminados;
     }
 
-    // Desvincular de cualquier usuario en AppState.usuarios para evitar que vuelva a revivir
+    // Desvincular de cualquier usuario en AppState.usuarios para evitar que vuelva a revivir sin alterar la cuenta
     const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    const cIdUpper = String(cliente.id).toUpperCase();
+    const cCedUpper = String(cliente.cedula || '').toUpperCase();
+    const cUidUpper = String(cliente.usuarioId || '').toUpperCase();
+    const cNomUpper = String(cliente.nombre || '').trim().toUpperCase();
+
     usuariosList.forEach(u => {
         if (!u) return;
         const uId = String(u.id || '').toUpperCase();
         const uCed = String(u.cedula || '').toUpperCase();
         const uCli = String(u.clienteId || '').toUpperCase();
-        const cIdUpper = String(cliente.id).toUpperCase();
-        if (uCli === cIdUpper || uCed === cIdUpper || uId === cIdUpper) {
+        const uNom = String(u.nombre || '').trim().toUpperCase();
+
+        const coincide = (uCli && (uCli === cIdUpper || uCli === targetNorm)) ||
+                         (uCed && (uCed === cIdUpper || (cCedUpper && uCed === cCedUpper))) ||
+                         (uId && (uId === cIdUpper || (cUidUpper && uId === cUidUpper))) ||
+                         (cNomUpper && uNom && cNomUpper === uNom);
+
+        if (coincide) {
             u.clienteId = null;
             u.clienteVinculado = null;
             u.bloqueadoOClienteEliminado = true;
+            u.clienteEliminado = true;
         }
     });
 
@@ -2211,9 +2258,9 @@ async function confirmarEliminacionCliente(event) {
     AppState.clientes = (AppState.clientes || []).filter(c => {
         if (!c) return false;
         if (c.id === cliente.id || c.id === clienteId) return false;
-        if (norm(c.id) === idNormElim) return false;
+        if (norm(c.id) === idNormElim || norm(c.id) === targetNorm) return false;
         if (cliente.cedula && c.cedula && String(c.cedula).toUpperCase() === String(cliente.cedula).toUpperCase()) return false;
-        if (nombreElim && c.nombre && String(c.nombre).trim().toLowerCase() === nombreElim && esDuplicadoOError) {
+        if (nombreElim && c.nombre && String(c.nombre).trim().toLowerCase() === nombreElim) {
             return false;
         }
         return true;

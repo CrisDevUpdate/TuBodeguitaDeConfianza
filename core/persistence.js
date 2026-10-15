@@ -385,17 +385,26 @@ window.InventoryApp = window.InventoryApp || {};
             } catch (e) {}
 
             const eliminados = AppState.clientesEliminados || [];
-            const helperEliminado = typeof esClienteEliminadoOExcluido === 'function' 
-                ? esClienteEliminadoOExcluido 
-                : (c, list) => {
-                    const idNorm = String(c?.id || c?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                    return list.some(e => {
-                        const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
-                        const eIdNorm = String(e?.id || e?.cedula || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-                        return idNorm && eIdNorm && (idNorm === eIdNorm || idNorm.endsWith(eIdNorm) || eIdNorm.endsWith(idNorm));
+            const helperEliminado = (typeof window !== 'undefined' && typeof window.esClienteEliminadoOExcluido === 'function')
+                ? window.esClienteEliminadoOExcluido
+                : (typeof esClienteEliminadoOExcluido === 'function' 
+                    ? esClienteEliminadoOExcluido 
+                    : (c, list) => {
+                        const idClean = String(c?.id || c?.cedula || '').trim().toUpperCase();
+                        const nomClean = String(c?.nombre || '').trim().toLowerCase();
+                        const idNorm = idClean.replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                        return list.some(e => {
+                            const fusNorm = String(e?.fusionadoEn || e?.idDestino || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            if (fusNorm && idNorm && (idNorm === fusNorm || idNorm.endsWith(fusNorm) || fusNorm.endsWith(idNorm))) return false;
+                            const eIdClean = String(e?.id || e?.cedula || '').trim().toUpperCase();
+                            const eIdNorm = eIdClean.replace(/[\s\-_]/g, '').replace(/O/g, '0');
+                            const eNom = String(e?.nombre || '').trim().toLowerCase();
+                            if (idClean && eIdClean && idClean === eIdClean) return true;
+                            if (idNorm && eIdNorm && idNorm === eIdNorm) return true;
+                            if (nomClean && eNom && nomClean === eNom) return true;
+                            return false;
+                        });
                     });
-                };
 
             const listaBase = (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES))
                 ? JSON.parse(JSON.stringify(CLIENTES_OFICIALES))
