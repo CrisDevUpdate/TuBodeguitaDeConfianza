@@ -3799,6 +3799,7 @@
                     <button type="button" class="inv-chip active" id="chip-cli-todos" onclick="filtrarClientesEstado('todos')">Todos (<span id="count-cli-todos">0</span>)</button>
                     <button type="button" class="inv-chip" id="chip-cli-deuda" onclick="filtrarClientesEstado('deuda')" style="color:#dc2626;"><i class="fas fa-triangle-exclamation"></i> Con Deuda (<span id="count-cli-deuda">0</span>)</button>
                     <button type="button" class="inv-chip" id="chip-cli-al-dia" onclick="filtrarClientesEstado('al-dia')"><i class="fas fa-check-circle" style="color:#16a34a;"></i> Al día (<span id="count-cli-al-dia">0</span>)</button>
+                    <button type="button" class="inv-chip" id="chip-cli-fantasma" onclick="filtrarClientesEstado('fantasma')" style="color:#b45309; font-weight:700;"><i class="fas fa-triangle-exclamation" style="color:#d97706;"></i> Por Corregir / Sin Identificar (<span id="count-cli-fantasma">0</span>)</button>
                 </div>
             </div>
 
@@ -5929,56 +5930,137 @@
 
 <!-- Modal para Unificar / Fusionar Clientes Duplicados -->
 <div id="modal-fusionar-clientes" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalFusionarClientes();">
-    <div class="modal-content" style="max-width:760px; max-height:90vh; overflow-y:auto; border-radius:16px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+    <div class="modal-content" style="max-width:800px; max-height:92vh; overflow-y:auto; border-radius:18px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.25);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:16px;">
             <div>
-                <h3 style="margin:0 0 4px 0; font-size:1.25rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-link" style="color:#4f46e5;"></i> Unificar / Fusionar Clientes Duplicados
+                <h3 style="margin:0 0 4px 0; font-size:1.3rem; font-weight:800; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-link" style="color:#4f46e5;"></i> Conciliación y Fusión de Cuentas de Clientes
                 </h3>
                 <span style="font-size:0.84rem; color:var(--text-muted); line-height:1.4; display:block;">
-                    Soluciona errores cuando una misma persona fue registrada dos veces (ej: una cuenta de usuario y una cuenta de libreta/sin usuario).
+                    Unifica registros duplicados o cuentas huérfanas sin duplicar deudas por error.
                 </span>
             </div>
             <button type="button" class="btn btn-sm" onclick="cerrarModalFusionarClientes()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; font-size:1.1rem; cursor:pointer; color:#475569;" title="Cerrar ventana">&times;</button>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
-            <!-- Selector 1: Cliente Principal -->
-            <div style="background:#f8fafc; border:2px solid #c7d2fe; border-radius:12px; padding:14px;">
-                <label for="fusion-cliente-principal" style="font-size:0.85rem; font-weight:800; color:#3730a3; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-                    <i class="fas fa-circle-check" style="color:#4f46e5;"></i> 1. Cliente Principal (El que se conservará):
-                </label>
-                <select id="fusion-cliente-principal" class="form-control" onchange="alCambiarSeleccionFusion()" style="width:100%; font-weight:700; padding:9px 10px; border-radius:8px; border:1px solid #a5b4fc; background:#fff; color:var(--text-main);">
-                </select>
-                <div id="fusion-card-principal" style="margin-top:10px; font-size:0.82rem; color:var(--text-main); line-height:1.45;"></div>
+        <!-- SELECTORES DE CLIENTES (ORIGEN Y DESTINO) CON BOTÓN DE INTERCAMBIAR -->
+        <div style="position:relative; margin-bottom:18px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+                <!-- Selector 1: Cliente Principal / Destino (El que se conserva) -->
+                <div style="background:#f8fafc; border:2px solid #c7d2fe; border-radius:14px; padding:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <label for="fusion-cliente-principal" style="font-size:0.85rem; font-weight:800; color:#3730a3; display:flex; align-items:center; gap:6px; margin:0;">
+                            <i class="fas fa-circle-check" style="color:#4f46e5;"></i> Cliente Destino (Oficial / Conservado):
+                        </label>
+                    </div>
+                    <select id="fusion-cliente-principal" class="form-control" onchange="alCambiarSeleccionFusion()" style="width:100%; font-weight:700; padding:9px 10px; border-radius:8px; border:1px solid #a5b4fc; background:#fff; color:var(--text-main);">
+                    </select>
+                    <div id="fusion-card-principal" style="margin-top:10px; font-size:0.82rem; color:var(--text-main); line-height:1.45;"></div>
+                </div>
+
+                <!-- Selector 2: Cliente Secundario / Origen (El huérfano a absorber) -->
+                <div style="background:#fff7ed; border:2px solid #fed7aa; border-radius:14px; padding:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <label for="fusion-cliente-secundario" style="font-size:0.85rem; font-weight:800; color:#9a3412; display:flex; align-items:center; gap:6px; margin:0;">
+                            <i class="fas fa-arrow-right-to-bracket" style="color:#ea580c;"></i> Cliente Origen (Huérfano / A Unificar):
+                        </label>
+                    </div>
+                    <select id="fusion-cliente-secundario" class="form-control" onchange="alCambiarSeleccionFusion()" style="width:100%; font-weight:700; padding:9px 10px; border-radius:8px; border:1px solid #fdba74; background:#fff; color:var(--text-main);">
+                    </select>
+                    <div id="fusion-card-secundario" style="margin-top:10px; font-size:0.82rem; color:var(--text-main); line-height:1.45;"></div>
+                </div>
             </div>
 
-            <!-- Selector 2: Cliente Secundario a Fusionar -->
-            <div style="background:#fff7ed; border:2px solid #fed7aa; border-radius:12px; padding:14px;">
-                <label for="fusion-cliente-secundario" style="font-size:0.85rem; font-weight:800; color:#9a3412; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-                    <i class="fas fa-arrow-right-to-bracket" style="color:#ea580c;"></i> 2. Cliente Duplicado a Absorber (Se unificará):
-                </label>
-                <select id="fusion-cliente-secundario" class="form-control" onchange="alCambiarSeleccionFusion()" style="width:100%; font-weight:700; padding:9px 10px; border-radius:8px; border:1px solid #fdba74; background:#fff; color:var(--text-main);">
-                </select>
-                <div id="fusion-card-secundario" style="margin-top:10px; font-size:0.82rem; color:var(--text-main); line-height:1.45;"></div>
+            <!-- Botón Central para Intercambiar Quién Absorbe a Quién -->
+            <div style="text-align:center; margin-top:8px;">
+                <button type="button" class="btn btn-sm" onclick="intercambiarClientesFusion()" style="background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; border-radius:20px; padding:4px 14px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05);" title="Cambiar cuál cuenta absorbe a la otra">
+                    <i class="fas fa-right-left"></i> Invertir Roles (Cambiar quién absorbe a quién)
+                </button>
             </div>
         </div>
 
-        <!-- Opción de Transferencia de Deuda -->
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px;">
-            <input type="checkbox" id="fusion-transferir-deuda" checked onchange="alCambiarSeleccionFusion()" style="width:18px; height:18px; accent-color:#4f46e5; cursor:pointer;">
-            <label for="fusion-transferir-deuda" style="margin:0; font-size:0.85rem; font-weight:700; color:var(--text-main); cursor:pointer;">
-                Transferir saldo de deuda pendiente del cliente duplicado
-                <small style="display:block; font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(Desmarca esta casilla si el cliente duplicado ya te pagó o saldó esa deuda previamente para no cobrársela de nuevo)</small>
-            </label>
+        <!-- ============================================== -->
+        <!-- CONTROL DE SALDO Y CONCILIACIÓN DE DEUDA (3 OPCIONES) -->
+        <!-- ============================================== -->
+        <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:14px; padding:16px; margin-bottom:16px;">
+            <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="display:inline-flex; width:28px; height:28px; border-radius:8px; background:#eff6ff; color:#2563eb; align-items:center; justify-content:center; font-size:0.9rem;">
+                    <i class="fas fa-scale-balanced"></i>
+                </span>
+                Control de Saldo y Deuda Final (Decisión del Administrador):
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <!-- Opción A: Es la misma deuda (Registro Duplicado) -->
+                <label id="lbl-fusion-opt-misma" style="display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:2px solid #2563eb; border-radius:10px; background:#eff6ff; cursor:pointer; transition:all 0.15s ease;">
+                    <input type="radio" name="fusion-modo-deuda" id="fusion-opt-misma" value="misma_deuda" checked onchange="alCambiarOpcionDeudaFusion()" style="margin-top:4px; width:18px; height:18px; accent-color:#2563eb;">
+                    <div style="flex:1;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                            <strong style="color:#1e40af; font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-clone"></i> a) Es la misma deuda (Registro Duplicado)
+                            </strong>
+                            <span class="badge" style="background:#dbeafe; color:#1e40af; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:999px;">
+                                EVITA DUPLICAR DEUDA
+                            </span>
+                        </div>
+                        <p style="margin:4px 0 0 0; font-size:0.82rem; color:#334155; line-height:1.4;">
+                            Mantiene el saldo único de la deuda principal (<span id="fusion-txt-misma-monto">$0.00</span>). <strong>NO suma los montos</strong>. Evita cobrar dos veces la misma compra fiada.
+                        </p>
+                        <div id="fusion-subopcion-misma" style="margin-top:8px; padding-top:8px; border-top:1px dashed #bfdbfe; font-size:0.8rem; color:#1e3a8a; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <span style="font-weight:700;">Conservar saldo de:</span>
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                                <input type="radio" name="fusion-base-misma" id="fusion-base-prin" value="principal" checked onchange="alCambiarOpcionDeudaFusion()">
+                                <span id="lbl-fusion-base-prin">Cliente Destino</span>
+                            </label>
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
+                                <input type="radio" name="fusion-base-misma" id="fusion-base-sec" value="secundario" onchange="alCambiarOpcionDeudaFusion()">
+                                <span id="lbl-fusion-base-sec">Cliente Origen</span>
+                            </label>
+                        </div>
+                    </div>
+                </label>
+
+                <!-- Opción B: Son deudas distintas (Acumular) -->
+                <label id="lbl-fusion-opt-acumular" style="display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:10px; background:#ffffff; cursor:pointer; transition:all 0.15s ease;">
+                    <input type="radio" name="fusion-modo-deuda" id="fusion-opt-acumular" value="acumular" onchange="alCambiarOpcionDeudaFusion()" style="margin-top:4px; width:18px; height:18px; accent-color:#ea580c;">
+                    <div style="flex:1;">
+                        <strong style="color:#9a3412; font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-plus-circle"></i> b) Son deudas distintas (Acumular ambas)
+                        </strong>
+                        <p style="margin:4px 0 0 0; font-size:0.82rem; color:#475569; line-height:1.4;">
+                            Fueron fiados o ventas en momentos separados. Sumará ambos saldos pendientes (<span id="fusion-txt-acumular-monto">$0 + $0 = $0</span>).
+                        </p>
+                    </div>
+                </label>
+
+                <!-- Opción C: Ajustar Manualmente -->
+                <label id="lbl-fusion-opt-manual" style="display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:10px; background:#ffffff; cursor:pointer; transition:all 0.15s ease;">
+                    <input type="radio" name="fusion-modo-deuda" id="fusion-opt-manual" value="manual" onchange="alCambiarOpcionDeudaFusion()" style="margin-top:4px; width:18px; height:18px; accent-color:#7c3aed;">
+                    <div style="flex:1;">
+                        <strong style="color:#6d28d9; font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-pen-to-square"></i> c) Ajustar Manualmente (Acuerdo de Libreta)
+                        </strong>
+                        <p style="margin:4px 0 0 0; font-size:0.82rem; color:#475569; line-height:1.4;">
+                            Escribe el monto exacto acordado con el cliente tras revisar el cuaderno/historial.
+                        </p>
+                        <div id="fusion-input-manual-container" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed #ddd6fe; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <label for="fusion-monto-manual" style="font-size:0.82rem; font-weight:700; color:#5b21b6; margin:0;">
+                                Deuda Real Acordada ($ USD):
+                            </label>
+                            <input type="number" id="fusion-monto-manual" step="0.01" min="0" placeholder="0.00" class="form-control" style="max-width:140px; font-weight:800; font-size:1.05rem; padding:6px 10px; border-radius:8px; border:1.5px solid #a78bfa; color:#4c1d95;" oninput="alCambiarOpcionDeudaFusion()">
+                            <small id="fusion-monto-manual-ves" style="font-size:0.8rem; color:#6d28d9; font-weight:700;">Equiv: Bs. 0.00</small>
+                        </div>
+                    </div>
+                </label>
+            </div>
         </div>
 
         <!-- Vista Previa Dinámica del Resultado -->
         <div id="fusion-preview-resultado" style="background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:14px; margin-bottom:16px;"></div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
-            <div style="font-size:0.78rem; color:var(--text-muted); max-width:400px; line-height:1.35;">
-                <i class="fas fa-shield-halved" style="color:#16a34a;"></i> <strong>Transparencia Contable:</strong> Ninguna venta ni pago se borra; todas las transacciones históricas se reasignan al cliente principal.
+            <div style="font-size:0.78rem; color:var(--text-muted); max-width:440px; line-height:1.35;">
+                <i class="fas fa-shield-halved" style="color:#16a34a;"></i> <strong>Transparencia Contable:</strong> Todas las compras y abonos se transfieren al cliente destino. Si se eligió evitar duplicidad, se registrará un ajuste contable justificado en el historial.
             </div>
             <div style="display:flex; gap:10px;">
                 <button type="button" class="btn" onclick="cerrarModalFusionarClientes()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;">
@@ -5989,6 +6071,60 @@
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal para Completar Datos de Cliente Huérfano / Sin Identificar -->
+<div id="modal-completar-datos-cliente" class="modal" style="display:none;" onclick="if(event.target === this) cerrarModalCompletarDatosCliente();">
+    <div class="modal-content" style="max-width:520px; border-radius:18px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:1.18rem; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-user-pen" style="color:#d97706;"></i> Completar Datos de Cliente
+            </h3>
+            <button type="button" class="btn btn-sm" onclick="cerrarModalCompletarDatosCliente()" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:50%; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; cursor:pointer; color:#475569;" title="Cerrar">&times;</button>
+        </div>
+        <p style="font-size:0.83rem; color:var(--text-muted); line-height:1.4; margin:0 0 14px 0;">
+            Asigna el nombre real, cédula y teléfono a este registro sin modificar su deuda ni su historial de compras.
+        </p>
+
+        <form id="form-completar-datos-cliente" onsubmit="guardarCompletarDatosCliente(event)">
+            <input type="hidden" id="completar-cli-id-original">
+            
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:0.75rem; color:#92400e; font-weight:700; text-transform:uppercase; display:block;">Código de Registro</span>
+                    <strong id="completar-cli-badge-id" style="font-size:1rem; color:#78350f;">CLI-000</strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:0.75rem; color:#92400e; font-weight:700; text-transform:uppercase; display:block;">Saldo Deudor</span>
+                    <strong id="completar-cli-badge-deuda" style="font-size:1rem; color:#dc2626;">$0.00</strong>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label for="completar-cli-nombre" style="font-weight:700; font-size:0.85rem; color:#334155; display:block; margin-bottom:4px;">Nombre Real Completo *</label>
+                <input type="text" id="completar-cli-nombre" class="form-control" required placeholder="Ej: Alejandra González" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+                <label for="completar-cli-cedula" style="font-weight:700; font-size:0.85rem; color:#334155; display:block; margin-bottom:4px;">Cédula / Identificación</label>
+                <input type="text" id="completar-cli-cedula" class="form-control" placeholder="Ej: V-12345678" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label for="completar-cli-telefono" style="font-weight:700; font-size:0.85rem; color:#334155; display:block; margin-bottom:4px;">Teléfono / WhatsApp</label>
+                <input type="tel" id="completar-cli-telefono" class="form-control" placeholder="Ej: 0414-1234567" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <button type="button" class="btn" onclick="cerrarModalCompletarDatosCliente()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="background:#d97706; border-color:#b45309; color:#fff; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fas fa-check"></i> Guardar Datos Identificados
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

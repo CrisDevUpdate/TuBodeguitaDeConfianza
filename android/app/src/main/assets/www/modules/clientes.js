@@ -948,12 +948,18 @@ function calcularEstadoFinancieroCliente(identificadorOEntidad) {
     }
 
     // Comprobar cualquier otro cliente fusionado en AppState.clientesFusionados
+    // Comprobar clientes fusionados históricos en AppState.clientesFusionados
     if (Array.isArray(AppState.clientesFusionados)) {
         AppState.clientesFusionados.forEach(cf => {
             if (!cf) return;
+            if (cf.modoDeuda === 'misma_deuda') return; // En modo misma deuda nunca inyectar saldo fiado adicional
             const destUpper = String(cf.idDestino || '').trim().toUpperCase();
             if (destUpper === targetUpper || (clienteObj && destUpper === String(clienteObj.id).trim().toUpperCase())) {
-                const yaTieneVenta = ventasCli.some(v => v.id === `V_FIADO_${cf.idOrigen}` || v.id === `V_FIADO_${cf.idOrigen}_FUSION`);
+                const yaTieneVenta = ventasCli.some(v => 
+                    v.id === `V_FIADO_${cf.idOrigen}` || 
+                    v.id === `V_FIADO_${cf.idOrigen}_FUSION` ||
+                    (cf.idOrigen && String(v.clienteId || '').toUpperCase() === String(cf.idOrigen).toUpperCase())
+                );
                 if (!yaTieneVenta && Number(cf.deudaTransferidaUSD || 0) > 0) {
                     ventasCli.unshift({
                         id: `V_FIADO_${cf.idOrigen}_FUSION`,
@@ -1235,7 +1241,7 @@ window.limpiarBuscadorCliente = limpiarBuscadorCliente;
 
 function filtrarClientesEstado(estado) {
     filtroEstadoCliente = estado || 'todos';
-    ['todos', 'deuda', 'al-dia'].forEach(st => {
+    ['todos', 'deuda', 'al-dia', 'fantasma'].forEach(st => {
         const chip = document.getElementById(`chip-cli-${st}`);
         if (chip) {
             if (st === filtroEstadoCliente) chip.classList.add('active');
@@ -1245,6 +1251,249 @@ function filtrarClientesEstado(estado) {
     renderizarClientes();
 }
 window.filtrarClientesEstado = filtrarClientesEstado;
+
+/**
+ * REGLA DE FILTRADO EXACTA PARA REGISTROS FANTASMA / ERROR:
+ * - Un cliente NO necesita obligatoriamente tener usuario vinculado. Si tiene nombre real ("Alejandra", "Carliver") o cédula/teléfono, SE QUEDA.
+ * - Clasifica como FANTASMA / ERROR únicamente si cumple simultáneamente:
+ *   1. No tiene usuario vinculado.
+ *   2. Carece de cédula y teléfono (vacíos, nulos o no válidos).
+ *   3. Su campo "Nombre" está vacío, nulo o es idéntico a su ID genérico (ej: "CLI-002", "CLI-008", "CLI-021").
+ */
+function esClienteFantasma(c, usuariosList = null) {
+    if (!c) return false;
+    const uList = usuariosList || (Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []));
+
+    // 1. Condición: No tiene usuario vinculado
+    const tieneUsuario = uList.some(u => 
+        (u.clienteId && String(u.clienteId).toUpperCase() === String(c.id).toUpperCase()) ||
+        (u.cedula && (String(u.cedula).toUpperCase() === String(c.id).toUpperCase() || (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()))) ||
+        (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
+    );
+    if (tieneUsuario) return false;
+
+    // 2. Condición: Carece de cédula y teléfono (vacíos o nulos)
+    const idTrim = String(c.id || '').trim().toUpperCase();
+    const cedTrim = String(c.cedula || '').trim().toUpperCase();
+    const telTrim = String(c.telefono || '').trim();
+
+    const cedulaValida = cedTrim !== '' && cedTrim !== '—' && cedTrim !== '-' && !cedTrim.startsWith('CLI-') && cedTrim !== idTrim;
+    const telefonoValido = telTrim !== '' && telTrim !== '—' && telTrim !== '-' && telTrim !== '0';
+    if (cedulaValida || telefonoValido) return false;
+
+    // 3. Condición: Su campo "Nombre" está vacío, nulo o es idéntico a su ID genérico
+    const nomTrim = String(c.nombre || '').trim();
+    if (!nomTrim) return true;
+
+    const nomUpper = nomTrim.toUpperCase();
+    const esIdenticoId = nomUpper === idTrim || /^CLI-\d+$/i.test(nomTrim);
+    const esGenerico = nomTrim.toLowerCase() === 'sin nombre' || nomTrim.toLowerCase() === 'cliente' || nomTrim.toLowerCase() === 'cliente generico' || nomTrim.toLowerCase() === 'cliente genérico';
+
+    return esIdenticoId || esGenerico;
+}
+window.esClienteFantasma = esClienteFantasma;
+
+/**
+ * REQUERIMIENTO 1: Función rápida para auditar y depurar la lista de clientes
+ * Recorre la lista de clientes y retorna un arreglo con los registros que cumplen la condición de error.
+ * Muestra para cada uno: ID, Saldo Deudor y el historial de ventas asociadas.
+ */
+function detectarClientesFantasma() {
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
+
+    return lista.filter(c => esClienteFantasma(c, usuariosList)).map(c => {
+        const estFin = calcularEstadoFinancieroCliente(c.id);
+        const ventas = estFin.ventasCliente || [];
+        const abonos = estFin.abonosCliente || [];
+        const saldoUSD = Number(estFin.saldoDeudaUSD || 0);
+        return {
+            id: c.id,
+            nombre: c.nombre || c.id,
+            saldoDeudorUSD: saldoUSD,
+            saldoDeudorVES: tasa > 0 ? Number((saldoUSD * tasa).toFixed(2)) : 0,
+            historialVentas: ventas,
+            historialAbonos: abonos,
+            totalVentas: ventas.length,
+            totalCompradoUSD: estFin.totalCompradoUSD,
+            esTotalmenteVacio: saldoUSD <= 0 && ventas.length === 0,
+            clienteOriginal: c
+        };
+    });
+}
+window.detectarClientesFantasma = detectarClientesFantasma;
+
+/**
+ * Abre el modal para completar el nombre real, cédula y teléfono del cliente huérfano sin tocar su deuda
+ */
+function abrirModalCompletarDatosCliente(clienteId) {
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cli = lista.find(c => c.id === clienteId);
+    if (!cli) return;
+
+    const modal = document.getElementById('modal-completar-datos-cliente');
+    const inputId = document.getElementById('completar-cli-id-original');
+    const badgeId = document.getElementById('completar-cli-badge-id');
+    const badgeDeuda = document.getElementById('completar-cli-badge-deuda');
+    const inputNombre = document.getElementById('completar-cli-nombre');
+    const inputCedula = document.getElementById('completar-cli-cedula');
+    const inputTelefono = document.getElementById('completar-cli-telefono');
+
+    if (!modal) return;
+
+    const estFin = calcularEstadoFinancieroCliente(cli.id);
+
+    if (inputId) inputId.value = cli.id;
+    if (badgeId) badgeId.textContent = cli.id;
+    if (badgeDeuda) badgeDeuda.textContent = `$${estFin.saldoDeudaUSD.toFixed(2)}`;
+
+    const esGen = String(cli.nombre || '').trim().toUpperCase() === String(cli.id).trim().toUpperCase();
+    if (inputNombre) inputNombre.value = esGen ? '' : (cli.nombre || '');
+    if (inputCedula) inputCedula.value = cli.cedula && !String(cli.cedula).startsWith('CLI-') ? cli.cedula : '';
+    if (inputTelefono) inputTelefono.value = cli.telefono && cli.telefono !== '—' && cli.telefono !== '-' ? cli.telefono : '';
+
+    modal.style.display = 'flex';
+    if (inputNombre) inputNombre.focus();
+}
+window.abrirModalCompletarDatosCliente = abrirModalCompletarDatosCliente;
+
+function cerrarModalCompletarDatosCliente() {
+    const modal = document.getElementById('modal-completar-datos-cliente');
+    if (modal) modal.style.display = 'none';
+}
+window.cerrarModalCompletarDatosCliente = cerrarModalCompletarDatosCliente;
+
+/**
+ * Guarda los datos identificados en el cliente sin alterar su saldo, compras ni abonos
+ */
+async function guardarCompletarDatosCliente(event) {
+    if (event) event.preventDefault();
+    const inputId = document.getElementById('completar-cli-id-original');
+    const inputNombre = document.getElementById('completar-cli-nombre');
+    const inputCedula = document.getElementById('completar-cli-cedula');
+    const inputTelefono = document.getElementById('completar-cli-telefono');
+
+    if (!inputId || !inputNombre) return;
+
+    const id = inputId.value.trim();
+    const nombre = inputNombre.value.trim();
+    const cedula = (inputCedula?.value || '').trim();
+    const telefono = (inputTelefono?.value || '').trim();
+
+    if (!nombre) {
+        if (typeof showCustomToast === 'function') showCustomToast('Por favor escribe el nombre real del cliente.', 'warning');
+        else if (typeof alert === 'function') alert('Por favor escribe el nombre real del cliente.');
+        return;
+    }
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cli = lista.find(c => c.id === id);
+    if (!cli) return;
+
+    // Actualizar datos de identidad respetando la deuda intacta
+    cli.nombre = nombre;
+    if (cedula) cli.cedula = cedula;
+    if (telefono) cli.telefono = telefono;
+
+    // Actualizar nombre en ventas asociadas para coherencia
+    const ventasList = Array.isArray(AppState.ventas) ? AppState.ventas : [];
+    ventasList.forEach(v => {
+        if (v && (v.clienteId === id || v.clienteId === cli.id)) {
+            v.clienteNombre = nombre;
+            if (cedula) v.clienteCedula = cedula;
+        }
+    });
+
+    // Actualizar nombre en abonos asociados
+    const abonosList = Array.isArray(AppState.abonos) ? AppState.abonos : [];
+    abonosList.forEach(a => {
+        if (a && (a.clienteId === id || a.clienteId === cli.id)) {
+            a.clienteNombre = nombre;
+            if (cedula) a.clienteCedula = cedula;
+        }
+    });
+
+    // Persistir localmente y sincronizar en Firestore
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+        window.InventoryApp.Firebase.guardarCliente(cli).catch(() => {});
+    }
+
+    cerrarModalCompletarDatosCliente();
+    renderizarClientes();
+    actualizarSelectClientes();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`¡Cliente ${nombre} identificado con éxito! Ya no figura como registro fantasma.`, 'success');
+    } else if (typeof alert === 'function') {
+        alert(`¡Cliente ${nombre} identificado con éxito!`);
+    }
+}
+window.guardarCompletarDatosCliente = guardarCompletarDatosCliente;
+
+/**
+ * Elimina registros huérfanos que tengan $0 de deuda y ninguna venta asociada
+ */
+async function eliminarRegistroHuerfano(clienteId) {
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cli = lista.find(c => c.id === clienteId);
+    if (!cli) return;
+
+    const estFin = calcularEstadoFinancieroCliente(cli.id);
+    if (estFin.saldoDeudaUSD > 0 || (estFin.ventasCliente && estFin.ventasCliente.length > 0)) {
+        if (typeof showCustomToast === 'function') {
+            showCustomToast(`Este registro tiene saldo ($${estFin.saldoDeudaUSD.toFixed(2)}) o ventas. Usa "Asignar a Cliente Existente" para transferir y conciliar.`, 'warning');
+        } else if (typeof alert === 'function') {
+            alert(`Este registro tiene saldo ($${estFin.saldoDeudaUSD.toFixed(2)}) o ventas. Usa "Asignar a Cliente Existente".`);
+        }
+        return;
+    }
+
+    let confirmado = false;
+    const msg = `¿Seguro que deseas eliminar definitivamente el registro huérfano "${cli.nombre || cli.id}" (${cli.id})? No tiene ventas ni saldo pendiente.`;
+    if (typeof showCustomConfirm === 'function') {
+        confirmado = await showCustomConfirm('Eliminar Registro Huérfano', `<p>${msg}</p>`, 'warning');
+    } else if (typeof confirm === 'function') {
+        confirmado = confirm(msg);
+    }
+    if (!confirmado) return;
+
+    // Eliminar de AppState.clientes y window.clientes
+    AppState.clientes = (AppState.clientes || []).filter(c => c.id !== cli.id);
+    clientes = AppState.clientes;
+
+    // Registrar en clientes eliminados
+    if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
+    AppState.clientesEliminados.push({
+        id: cli.id,
+        nombre: cli.nombre || cli.id,
+        fecha: typeof obtenerFechaHoraLocal === 'function' ? obtenerFechaHoraLocal() : new Date().toISOString().replace('T', ' ').substring(0, 16),
+        deudaUSD: 0,
+        perdidaUSD: 0,
+        motivo: 'DEPURACIÓN_REGISTRO_HUÉRFANO_VACÍO',
+        esDuplicadoOError: true
+    });
+
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
+        window.InventoryApp.Firebase.eliminarCliente(cli.id, { motivo: 'DEPURACIÓN_REGISTRO_HUÉRFANO' }).catch(() => {});
+    }
+
+    renderizarClientes();
+    actualizarSelectClientes();
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(`Registro huérfano ${cli.id} eliminado correctamente.`, 'success');
+    } else if (typeof alert === 'function') {
+        alert(`Registro huérfano ${cli.id} eliminado correctamente.`);
+    }
+}
+window.eliminarRegistroHuerfano = eliminarRegistroHuerfano;
 
 function asegurarClientesOficiales() {
     if (typeof CLIENTES_OFICIALES !== 'undefined' && Array.isArray(CLIENTES_OFICIALES)) {
@@ -1475,19 +1724,23 @@ function renderizarClientes() {
     const countAlDia = document.getElementById('count-cli-al-dia');
     if (countAlDia) countAlDia.textContent = Math.max(0, lista.length - clientesConDeuda);
 
+    const usuariosListGlobal = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    const cantFantasmas = lista.filter(c => esClienteFantasma(c, usuariosListGlobal)).length;
+    const countFantasma = document.getElementById('count-cli-fantasma');
+    if (countFantasma) countFantasma.textContent = cantFantasmas;
+
     const countEliminados = document.getElementById('count-cli-eliminados');
     if (countEliminados) {
-        const eliminadosList = Array.isArray(clientesEliminados) ? clientesEliminados : (AppState.clientesEliminados || []);
+        const eliminadosList = (typeof clientesEliminados !== 'undefined' && Array.isArray(clientesEliminados)) ? clientesEliminados : (AppState.clientesEliminados || []);
         countEliminados.textContent = eliminadosList.length;
     }
-
-    const usuariosListGlobal = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
 
     // Filtrar lista según búsqueda y estado
     let clientesFiltrados = clientesConEstado.filter(c => {
         // Filtro por estado
         if (filtroEstadoCliente === 'deuda' && c.saldoDeudaUSD <= 0) return false;
         if (filtroEstadoCliente === 'al-dia' && c.saldoDeudaUSD > 0) return false;
+        if (filtroEstadoCliente === 'fantasma' && !esClienteFantasma(c, usuariosListGlobal)) return false;
 
         // Filtro por texto de búsqueda
         if (busquedaCliente) {
@@ -1565,6 +1818,7 @@ function renderizarClientes() {
             const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
             const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
             const tieneDeuda = c.saldoDeudaUSD > 0;
+            const esFantasma = esClienteFantasma(c, usuariosList);
 
             const userVinculado = usuariosList.find(u => 
                 u.clienteId === c.id || 
@@ -1572,12 +1826,14 @@ function renderizarClientes() {
                 (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
                 (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
             );
-            const userBadge = userVinculado 
-                ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:600;" title="Cuenta de usuario activa: ${userVinculado.cedula}"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
-                : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px;" title="Sin cuenta de usuario creada aún"><i class="fas fa-user-clock"></i> Sin usuario</span>`;
+            const userBadge = esFantasma
+                ? `<span class="badge" style="background:rgba(217,119,6,0.12); color:#b45309; border:1px solid #fde68a; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:700;" title="Registro no identificado / Huérfano"><i class="fas fa-triangle-exclamation"></i> Por Corregir</span>`
+                : (userVinculado 
+                    ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:600;" title="Cuenta de usuario activa: ${userVinculado.cedula}"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
+                    : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.7rem; padding:2px 6px; border-radius:4px; margin-left:6px;" title="Sin cuenta de usuario creada aún"><i class="fas fa-user-clock"></i> Sin usuario</span>`);
 
             return `
-                <tr>
+                <tr style="${esFantasma ? 'background: #fffdf5;' : ''}">
                     <td><strong>${idSafe}</strong></td>
                     <td style="font-weight:600; color:var(--text-main);">
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -1595,9 +1851,23 @@ function renderizarClientes() {
                     </td>
                     <td style="text-align:center; white-space:nowrap;">
                         <div style="display:inline-flex; gap:6px; align-items:center;">
-                            <button type="button" class="btn btn-sm" onclick="abrirModalSumarDeudaCliente('${c.id}')" title="Sumar deuda o préstamo de dinero sin afectar inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:5px 9px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
-                                <i class="fas fa-hand-holding-dollar"></i> +Deuda
-                            </button>
+                            ${esFantasma ? `
+                                <button type="button" class="btn btn-sm" onclick="abrirModalCompletarDatosCliente('${c.id}')" title="Identificar con nombre real, cédula y teléfono sin tocar deuda" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; padding:5px 9px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-user-pen"></i> Completar Datos
+                                </button>
+                                <button type="button" class="btn btn-sm" onclick="asignarClienteAFusion('${c.id}')" title="Asignar y transferir deuda e historial a un cliente ya registrado" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:5px 9px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-link"></i> Asignar a Cliente
+                                </button>
+                                ${(c.saldoDeudaUSD <= 0 && (!c.ventasCliente || c.ventasCliente.length === 0)) ? `
+                                    <button type="button" class="btn btn-sm" onclick="eliminarRegistroHuerfano('${c.id}')" title="Eliminar registro huérfano sin deuda ni ventas" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:5px 9px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-eraser"></i> Eliminar Huérfano
+                                    </button>
+                                ` : ''}
+                            ` : `
+                                <button type="button" class="btn btn-sm" onclick="abrirModalSumarDeudaCliente('${c.id}')" title="Sumar deuda o préstamo de dinero sin afectar inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:5px 9px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-hand-holding-dollar"></i> +Deuda
+                                </button>
+                            `}
                             <button type="button" class="btn btn-sm btn-primary" onclick="verDetalleCliente('${c.id}')" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; padding:5px 10px; border-radius:8px;">
                                 <i class="fas fa-gauge"></i> Panel 360°
                             </button>
@@ -1619,6 +1889,7 @@ function renderizarClientes() {
             const nomSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.nombre || c.id) : (c.nombre || c.id);
             const telSafe = typeof escaparHtmlInventario === 'function' ? escaparHtmlInventario(c.telefono || '—') : (c.telefono || '—');
             const tieneDeuda = c.saldoDeudaUSD > 0;
+            const esFantasma = esClienteFantasma(c, usuariosList);
             const iniciales = (c.nombre || c.id || 'CL')
                 .split(' ')
                 .map(w => w[0])
@@ -1633,14 +1904,16 @@ function renderizarClientes() {
                 (c.cedula && String(u.cedula).toUpperCase() === String(c.cedula).toUpperCase()) ||
                 (c.usuarioId && String(u.id).toUpperCase() === String(c.usuarioId).toUpperCase())
             );
-            const userBadge = userVinculado 
-                ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.68rem; padding:1px 5px; border-radius:4px; font-weight:600;"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
-                : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.68rem; padding:1px 5px; border-radius:4px;"><i class="fas fa-user-clock"></i> Sin usuario</span>`;
+            const userBadge = esFantasma
+                ? `<span class="badge" style="background:rgba(217,119,6,0.12); color:#b45309; border:1px solid #fde68a; font-size:0.68rem; padding:1px 5px; border-radius:4px; font-weight:700;"><i class="fas fa-triangle-exclamation"></i> Por Corregir</span>`
+                : (userVinculado 
+                    ? `<span class="badge" style="background:rgba(22,163,74,0.1); color:#15803d; font-size:0.68rem; padding:1px 5px; border-radius:4px; font-weight:600;"><i class="fas fa-user-check"></i> Usuario: ${userVinculado.cedula}</span>`
+                    : `<span class="badge" style="background:rgba(100,116,139,0.08); color:var(--text-muted); font-size:0.68rem; padding:1px 5px; border-radius:4px;"><i class="fas fa-user-clock"></i> Sin usuario</span>`);
 
             return `
-                <div class="clientes-item-card">
+                <div class="clientes-item-card" style="${esFantasma ? 'border-color:#fde68a; background:#fffdf5;' : ''}">
                     <div class="clientes-item-top">
-                        <div class="clientes-item-avatar">
+                        <div class="clientes-item-avatar" style="${esFantasma ? 'background:#fef3c7; color:#b45309;' : ''}">
                             <span>${iniciales}</span>
                         </div>
                         <div class="clientes-item-info">
@@ -1674,9 +1947,23 @@ function renderizarClientes() {
                             <span class="val">$${c.totalCompradoUSD.toFixed(2)}</span>
                         </div>
                         <div class="clientes-item-actions">
-                            <button type="button" class="btn btn-sm" onclick="abrirModalSumarDeudaCliente('${c.id}')" title="Sumar deuda o préstamo de dinero sin afectar inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:6px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
-                                <i class="fas fa-hand-holding-dollar"></i> +Deuda
-                            </button>
+                            ${esFantasma ? `
+                                <button type="button" class="btn btn-sm" onclick="abrirModalCompletarDatosCliente('${c.id}')" title="Completar datos de cliente" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; padding:6px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-user-pen"></i> Completar
+                                </button>
+                                <button type="button" class="btn btn-sm" onclick="asignarClienteAFusion('${c.id}')" title="Asignar a cliente existente" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:6px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-link"></i> Asignar
+                                </button>
+                                ${(c.saldoDeudaUSD <= 0 && (!c.ventasCliente || c.ventasCliente.length === 0)) ? `
+                                    <button type="button" class="btn btn-sm" onclick="eliminarRegistroHuerfano('${c.id}')" title="Eliminar registro huérfano" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; padding:6px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                        <i class="fas fa-eraser"></i> Eliminar
+                                    </button>
+                                ` : ''}
+                            ` : `
+                                <button type="button" class="btn btn-sm" onclick="abrirModalSumarDeudaCliente('${c.id}')" title="Sumar deuda o préstamo de dinero sin afectar inventario" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:6px 10px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    <i class="fas fa-hand-holding-dollar"></i> +Deuda
+                                </button>
+                            `}
                             <button type="button" class="btn btn-sm btn-primary" onclick="verDetalleCliente('${c.id}')" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; padding:6px 12px; border-radius:8px;">
                                 <i class="fas fa-gauge"></i> Panel 360°
                             </button>
@@ -1987,13 +2274,24 @@ function verDetalleCliente(id, abrirModal = true) {
 
         const nombreMetodo = a.formaPago || a.metodo || 'Abono';
         const badgeMoneda = esDivisa ? ' (Divisas $)' : ' (Bs. VES)';
+        const esAjuste = !!(a.esAjusteAdministrativo || a.formaPago === 'Ajuste Administrativo' || String(a.id || '').startsWith('AJUSTE_DUPLICIDAD_') || String(a.id || '').startsWith('AJUSTE_AUDITORIA_'));
+        
+        let concepto = aprobado ? `Abono / Pago${badgeMoneda}` : `Pago (${a.estado})${badgeMoneda}`;
+        let detalle = a.referencia && a.referencia !== 'N/A' && a.referencia !== 'Sin Ref' ? `${nombreMetodo} · Ref. ${a.referencia}` : nombreMetodo;
+
+        if (esAjuste) {
+            concepto = '⚖️ Ajuste Administrativo (Anti-Duplicidad)';
+            detalle = a.nota || a.referencia || 'Conciliación contable por duplicidad de cuenta';
+        }
+
         transacciones.push({
             id: a.id,
             transaccionId: a.transaccionId || null,
             tipoOperacion: 'abono',
+            esAjusteAdministrativo: esAjuste,
             fecha: a.fecha,
-            concepto: aprobado ? `Abono / Pago${badgeMoneda}` : `Pago (${a.estado})${badgeMoneda}`,
-            detalle: a.referencia && a.referencia !== 'N/A' && a.referencia !== 'Sin Ref' ? `${nombreMetodo} · Ref. ${a.referencia}` : nombreMetodo,
+            concepto: concepto,
+            detalle: detalle,
             cargoUSD: 0,
             abonoUSD: aprobado ? montoUSD : 0,
             montoPagoVES: montoVES > 0 ? `Bs. ${Number(montoVES).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-',
@@ -2096,8 +2394,8 @@ function verDetalleCliente(id, abrirModal = true) {
                 <div class="det-tx-card">
                     <div class="det-tx-top">
                         <div class="det-tx-title-group">
-                            <div class="det-tx-icon ${esAbono ? 'det-tx-icon-abono' : (esCargoManual ? 'det-tx-icon-prestamo' : 'det-tx-icon-cargo')}">
-                                <i class="fas ${esAbono ? 'fa-hand-holding-dollar' : (esCargoManual ? 'fa-hand-holding-dollar' : 'fa-cart-shopping')}"></i>
+                            <div class="det-tx-icon ${t.esAjusteAdministrativo ? 'det-tx-icon-abono' : (esAbono ? 'det-tx-icon-abono' : (esCargoManual ? 'det-tx-icon-prestamo' : 'det-tx-icon-cargo'))}">
+                                <i class="fas ${t.esAjusteAdministrativo ? 'fa-scale-balanced' : (esAbono ? 'fa-hand-holding-dollar' : (esCargoManual ? 'fa-hand-holding-dollar' : 'fa-cart-shopping'))}"></i>
                             </div>
                             <div style="min-width:0;">
                                 <div class="det-tx-title">${t.concepto}</div>
@@ -3032,6 +3330,7 @@ window.verificarSugerenciasFusionClientes = verificarSugerenciasFusionClientes;
 
 /**
  * Abre el Modal de Fusión / Unificación de Clientes y llena los selectores
+ * Se integra tanto desde el botón global como desde la Ficha 360°
  */
 function abrirModalFusionarClientes(preselectPrincipalId = null, preselectSecundarioId = null) {
     const modal = document.getElementById('modal-fusionar-clientes');
@@ -3063,42 +3362,69 @@ function abrirModalFusionarClientes(preselectPrincipalId = null, preselectSecund
     const optionsHtml = clientesOrdenados.map(c => {
         const tieneUser = usuariosList.some(u => u.clienteId === c.id || String(u.cedula) === String(c.id) || String(u.id) === String(c.usuarioId));
         const est = calcularEstadoFinancieroCliente(c.id);
-        const tagUser = tieneUser ? ' [👤 Con Usuario]' : '';
-        const tagDeuda = est.saldoDeudaUSD > 0 ? ` [Deuda: $${est.saldoDeudaUSD.toFixed(2)}]` : '';
-        return `<option value="${c.id}">${c.nombre} (ID: ${c.id})${tagUser}${tagDeuda}</option>`;
+        const tagUser = tieneUser ? ' [👤 Con Usuario]' : (String(c.id).startsWith('CLI-') ? ' [📋 Huérfano/Libreta]' : '');
+        const tagDeuda = est.saldoDeudaUSD > 0 ? ` [Deuda: $${est.saldoDeudaUSD.toFixed(2)}]` : ' [Al Día]';
+        return `<option value="${c.id}">${c.nombre} (${c.id})${tagUser}${tagDeuda}</option>`;
     }).join('');
 
     selPrin.innerHTML = optionsHtml;
     selSec.innerHTML = optionsHtml;
 
-    // Determinar selecciones iniciales
-    if (preselectPrincipalId && lista.some(c => c.id === preselectPrincipalId)) {
+    // Determinar selecciones iniciales inteligentes
+    if (preselectPrincipalId && preselectSecundarioId) {
         selPrin.value = preselectPrincipalId;
-    } else {
-        // Por defecto: si existe Yitxel Cuenca 27611440, preseleccionarla
-        const yitxel = lista.find(c => c.id === '27611440' || c.cedula === '27611440');
-        if (yitxel) selPrin.value = yitxel.id;
-        else selPrin.value = clientesOrdenados[0].id;
-    }
-
-    if (preselectSecundarioId && lista.some(c => c.id === preselectSecundarioId)) {
         selSec.value = preselectSecundarioId;
+    } else if (preselectSecundarioId) {
+        // Viene desde la acción rápida "Asignar a Cliente Existente" con el cliente huérfano
+        selSec.value = preselectSecundarioId;
+        const principalCandidato = clientesOrdenados.find(c => c.id !== preselectSecundarioId);
+        if (principalCandidato) selPrin.value = principalCandidato.id;
+    } else if (preselectPrincipalId) {
+        // Viene desde la Ficha 360° con el ID del cliente actualmente visualizado
+        const cliTarget = lista.find(c => c.id === preselectPrincipalId);
+        const esHuerfano = cliTarget && (String(cliTarget.id).startsWith('CLI-') || !usuariosList.some(u => u.clienteId === cliTarget.id || String(u.cedula) === String(cliTarget.id)));
+
+        if (esHuerfano) {
+            // El cliente abierto es huérfano, preseleccionarlo como Origen (a ser absorbido)
+            selSec.value = cliTarget.id;
+            const principalCandidato = clientesOrdenados.find(c => c.id !== cliTarget.id);
+            if (principalCandidato) selPrin.value = principalCandidato.id;
+        } else {
+            // El cliente abierto es oficial/usuario, preseleccionarlo como Destino (a conservar)
+            selPrin.value = cliTarget.id;
+            const huerfanoCandidato = clientesOrdenados.find(c => c.id !== cliTarget.id && String(c.id).startsWith('CLI-')) ||
+                                     clientesOrdenados.find(c => c.id !== cliTarget.id);
+            if (huerfanoCandidato) selSec.value = huerfanoCandidato.id;
+        }
     } else {
-        // Por defecto: si existe Yixel CLI-025, preseleccionarla como secundario
+        // Sugerencia por defecto: si existen Yitxel / Yixel
+        const yitxel = lista.find(c => c.id === '27611440' || c.cedula === '27611440');
         const yixel = lista.find(c => c.id === 'CLI-025' || (c.nombre && c.nombre.trim().toUpperCase() === 'YIXEL'));
-        if (yixel && yixel.id !== selPrin.value) {
+        if (yitxel && yixel && yitxel.id !== yixel.id) {
+            selPrin.value = yitxel.id;
             selSec.value = yixel.id;
         } else {
-            // Primer cliente diferente del principal
+            selPrin.value = clientesOrdenados[0].id;
             const otro = clientesOrdenados.find(c => c.id !== selPrin.value);
             if (otro) selSec.value = otro.id;
         }
     }
 
+    // Por defecto marcar Opción A (Es la misma deuda - Registro duplicado)
+    const optMisma = document.getElementById('fusion-opt-misma');
+    if (optMisma) optMisma.checked = true;
+    const basePrin = document.getElementById('fusion-base-prin');
+    if (basePrin) basePrin.checked = true;
+
     alCambiarSeleccionFusion();
     modal.style.display = 'flex';
 }
 window.abrirModalFusionarClientes = abrirModalFusionarClientes;
+
+function asignarClienteAFusion(clienteId) {
+    abrirModalFusionarClientes(null, clienteId);
+}
+window.asignarClienteAFusion = asignarClienteAFusion;
 
 function cerrarModalFusionarClientes() {
     const modal = document.getElementById('modal-fusionar-clientes');
@@ -3107,7 +3433,21 @@ function cerrarModalFusionarClientes() {
 window.cerrarModalFusionarClientes = cerrarModalFusionarClientes;
 
 /**
- * Actualiza las tarjetas y la vista previa en vivo al cambiar la selección en el modal
+ * Intercambia el rol de Cliente Origen y Cliente Destino en 1 solo clic
+ */
+function intercambiarClientesFusion() {
+    const selPrin = document.getElementById('fusion-cliente-principal');
+    const selSec = document.getElementById('fusion-cliente-secundario');
+    if (!selPrin || !selSec) return;
+    const temp = selPrin.value;
+    selPrin.value = selSec.value;
+    selSec.value = temp;
+    alCambiarSeleccionFusion();
+}
+window.intercambiarClientesFusion = intercambiarClientesFusion;
+
+/**
+ * Actualiza tarjetas de clientes y recalcula opciones cuando cambia la selección de clientes
  */
 function alCambiarSeleccionFusion() {
     const selPrin = document.getElementById('fusion-cliente-principal');
@@ -3124,12 +3464,11 @@ function alCambiarSeleccionFusion() {
 
     const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
     const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
-    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
 
     if (idPrin === idSec) {
-        cardPrin.innerHTML = `<span style="color:#dc2626; font-weight:700;">No puedes fusionar un cliente consigo mismo. Selecciona un cliente diferente.</span>`;
+        cardPrin.innerHTML = `<span style="color:#dc2626; font-weight:700;">No puedes fusionar un cliente consigo mismo.</span>`;
         cardSec.innerHTML = `<span style="color:#dc2626; font-weight:700;">Selecciona un cliente secundario diferente.</span>`;
-        previewRes.innerHTML = `<div style="color:#dc2626; font-weight:700; text-align:center;">Por favor selecciona dos clientes distintos.</div>`;
+        previewRes.innerHTML = `<div style="color:#dc2626; font-weight:700; text-align:center; padding:12px;">Por favor selecciona dos clientes distintos.</div>`;
         if (btnConfirmar) btnConfirmar.disabled = true;
         return;
     }
@@ -3147,7 +3486,7 @@ function alCambiarSeleccionFusion() {
     const userPrin = usuariosList.find(u => u.clienteId === cliPrin.id || String(u.cedula) === String(cliPrin.id) || String(u.id) === String(cliPrin.usuarioId));
     const userSec = usuariosList.find(u => u.clienteId === cliSec.id || String(u.cedula) === String(cliSec.id) || String(u.id) === String(cliSec.usuarioId));
 
-    // Renderizar Card Principal
+    // Renderizar Card Principal (Destino / Conservado)
     cardPrin.innerHTML = `
         <div style="background:#fff; border:1px solid #e0e7ff; border-radius:8px; padding:8px 10px;">
             <div style="font-weight:700; color:#1e1b4b; font-size:0.9rem;">${cliPrin.nombre}</div>
@@ -3161,13 +3500,13 @@ function alCambiarSeleccionFusion() {
                     Comprado: $${estPrin.totalCompradoUSD.toFixed(2)}
                 </span>
                 <span class="badge" style="background:${estPrin.saldoDeudaUSD > 0 ? '#fee2e2' : '#f0fdf4'}; color:${estPrin.saldoDeudaUSD > 0 ? '#b91c1c' : '#15803d'}; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
-                    Deuda: $${estPrin.saldoDeudaUSD.toFixed(2)}
+                    Deuda actual: $${estPrin.saldoDeudaUSD.toFixed(2)}
                 </span>
             </div>
         </div>
     `;
 
-    // Renderizar Card Secundario
+    // Renderizar Card Secundario (Origen / Huérfano a absorber)
     cardSec.innerHTML = `
         <div style="background:#fff; border:1px solid #ffedd5; border-radius:8px; padding:8px 10px;">
             <div style="font-weight:700; color:#7c2d12; font-size:0.9rem;">${cliSec.nombre}</div>
@@ -3175,37 +3514,177 @@ function alCambiarSeleccionFusion() {
             <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                 ${userSec 
                     ? `<span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;"><i class="fas fa-user-check"></i> Usuario: ${userSec.cedula || userSec.id}</span>`
-                    : `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.72rem; padding:2px 6px; border-radius:4px;"><i class="fas fa-user-slash"></i> Sin Usuario</span>`
+                    : `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.72rem; padding:2px 6px; border-radius:4px;"><i class="fas fa-user-slash"></i> Huérfano</span>`
                 }
                 <span class="badge" style="background:#fff7ed; color:#c2410c; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
-                    Aportará Compras: $${estSec.totalCompradoUSD.toFixed(2)}
+                    Compras a transferir: $${estSec.totalCompradoUSD.toFixed(2)}
                 </span>
                 <span class="badge" style="background:${estSec.saldoDeudaUSD > 0 ? '#fee2e2' : '#f0fdf4'}; color:${estSec.saldoDeudaUSD > 0 ? '#b91c1c' : '#15803d'}; font-size:0.72rem; padding:2px 6px; border-radius:4px; font-weight:700;">
-                    Aportará Deuda: $${estSec.saldoDeudaUSD.toFixed(2)}
+                    Deuda registrada: $${estSec.saldoDeudaUSD.toFixed(2)}
                 </span>
             </div>
         </div>
     `;
 
-    // Calcular resultado unificado respetando opción de transferir o no la deuda
-    const chkTransferir = document.getElementById('fusion-transferir-deuda');
-    const transferirDeuda = chkTransferir ? chkTransferir.checked : true;
-    const deudaSecundaria = transferirDeuda ? estSec.saldoDeudaUSD : 0;
+    // Actualizar etiquetas en las 3 opciones de conciliación
+    const lblPrin = document.getElementById('lbl-fusion-base-prin');
+    if (lblPrin) lblPrin.textContent = `${cliPrin.nombre} ($${estPrin.saldoDeudaUSD.toFixed(2)})`;
+
+    const lblSec = document.getElementById('lbl-fusion-base-sec');
+    if (lblSec) lblSec.textContent = `${cliSec.nombre} ($${estSec.saldoDeudaUSD.toFixed(2)})`;
+
+    const txtAcumular = document.getElementById('fusion-txt-acumular-monto');
+    if (txtAcumular) {
+        txtAcumular.textContent = `$${estPrin.saldoDeudaUSD.toFixed(2)} + $${estSec.saldoDeudaUSD.toFixed(2)} = $${(estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2)}`;
+    }
+
+    const inputManual = document.getElementById('fusion-monto-manual');
+    if (inputManual && !inputManual.value) {
+        inputManual.value = estPrin.saldoDeudaUSD.toFixed(2);
+    }
+
+    alCambiarOpcionDeudaFusion();
+}
+window.alCambiarSeleccionFusion = alCambiarSeleccionFusion;
+
+/**
+ * Gestiona el comportamiento visual e interactivo de las 3 opciones de saldo y deuda
+ */
+function alCambiarOpcionDeudaFusion() {
+    const selPrin = document.getElementById('fusion-cliente-principal');
+    const selSec = document.getElementById('fusion-cliente-secundario');
+    const previewRes = document.getElementById('fusion-preview-resultado');
+    if (!selPrin || !selSec || !previewRes) return;
+
+    const idPrin = selPrin.value;
+    const idSec = selSec.value;
+    if (idPrin === idSec) return;
+
+    const lista = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
+    const cliPrin = lista.find(c => c.id === idPrin);
+    const cliSec = lista.find(c => c.id === idSec);
+    if (!cliPrin || !cliSec) return;
+
+    const estPrin = calcularEstadoFinancieroCliente(idPrin);
+    const estSec = calcularEstadoFinancieroCliente(idSec);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
+
+    // Obtener la opción de conciliación seleccionada
+    const radiosModo = document.getElementsByName('fusion-modo-deuda');
+    let modoDeuda = 'misma_deuda';
+    for (const r of radiosModo) {
+        if (r.checked) {
+            modoDeuda = r.value;
+            break;
+        }
+    }
+
+    // Estilos visuales activos para las tarjetas de opción
+    const lblMisma = document.getElementById('lbl-fusion-opt-misma');
+    const lblAcumular = document.getElementById('lbl-fusion-opt-acumular');
+    const lblManual = document.getElementById('lbl-fusion-opt-manual');
+    const containerManual = document.getElementById('fusion-input-manual-container');
+
+    if (lblMisma) {
+        lblMisma.style.borderColor = modoDeuda === 'misma_deuda' ? '#2563eb' : '#cbd5e1';
+        lblMisma.style.background = modoDeuda === 'misma_deuda' ? '#eff6ff' : '#ffffff';
+    }
+    if (lblAcumular) {
+        lblAcumular.style.borderColor = modoDeuda === 'acumular' ? '#ea580c' : '#cbd5e1';
+        lblAcumular.style.background = modoDeuda === 'acumular' ? '#fff7ed' : '#ffffff';
+    }
+    if (lblManual) {
+        lblManual.style.borderColor = modoDeuda === 'manual' ? '#7c3aed' : '#cbd5e1';
+        lblManual.style.background = modoDeuda === 'manual' ? '#faf5ff' : '#ffffff';
+    }
+
+    if (containerManual) {
+        containerManual.style.display = modoDeuda === 'manual' ? 'flex' : 'none';
+    }
+
+    let deudaFinalUSD = 0;
+    let deudaDuplicadaEvitadaUSD = 0;
+    let explicacionContableHtml = '';
+
+    if (modoDeuda === 'misma_deuda') {
+        const baseRadio = document.querySelector('input[name="fusion-base-misma"]:checked')?.value || 'principal';
+        deudaFinalUSD = baseRadio === 'secundario' ? estSec.saldoDeudaUSD : estPrin.saldoDeudaUSD;
+        deudaDuplicadaEvitadaUSD = Math.max(0, (estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD) - deudaFinalUSD);
+
+        const txtMisma = document.getElementById('fusion-txt-misma-monto');
+        if (txtMisma) txtMisma.textContent = `$${deudaFinalUSD.toFixed(2)}`;
+
+        explicacionContableHtml = `
+            <div style="margin-top:10px; padding:10px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; color:#1e40af; font-size:0.83rem; line-height:1.45;">
+                <div style="font-weight:800; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-shield-check" style="color:#2563eb;"></i> Protección Anti-Duplicidad Activada
+                </div>
+                <div style="margin-top:3px;">
+                    Se mantiene el saldo único de <strong>$${deudaFinalUSD.toFixed(2)}</strong>. 
+                    ${deudaDuplicadaEvitadaUSD > 0 
+                        ? `<span style="color:#15803d; font-weight:700;">Se cancelará la deuda duplicada fantasma de $${deudaDuplicadaEvitadaUSD.toFixed(2)}</span> mediante un movimiento de ajuste administrativo por duplicidad para cuadrar exactamente el historial.`
+                        : `Ambas deudas concuerdan. No se inflará el cobro.`
+                    }
+                </div>
+            </div>
+        `;
+    } else if (modoDeuda === 'acumular') {
+        deudaFinalUSD = estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD;
+        explicacionContableHtml = `
+            <div style="margin-top:10px; padding:10px 14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; color:#9a3412; font-size:0.83rem; line-height:1.45;">
+                <div style="font-weight:800; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-plus-circle" style="color:#ea580c;"></i> Deudas Acumuladas (Ventas Separadas)
+                </div>
+                <div style="margin-top:3px;">
+                    Has confirmado que ambas deudas corresponden a compras distintas en momentos diferentes. Se acumulará un saldo consolidado de <strong>$${deudaFinalUSD.toFixed(2)}</strong>.
+                </div>
+            </div>
+        `;
+    } else if (modoDeuda === 'manual') {
+        const inputManual = document.getElementById('fusion-monto-manual');
+        const val = parseFloat(inputManual?.value);
+        deudaFinalUSD = isNaN(val) || val < 0 ? 0 : Number(val.toFixed(2));
+
+        const vesSpan = document.getElementById('fusion-monto-manual-ves');
+        if (vesSpan) {
+            vesSpan.textContent = `Equiv: Bs. ${tasa > 0 ? (deudaFinalUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}`;
+        }
+
+        const saldoCombinado = estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD;
+        const ajusteManual = saldoCombinado - deudaFinalUSD;
+
+        explicacionContableHtml = `
+            <div style="margin-top:10px; padding:10px 14px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:10px; color:#6b21a8; font-size:0.83rem; line-height:1.45;">
+                <div style="font-weight:800; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-pen-to-square" style="color:#7c3aed;"></i> Deuda Acordada Según Libreta
+                </div>
+                <div style="margin-top:3px;">
+                    Se fijará la deuda final exactamente en <strong>$${deudaFinalUSD.toFixed(2)}</strong>. 
+                    ${ajusteManual !== 0 
+                        ? `Se registrará un ajuste de ${ajusteManual > 0 ? `-$${ajusteManual.toFixed(2)}` : `+$${Math.abs(ajusteManual).toFixed(2)}`} en el historial para conciliar con el cuaderno físico.`
+                        : `El monto coincide con la suma de saldos.`
+                    }
+                </div>
+            </div>
+        `;
+    }
 
     const totalCompradoConsolidado = (estPrin.totalCompradoUSD + estSec.totalCompradoUSD).toFixed(2);
-    const deudaConsolidada = (estPrin.saldoDeudaUSD + deudaSecundaria).toFixed(2);
-    const deudaVES = (Number(deudaConsolidada) * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const deudaVES = (Number(deudaFinalUSD) * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const ventasTransferir = estSec.ventasCliente.length;
     const abonosTransferir = estSec.abonosCliente.length;
 
     previewRes.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
             <div>
                 <strong style="color:#15803d; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
                     <i class="fas fa-chart-line"></i> Resultado Consolidado para: "${cliPrin.nombre}"
                 </strong>
                 <div style="font-size:0.82rem; color:#166534; margin-top:4px;">
-                    Se reasignarán <strong>${ventasTransferir} compras/ventas</strong> y <strong>${abonosTransferir} pagos/abonos</strong> del registro secundario.
+                    Se reasignarán <strong>${ventasTransferir} compras/ventas</strong> y <strong>${abonosTransferir} pagos/abonos</strong> del cliente huérfano "${cliSec.nombre}".
+                </div>
+                <div style="font-size:0.78rem; color:#475569; margin-top:2px;">
+                    El registro huérfano <strong>${cliSec.nombre} (${cliSec.id})</strong> se retirará del directorio activo.
                 </div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -3213,19 +3692,20 @@ function alCambiarSeleccionFusion() {
                     <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Total Comprado Final</span>
                     <strong style="font-size:1.1rem; color:#15803d;">$${totalCompradoConsolidado}</strong>
                 </div>
-                <div style="background:#fff; border:1px solid ${deudaConsolidada > 0 ? '#fecaca' : '#bbf7d0'}; border-radius:8px; padding:6px 12px; text-align:center;">
+                <div style="background:#fff; border:1px solid ${deudaFinalUSD > 0 ? '#fecaca' : '#bbf7d0'}; border-radius:8px; padding:6px 12px; text-align:center;">
                     <span style="font-size:0.72rem; color:var(--text-muted); display:block;">Nueva Deuda Consolidada</span>
-                    <strong style="font-size:1.1rem; color:${deudaConsolidada > 0 ? '#dc2626' : '#15803d'};">$${deudaConsolidada}</strong>
-                    <small style="font-size:0.72rem; color:${deudaConsolidada > 0 ? '#dc2626' : '#15803d'}; display:block;">Bs. ${deudaVES}</small>
+                    <strong style="font-size:1.1rem; color:${deudaFinalUSD > 0 ? '#dc2626' : '#15803d'};">$${deudaFinalUSD.toFixed(2)}</strong>
+                    <small style="font-size:0.72rem; color:${deudaFinalUSD > 0 ? '#dc2626' : '#15803d'}; display:block;">Bs. ${deudaVES}</small>
                 </div>
             </div>
         </div>
+        ${explicacionContableHtml}
     `;
 }
-window.alCambiarSeleccionFusion = alCambiarSeleccionFusion;
+window.alCambiarOpcionDeudaFusion = alCambiarOpcionDeudaFusion;
 
 /**
- * Ejecuta la fusión integral de dos clientes, consolidando deudas, ventas, abonos y cuentas.
+ * Ejecuta la fusión integral de dos clientes, consolidando compras, abonos y controlando el saldo exacto
  */
 async function ejecutarFusionClientes() {
     const selPrin = document.getElementById('fusion-cliente-principal');
@@ -3251,30 +3731,58 @@ async function ejecutarFusionClientes() {
 
     const estPrin = calcularEstadoFinancieroCliente(idPrin);
     const estSec = calcularEstadoFinancieroCliente(idSec);
+    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1));
 
-    const chkTransferir = document.getElementById('fusion-transferir-deuda');
-    const transferirDeuda = chkTransferir ? chkTransferir.checked : true;
-    const deudaSecundariaATransferir = transferirDeuda
-        ? Number(estSec.saldoDeudaUSD || cliSec.deudaUSD || cliSec.deudaInicialUSD || 0)
-        : 0;
-    const deudaFinal = (estPrin.saldoDeudaUSD + deudaSecundariaATransferir).toFixed(2);
+    // Determinar modo de saldo y deuda acordada
+    const radiosModo = document.getElementsByName('fusion-modo-deuda');
+    let modoDeuda = 'misma_deuda';
+    for (const r of radiosModo) {
+        if (r.checked) {
+            modoDeuda = r.value;
+            break;
+        }
+    }
+
+    let deudaObjetivoUSD = 0;
+    let descripcionModo = '';
+
+    if (modoDeuda === 'misma_deuda') {
+        const baseRadio = document.querySelector('input[name="fusion-base-misma"]:checked')?.value || 'principal';
+        deudaObjetivoUSD = baseRadio === 'secundario' ? estSec.saldoDeudaUSD : estPrin.saldoDeudaUSD;
+        descripcionModo = `Es la misma deuda (Registro duplicado). Saldo único conservado: $${deudaObjetivoUSD.toFixed(2)}`;
+    } else if (modoDeuda === 'acumular') {
+        deudaObjetivoUSD = Number((estPrin.saldoDeudaUSD + estSec.saldoDeudaUSD).toFixed(2));
+        descripcionModo = `Son deudas distintas (Acumular ambas). Saldo consolidado: $${deudaObjetivoUSD.toFixed(2)}`;
+    } else if (modoDeuda === 'manual') {
+        const inputManual = document.getElementById('fusion-monto-manual');
+        const val = parseFloat(inputManual?.value);
+        deudaObjetivoUSD = isNaN(val) || val < 0 ? 0 : Number(val.toFixed(2));
+        descripcionModo = `Ajuste manual convenido según libreta física: $${deudaObjetivoUSD.toFixed(2)}`;
+    }
 
     let confirmado = false;
-    const mensajeConfirm = `¿Confirmas fusionar la cuenta de "${cliSec.nombre}" (${cliSec.id}) dentro de "${cliPrin.nombre}" (${cliPrin.id})?\n\n• Deuda a transferir: $${deudaSecundariaATransferir.toFixed(2)}${!transferirDeuda ? ' (Desmarcado: ya fue pagada)' : ''}.\n• La nueva deuda total consolidada será de $${deudaFinal}.\n• Todas las ventas y abonos se conservarán y se transferirán a ${cliPrin.nombre}.\n• El registro duplicado "${cliSec.nombre}" se retirará del directorio activo.`;
+    const mensajeConfirm = `¿Confirmas fusionar la cuenta de "${cliSec.nombre}" (${cliSec.id}) dentro de "${cliPrin.nombre}" (${cliPrin.id})?\n\n` +
+        `• Modalidad de Saldo: ${descripcionModo}\n` +
+        `• Deuda actual de ${cliPrin.nombre}: $${estPrin.saldoDeudaUSD.toFixed(2)}\n` +
+        `• Deuda registrada en ${cliSec.nombre}: $${estSec.saldoDeudaUSD.toFixed(2)}\n` +
+        `• Deuda final resultante: $${deudaObjetivoUSD.toFixed(2)}\n` +
+        `• Todas las compras (${estSec.ventasCliente.length}) y abonos (${estSec.abonosCliente.length}) se transferirán a ${cliPrin.nombre}.\n` +
+        `• El registro huérfano "${cliSec.nombre}" se retirará del directorio activo.`;
 
     if (typeof showCustomConfirm === 'function') {
         confirmado = await showCustomConfirm(
-            'Confirmar Fusión de Clientes',
+            'Confirmar Fusión y Conciliación de Cuentas',
             `<div style="text-align:left; font-size:0.9rem; line-height:1.5;">
                 <p>¿Estás seguro de fusionar <strong>${cliSec.nombre} (${cliSec.id})</strong> dentro de <strong>${cliPrin.nombre} (${cliPrin.id})</strong>?</p>
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:10px 0;">
-                    <div>💵 <strong>Deuda a transferir:</strong> ${deudaSecundariaATransferir > 0 ? `+$${deudaSecundariaATransferir.toFixed(2)}` : '<span style="color:#15803d; font-weight:700;">$0.00 (Ya pagada / Sin deuda)</span>'}</div>
-                    <div>📦 <strong>Compras a transferir:</strong> ${estSec.ventasCliente.length} ventas ($${estSec.totalCompradoUSD.toFixed(2)})</div>
-                    <div style="color:${deudaFinal > 0 ? '#dc2626' : '#15803d'}; font-weight:700; margin-top:6px; font-size:1rem;">
-                        ${deudaFinal > 0 ? `🔴 Deuda Final Consolidada: $${deudaFinal}` : '🟢 Cuenta Solvente y Al Día: $0.00'}
+                    <div style="color:#1e40af; font-weight:700;">⚖️ <strong>Criterio de Deuda:</strong> ${descripcionModo}</div>
+                    <div style="margin-top:4px;">📦 <strong>Compras a transferir:</strong> ${estSec.ventasCliente.length} ventas ($${estSec.totalCompradoUSD.toFixed(2)})</div>
+                    <div>💳 <strong>Abonos a transferir:</strong> ${estSec.abonosCliente.length} pagos ($${estSec.totalAbonadoUSD.toFixed(2)})</div>
+                    <div style="color:${deudaObjetivoUSD > 0 ? '#dc2626' : '#15803d'}; font-weight:700; margin-top:6px; font-size:1.05rem; border-top:1px dashed #cbd5e1; padding-top:6px;">
+                        ${deudaObjetivoUSD > 0 ? `🔴 Deuda Final Consolidada: $${deudaObjetivoUSD.toFixed(2)} (Bs. ${(deudaObjetivoUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : '🟢 Cuenta Solvente y Al Día: $0.00'}
                     </div>
                 </div>
-                <small style="color:var(--text-muted);">Esta acción es irreversible y garantiza la exactitud de los saldos.</small>
+                <small style="color:var(--text-muted);">Esta acción es irreversible, cuadra perfectamente el saldo y retira el registro duplicado del directorio.</small>
             </div>`,
             'warning'
         );
@@ -3295,7 +3803,7 @@ async function ejecutarFusionClientes() {
         String(cliSec.nombre || '').trim().toUpperCase()
     ].filter(Boolean));
 
-    // 2. Reasignar Ventas
+    // 2. Reasignar Ventas del cliente secundario al cliente principal
     const ventasList = Array.isArray(ventas) ? ventas : (AppState.ventas || []);
     const ventasModificadas = [];
 
@@ -3313,7 +3821,7 @@ async function ejecutarFusionClientes() {
         }
     });
 
-    // 3. Reasignar Abonos
+    // 3. Reasignar Abonos del cliente secundario al cliente principal
     const abonosList = Array.isArray(abonos) ? abonos : (AppState.abonos || []);
     const abonosModificados = [];
 
@@ -3331,7 +3839,7 @@ async function ejecutarFusionClientes() {
         }
     });
 
-    // 4. Reasignar Transacciones
+    // 4. Reasignar Transacciones en AppState.transacciones
     const txList = Array.isArray(AppState.transacciones) ? AppState.transacciones : [];
     txList.forEach(t => {
         if (!t) return;
@@ -3371,43 +3879,6 @@ async function ejecutarFusionClientes() {
     if (!cliPrin.email && cliSec.email) cliPrin.email = cliSec.email;
     if (!cliPrin.usuarioId && cliSec.usuarioId) cliPrin.usuarioId = cliSec.usuarioId;
 
-    // Transferir o crear venta de crédito para la deuda del cliente secundario (si el admin confirmó transferirla)
-    const tieneVentaFiadoSec = ventasModificadas.some(v => v.id && String(v.id).startsWith('V_FIADO_'));
-    if (deudaSecundariaATransferir > 0 && !tieneVentaFiadoSec) {
-        const ventaCreditoTransferida = {
-            id: `V_FIADO_${cliSec.id}_FUSION`,
-            clienteId: cliPrin.id,
-            clienteNombre: cliPrin.nombre,
-            clienteCedula: cliPrin.cedula || cliPrin.id,
-            usuarioId: cliPrin.usuarioId || null,
-            vendedorId: 'ADMIN',
-            vendedorNombre: 'Josna / Administración',
-            fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            items: [
-                {
-                    productoId: 'SALDO_INICIAL',
-                    nombre: `Saldo pendiente consolidado (${cliSec.nombre} - ${cliSec.id})`,
-                    cantidad: 1,
-                    precio: Number(deudaSecundariaATransferir.toFixed(2)),
-                    costo: 0,
-                    subtotal: Number(deudaSecundariaATransferir.toFixed(2))
-                }
-            ],
-            total: Number(deudaSecundariaATransferir.toFixed(2)),
-            totalUSD: Number(deudaSecundariaATransferir.toFixed(2)),
-            tipo: 'Crédito',
-            tipoPago: 'Crédito',
-            metodoDetalle: 'Crédito (Transferencia por unificación)',
-            referencia: `Saldo transferido por fusión de cuenta ${cliSec.nombre} (${cliSec.id})`,
-            estado: 'PENDIENTE',
-            confirmada: false
-        };
-        ventasList.unshift(ventaCreditoTransferida);
-        ventasModificadas.push(ventaCreditoTransferida);
-        cliPrin.deudaInicialUSD = Number((Number(cliPrin.deudaInicialUSD || 0) + deudaSecundariaATransferir).toFixed(2));
-        cliPrin.deudaUSD = Number((Number(cliPrin.deudaUSD || 0) + deudaSecundariaATransferir).toFixed(2));
-    }
-
     // 7. Actualizar vinculación de usuarios
     const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
     usuariosList.forEach(u => {
@@ -3416,32 +3887,165 @@ async function ejecutarFusionClientes() {
             u.clienteId = cliPrin.id;
             u.clienteVinculado = cliPrin.nombre;
         }
-        if (u.clienteId === cliPrin.id || (cliPrin.cedula && u.cedula === cliPrin.cedula)) {
-            u.clienteId = cliPrin.id;
-            u.clienteVinculado = cliPrin.nombre;
-        }
     });
 
-    // 8. Registrar en historial de clientes fusionados
+    // 8. CONCILIACIÓN MATEMÁTICA Y CUADRATURA DE SALDO:
+    // Calcular el balance que arrojan los movimientos transferidos
+    const fechaAjuste = typeof obtenerFechaHoraLocal === 'function' 
+        ? obtenerFechaHoraLocal() 
+        : new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+    const estadoPostTransferencia = calcularEstadoFinancieroCliente(cliPrin.id);
+    const saldoPostTransferencia = Number(estadoPostTransferencia.saldoDeudaUSD || 0);
+    const diferencia = Number((saldoPostTransferencia - deudaObjetivoUSD).toFixed(2));
+
+    let ajusteRegistrado = null;
+
+    if (diferencia > 0.005) {
+        // La suma de cargos supera la deuda acordada (ej: registro duplicado o ajuste manual a la baja)
+        // Se registra un abono / movimiento de ajuste administrativo por duplicidad
+        ajusteRegistrado = {
+            id: `AJUSTE_DUPLICIDAD_${cliSec.id}_${Date.now()}`,
+            clienteId: cliPrin.id,
+            clienteNombre: cliPrin.nombre,
+            clienteCedula: cliPrin.cedula || cliPrin.id,
+            usuarioId: cliPrin.usuarioId || null,
+            fecha: fechaAjuste,
+            formaPago: 'Ajuste Administrativo',
+            metodo: 'Ajuste Administrativo',
+            montoUSD: diferencia,
+            montoVES: tasa > 0 ? Number((diferencia * tasa).toFixed(2)) : 0,
+            monto: diferencia,
+            moneda: 'USD',
+            estado: 'Confirmado',
+            referencia: modoDeuda === 'misma_deuda' 
+                ? `Conciliación Duplicidad (${cliSec.nombre} / ${cliSec.id})`
+                : `Ajuste Libreta (${cliSec.nombre} / ${cliSec.id})`,
+            nota: modoDeuda === 'misma_deuda'
+                ? `Ajuste administrativo por duplicidad al unificar con cuenta huérfana "${cliSec.nombre}" (${cliSec.id}). Se anuló deuda fantasma de $${diferencia.toFixed(2)}.`
+                : `Ajuste administrativo acordado según libreta al unificar con "${cliSec.nombre}" (${cliSec.id}). Descuento de $${diferencia.toFixed(2)}.`,
+            esAjusteAdministrativo: true,
+            motivo: modoDeuda === 'misma_deuda' ? 'FUSIÓN_DUPLICIDAD' : 'FUSIÓN_CONVENIO'
+        };
+
+        if (!Array.isArray(AppState.abonos)) AppState.abonos = [];
+        AppState.abonos.push(ajusteRegistrado);
+        if (typeof abonos !== 'undefined' && abonos !== AppState.abonos) abonos.push(ajusteRegistrado);
+        abonosModificados.push(ajusteRegistrado);
+
+    } else if (diferencia < -0.005) {
+        // La deuda acordada es mayor al saldo actual (ej: fiado libreta inicial sin venta)
+        const faltanteUSD = Math.abs(diferencia);
+        const cargoAjuste = {
+            id: `V_FIADO_${cliSec.id}_FUSION`,
+            clienteId: cliPrin.id,
+            clienteNombre: cliPrin.nombre,
+            clienteCedula: cliPrin.cedula || cliPrin.id,
+            usuarioId: cliPrin.usuarioId || null,
+            vendedorId: 'ADMIN',
+            vendedorNombre: 'Josna / Administración',
+            fecha: fechaAjuste,
+            items: [
+                {
+                    productoId: modoDeuda === 'acumular' ? 'SALDO_INICIAL' : 'CARGO_MANUAL',
+                    nombre: modoDeuda === 'acumular' 
+                        ? `Saldo fiado consolidado (${cliSec.nombre} - ${cliSec.id})`
+                        : `Ajuste manual de deuda acordada (Fusión ${cliSec.nombre} - ${cliSec.id})`,
+                    cantidad: 1,
+                    precio: faltanteUSD,
+                    costo: 0,
+                    subtotal: faltanteUSD
+                }
+            ],
+            total: faltanteUSD,
+            totalUSD: faltanteUSD,
+            tipo: 'Crédito',
+            tipoPago: 'Crédito',
+            metodoPago: 'Crédito',
+            esCredito: true,
+            metodoDetalle: 'Crédito (Ajuste por Fusión)',
+            referencia: `Saldo consolidado al unificar cuenta ${cliSec.nombre} (${cliSec.id})`,
+            estado: 'PENDIENTE',
+            confirmada: false
+        };
+
+        if (!Array.isArray(AppState.ventas)) AppState.ventas = [];
+        AppState.ventas.unshift(cargoAjuste);
+        if (typeof ventas !== 'undefined' && ventas !== AppState.ventas) ventas.unshift(cargoAjuste);
+        ventasModificadas.push(cargoAjuste);
+    } else if (modoDeuda === 'misma_deuda' && estSec.saldoDeudaUSD > 0 && !ajusteRegistrado) {
+        // Registro formal de conciliación en abonos para justificar auditoría contable
+        const ajusteAuditoria = {
+            id: `AJUSTE_AUDITORIA_${cliSec.id}_${Date.now()}`,
+            clienteId: cliPrin.id,
+            clienteNombre: cliPrin.nombre,
+            clienteCedula: cliPrin.cedula || cliPrin.id,
+            usuarioId: cliPrin.usuarioId || null,
+            fecha: fechaAjuste,
+            formaPago: 'Ajuste Administrativo',
+            metodo: 'Ajuste Administrativo',
+            montoUSD: 0,
+            montoVES: 0,
+            monto: 0,
+            moneda: 'USD',
+            estado: 'Confirmado',
+            referencia: `Conciliación Duplicidad (${cliSec.nombre} / ${cliSec.id})`,
+            nota: `Conciliación auditada: La deuda de $${estSec.saldoDeudaUSD.toFixed(2)} de la cuenta huérfana "${cliSec.nombre}" (${cliSec.id}) corresponde a la misma deuda principal de ${cliPrin.nombre}. Saldo unificado sin duplicación.`,
+            esAjusteAdministrativo: true,
+            motivo: 'FUSIÓN_DUPLICIDAD'
+        };
+        if (!Array.isArray(AppState.abonos)) AppState.abonos = [];
+        AppState.abonos.push(ajusteAuditoria);
+        if (typeof abonos !== 'undefined' && abonos !== AppState.abonos) abonos.push(ajusteAuditoria);
+        abonosModificados.push(ajusteAuditoria);
+    }
+
+    // Actualizar deudas en el objeto del cliente principal
+    cliPrin.deudaUSD = deudaObjetivoUSD;
+    cliPrin.saldoDeudaUSD = deudaObjetivoUSD;
+
+    // 9. Registrar en historial de auditoría de clientes fusionados
     if (!Array.isArray(AppState.clientesFusionados)) AppState.clientesFusionados = [];
     AppState.clientesFusionados.push({
         idOrigen: cliSec.id,
         nombreOrigen: cliSec.nombre,
         idDestino: cliPrin.id,
         nombreDestino: cliPrin.nombre,
-        deudaTransferidaUSD: deudaSecundariaATransferir,
+        modoDeuda: modoDeuda,
+        deudaPreviaOrigenUSD: estSec.saldoDeudaUSD,
+        deudaPreviaDestinoUSD: estPrin.saldoDeudaUSD,
+        deudaFinalConsolidadaUSD: deudaObjetivoUSD,
+        deudaTransferidaUSD: 0, // Saldo consolidado y cuadrado directamente en ventas y abonos
+        ajusteDuplicidadUSD: diferencia > 0 ? diferencia : 0,
         comprasTransferidasUSD: estSec.totalCompradoUSD,
         fecha: new Date().toISOString()
     });
 
-    // 9. Quitar al cliente secundario del directorio activo y asegurar presencia del cliente principal
-    AppState.clientes = lista.filter(c => c.id !== cliSec.id);
+    // 10. Inactivar y retirar al cliente huérfano secundario del directorio activo
+    AppState.clientes = (AppState.clientes || []).filter(c => c.id !== cliSec.id);
     if (!AppState.clientes.some(c => c.id === cliPrin.id)) {
         AppState.clientes.push(cliPrin);
     }
-    if (typeof clientes !== 'undefined') clientes = AppState.clientes;
+    clientes = AppState.clientes;
 
-    // 10. Persistencia local y en la nube Firestore
+    // Registrar en clientes inactivos/eliminados con motivo formal de fusión
+    if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
+    AppState.clientesEliminados.push({
+        id: cliSec.id,
+        nombre: cliSec.nombre,
+        telefono: cliSec.telefono || '',
+        fecha: fechaAjuste,
+        deudaUSD: estSec.saldoDeudaUSD,
+        perdidaUSD: 0,
+        motivo: `FUSIÓN / UNIFICACIÓN en cuenta de ${cliPrin.nombre} (${cliPrin.id}) - Modo: ${modoDeuda}`,
+        fusionadoEn: cliPrin.id,
+        esDuplicadoOError: true
+    });
+    if (typeof clientesEliminados !== 'undefined' && clientesEliminados !== AppState.clientesEliminados) {
+        clientesEliminados.push(AppState.clientesEliminados[AppState.clientesEliminados.length - 1]);
+    }
+
+    // 11. Persistencia local y en Firestore
     if (window.InventoryApp && window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -3457,7 +4061,7 @@ async function ejecutarFusionClientes() {
                     motivo: 'FUSIÓN / UNIFICACIÓN',
                     nombre: cliSec.nombre,
                     fusionadoEn: cliPrin.id,
-                    fecha: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                    fecha: fechaAjuste
                 }).catch(() => {});
             }
             if (typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
@@ -3466,20 +4070,24 @@ async function ejecutarFusionClientes() {
         }
     }
 
-    // 11. Cerrar modal y refrescar toda la UI
+    // 12. Cerrar modal y RECALCULAR DE INMEDIATO "Cuentas por Cobrar" y la Ficha 360°
     cerrarModalFusionarClientes();
     actualizarSelectClientes();
-    renderizarClientes();
+    renderizarClientes(); // Recalcula Cuentas por Cobrar general descontando la deuda fantasma de inmediato
 
-    // Si el cliente estaba abierto en el Panel 360°, refrescarlo con el cliente consolidado
+    // Si el cliente estaba abierto en la Ficha 360°, refrescarlo con el cliente consolidado
     if (typeof clienteSeleccionadoId !== 'undefined' && (clienteSeleccionadoId === cliSec.id || clienteSeleccionadoId === cliPrin.id)) {
         verDetalleCliente(cliPrin.id);
     }
 
+    const toastMsg = modoDeuda === 'misma_deuda'
+        ? `¡Cuentas unificadas con éxito! Se conservó la deuda de $${deudaObjetivoUSD.toFixed(2)} evitando duplicidad. La cartera de cuentas por cobrar ha sido actualizada.`
+        : `¡Cuentas unificadas con éxito! La deuda final de ${cliPrin.nombre} es de $${deudaObjetivoUSD.toFixed(2)}.`;
+
     if (typeof showCustomToast === 'function') {
-        showCustomToast(`¡Clientes unificados! La cuenta de ${cliPrin.nombre} ahora tiene una deuda total de $${deudaFinal}`, 'success');
-    } else {
-        alert(`¡Clientes unificados con éxito!\nLa cuenta de ${cliPrin.nombre} ahora consolida todas las compras y su deuda total es de $${deudaFinal}.`);
+        showCustomToast(toastMsg, 'success');
+    } else if (typeof alert === 'function') {
+        alert(toastMsg);
     }
 }
 window.ejecutarFusionClientes = ejecutarFusionClientes;
