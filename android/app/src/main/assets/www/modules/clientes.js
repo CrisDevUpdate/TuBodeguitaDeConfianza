@@ -45,6 +45,8 @@ function esIdentificadorRebeca(objOId) {
 }
 window.esIdentificadorRebeca = esIdentificadorRebeca;
 
+var clienteSeleccionadoId = (typeof window !== 'undefined' && window.clienteSeleccionadoId) ? window.clienteSeleccionadoId : null;
+
 /**
  * Normaliza y verifica si un cliente o ID ha sido eliminado o marcado como duplicado/excluido.
  * Soporta variantes tipográficas comunes (ej: CLI-013 vs cli-o13, CLI-O13) y coincidencia por ID.
@@ -65,21 +67,6 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
 
     const idClean = String(id || '').trim().toUpperCase();
     if (!idClean && !nom) return false;
-
-    // Si el cliente está asociado a un usuario del sistema o tiene ventas/pedidos registrados, NUNCA considerarlo eliminado
-    const usuariosList = Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : [];
-    const esUsuarioExistente = usuariosList.some(u => {
-        if (!u || u.id === 'SuperAdmin') return false;
-        const uId = String(u.id || '').trim().toUpperCase();
-        const uCed = String(u.cedula || '').trim().toUpperCase();
-        const uCliId = String(u.clienteId || '').trim().toUpperCase();
-        const uNom = String(u.nombre || '').trim().toLowerCase();
-        return (uId && uId === idClean) || 
-               (uCed && uCed === idClean) || 
-               (uCliId && uCliId === idClean) ||
-               (nom && uNom && uNom === nom);
-    });
-    if (esUsuarioExistente) return false;
 
     // Normalizador seguro de códigos CLI (ej: CLI-O13 -> CLI-013) sin alterar nombres como "yoo"
     const normCod = s => {
@@ -204,19 +191,9 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
         const uVin = String(u.clienteVinculado || '').trim().toUpperCase();
         const uCliId = String(u.clienteId || '').trim().toUpperCase();
 
-        // Si este usuario figuraba en clientesEliminados, desbloquearlo de inmediato
-        if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
-            const prevLen = AppState.clientesEliminados.length;
-            AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
-                if (!e) return false;
-                const eId = String(e.id || e.cedula || '').trim().toUpperCase();
-                const eNom = String(e.nombre || '').trim().toUpperCase();
-                if (eId === idUpper) return false;
-                if (u.id && eId === String(u.id).trim().toUpperCase()) return false;
-                if (uNom && eNom === uNom) return false;
-                return true;
-            });
-            if (AppState.clientesEliminados.length !== prevLen) huboCambios = true;
+        // Si este usuario/cliente fue eliminado por el administrador, NO recrearlo en la lista activa de clientes
+        if (esClienteEliminadoOExcluido(u, eliminadosList) || esClienteEliminadoOExcluido(idUpper, eliminadosList)) {
+            return;
         }
 
         // Buscar si coincide con la libreta de CLIENTES_OFICIALES
@@ -558,6 +535,7 @@ function actualizarSelectClientes() {
         renderizarCustomClientePickersPOS('both');
     }
 }
+window.actualizarSelectClientes = actualizarSelectClientes;
 
 /**
  * Garantiza de forma proactiva y definitiva que Rebeca esté solvente (deuda 0.00),
@@ -1445,10 +1423,9 @@ async function eliminarRegistroHuerfano(clienteId) {
     const estFin = calcularEstadoFinancieroCliente(cli.id);
     if (estFin.saldoDeudaUSD > 0 || (estFin.ventasCliente && estFin.ventasCliente.length > 0)) {
         if (typeof showCustomToast === 'function') {
-            showCustomToast(`Este registro tiene saldo ($${estFin.saldoDeudaUSD.toFixed(2)}) o ventas. Usa "Asignar a Cliente Existente" para transferir y conciliar.`, 'warning');
-        } else if (typeof alert === 'function') {
-            alert(`Este registro tiene saldo ($${estFin.saldoDeudaUSD.toFixed(2)}) o ventas. Usa "Asignar a Cliente Existente".`);
+            showCustomToast(`Este registro tiene movimientos ($${estFin.saldoDeudaUSD.toFixed(2)}). Abriendo confirmación de eliminación...`, 'info');
         }
+        abrirModalEliminarCliente(cli.id);
         return;
     }
 
@@ -1979,73 +1956,110 @@ function renderizarClientes() {
 }
 
 function abrirModalEliminarCliente(clienteId) {
-    const cliente = clientes.find(c => c.id === clienteId);
-    if (!cliente) return;
+    if (!clienteId) return;
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (Array.isArray(clientes) ? clientes : []);
+    const idUpper = String(clienteId).trim().toUpperCase();
+    const cliente = lista.find(c => c && (
+        String(c.id || '').trim().toUpperCase() === idUpper ||
+        (c.cedula && String(c.cedula).trim().toUpperCase() === idUpper) ||
+        (c.codigoOficial && String(c.codigoOficial).trim().toUpperCase() === idUpper)
+    )) || { id: clienteId, nombre: clienteId, telefono: '' };
 
     const modal = document.getElementById('modal-eliminar-cliente');
     if (!modal) return;
 
-    const estado = calcularEstadoFinancieroCliente(clienteId);
-    document.getElementById('eliminar-cliente-id').value = cliente.id;
-    document.getElementById('eliminar-cliente-identificador').value = cliente.id;
-    document.getElementById('eliminar-cliente-nombre').value = cliente.nombre;
-    document.getElementById('eliminar-cliente-telefono').value = cliente.telefono || '';
-    document.getElementById('eliminar-cliente-deuda').value = `$${estado.saldoDeudaUSD.toFixed(2)}`;
-    document.getElementById('eliminar-cliente-motivo').value = '';
-    document.getElementById('eliminar-cliente-comentario').value = '';
+    const estado = typeof calcularEstadoFinancieroCliente === 'function' 
+        ? calcularEstadoFinancieroCliente(cliente.id) 
+        : { saldoDeudaUSD: Number(cliente.deudaUSD || 0) };
+
+    const elId = document.getElementById('eliminar-cliente-id');
+    const elIdent = document.getElementById('eliminar-cliente-identificador');
+    const elNom = document.getElementById('eliminar-cliente-nombre');
+    const elTel = document.getElementById('eliminar-cliente-telefono');
+    const elDeuda = document.getElementById('eliminar-cliente-deuda');
+    const elMotivo = document.getElementById('eliminar-cliente-motivo');
+    const elComentario = document.getElementById('eliminar-cliente-comentario');
+
+    if (elId) elId.value = cliente.id;
+    if (elIdent) elIdent.value = cliente.id;
+    if (elNom) elNom.value = cliente.nombre || cliente.id;
+    if (elTel) elTel.value = cliente.telefono || '—';
+    if (elDeuda) elDeuda.value = `$${(estado.saldoDeudaUSD || 0).toFixed(2)}`;
+    if (elMotivo) elMotivo.value = 'Cliente inactivo';
+    if (elComentario) elComentario.value = 'Eliminación administrativa confirmada';
+
+    modal.style.display = 'flex';
     modal.classList.add('active');
-    setTimeout(() => document.getElementById('eliminar-cliente-motivo').focus(), 50);
+    setTimeout(() => {
+        if (elMotivo) elMotivo.focus();
+    }, 50);
 }
+window.abrirModalEliminarCliente = abrirModalEliminarCliente;
 
 function cerrarModalEliminarCliente() {
     const modal = document.getElementById('modal-eliminar-cliente');
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    }
 }
+window.cerrarModalEliminarCliente = cerrarModalEliminarCliente;
 
-function confirmarEliminacionCliente(event) {
-    event.preventDefault();
+async function confirmarEliminacionCliente(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
 
-    const clienteId = document.getElementById('eliminar-cliente-id').value;
-    const motivo = document.getElementById('eliminar-cliente-motivo').value.trim();
-    const comentario = document.getElementById('eliminar-cliente-comentario').value.trim();
-    
-    // Búsqueda flexible tolerante a mayúsculas/minúsculas y 'O' vs '0' (ej CLI-013 vs cli-o13)
-    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
-    const targetNorm = norm(clienteId);
-
-    const indice = clientes.findIndex(c => {
-        if (!c) return false;
-        if (c.id === clienteId || String(c.id).toUpperCase() === String(clienteId).toUpperCase()) return true;
-        if (norm(c.id) === targetNorm) return true;
-        return false;
-    });
-
-    if (indice === -1) {
+    const inputId = document.getElementById('eliminar-cliente-id');
+    const clienteId = inputId ? inputId.value.trim() : null;
+    if (!clienteId) {
         cerrarModalEliminarCliente();
         return;
     }
-    if (!motivo || !comentario) {
-        alert('Debes indicar el motivo y el comentario para eliminar al cliente.');
-        return;
-    }
 
-    const cliente = clientes[indice];
-    const estado = calcularEstadoFinancieroCliente(cliente.id || clienteId);
-    const fecha = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const selMotivo = document.getElementById('eliminar-cliente-motivo');
+    const motivo = (selMotivo && selMotivo.value ? selMotivo.value.trim() : '') || 'Cliente inactivo';
+    
+    const txtComentario = document.getElementById('eliminar-cliente-comentario');
+    const comentario = (txtComentario && txtComentario.value ? txtComentario.value.trim() : '') || 'Eliminación administrativa confirmada';
+
+    const lista = Array.isArray(AppState.clientes) ? AppState.clientes : (Array.isArray(clientes) ? clientes : []);
+    const norm = s => String(s || '').trim().toUpperCase().replace(/[\s\-_]/g, '').replace(/O/g, '0');
+    const targetNorm = norm(clienteId);
+
+    const cliente = lista.find(c => {
+        if (!c) return false;
+        if (c.id === clienteId || String(c.id).toUpperCase() === String(clienteId).toUpperCase()) return true;
+        if (c.cedula && String(c.cedula).toUpperCase() === String(clienteId).toUpperCase()) return true;
+        if (norm(c.id) === targetNorm) return true;
+        return false;
+    }) || {
+        id: clienteId,
+        nombre: document.getElementById('eliminar-cliente-nombre')?.value || clienteId,
+        telefono: document.getElementById('eliminar-cliente-telefono')?.value || ''
+    };
+
+    const estado = typeof calcularEstadoFinancieroCliente === 'function' 
+        ? calcularEstadoFinancieroCliente(cliente.id || clienteId)
+        : { totalCompradoUSD: 0, saldoDeudaUSD: 0 };
+
+    const fecha = typeof obtenerFechaHoraLocal === 'function' 
+        ? obtenerFechaHoraLocal() 
+        : new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     const motivoLower = motivo.toLowerCase();
     const esDuplicadoOError = motivoLower.includes('duplicad') || 
                               motivoLower.includes('error') || 
                               motivoLower.includes('incorrect') || 
                               motivoLower.includes('inactivo') || 
-                              motivoLower.includes('solicitud');
+                              motivoLower.includes('solicitud') ||
+                              motivoLower.includes('depurac');
 
-    // Regla de Negocio: Si la eliminación es por duplicados o error de registro,
-    // NO genera pérdida económica alguna (perdidaUSD = 0) para no inflar mermas ni afectar márgenes del negocio.
-    // Tampoco altera el inventario físico ni los productos (el conteo físico se respeta 100%).
-    const perdidaCalculada = esDuplicadoOError ? 0 : Math.max(0, estado.saldoDeudaUSD);
+    const perdidaCalculada = esDuplicadoOError ? 0 : Math.max(0, estado.saldoDeudaUSD || 0);
 
     const codigosVariantes = [cliente.id, clienteId];
+    if (cliente.cedula) codigosVariantes.push(cliente.cedula);
     if (/^CLI-[0O]13$/i.test(cliente.id) || /^CLI-[0O]13$/i.test(clienteId)) {
         codigosVariantes.push('CLI-013', 'cli-o13', 'CLI-O13', 'cli-013');
     }
@@ -2053,33 +2067,53 @@ function confirmarEliminacionCliente(event) {
     const registroEliminado = {
         id: cliente.id,
         cedula: cliente.cedula || cliente.id,
-        nombre: cliente.nombre,
+        nombre: cliente.nombre || cliente.id,
         telefono: cliente.telefono || '',
         fecha,
-        totalCompradoUSD: estado.totalCompradoUSD,
-        deudaUSD: estado.saldoDeudaUSD,
+        totalCompradoUSD: estado.totalCompradoUSD || 0,
+        deudaUSD: estado.saldoDeudaUSD || 0,
         perdidaUSD: perdidaCalculada,
         motivo,
         comentario,
         codigosAnteriores: Array.from(new Set(codigosVariantes)),
-        esDuplicado: esDuplicadoOError
+        esDuplicado: esDuplicadoOError,
+        eliminadoManualmente: true
     };
 
     if (!Array.isArray(AppState.clientesEliminados)) {
         AppState.clientesEliminados = [];
     }
+    // Evitar duplicados en clientesEliminados
+    AppState.clientesEliminados = AppState.clientesEliminados.filter(e => e && e.id !== cliente.id && norm(e.id) !== targetNorm);
     AppState.clientesEliminados.push(registroEliminado);
-    if (typeof clientesEliminados !== 'undefined' && clientesEliminados !== AppState.clientesEliminados) {
-        clientesEliminados.push(registroEliminado);
+
+    if (typeof clientesEliminados !== 'undefined' && Array.isArray(clientesEliminados)) {
+        clientesEliminados = AppState.clientesEliminados;
     }
 
-    // Purgar todas las copias o instancias duplicadas de este cliente de AppState.clientes y window.clientes
+    // Desvincular de cualquier usuario en AppState.usuarios para evitar que vuelva a revivir
+    const usuariosList = Array.isArray(AppState.usuarios) ? AppState.usuarios : (window.usuarios || []);
+    usuariosList.forEach(u => {
+        if (!u) return;
+        const uId = String(u.id || '').toUpperCase();
+        const uCed = String(u.cedula || '').toUpperCase();
+        const uCli = String(u.clienteId || '').toUpperCase();
+        const cIdUpper = String(cliente.id).toUpperCase();
+        if (uCli === cIdUpper || uCed === cIdUpper || uId === cIdUpper) {
+            u.clienteId = null;
+            u.clienteVinculado = null;
+            u.bloqueadoOClienteEliminado = true;
+        }
+    });
+
+    // Purgar de AppState.clientes y window.clientes
     const idNormElim = norm(cliente.id);
     const nombreElim = String(cliente.nombre || '').trim().toLowerCase();
     AppState.clientes = (AppState.clientes || []).filter(c => {
         if (!c) return false;
         if (c.id === cliente.id || c.id === clienteId) return false;
         if (norm(c.id) === idNormElim) return false;
+        if (cliente.cedula && c.cedula && String(c.cedula).toUpperCase() === String(cliente.cedula).toUpperCase()) return false;
         if (nombreElim && c.nombre && String(c.nombre).trim().toLowerCase() === nombreElim && esDuplicadoOError) {
             return false;
         }
@@ -2087,7 +2121,11 @@ function confirmarEliminacionCliente(event) {
     });
     clientes = AppState.clientes;
 
-    // Guardar en almacenamiento local persistente de inmediato
+    if (typeof window.clientes !== 'undefined') {
+        window.clientes = AppState.clientes;
+    }
+
+    // Guardar en almacenamiento local persistente
     if (window.InventoryApp && window.InventoryApp.Persistence) {
         window.InventoryApp.Persistence.guardar(true);
     }
@@ -2102,10 +2140,16 @@ function confirmarEliminacionCliente(event) {
         }
     }
 
-    if (clienteSeleccionadoId === clienteId || clienteSeleccionadoId === cliente.id) {
-        clienteSeleccionadoId = null;
+    const selId = (typeof clienteSeleccionadoId !== 'undefined' ? clienteSeleccionadoId : null) || (typeof window !== 'undefined' ? window.clienteSeleccionadoId : null);
+    if (selId === clienteId || selId === cliente.id) {
+        if (typeof clienteSeleccionadoId !== 'undefined') clienteSeleccionadoId = null;
+        if (typeof window !== 'undefined') window.clienteSeleccionadoId = null;
+        if (typeof AppState !== 'undefined') AppState.clienteSeleccionadoId = null;
         const detalle = document.getElementById('cliente-detalle-card');
         if (detalle) detalle.style.display = 'none';
+        if (typeof cerrarModalDetalleCliente === 'function') {
+            cerrarModalDetalleCliente();
+        }
     }
 
     cerrarModalEliminarCliente();
@@ -2116,14 +2160,24 @@ function confirmarEliminacionCliente(event) {
         renderizarResumenPerdidasEconomicas();
     }
 
-    alert(`Cliente ${cliente.nombre} eliminado correctamente.${esDuplicadoOError ? ' (Eliminado como duplicado/error de registro: no afecta inventario ni margen de pérdidas).' : ''}`);
+    const toastMsg = `Cliente ${cliente.nombre || clienteId} eliminado correctamente.${esDuplicadoOError ? ' (Sin impacto en pérdidas de inventario).' : ''}`;
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(toastMsg, 'success');
+    } else if (typeof alert === 'function') {
+        alert(toastMsg);
+    }
 }
+window.confirmarEliminacionCliente = confirmarEliminacionCliente;
 
 function renderizarHistorialClientesEliminados() {
     const tbody = document.getElementById('clientes-eliminados-body');
     if (!tbody) return;
 
-    tbody.innerHTML = clientesEliminados.length ? clientesEliminados.slice().reverse().map(c => `
+    const listaElim = (typeof clientesEliminados !== 'undefined' && Array.isArray(clientesEliminados)) 
+        ? clientesEliminados 
+        : (Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : []);
+
+    tbody.innerHTML = listaElim.length ? listaElim.slice().reverse().map(c => `
         <tr>
             <td>${c.fecha}</td>
             <td>${c.id}</td>
@@ -2135,14 +2189,25 @@ function renderizarHistorialClientesEliminados() {
         </tr>
     `).join('') : `<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No hay clientes eliminados.</td></tr>`;
 }
+window.renderizarHistorialClientesEliminados = renderizarHistorialClientesEliminados;
 
 function limpiarHistorialClientesEliminados() {
-    if (!clientesEliminados.length) return;
-    if (!confirm('¿Seguro que deseas limpiar el historial de clientes eliminados? Esto no restaurará los clientes.')) return;
-    clientesEliminados = [];
+    const listaElim = (typeof clientesEliminados !== 'undefined' && Array.isArray(clientesEliminados)) 
+        ? clientesEliminados 
+        : (Array.isArray(AppState.clientesEliminados) ? AppState.clientesEliminados : []);
+    if (!listaElim.length) return;
+    if (typeof confirm === 'function' && !confirm('¿Seguro que deseas limpiar el historial de clientes eliminados? Esto no restaurará los clientes.')) return;
+    AppState.clientesEliminados = [];
+    if (typeof clientesEliminados !== 'undefined') clientesEliminados = [];
+    if (window.InventoryApp && window.InventoryApp.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
     renderizarHistorialClientesEliminados();
-    renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
+        renderizarResumenPerdidasEconomicas();
+    }
 }
+window.limpiarHistorialClientesEliminados = limpiarHistorialClientesEliminados;
 
 function verDetalleCliente(id, abrirModal = true) {
     clienteSeleccionadoId = id;
