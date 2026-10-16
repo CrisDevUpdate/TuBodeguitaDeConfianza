@@ -965,11 +965,13 @@ function generarMensajeWhatsApp(datosPedido = null) {
     const ref = datosPedido ? datosPedido.referencia : (document.getElementById('cliente-pago-referencia')?.value || 'N/A').trim();
     const metodo = datosPedido ? datosPedido.metodoPago : (document.getElementById('cliente-tipo-pago')?.value || 'Crédito');
     const totalUSD = datosPedido ? datosPedido.totalUSD : carrito.reduce((sum, i) => sum + (i.cantidad * i.precio), 0);
-    const tasa = Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 0);
-    const totalVES = tasa > 0 ? (totalUSD * tasa) : (datosPedido ? datosPedido.totalVES : 0);
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(AppState.tasaActiva || AppState.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
+    const totalVES = (tasaBCVDia > 0 && totalUSD > 0) ? Number((totalUSD * tasaBCVDia).toFixed(2)) : (datosPedido ? Number(datosPedido.totalVES || 0) : 0);
     const esCredito = metodo === 'Crédito';
 
     const prodsTexto = carrito.map(i => `• ${i.cantidad}x ${i.nombre} ($${(i.cantidad * i.precio).toFixed(2)})`).join('\n');
+    const tasaStr = tasaBCVDia > 0 ? `Bs. ${tasaBCVDia.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+    const totalBsStr = `Bs. ${totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     let msg = '';
     if (esCredito) {
@@ -981,7 +983,7 @@ function generarMensajeWhatsApp(datosPedido = null) {
             `📦 *Detalle de Productos:*\n${prodsTexto || 'Sin productos'}\n\n` +
             `💰 *Monto Total de la Deuda Registrada:*\n` +
             `💵 *Total Deuda USD:* $${totalUSD.toFixed(2)}\n` +
-            `🇻🇪 *Equivalente en Bolívares:* Bs. ${totalVES.toFixed(2)} (Tasa BCV: ${tasa > 0 ? tasa.toFixed(2) : '—'})\n\n` +
+            `🇻🇪 *Equivalente en Bolívares:* ${totalBsStr} (Tasa BCV del Día: ${tasaStr})\n\n` +
             `✅ *Confirmación:* La compra a crédito ha sido registrada en el sistema. Solicito confirmación y entrega de mi pedido.`;
     } else {
         const selectBanco = document.getElementById('cliente-banco-selector');
@@ -998,7 +1000,7 @@ function generarMensajeWhatsApp(datosPedido = null) {
             bancoLinea + `\n` +
             `📦 *Productos Solicitados:*\n${prodsTexto || 'Sin productos'}\n\n` +
             `💵 *Total a Pagar:* $${totalUSD.toFixed(2)}\n` +
-            `🇻🇪 *Equivalente en Bolívares:* Bs. ${totalVES.toFixed(2)} (Tasa BCV: ${tasa > 0 ? tasa.toFixed(2) : '—'})\n\n` +
+            `🇻🇪 *Equivalente en Bolívares:* ${totalBsStr} (Tasa BCV del Día: ${tasaStr})\n\n` +
             `📎 *Adjunto mi comprobante de pago para su validación.*`;
     }
 

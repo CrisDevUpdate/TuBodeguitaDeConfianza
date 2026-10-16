@@ -1220,14 +1220,14 @@
             ? (AppState.clientes || []).find(c => String(c.id || c.cedula).toUpperCase() === String(destId).toUpperCase()) 
             : null;
         const nombreCliente = cliente ? cliente.nombre : '{nombre}';
-        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        const tasa = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(AppState.tasaActiva || AppState.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 1));
         let deudaUSD = 0;
         if (typeof calcularEstadoFinancieroCliente === 'function' && cliente) {
             deudaUSD = Number(calcularEstadoFinancieroCliente(cliente.id)?.saldoDeudaUSD || 0);
         } else if (cliente) {
             deudaUSD = Number(cliente.deudaUSD || 0);
         }
-        const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        const deudaVES = (deudaUSD * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         const tagMontoUSD = esMasivo ? '{deuda_usd}' : `$${deudaUSD.toFixed(2)} USD`;
         const tagMontoVES = esMasivo ? '{deuda_ves}' : `Bs. ${deudaVES}`;
@@ -1312,7 +1312,7 @@
             return false;
         }
 
-        const tasa = AppState.tasaActiva || AppState.tasaUSD_BCV || 1;
+        const tasa = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(AppState.tasaActiva || AppState.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 1));
         const emisorNombre = AppState.usuarioActual?.nombre || 'Administración';
         const nowTs = Date.now();
         const fechaStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
@@ -1358,7 +1358,7 @@
                     } else {
                         dUSD = Number(c.deudaUSD || 0);
                     }
-                    const dVES = dUSD * tasa;
+                    const dVES = Number((dUSD * tasa).toFixed(2));
 
                     // Reemplazo de variables dinámicas por cliente
                     const msgPersonalizado = mensaje
@@ -1451,7 +1451,7 @@
         } else if (cliente) {
             deudaUSD = Number(cliente.deudaUSD || 0);
         }
-        const deudaVES = deudaUSD * tasa;
+        const deudaVES = Number((deudaUSD * tasa).toFixed(2));
 
         const msgPersonalizado = mensaje
             .replace(/{nombre}/gi, clienteNombre || 'Cliente')

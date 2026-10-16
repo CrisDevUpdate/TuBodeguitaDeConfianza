@@ -49,6 +49,12 @@ function actualizarVistaTasaBCV() {
     // Siempre usar Tasa Oficial BCV (USD)
     monedaSeleccionada = 'USD';
     tasaActiva = tasaUSD_BCV;
+    if (typeof AppState !== 'undefined' && AppState) {
+        AppState.tasaActiva = tasaUSD_BCV;
+        AppState.tasaUSD_BCV = tasaUSD_BCV;
+        AppState.tasaEUR_BCV = tasaEUR_BCV;
+        AppState.fechaTasaBCV = fechaTasaBCV;
+    }
     if (lblTasa) {
         lblTasa.textContent = tasaActiva > 0 ? `1 USD = Bs. ${formatearBs(tasaActiva)}` : 'No disponible';
     }

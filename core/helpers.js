@@ -937,6 +937,37 @@ function switchTab(tabId) {
         console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
     }
 }
+
+/**
+ * Obtiene la Tasa Oficial BCV del Día activa, verificando variables globales,
+ * AppState, y caché local para garantizar cálculos precisos en notificaciones y mensajes.
+ */
+function obtenerTasaBCVDelDia() {
+    let t = 0;
+    if (typeof tasaActiva === 'number' && tasaActiva > 0) t = tasaActiva;
+    else if (typeof window !== 'undefined' && typeof window.tasaActiva === 'number' && window.tasaActiva > 0) t = window.tasaActiva;
+    else if (typeof AppState !== 'undefined' && AppState) {
+        if (typeof AppState.tasaActiva === 'number' && AppState.tasaActiva > 0) t = AppState.tasaActiva;
+        else if (typeof AppState.tasaUSD_BCV === 'number' && AppState.tasaUSD_BCV > 0) t = AppState.tasaUSD_BCV;
+    }
+    if (!t && typeof window !== 'undefined' && typeof window.tasaUSD_BCV === 'number' && window.tasaUSD_BCV > 0) t = window.tasaUSD_BCV;
+    if (!t && typeof tasaUSD_BCV === 'number' && tasaUSD_BCV > 0) t = tasaUSD_BCV;
+
+    if (!t) {
+        try {
+            const raw = localStorage.getItem('bodeguita_tasas_bcv');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && parseFloat(parsed.tasaUSD) > 0) {
+                    t = parseFloat(parsed.tasaUSD);
+                }
+            }
+        } catch (_) {}
+    }
+    return t > 0 ? t : 0;
+}
+window.obtenerTasaBCVDelDia = obtenerTasaBCVDelDia;
+
 /**
  * Normaliza y sanea montos en Bolívares (VES) y Divisas ($ USD) para cualquier transacción o abono.
  * Garantiza que métodos en Bolívares (Pago Móvil, Transferencias, Efectivo VES) nunca se confundan

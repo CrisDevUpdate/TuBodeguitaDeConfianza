@@ -2673,7 +2673,7 @@ function obtenerDatosContextoCliente360() {
     const cliente = lista.find(c => c.id === clienteSeleccionadoId);
     if (!cliente) return null;
 
-    const tasa = typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (AppState.tasaActiva || 1);
+    const tasa = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || (typeof tasaActiva === 'number' && tasaActiva > 0 ? tasaActiva : (Number(AppState.tasaActiva || AppState.tasaUSD_BCV || 1)));
     const estado = calcularEstadoFinancieroCliente(cliente.id);
     const usuarioAsoc = Array.isArray(AppState.usuarios) && AppState.usuarios.find(u => (u.cedula || u.id) === cliente.id || u.id === cliente.usuarioId);
     const emailCli = cliente.email || usuarioAsoc?.email || '';
@@ -2784,8 +2784,12 @@ function abrirModalEnviarInfo(ctx) {
 
     window._ctxEnvioInfoActivo = ctx;
     const { cliente, emailCli, tasa, estado, transacciones } = ctx;
-    const { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalAbonadoUSD } = estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
+    const { saldoDeudaUSD, totalCompradoUSD, totalAbonadoUSD } = estado;
+    const saldoDeudaVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((estado.saldoDeudaVES || 0).toFixed(2));
+    const montoBsStr = `Bs. ${saldoDeudaVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const elNombre = document.getElementById('env-info-cliente-nombre');
     const elDeudaVES = document.getElementById('env-info-deuda-ves');
@@ -2798,7 +2802,8 @@ function abrirModalEnviarInfo(ctx) {
     if (elDeudaVES) elDeudaVES.textContent = montoBsStr;
     if (elDeudaUSD) elDeudaUSD.textContent = `$${saldoDeudaUSD.toFixed(2)} USD`;
     if (elResumen) {
-        elResumen.innerHTML = `Total Comprado: <strong>$${totalCompradoUSD.toFixed(2)}</strong> | Total Abonado: <strong>$${(totalAbonadoUSD || 0).toFixed(2)}</strong> | Tasa BCV: <strong>Bs. ${tasa.toFixed(2)}</strong>`;
+        const tasaTexto = tasaBCVDia > 0 ? `Bs. ${tasaBCVDia.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+        elResumen.innerHTML = `Total Comprado: <strong>$${totalCompradoUSD.toFixed(2)}</strong> | Total Abonado: <strong>$${(totalAbonadoUSD || 0).toFixed(2)}</strong> | Tasa BCV del Día: <strong>${tasaTexto}</strong>`;
     }
 
     const tel = (cliente.telefono && cliente.telefono.trim()) || (ctx.telCli && ctx.telCli.trim()) || (cliente.tlf && cliente.tlf.trim()) || (cliente.phone && cliente.phone.trim()) || '';
@@ -2841,18 +2846,28 @@ window.volverAFicha360DesdeEnvio = volverAFicha360DesdeEnvio;
  */
 function generarTextoEstadoCuentaEnvio(ctx, incluirTransacciones = true) {
     const { cliente, tasa, estado, transacciones } = ctx;
-    const { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalAbonadoUSD } = estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
+    const { saldoDeudaUSD, totalCompradoUSD, totalAbonadoUSD } = estado;
+    
+    // Cálculo exacto del monto en Bolívares con la Tasa Oficial BCV del día
+    const saldoDeudaVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((estado.saldoDeudaVES || 0).toFixed(2));
+
+    const montoBsStr = `Bs. ${saldoDeudaVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaStr = tasaBCVDia > 0 
+        ? `Bs. ${tasaBCVDia.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / USD`
+        : 'Consultar en tienda';
 
     let texto = `🏪 *TU BODEGUITA DE CONFIANZA*\n`;
     texto += `📄 *ESTADO DE CUENTA - ${cliente.nombre}* (C.I. ${cliente.id})\n`;
     texto += `📅 Fecha: ${new Date().toLocaleDateString('es-VE')}\n`;
-    texto += `💵 Tasa Oficial BCV: Bs. ${tasa.toFixed(2)} / USD\n\n`;
+    texto += `💵 Tasa Oficial BCV del Día: ${tasaStr}\n\n`;
     texto += `📊 *RESUMEN FINANCIERO:*\n`;
     texto += `• Total Comprado (Crédito): $${totalCompradoUSD.toFixed(2)} USD\n`;
     texto += `• Total Abonado / Pagado: $${(totalAbonadoUSD || 0).toFixed(2)} USD\n`;
     texto += `• Saldo Pendiente: $${saldoDeudaUSD.toFixed(2)} USD\n`;
-    texto += `• *Deuda a pagar: ${montoBsStr}*\n\n`;
+    texto += `• *Deuda a pagar (en Bolívares): ${montoBsStr}*\n\n`;
 
     if (incluirTransacciones && transacciones && transacciones.length > 0) {
         texto += `📝 *EN QUÉ SE BASA EL SALDO (MOVIMIENTOS):*\n`;
@@ -2962,8 +2977,12 @@ function ejecutarEnvioInfoCorreo() {
     }
 
     const { cliente, estado } = ctx;
-    const { saldoDeudaVES } = estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const { saldoDeudaUSD } = estado;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(ctx.tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || 0);
+    const saldoVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((estado.saldoDeudaVES || 0).toFixed(2));
+    const montoBsStr = `Bs. ${saldoVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const asunto = `Estado de Cuenta - ${cliente.nombre} - Deuda a pagar: ${montoBsStr}`;
     const texto = generarTextoEstadoCuentaEnvio(ctx, true).replace(/\*/g, '');
@@ -2986,8 +3005,12 @@ function ejecutarCopiarInfoPortapapeles() {
     if (!ctx) return;
 
     const texto = generarTextoEstadoCuentaEnvio(ctx, true).replace(/\*/g, '');
-    const { saldoDeudaVES } = ctx.estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const { saldoDeudaUSD } = ctx.estado;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(ctx.tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || 0);
+    const saldoVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((ctx.estado.saldoDeudaVES || 0).toFixed(2));
+    const montoBsStr = `Bs. ${saldoVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(texto).then(() => {
@@ -3077,8 +3100,18 @@ function enviarWhatsappCliente() {
         tel = '58' + tel;
     }
 
-    const { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalAbonadoUSD } = estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || (typeof tasaActiva === 'number' ? tasaActiva : 0));
+    const { saldoDeudaUSD, totalCompradoUSD, totalAbonadoUSD } = estado;
+    
+    // Cálculo exacto del monto en Bolívares con la Tasa Oficial BCV del día
+    const saldoDeudaVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((estado.saldoDeudaVES || 0).toFixed(2));
+        
+    const montoBsStr = `Bs. ${saldoDeudaVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaStr = tasaBCVDia > 0 
+        ? `Bs. ${tasaBCVDia.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / USD`
+        : 'Consultar';
     let mensaje = '';
 
     if (saldoDeudaUSD > 0.01) {
@@ -3086,12 +3119,12 @@ function enviarWhatsappCliente() {
         mensaje += `📄 *ESTADO DE CUENTA Y SALDO PENDIENTE*\n\n`;
         mensaje += `👤 *Cliente:* ${cliente.nombre} (C.I. ${cliente.id})\n`;
         mensaje += `📅 *Fecha:* ${new Date().toLocaleDateString('es-VE')}\n`;
-        mensaje += `💵 *Tasa BCV:* Bs. ${tasa.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / USD\n\n`;
+        mensaje += `💵 *Tasa BCV del Día:* ${tasaStr}\n\n`;
         mensaje += `📊 *RESUMEN DE CUENTA:*\n`;
         mensaje += `• Total Créditos Otorgados: $${totalCompradoUSD.toFixed(2)}\n`;
         mensaje += `• Total Pagos/Abonos: $${(totalAbonadoUSD || 0).toFixed(2)}\n`;
         mensaje += `• Saldo Pendiente: $${saldoDeudaUSD.toFixed(2)} USD\n`;
-        mensaje += `• *Deuda a pagar:* *${montoBsStr}*\n\n`;
+        mensaje += `• *Deuda a pagar (en Bolívares):* *${montoBsStr}*\n\n`;
 
         // Detalle de los movimientos en los que se basa la deuda
         const ultimos = transacciones.slice(-6);
@@ -3141,8 +3174,15 @@ function enviarCorreoCliente() {
         return;
     }
 
-    const { saldoDeudaUSD, saldoDeudaVES, totalCompradoUSD, totalAbonadoUSD } = estado;
-    const montoBsStr = `Bs. ${saldoDeudaVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaBCVDia = (typeof obtenerTasaBCVDelDia === 'function' ? obtenerTasaBCVDelDia() : 0) || Number(tasa || AppState?.tasaActiva || AppState?.tasaUSD_BCV || 0);
+    const { saldoDeudaUSD, totalCompradoUSD, totalAbonadoUSD } = estado;
+    const saldoVESCalculado = (tasaBCVDia > 0 && saldoDeudaUSD > 0)
+        ? Number((saldoDeudaUSD * tasaBCVDia).toFixed(2))
+        : Number((estado.saldoDeudaVES || 0).toFixed(2));
+    const montoBsStr = `Bs. ${saldoVESCalculado.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const tasaStr = tasaBCVDia > 0 
+        ? `Bs. ${tasaBCVDia.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / USD`
+        : 'Consultar';
     const asunto = `Estado de Cuenta - Tu Bodeguita de Confianza - ${cliente.nombre}`;
     
     let cuerpo = `Estimado(a) ${cliente.nombre} (C.I. ${cliente.id}),\n\n`;
@@ -3152,8 +3192,8 @@ function enviarCorreoCliente() {
     cuerpo += `Total Comprado/Crédito: $${totalCompradoUSD.toFixed(2)} USD\n`;
     cuerpo += `Total Abonado/Pagado: $${(totalAbonadoUSD || 0).toFixed(2)} USD\n`;
     cuerpo += `Saldo Pendiente Actual: $${saldoDeudaUSD.toFixed(2)} USD\n`;
-    cuerpo += `Deuda a pagar: ${montoBsStr}\n`;
-    cuerpo += `Tasa de Cambio Oficial (BCV): Bs. ${tasa.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / USD\n\n`;
+    cuerpo += `Deuda a pagar (en Bolívares): ${montoBsStr}\n`;
+    cuerpo += `Tasa de Cambio Oficial (BCV del Día): ${tasaStr}\n\n`;
 
     if (transacciones && transacciones.length > 0) {
         cuerpo += `--- DETALLE DE MOVIMIENTOS (EN QUÉ SE BASA LA CUENTA) ---\n`;
