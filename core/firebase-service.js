@@ -18,8 +18,8 @@ window.InventoryApp = window.InventoryApp || {};
         projectId: "tubodeguitadeconfianza",
         storageBucket: "tubodeguitadeconfianza.firebasestorage.app",
         messagingSenderId: "851659747065",
-        appId: "1:851659747065:web:87486f1d0e541357af7c28",
-        measurementId: "G-9TDEL6NVCQ",
+        appId: "1:851659747065:web:ec596f7ad5abd2dcaf7c28",
+        measurementId: "G-EXJDWDC9KQ",
         firestoreDatabaseId: "ai-studio-tubodeguitadecon-7145ac79-a848-43d7-8106-96fe7a2467f8"
     };
 
@@ -589,6 +589,16 @@ window.InventoryApp = window.InventoryApp || {};
                         });
                     }
                 } catch (e) {}
+            }
+
+            // Inicializar Firebase Analytics si está disponible y configurado
+            if (typeof firebase.analytics === 'function' && config.measurementId) {
+                try {
+                    firebase.analytics();
+                    console.log('[Firebase] Google Analytics inicializado exitosamente (' + config.measurementId + ')');
+                } catch (analyticsErr) {
+                    console.info('[Firebase] Analytics diferido:', analyticsErr.message);
+                }
             }
 
             // Configurar nivel de log silencioso para evitar mensajes repetitivos de reintento en cuota
