@@ -41,6 +41,9 @@ function sincronizarConteosDesdeHistorialSiVacio() {
     listaAud.forEach(a => {
         if (a.productoId && a.stockFisico !== undefined && a.stockFisico !== null) {
             conteosFisicos[a.productoId] = Number(a.stockFisico);
+            if (a.codigo) {
+                conteosFisicos[a.codigo] = Number(a.stockFisico);
+            }
             cargados++;
         }
     });
@@ -850,6 +853,9 @@ async function confirmarAjusteAuditoria() {
         return;
     }
 
+    // Forzar sincronía exacta de stock en el objeto en memoria
+    p.stock = Number(stockFisico);
+
     const usuarioNombre = AppState.usuarioActual?.nombre || AppState.usuarioActual?.id || 'SuperAdmin';
     const timestamp = typeof obtenerFechaSeleccionadaConteo === 'function' ? obtenerFechaSeleccionadaConteo() : new Date().toISOString().replace('T', ' ').substring(0, 16);
 
@@ -900,8 +906,23 @@ async function confirmarAjusteAuditoria() {
         });
     }
 
-    // Conservamos el conteo físico verificado
+    // Guardar producto en Firestore con set() completo para garantizar su persistencia en la nube
+    if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
+        window.InventoryApp.Firebase.guardarProducto(p).catch(err => {
+            console.warn('[Auditoria] Error persistiendo producto en Firestore:', err);
+        });
+    }
+
+    // Persistir de inmediato en almacenamiento local para sobrevivir a cualquier recarga
+    if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    // Conservamos el conteo físico verificado tanto por ID como por código
     conteosFisicos[p.id] = stockFisico;
+    if (p.codigo) {
+        conteosFisicos[p.codigo] = stockFisico;
+    }
     guardarConteosSesion();
 
     cerrarModalAjusteAuditoria();
@@ -1020,6 +1041,7 @@ async function aplicarTodosLosAjustes() {
         const stockAnterior = Number(p.stock || 0);
 
         if (InventoryApp.StockService.ajuste(productoId, stockFisico)) {
+            p.stock = Number(stockFisico);
             const timestamp = typeof obtenerFechaSeleccionadaConteo === 'function' ? obtenerFechaSeleccionadaConteo() : new Date().toISOString().replace('T', ' ').substring(0, 16);
             const registroAuditoria = {
                 id: "AJ" + (auditorias.length + 1) + '_' + Date.now().toString().slice(-4),
@@ -1052,12 +1074,23 @@ async function aplicarTodosLosAjustes() {
                 }).catch(() => {});
             } catch {}
 
+            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
+                window.InventoryApp.Firebase.guardarProducto(p).catch(() => {});
+            }
+
             if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.registrarAuditoria === 'function') {
                 window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(() => {});
             }
         }
         // Mantiene el conteo físico en memoria y sesión para que quede registrado como Conforme (Al día)
         conteosFisicos[productoId] = stockFisico;
+        if (p.codigo) {
+            conteosFisicos[p.codigo] = stockFisico;
+        }
+    }
+
+    if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
+        window.InventoryApp.Persistence.guardar(true);
     }
 
     guardarConteosSesion();

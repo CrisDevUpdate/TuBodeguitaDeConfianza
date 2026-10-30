@@ -610,6 +610,25 @@ app.post('/api/loyalty/claim', (req, res) => {
   res.json({ success: true, claim, message: 'Premio canjeado exitosamente' });
 });
 
+// API Inventory Adjust: POST /api/inventory/adjust
+app.post('/api/inventory/adjust', (req, res) => {
+  const adj = req.body;
+  if (!adj) {
+    return res.status(400).json({ success: false, error: 'Ajuste requerido' });
+  }
+  serverInventoryAdjustments.unshift({
+    id: `ADJ_${Date.now()}`,
+    ...adj,
+    recibidoEn: new Date().toISOString()
+  });
+  console.log(`[Inventory Adjust] Producto: ${adj.codigo || adj.productoId} (${adj.nombre}) - Stock: ${adj.stockAnterior} -> ${adj.nuevoStock} (Dif: ${adj.diferencia})`);
+  res.json({ success: true, adjustment: adj });
+});
+
+app.get('/api/inventory/adjustments', (req, res) => {
+  res.json({ success: true, count: serverInventoryAdjustments.length, adjustments: serverInventoryAdjustments });
+});
+
 // Endpoint para notificación automática de compra por correo al Administrador (cris.dev.update@gmail.com)
 const adminPurchasesLog = [];
 app.post('/api/notificar-compra', (req, res) => {

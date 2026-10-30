@@ -1175,7 +1175,29 @@ function renderizarHistorialAuditoria() {
         return;
     }
 
-    const ordenado = [...auditorias].reverse();
+    // Filtrar estrictamente solo registros de auditorías físicas / ajustes de stock reales
+    const prodsRef = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const auditoriasValidas = (auditorias || []).filter(a => {
+        if (!a || typeof a !== 'object') return false;
+        // Excluir auditorías de eliminación de transacciones u operaciones que no afectaron inventario físico
+        if (a.modulo === 'TRANSACCIONES' || a.accion === 'ELIMINAR_TRANSACCION') return false;
+        const tieneProd = Boolean(a.productoId || a.codigo || (a.nombre && a.nombre !== 'undefined'));
+        const tieneStock = a.stockFisico !== undefined || a.stockAnterior !== undefined || a.diferencia !== undefined;
+        return tieneProd && tieneStock;
+    });
+
+    if (auditoriasValidas.length === 0) {
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--text-muted); padding:24px;">Aún no se han aplicado ajustes de inventario físico.</td></tr>';
+        }
+        if (mobileContainer) {
+            mobileContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:24px;">Aún no se han aplicado ajustes de inventario físico.</div>';
+        }
+        renderizarResumenPerdidasEconomicas();
+        return;
+    }
+
+    const ordenado = [...auditoriasValidas].reverse();
 
     if (tbody) {
         tbody.innerHTML = ordenado.map(a => {
@@ -1191,7 +1213,12 @@ function renderizarHistorialAuditoria() {
                 colorPerdida = 'var(--success)';
             }
 
-            const motivo = a.motivo || (a.diferencia > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
+            const pRef = prodsRef.find(p => p.id === a.productoId || p.codigo === a.codigo) || null;
+            const nombreProd = (a.nombre && a.nombre !== 'undefined') ? a.nombre : (pRef ? pRef.nombre : 'Producto');
+            const codigoProd = (a.codigo && a.codigo !== 'undefined' && a.codigo !== '-') ? a.codigo : (pRef ? pRef.codigo : (a.productoId || '-'));
+            const difNum = Number(a.diferencia || 0);
+
+            const motivo = a.motivo || (difNum > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
             let motivoBg = '#f1f5f9';
             let motivoColor = '#475569';
             let motivoIcon = 'fa-tag';
@@ -1216,16 +1243,16 @@ function renderizarHistorialAuditoria() {
 
             return `
             <tr>
-                <td style="font-size:0.8rem; color:var(--text-muted);">${a.fecha}</td>
-                <td><strong>${a.codigo || '-'}</strong></td>
+                <td style="font-size:0.8rem; color:var(--text-muted);">${a.fecha || 'Sin fecha'}</td>
+                <td><strong>${codigoProd}</strong></td>
                 <td>
-                    <div style="font-weight:600; color:var(--text-color);">${a.nombre}</div>
+                    <div style="font-weight:600; color:var(--text-color);">${nombreProd}</div>
                     ${a.notas ? `<small style="color:var(--text-muted); font-style:italic;">"${a.notas}"</small>` : ''}
                 </td>
-                <td class="num" style="color:var(--text-muted);">${a.stockTeorico ?? a.stockAnterior}</td>
-                <td class="num"><strong>${a.stockFisico}</strong></td>
-                <td class="num" style="color: ${a.diferencia > 0 ? 'var(--success)' : a.diferencia < 0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 800;">
-                    ${a.diferencia > 0 ? '+' : ''}${a.diferencia}
+                <td class="num" style="color:var(--text-muted);">${a.stockTeorico ?? a.stockAnterior ?? '-'}</td>
+                <td class="num"><strong>${a.stockFisico ?? '-'}</strong></td>
+                <td class="num" style="color: ${difNum > 0 ? 'var(--success)' : difNum < 0 ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 800;">
+                    ${difNum > 0 ? '+' : ''}${difNum}
                 </td>
                 <td>
                     <span style="display:inline-flex; align-items:center; gap:5px; background:${motivoBg}; color:${motivoColor}; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:700; white-space:nowrap;">
@@ -1243,21 +1270,25 @@ function renderizarHistorialAuditoria() {
     if (mobileContainer) {
         mobileContainer.innerHTML = ordenado.map(a => {
             const impacto = Number(estadoPerdidas.impactos.get(a.id) || 0);
-            const motivo = a.motivo || (a.diferencia > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
+            const pRef = prodsRef.find(p => p.id === a.productoId || p.codigo === a.codigo) || null;
+            const nombreProd = (a.nombre && a.nombre !== 'undefined') ? a.nombre : (pRef ? pRef.nombre : 'Producto');
+            const codigoProd = (a.codigo && a.codigo !== 'undefined' && a.codigo !== '-') ? a.codigo : (pRef ? pRef.codigo : (a.productoId || '-'));
+            const difNum = Number(a.diferencia || 0);
+            const motivo = a.motivo || (difNum > 0 ? 'Error de conteo previo' : 'Pérdida desconocida');
             return `
                 <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #e2e8f0); border-radius:12px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
                         <div>
-                            <strong style="font-size:0.95rem; color:var(--text-color);">${a.nombre}</strong>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">${a.codigo || '-'} · ${a.fecha}</div>
+                            <strong style="font-size:0.95rem; color:var(--text-color);">${nombreProd}</strong>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${codigoProd} · ${a.fecha || ''}</div>
                         </div>
-                        <span style="font-size:1rem; font-weight:800; color:${a.diferencia > 0 ? 'var(--success)' : 'var(--danger)'};">
-                            ${a.diferencia > 0 ? '+' : ''}${a.diferencia} unds
+                        <span style="font-size:1rem; font-weight:800; color:${difNum > 0 ? 'var(--success)' : 'var(--danger)'};">
+                            ${difNum > 0 ? '+' : ''}${difNum} unds
                         </span>
                     </div>
                     <div style="display:flex; gap:12px; font-size:0.82rem; margin-bottom:8px;">
-                        <span>Teórico: <strong>${a.stockTeorico ?? a.stockAnterior}</strong></span>
-                        <span>Físico: <strong>${a.stockFisico}</strong></span>
+                        <span>Teórico: <strong>${a.stockTeorico ?? a.stockAnterior ?? '-'}</strong></span>
+                        <span>Físico: <strong>${a.stockFisico ?? '-'}</strong></span>
                         <span>Impacto: <strong style="color:${impacto > 0 ? 'var(--danger)' : 'var(--success)'};">${impacto > 0 ? '-$' + impacto.toFixed(2) : impacto < 0 ? '+$' + Math.abs(impacto).toFixed(2) : '$0.00'}</strong></span>
                     </div>
                     <div style="display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; color:#334155; padding:3px 8px; border-radius:6px; font-size:0.75rem; font-weight:600;">

@@ -209,7 +209,10 @@ window.InventoryApp.esProductoCombo = esProductoCombo;
 
 window.InventoryApp.StockService = {
     _get(productId) {
-        return productos.find(p => p.id === productId) || null;
+        if (!productId) return null;
+        const list = Array.isArray(productos) ? productos : (window.AppState?.productos || []);
+        const target = String(productId).trim();
+        return list.find(p => String(p.id).trim() === target || String(p.codigo).trim() === target) || null;
     },
     sale(productId, quantity) {
         const p = this._get(productId);

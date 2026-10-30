@@ -355,7 +355,8 @@
                     authDomain,
                     storageBucket: `${projectId}.firebasestorage.app`,
                     messagingSenderId: '851659747065',
-                    appId: '1:851659747065:web:175908dcd4bb4c68af7c28'
+                    appId: '1:851659747065:web:87486f1d0e541357af7c28',
+                    firestoreDatabaseId: 'ai-studio-tubodeguitadecon-7145ac79-a848-43d7-8106-96fe7a2467f8'
                 });
                 cargarCamposConfiguracionFirebase();
                 actualizarEstadisticasModalCloud();

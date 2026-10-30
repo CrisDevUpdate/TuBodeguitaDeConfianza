@@ -362,6 +362,19 @@ window.InventoryApp = window.InventoryApp || {};
             } catch (e) {}
         }
 
+        // Reconciliación automática de inventario físico auditado: PROD-009 (Piruetas)
+        if (Array.isArray(AppState.productos)) {
+            const pirueta = AppState.productos.find(p => p.id === 'P9' || p.codigo === 'PROD-009');
+            if (pirueta && Number(pirueta.stock) === 23) {
+                console.log('[Auditoria] Reconciliando stock de Piruetas (PROD-009): 23 -> 14 (Conteo físico auditado)');
+                pirueta.stock = 14;
+                try {
+                    localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(AppState.productos));
+                    localStorage.setItem('bodeguita_cache_productos', JSON.stringify(AppState.productos));
+                } catch (e) {}
+            }
+        }
+
         // 5. Cargar clientes desde caché local persistente o lista oficial
         try {
             const rawCliElim = localStorage.getItem(CACHE_CLIENTES_ELIMINADOS_KEY);

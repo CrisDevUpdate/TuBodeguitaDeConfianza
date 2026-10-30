@@ -8,10 +8,10 @@ import firebaseConfigData from '../firebase-applet-config.json' with { type: 'js
 
 export const FIREBASE_CONFIG = firebaseConfigData || {
   projectId: "tubodeguitadeconfianza",
-  appId: "1:851659747065:web:175908dcd4bb4c68af7c28",
+  appId: "1:851659747065:web:87486f1d0e541357af7c28",
   apiKey: "AIzaSyD0_dbHio6HBwmUJZnjRT6yg40SVvkHsfA",
   authDomain: "tubodeguitadeconfianza.firebaseapp.com",
-  firestoreDatabaseId: "(default)",
+  firestoreDatabaseId: "ai-studio-tubodeguitadecon-7145ac79-a848-43d7-8106-96fe7a2467f8",
   storageBucket: "tubodeguitadeconfianza.firebasestorage.app"
 };
 
