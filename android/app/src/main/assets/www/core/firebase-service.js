@@ -2503,6 +2503,27 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
+     * CRUD: Actualizar estado de confirmación de una venta en Firestore
+     */
+    async function guardarVentaEstadoCloud(ventaId, nuevoEstado = 'CONFIRMADO', confirmada = true) {
+        if (!ventaId) return false;
+        try {
+            if (db && !isQuotaExhausted) {
+                const docRef = db.collection(COLLECTIONS.VENTAS).doc(String(ventaId));
+                await docRef.set({
+                    estado: nuevoEstado,
+                    confirmada: Boolean(confirmada),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return true;
+        } catch (err) {
+            console.warn('[Firebase] Aviso al actualizar estado de venta:', err);
+            return false;
+        }
+    }
+
+    /**
      * CRUD: Eliminar ventas en Firestore (soporta ID individual o array de IDs)
      */
     async function eliminarVentasCloud(ventasIds) {
@@ -4329,6 +4350,7 @@ window.InventoryApp = window.InventoryApp || {};
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,
         guardarVenta: registrarVentaCloud,
+        guardarVentaEstado: guardarVentaEstadoCloud,
         eliminarVentas: eliminarVentasCloud,
         guardarCliente: guardarClienteCloud,
         eliminarCliente: eliminarClienteCloud,

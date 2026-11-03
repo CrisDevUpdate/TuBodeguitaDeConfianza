@@ -1295,8 +1295,8 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
         tipo: 'Crédito',
         metodoDetalle: 'Crédito (Fiado)',
         referencia: 'Cuenta Corriente',
-        estado: 'PENDIENTE',
-        confirmada: false
+        estado: 'CONFIRMADO',
+        confirmada: true
     };
 
     ventas.push(nuevaVenta);
@@ -1572,8 +1572,8 @@ async function ejecutarFinalizacionCheckoutPOS() {
         tipo: metodoPago === 'Crédito' ? 'Crédito' : 'Contado',
         metodoDetalle: metodoPago,
         referencia: referencia || 'N/A',
-        estado: estadoTransaccion,
-        confirmada: estadoTransaccion === 'CONFIRMADO' || estadoTransaccion === 'PAGADO' || metodoPago === 'Efectivo USD' || metodoPago === 'Efectivo VES'
+        estado: (metodoPago === 'Crédito' || estadoTransaccion === 'CONFIRMADO') ? 'CONFIRMADO' : estadoTransaccion,
+        confirmada: (metodoPago === 'Crédito' || estadoTransaccion === 'CONFIRMADO' || estadoTransaccion === 'PAGADO' || metodoPago.includes('Efectivo') || metodoPago.includes('Punto de Venta') || metodoPago.includes('Biopago'))
     };
 
     ventas.push(nuevaVenta);

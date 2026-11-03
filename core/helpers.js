@@ -226,37 +226,96 @@ window.normalizarFechaVenta = normalizarFechaVenta;
  */
 function normalizarTodasLasVentas() {
     if (!window.AppState || !Array.isArray(window.AppState.ventas)) return;
+    let ventasActualizadas = false;
     window.AppState.ventas.forEach(v => {
         if (v) {
             v.fecha = normalizarFechaVenta(v);
+
+            // Reconciliación de ventas a crédito y ventas en caja POS:
+            // Toda venta a crédito otorgada o venta registrada en caja por el administrador/cajero
+            // que no esté cancelada ni rechazada, debe figurar como CONFIRMADA (afectó inventario y cuenta del cliente).
+            const esCredito = Boolean(
+                v.tipo === 'Crédito' || 
+                v.tipo === 'credito' || 
+                v.tipoPago === 'Crédito' || 
+                v.tipoPago === 'credito' || 
+                v.metodoPago === 'Crédito' || 
+                v.metodoPago === 'credito' || 
+                v.modalidad === 'CREDITO' || 
+                v.esCredito === true || 
+                String(v.id || '').toUpperCase().startsWith('CRE_') || 
+                v.referencia === 'CRÉDITO-REGISTRADO' || 
+                v.referencia === 'Cuenta Corriente' || 
+                String(v.referencia || '').toLowerCase().includes('crédito') || 
+                String(v.metodoDetalle || '').toLowerCase().includes('crédito')
+            );
+            const estadoNorm = String(v.estado || '').trim().toUpperCase();
+            const esCancelada = estadoNorm === 'CANCELADO' || estadoNorm === 'RECHAZADO' || estadoNorm === 'FALLIDO';
+
+            if (esCredito && !esCancelada) {
+                if (estadoNorm === 'PENDIENTE' || estadoNorm === 'PENDIENTE_CONFIRMACION' || estadoNorm === 'POR_VERIFICAR' || v.confirmada === false) {
+                    v.estado = 'CONFIRMADO';
+                    v.confirmada = true;
+                    ventasActualizadas = true;
+                    if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.guardarVentaEstado === 'function') {
+                        window.InventoryApp.Firebase.guardarVentaEstado(v.id, 'CONFIRMADO', true).catch(() => {});
+                    }
+                }
+            }
         }
     });
+
+    if (ventasActualizadas && window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(false);
+    }
 }
 window.normalizarTodasLasVentas = normalizarTodasLasVentas;
 
 /**
  * Determina si una venta o transacción se encuentra debidamente confirmada.
- * - Una venta pendiente de verificación/aprobación bancaria o con transacción en estado "Confirmando"/"Pendiente"
- *   NO se considera confirmada y NO debe sumarse a "Ventas de hoy" ni a "Total histórico acumulado".
- * - Las ventas a crédito ya otorgadas/registradas se consideran válidas en el módulo de crédito a menos que sean rechazadas/canceladas.
+ * - Las ventas a crédito ya otorgadas/registradas representan desembolsos asentados en la cuenta
+ *   corriente del cliente con inventario ya despachado, por lo que se consideran CONFIRMADAS
+ *   (a menos que figuren como canceladas o rechazadas).
+ * - Una venta al contado pendiente de verificación/aprobación bancaria o en estado "Confirmando"
+ *   NO se considera confirmada hasta que el pago sea validado.
  */
 function esVentaOTransaccionConfirmada(venta) {
     if (!venta) return false;
 
-    // 1. Verificación de flags explícitos de no confirmación o pendiente
+    const estado = String(venta.estado || '').trim().toUpperCase();
+    const esCancelada = estado === 'CANCELADO' || estado === 'RECHAZADO' || estado === 'FALLIDO';
+    if (esCancelada) return false;
+
+    // 1. Las ventas a crédito otorgadas son firmes en cuenta corriente (no requieren comprobante bancario)
+    const esCredito = Boolean(
+        venta.tipo === 'Crédito' || 
+        venta.tipo === 'credito' || 
+        venta.tipoPago === 'Crédito' || 
+        venta.tipoPago === 'credito' || 
+        venta.metodoPago === 'Crédito' || 
+        venta.metodoPago === 'credito' || 
+        venta.modalidad === 'CREDITO' || 
+        venta.esCredito === true || 
+        String(venta.id || '').toUpperCase().startsWith('CRE_') || 
+        venta.referencia === 'CRÉDITO-REGISTRADO' || 
+        venta.referencia === 'Cuenta Corriente' || 
+        String(venta.referencia || '').toLowerCase().includes('crédito') || 
+        String(venta.metodoDetalle || '').toLowerCase().includes('crédito')
+    );
+    if (esCredito) {
+        return true;
+    }
+
+    // 2. Verificación de flags explícitos de no confirmación o pendiente
     if (venta.confirmada === false || venta.pendiente === true) return false;
 
-    // 2. Verificación de estados no confirmados
-    const estado = String(venta.estado || '').trim().toUpperCase();
+    // 3. Verificación de estados no confirmados
     const estadosNoConfirmados = [
         'PENDIENTE',
         'PENDIENTE_CONFIRMACION',
         'PENDIENTE_VERIFICACION',
         'POR_VERIFICAR',
-        'CONFIRMANDO',
-        'FALLIDO',
-        'RECHAZADO',
-        'CANCELADO'
+        'CONFIRMANDO'
     ];
     if (estadosNoConfirmados.includes(estado)) {
         return false;
