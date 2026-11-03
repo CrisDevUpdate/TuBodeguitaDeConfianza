@@ -375,6 +375,11 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
+        // Reconciliación y saneamiento de catálogo para evitar que productos regulares sean catalogados como combos
+        if (typeof sanitizarProductosCombos === 'function') {
+            sanitizarProductosCombos();
+        }
+
         // 5. Cargar clientes desde caché local persistente o lista oficial
         try {
             const rawCliElim = localStorage.getItem(CACHE_CLIENTES_ELIMINADOS_KEY);

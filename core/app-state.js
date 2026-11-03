@@ -190,18 +190,29 @@ function generarUrlWhatsApp(numero, texto = '') {
 window.generarUrlWhatsApp = generarUrlWhatsApp;
 
 /**
- * Validador universal de si un producto o combo debe tratarse como combo
+ * Validador universal de si un producto o combo debe tratarse como combo.
+ * Un combo es una oferta agrupada creada mediante el Constructor de Combos con componentes (items),
+ * o asignada explícitamente a la categoría "Combos" / "Combos & Ofertas".
+ * NUNCA debe clasificarse un producto regular de inventario como combo por contener palabras como
+ * "pack", "promo", "paquete" o "oferta" en su nombre (ej: "Tripack de jugo", "Sixpack", "Pack galletas").
  */
 function esProductoCombo(p) {
     if (!p) return false;
-    if (p.esCombo === true || p.isCombo === true || p.tipo === 'combo') return true;
+
+    // 1. Identificadores explícitos creados por el Constructor de Combos
     if (typeof p.id === 'string' && (p.id.startsWith('combo_') || p.id.startsWith('combo-'))) return true;
-    const cat = String(p.categoria || '').toLowerCase();
-    if (cat.includes('combo') || cat.includes('oferta') || cat.includes('promo') || cat.includes('paquete')) return true;
-    const nom = String(p.nombre || '').toLowerCase();
-    if (nom.includes('combo') || nom.includes('promo') || nom.includes('pack')) return true;
-    const cod = String(p.codigo || '').toLowerCase();
-    if (cod.includes('combo') || cod.startsWith('cmb')) return true;
+    if (typeof p.codigo === 'string' && (p.codigo.startsWith('COMBO-') || p.codigo.startsWith('CMB-'))) return true;
+    if (Array.isArray(p.items) && p.items.length > 0) return true;
+
+    // 2. Categoría explícitamente designada como Combos
+    const cat = String(p.categoria || '').trim().toLowerCase();
+    if (cat === 'combos' || cat === 'combo' || cat === 'combos & ofertas' || cat === 'super combos') return true;
+
+    // 3. Flags explícitos de combo, siempre que no sea un producto regular de inventario
+    if ((p.esCombo === true || p.tipo === 'combo' || p.isCombo === true) && (cat.includes('combo') || (typeof p.id === 'string' && p.id.startsWith('combo')) || (Array.isArray(p.items) && p.items.length > 0))) {
+        return true;
+    }
+
     return false;
 }
 window.esProductoCombo = esProductoCombo;

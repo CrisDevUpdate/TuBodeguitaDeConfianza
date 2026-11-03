@@ -282,7 +282,8 @@ function renderizarCatalogoCliente() {
     const container = document.getElementById('cliente-catalogo-grid');
     if (!container) return;
 
-    const esComboHelper = (p) => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+    if (typeof sanitizarProductosCombos === 'function') sanitizarProductosCombos();
+    const esComboHelper = (p) => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
     const todosLosCombos = (AppState.productos || []).filter(esComboHelper);
     const hayCombosParaDestacar = todosLosCombos.length > 0 && (!clienteBusqueda || clienteBusqueda.trim() === '');
 
@@ -494,7 +495,7 @@ function renderizarCategoriasCatalogo() {
     });
 
     const cats = Array.from(catsSet);
-    const totalCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
+    const totalCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0)).length;
 
     let html = `
         <button type="button" class="chip-filter ${clienteFiltroCategoria === 'TODAS' ? 'active' : ''}" onclick="filtrarCatalogoClienteCategoria('TODAS')">

@@ -315,7 +315,7 @@ function actualizarChipsCategoriasPOS() {
     });
 
     const categorias = Array.from(categoriasSet).sort();
-    const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'))).length;
+    const totalCombos = prods.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0)).length;
     const totalAgotados = prods.filter(p => Number(p.stock || 0) <= 0).length;
     const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
     const totalStockBajo = prods.filter(p => {
@@ -429,7 +429,7 @@ function renderizarPosProductos(filtro = null) {
 
             if (posCategoriaActiva !== 'TODOS') {
                 if (posCategoriaActiva === 'COMBOS') {
-                    const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                    const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
                     if (!esCombo) return false;
                 } else {
                     const catProd = (p.categoria || '').trim().toLowerCase();
@@ -543,7 +543,7 @@ function renderizarPosProductos(filtro = null) {
                 const precioUSD = Number(p.precio || 0);
                 const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
                 const esAgotado = stock <= 0;
-                const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
                 const umbralBajo = typeof obtenerUmbralStockBajo === 'function' ? obtenerUmbralStockBajo() : 5;
                 const esStockBajo = stock > 0 && stock <= umbralBajo;
                 const stockBadgeClass = esAgotado 

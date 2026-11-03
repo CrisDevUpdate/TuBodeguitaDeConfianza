@@ -272,6 +272,44 @@ function normalizarTodasLasVentas() {
 window.normalizarTodasLasVentas = normalizarTodasLasVentas;
 
 /**
+ * Sanea y reconcilia el catálogo de productos para asegurar que ningún producto regular
+ * (ej. "Tripack de jugo", "Sixpack", galletas o víveres) sea catalogado erróneamente como combo.
+ * Si un producto no es un combo legítimo, revierte sus flags a producto estándar y sincroniza.
+ */
+function sanitizarProductosCombos() {
+    if (!window.AppState || !Array.isArray(window.AppState.productos)) return;
+    let actualizados = false;
+    window.AppState.productos.forEach(p => {
+        if (!p) return;
+        const esVerdadero = (typeof esProductoCombo === 'function')
+            ? esProductoCombo(p)
+            : Boolean(Array.isArray(p.items) && p.items.length > 0);
+
+        if (!esVerdadero && (p.esCombo === true || p.tipo === 'combo' || p.isCombo === true)) {
+            p.esCombo = false;
+            p.tipo = 'producto';
+            p.isCombo = false;
+            actualizados = true;
+            if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
+                window.InventoryApp.Firebase.guardarProducto(p).catch(() => {});
+            }
+        }
+    });
+
+    if (actualizados) {
+        try {
+            localStorage.setItem('bodeguita_client_cache_prods_v2', JSON.stringify(window.AppState.productos));
+            localStorage.setItem('bodeguita_cache_productos', JSON.stringify(window.AppState.productos));
+        } catch (e) {}
+        if (window.InventoryApp?.Persistence?.guardar) {
+            window.InventoryApp.Persistence.guardar(false);
+        }
+    }
+}
+window.sanitizarProductosCombos = sanitizarProductosCombos;
+if (window.InventoryApp) window.InventoryApp.sanitizarProductosCombos = sanitizarProductosCombos;
+
+/**
  * Determina si una venta o transacción se encuentra debidamente confirmada.
  * - Las ventas a crédito ya otorgadas/registradas representan desembolsos asentados en la cuenta
  *   corriente del cliente con inventario ya despachado, por lo que se consideran CONFIRMADAS

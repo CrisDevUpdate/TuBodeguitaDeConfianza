@@ -176,7 +176,7 @@
 
         const productos = Array.isArray(window.AppState?.productos) ? window.AppState.productos : [];
         const totalAgotados = productos.filter(p => Number(p.stock || 0) <= 0).length;
-        const totalCombos = productos.filter(p => Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'))).length;
+        const totalCombos = productos.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0)).length;
 
         const categoriasSet = new Set(['TODOS']);
         productos.forEach(p => {
@@ -268,7 +268,7 @@
 
                 if (categoriaKioscoActiva !== 'TODOS') {
                     if (categoriaKioscoActiva === 'COMBOS') {
-                        const esCombo = Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'));
+                        const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
                         if (!esCombo) return false;
                     } else {
                         const catProd = String(p.categoria || '').trim().toLowerCase();
@@ -392,7 +392,7 @@
             const precioUSD = Number(p.precio || 0);
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const agotado = stock <= 0;
-            const esCombo = Boolean(p.esCombo === true || String(p.nombre || '').toLowerCase().includes('combo') || String(p.categoria || '').toLowerCase().includes('combo'));
+            const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
 
             const rawImg = p.imagen;
             const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (rawImg || ''));

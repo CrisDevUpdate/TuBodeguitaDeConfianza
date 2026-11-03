@@ -1242,7 +1242,9 @@ window.InventoryApp = window.InventoryApp || {};
                 if (safeImagen.startsWith('data:') && safeImagen.length > 400000) {
                     safeImagen = '';
                 }
-                const esComboP = Boolean(p.esCombo || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo') || String(p.codigo || '').toLowerCase().includes('combo'));
+                const esComboP = (typeof esProductoCombo === 'function')
+                    ? esProductoCombo(p)
+                    : Boolean((Array.isArray(p.items) && p.items.length > 0) || String(p.categoria || '').toLowerCase().includes('combo'));
                 batch.set(ref, {
                     codigo: p.codigo || '',
                     nombre: p.nombre || '',
@@ -1467,6 +1469,7 @@ window.InventoryApp = window.InventoryApp || {};
                     if (lastCollectionHashes[COLLECTIONS.PRODUCTOS] !== hash) {
                         lastCollectionHashes[COLLECTIONS.PRODUCTOS] = hash;
                         AppState.productos = newProds;
+                        if (typeof sanitizarProductosCombos === 'function') sanitizarProductosCombos();
                         guardarCacheLocal();
                         solicitarRefrescoVistasDebounced();
                     }
@@ -2347,7 +2350,9 @@ window.InventoryApp = window.InventoryApp || {};
                 }
 
                 const docRef = db.collection(COLLECTIONS.PRODUCTOS).doc(String(producto.id));
-                const esComboP = Boolean(producto.esCombo || producto.tipo === 'combo' || String(producto.categoria || '').toLowerCase().includes('combo') || String(producto.nombre || '').toLowerCase().includes('combo') || String(producto.codigo || '').toLowerCase().includes('combo'));
+                const esComboP = (typeof esProductoCombo === 'function')
+                    ? esProductoCombo(producto)
+                    : Boolean((Array.isArray(producto.items) && producto.items.length > 0) || String(producto.categoria || '').toLowerCase().includes('combo'));
                 await docRef.set({
                     codigo: producto.codigo || '',
                     nombre: producto.nombre || '',

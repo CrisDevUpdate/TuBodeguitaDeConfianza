@@ -426,9 +426,9 @@ async function guardarProducto(e) {
         }
     }
 
+    const catNorm = categoria.trim().toLowerCase();
     const esComboDetectado = Boolean(
-        categoria.toLowerCase().includes('combo') ||
-        document.getElementById('prod-nombre').value.toLowerCase().includes('combo')
+        catNorm === 'combos' || catNorm === 'combos & ofertas' || catNorm === 'super combos'
     );
 
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
@@ -874,7 +874,7 @@ function renderizarInventario() {
                 const costoUSD = Number(p.costo || 0);
                 const ganancia = Number(p.ganancia || 0);
                 const esAgotado = stock <= 0;
-                const esCombo = Boolean(p.esCombo === true || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo'));
+                const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true && (Array.isArray(p.items) && p.items.length > 0));
 
                 const imagenSrc = (typeof obtenerImagenProducto === 'function' ? obtenerImagenProducto(p) : (p.imagen || ''));
 
@@ -973,8 +973,8 @@ function renderizarInventario() {
                         </div>
                     </td>
                     <td>
-                        <span class="badge" style="background:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#ffedd5' : '#f1f5f9'}; color:${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
-                            ${p.esCombo || (p.categoria && p.categoria.toLowerCase().includes('combo')) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
+                        <span class="badge" style="background:${(typeof esProductoCombo === 'function' ? esProductoCombo(p) : p.esCombo) ? '#ffedd5' : '#f1f5f9'}; color:${(typeof esProductoCombo === 'function' ? esProductoCombo(p) : p.esCombo) ? '#c2410c' : '#334155'}; font-size:0.75rem; font-weight:700; border:1px solid ${(typeof esProductoCombo === 'function' ? esProductoCombo(p) : p.esCombo) ? '#fdba74' : '#cbd5e1'}; padding:3px 8px; border-radius:12px; white-space:nowrap;">
+                            ${(typeof esProductoCombo === 'function' ? esProductoCombo(p) : p.esCombo) ? '🔥 ' : '🏷️ '}${escaparHtmlInventario(p.categoria || 'General')}
                         </span>
                     </td>
                     <td class="inventory-description">${p.descripcion ? escaparHtmlInventario(p.descripcion) : '<span class="inventory-empty">Sin descripción</span>'}</td>

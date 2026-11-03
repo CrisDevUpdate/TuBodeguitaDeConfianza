@@ -73,7 +73,7 @@ class CatalogManager {
         // 2. Filtrar por Categoría
         if (filtroCategoria && filtroCategoria !== 'TODOS') {
             if (filtroCategoria.toUpperCase() === 'COMBOS') {
-                lista = lista.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().includes('combo')));
+                lista = lista.filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0));
             } else {
                 lista = lista.filter(p => (p.categoria || '').trim().toLowerCase() === filtroCategoria.trim().toLowerCase());
             }
@@ -82,8 +82,8 @@ class CatalogManager {
         // 3. Aplicar Algoritmo de Ranking y Priorización: 🔥 COMBOS PRIMERO
         lista.sort((a, b) => {
             // 0. 🔥 COMBOS CREADOS SIEMPRE DE PRIMEROS
-            const esComboA = (typeof esProductoCombo === 'function') ? esProductoCombo(a) : Boolean(a.esCombo === true || a.tipo === 'combo' || String(a.categoria || '').toLowerCase().includes('combo') || String(a.nombre || '').toLowerCase().includes('combo'));
-            const esComboB = (typeof esProductoCombo === 'function') ? esProductoCombo(b) : Boolean(b.esCombo === true || b.tipo === 'combo' || String(b.categoria || '').toLowerCase().includes('combo') || String(b.nombre || '').toLowerCase().includes('combo'));
+            const esComboA = (typeof esProductoCombo === 'function') ? esProductoCombo(a) : Boolean(Array.isArray(a.items) && a.items.length > 0);
+            const esComboB = (typeof esProductoCombo === 'function') ? esProductoCombo(b) : Boolean(Array.isArray(b.items) && b.items.length > 0);
             if (esComboA && !esComboB) return -1;
             if (!esComboA && esComboB) return 1;
 
@@ -201,7 +201,7 @@ class CatalogManager {
             const precioUSD = Number(p.precio || 0);
             const precioVES = tasa > 0 ? (precioUSD * tasa) : 0;
             const ptsPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
-            const esCombo = Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo'));
+            const esCombo = (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0);
             const puntosGanados = esCombo && (p.puntosCombo !== undefined || p.points_given !== undefined || p.puntosPromo !== undefined)
                 ? Number(p.puntosCombo ?? p.points_given ?? p.puntosPromo)
                 : Math.max(1, Math.floor(precioUSD * ptsPorDolar));
@@ -364,7 +364,7 @@ class CatalogManager {
         });
 
         const categorias = Array.from(categoriasSet);
-        const totalCombos = (AppState.productos || []).filter(p => Boolean(p.esCombo === true || p.tipo === 'combo' || String(p.categoria || '').toLowerCase().includes('combo') || String(p.nombre || '').toLowerCase().startsWith('combo'))).length;
+        const totalCombos = (AppState.productos || []).filter(p => (typeof esProductoCombo === 'function') ? esProductoCombo(p) : Boolean(Array.isArray(p.items) && p.items.length > 0)).length;
 
         container.innerHTML = `
             <button type="button" class="chip-filter ${this.currentFilterCategory === 'TODOS' ? 'active' : ''}" data-cat="TODOS" onclick="InventoryApp.Catalog.filtrarPorCategoria('TODOS')">
