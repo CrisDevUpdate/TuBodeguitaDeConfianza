@@ -666,8 +666,19 @@ async function registrarUsuarioDesdeGatewall(e) {
         AppState.usuarios = [];
     }
 
-    // Verificar duplicado por cédula
-    const existePorCedula = AppState.usuarios.find(u => (u.cedula || u.id).toUpperCase() === cedula.toUpperCase());
+    // Verificar duplicado por cédula (normalizada para evitar v19110433 vs 19110433 vs V-19110433)
+    const cedNormRegGw = typeof window.normalizarCedulaComparacion === 'function'
+        ? window.normalizarCedulaComparacion(cedula)
+        : cedula.replace(/^[VEJPGvejpg][\-\s]?/i, '').replace(/\D/g, '');
+    const existePorCedula = AppState.usuarios.find(u => {
+        if (!u || (!u.nombre && !u.email && !u.rol)) return false;
+        const uKey = String(u.cedula || u.id || '').trim();
+        if (uKey.toUpperCase() === cedula.toUpperCase()) return true;
+        const uNorm = typeof window.normalizarCedulaComparacion === 'function'
+            ? window.normalizarCedulaComparacion(uKey)
+            : uKey.replace(/^[VEJPGvejpg][\-\s]?/i, '').replace(/\D/g, '');
+        return Boolean(cedNormRegGw && uNorm && cedNormRegGw === uNorm);
+    });
     if (existePorCedula) {
         alert(`La Cédula/RIF ${cedula} ya se encuentra registrada con estado: ${existePorCedula.estado}.`);
         return false;
@@ -773,23 +784,57 @@ async function registrarUsuarioDesdeGatewall(e) {
                 window.InventoryApp.Firebase.guardarCliente(cliVinculadoGw).catch(() => {});
             }
         } else {
-            // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente
-            const nuevoCli = {
-                id: cedula,
-                cedula: cedula,
-                nombre: nombre,
-                telefono: telefono,
-                email: email
-            };
-            if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
-            const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
-            if (idxCli === -1) {
-                AppState.clientes.push(nuevoCli);
-            } else {
-                AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
+            // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente,
+            // pero jamás debe duplicar una ficha existente ni borrar registros de fusiones previas.
+            if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+                const cedUpperGw = String(cedula).trim().toUpperCase();
+                const uIdUpperGw = String(nuevoUsuario?.id || '').trim().toUpperCase();
+                AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+                    if (!e) return false;
+                    const esFusionRetirada = Boolean(e.fusionadoEn || e.idDestino || String(e.motivo || '').toUpperCase().includes('FUSI'));
+                    if (esFusionRetirada) return true;
+                    const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+                    if (eId === cedUpperGw) return false;
+                    if (uIdUpperGw && eId === uIdUpperGw) return false;
+                    return true;
+                });
             }
-            if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-                window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+
+            if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+            const criterioBusquedaGw = clienteVincConfirmed === 'rejected'
+                ? { id: cedula, cedula: cedula, telefono: telefono, email: email }
+                : { id: cedula, cedula: cedula, nombre: nombre, telefono: telefono, email: email };
+            const cliExistenteGw = typeof window.buscarClienteExistenteUniversal === 'function'
+                ? window.buscarClienteExistenteUniversal(criterioBusquedaGw, AppState.clientes)
+                : AppState.clientes.find(c => String(c.id).toUpperCase() === String(cedula).toUpperCase() || String(c.cedula || '').toUpperCase() === String(cedula).toUpperCase());
+
+            let cliAGuardarGw = null;
+            if (cliExistenteGw) {
+                if (!cliExistenteGw.cedula) cliExistenteGw.cedula = cedula;
+                if (!cliExistenteGw.usuarioId) cliExistenteGw.usuarioId = nuevoUsuario.id;
+                if (telefono && !cliExistenteGw.telefono) cliExistenteGw.telefono = telefono;
+                if (email && !cliExistenteGw.email) cliExistenteGw.email = email;
+                nuevoUsuario.clienteId = cliExistenteGw.id;
+                nuevoUsuario.clienteVinculado = cliExistenteGw.nombre;
+                cliAGuardarGw = cliExistenteGw;
+            } else {
+                const nuevoCli = {
+                    id: cedula,
+                    cedula: cedula,
+                    nombre: nombre,
+                    telefono: telefono,
+                    email: email,
+                    usuarioId: nuevoUsuario.id,
+                    deudaUSD: 0,
+                    deudaInicialUSD: 0
+                };
+                AppState.clientes.push(nuevoCli);
+                nuevoUsuario.clienteId = nuevoCli.id;
+                nuevoUsuario.clienteVinculado = nuevoCli.nombre;
+                cliAGuardarGw = nuevoCli;
+            }
+            if (cliAGuardarGw && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+                window.InventoryApp.Firebase.guardarCliente(cliAGuardarGw).catch(() => {});
             }
         }
         if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
@@ -1253,8 +1298,19 @@ async function registrarUsuario(e) {
         AppState.usuarios = [];
     }
 
-    // Verificar si ya existe usuario con esa cédula o correo
-    const existePorCedula = AppState.usuarios.find(u => (u.cedula || u.id).toUpperCase() === cedula.toUpperCase());
+    // Verificar si ya existe usuario con esa cédula normalizada o correo
+    const cedNormReg = typeof window.normalizarCedulaComparacion === 'function'
+        ? window.normalizarCedulaComparacion(cedula)
+        : cedula.replace(/^[VEJPGvejpg][\-\s]?/i, '').replace(/\D/g, '');
+    const existePorCedula = AppState.usuarios.find(u => {
+        if (!u || (!u.nombre && !u.email && !u.rol)) return false;
+        const uKey = String(u.cedula || u.id || '').trim();
+        if (uKey.toUpperCase() === cedula.toUpperCase()) return true;
+        const uNorm = typeof window.normalizarCedulaComparacion === 'function'
+            ? window.normalizarCedulaComparacion(uKey)
+            : uKey.replace(/^[VEJPGvejpg][\-\s]?/i, '').replace(/\D/g, '');
+        return Boolean(cedNormReg && uNorm && cedNormReg === uNorm);
+    });
     if (existePorCedula) {
         if (existePorCedula.estado === 'PENDIENTE_APROBACION') {
             mostrarNotificacionRegistro(`La Cédula/RIF ${cedula} ya tiene una solicitud PENDIENTE DE APROBACIÓN. Espera la validación del Administrador.`, 'warning');
@@ -1362,23 +1418,57 @@ async function registrarUsuario(e) {
             window.InventoryApp.Firebase.guardarCliente(cliVinculado).catch(() => {});
         }
     } else {
-        // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente
-        const nuevoCli = {
-            id: cedula,
-            cedula: cedula,
-            nombre: nombre,
-            telefono: telefono,
-            email: email
-        };
-        if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
-        const idxCli = AppState.clientes.findIndex(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
-        if (idxCli === -1) {
-            AppState.clientes.push(nuevoCli);
-        } else {
-            AppState.clientes[idxCli] = { ...AppState.clientes[idxCli], ...nuevoCli };
+        // Regla de Negocio: Todo usuario creado independiente es automáticamente un cliente,
+        // pero sin duplicar fichas existentes ni eliminar registros de fusiones previas.
+        if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+            const cedUpperReg = String(cedula).trim().toUpperCase();
+            const uIdUpperReg = String(nuevoUsuario?.id || '').trim().toUpperCase();
+            AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+                if (!e) return false;
+                const esFusionRetirada = Boolean(e.fusionadoEn || e.idDestino || String(e.motivo || '').toUpperCase().includes('FUSI'));
+                if (esFusionRetirada) return true;
+                const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+                if (eId === cedUpperReg) return false;
+                if (uIdUpperReg && eId === uIdUpperReg) return false;
+                return true;
+            });
         }
-        if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-            window.InventoryApp.Firebase.guardarCliente(nuevoCli).catch(() => {});
+
+        if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
+        const criterioBusquedaReg = clienteVincConfirmed === 'rejected'
+            ? { id: cedula, cedula: cedula, telefono: telefono, email: email }
+            : { id: cedula, cedula: cedula, nombre: nombre, telefono: telefono, email: email };
+        const cliExistenteReg = typeof window.buscarClienteExistenteUniversal === 'function'
+            ? window.buscarClienteExistenteUniversal(criterioBusquedaReg, AppState.clientes)
+            : AppState.clientes.find(c => String(c.id).toUpperCase() === String(cedula).toUpperCase() || String(c.cedula || '').toUpperCase() === String(cedula).toUpperCase());
+
+        let cliAGuardarReg = null;
+        if (cliExistenteReg) {
+            if (!cliExistenteReg.cedula) cliExistenteReg.cedula = cedula;
+            if (!cliExistenteReg.usuarioId) cliExistenteReg.usuarioId = nuevoUsuario.id;
+            if (telefono && !cliExistenteReg.telefono) cliExistenteReg.telefono = telefono;
+            if (email && !cliExistenteReg.email) cliExistenteReg.email = email;
+            nuevoUsuario.clienteId = cliExistenteReg.id;
+            nuevoUsuario.clienteVinculado = cliExistenteReg.nombre;
+            cliAGuardarReg = cliExistenteReg;
+        } else {
+            const nuevoCli = {
+                id: cedula,
+                cedula: cedula,
+                nombre: nombre,
+                telefono: telefono,
+                email: email,
+                usuarioId: nuevoUsuario.id,
+                deudaUSD: 0,
+                deudaInicialUSD: 0
+            };
+            AppState.clientes.push(nuevoCli);
+            nuevoUsuario.clienteId = nuevoCli.id;
+            nuevoUsuario.clienteVinculado = nuevoCli.nombre;
+            cliAGuardarReg = nuevoCli;
+        }
+        if (cliAGuardarReg && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
+            window.InventoryApp.Firebase.guardarCliente(cliAGuardarReg).catch(() => {});
         }
     }
 
@@ -1473,18 +1563,55 @@ function aprobarUsuario(cedula) {
         AppState.usuarioActual.estado = 'ACTIVO';
     }
 
-    // Asegurar en lista de clientes (Todo usuario es automáticamente un cliente)
+    // Asegurar en lista de clientes (Todo usuario es automáticamente un cliente, sin duplicar fichas existentes)
     if (!Array.isArray(AppState.clientes)) AppState.clientes = [];
-    let cli = AppState.clientes.find(c => String(c.id).toUpperCase() === String(cedula).toUpperCase());
+
+    if (Array.isArray(AppState.clientesEliminados) && AppState.clientesEliminados.length > 0) {
+        const cedUpperAprob = String(cedula).trim().toUpperCase();
+        const uIdUpperAprob = String(usuario.id || '').trim().toUpperCase();
+        AppState.clientesEliminados = AppState.clientesEliminados.filter(e => {
+            if (!e) return false;
+            const esFusionRetirada = Boolean(e.fusionadoEn || e.idDestino || String(e.motivo || '').toUpperCase().includes('FUSI'));
+            if (esFusionRetirada) return true;
+            const eId = String(e.id || e.cedula || '').trim().toUpperCase();
+            if (eId === cedUpperAprob) return false;
+            if (uIdUpperAprob && eId === uIdUpperAprob) return false;
+            return true;
+        });
+    }
+
+    let cli = typeof window.buscarClienteExistenteUniversal === 'function'
+        ? window.buscarClienteExistenteUniversal({
+            id: cedula,
+            cedula: usuario.cedula || cedula,
+            nombre: usuario.nombre,
+            telefono: usuario.telefono,
+            email: usuario.email,
+            clienteId: usuario.clienteId
+        }, AppState.clientes)
+        : AppState.clientes.find(c => String(c.id).toUpperCase() === String(cedula).toUpperCase() || String(c.cedula || '').toUpperCase() === String(cedula).toUpperCase());
+
     if (!cli) {
         cli = {
             id: cedula,
-            nombre: usuario.nombre,
+            cedula: cedula,
+            nombre: usuario.nombre || cedula,
             telefono: usuario.telefono || '',
-            email: usuario.email || ''
+            email: usuario.email || '',
+            usuarioId: usuario.id || cedula,
+            deudaUSD: 0,
+            deudaInicialUSD: 0
         };
         AppState.clientes.push(cli);
+    } else {
+        if (!cli.usuarioId) cli.usuarioId = usuario.id || cedula;
+        if (!cli.cedula) cli.cedula = usuario.cedula || cedula;
+        if (!cli.telefono && usuario.telefono) cli.telefono = usuario.telefono;
+        if (!cli.email && usuario.email) cli.email = usuario.email;
     }
+    usuario.clienteId = cli.id;
+    usuario.clienteVinculado = cli.nombre;
+
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
         window.InventoryApp.Firebase.guardarCliente(cli).catch(() => {});
     }

@@ -1119,17 +1119,56 @@
                 }
             }
 
-            // 1. Guardar cliente en AppState si no existe aún
+            // 1. Resolver cliente existente de forma universal antes de crear ficha nueva (anti-duplicados)
+            const cedKiosco = String(clienteKiosco.cedula || '').trim();
+            const nomKiosco = String(clienteKiosco.nombre || '').trim();
+            const telKiosco = String(clienteKiosco.telefono || '').trim();
+            let clienteExistente = null;
+
             if (Array.isArray(window.AppState?.clientes)) {
-                const existeCli = window.AppState.clientes.find(c => String(c.id).toUpperCase() === clienteKiosco.cedula.toUpperCase());
-                if (!existeCli) {
-                    window.AppState.clientes.push({
-                        id: clienteKiosco.cedula,
-                        nombre: clienteKiosco.nombre,
-                        telefono: clienteKiosco.telefono,
-                        deudaUSD: 0,
-                        email: ''
+                clienteExistente = typeof window.buscarClienteExistenteUniversal === 'function'
+                    ? window.buscarClienteExistenteUniversal({
+                        id: cedKiosco,
+                        cedula: cedKiosco,
+                        nombre: nomKiosco,
+                        telefono: telKiosco
+                    }, window.AppState.clientes)
+                    : window.AppState.clientes.find(c => {
+                        if (!c) return false;
+                        const cId = String(c.id || '').trim().toUpperCase();
+                        const cCed = String(c.cedula || '').trim().toUpperCase();
+                        const cNom = String(c.nombre || '').trim().toUpperCase();
+                        return (cedKiosco && (cId === cedKiosco.toUpperCase() || cCed === cedKiosco.toUpperCase())) ||
+                               (nomKiosco && cNom === nomKiosco.toUpperCase());
                     });
+
+                if (!clienteExistente) {
+                    clienteExistente = {
+                        id: cedKiosco,
+                        cedula: cedKiosco,
+                        nombre: nomKiosco,
+                        telefono: telKiosco,
+                        deudaUSD: 0,
+                        deudaInicialUSD: 0,
+                        email: ''
+                    };
+                    window.AppState.clientes.push(clienteExistente);
+                    if (window.InventoryApp?.Firebase?.guardarCliente) {
+                        window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
+                    }
+                } else {
+                    let cliActualizado = false;
+                    if (cedKiosco && !clienteExistente.cedula) {
+                        clienteExistente.cedula = cedKiosco;
+                        cliActualizado = true;
+                    }
+                    if (telKiosco && !clienteExistente.telefono) {
+                        clienteExistente.telefono = telKiosco;
+                        cliActualizado = true;
+                    }
+                    if (cliActualizado && window.InventoryApp?.Firebase?.guardarCliente) {
+                        window.InventoryApp.Firebase.guardarCliente(clienteExistente).catch(() => {});
+                    }
                 }
             }
 
@@ -1153,18 +1192,6 @@
 
             // 3. Crear registro de venta confirmada
             const esCredito = (metodoModalidadKiosco === 'CREDITO');
-            const cedKiosco = String(clienteKiosco.cedula || '').trim();
-            const nomKiosco = String(clienteKiosco.nombre || '').trim();
-
-            const clienteExistente = (window.AppState?.clientes || []).find(c => {
-                if (!c) return false;
-                const cId = String(c.id || '').trim().toUpperCase();
-                const cCed = String(c.cedula || '').trim().toUpperCase();
-                const cNom = String(c.nombre || '').trim().toUpperCase();
-                return (cedKiosco && (cId === cedKiosco.toUpperCase() || cCed === cedKiosco.toUpperCase())) ||
-                       (nomKiosco && (cNom === nomKiosco.toUpperCase() || (nomKiosco.length >= 4 && (cNom.startsWith(nomKiosco.toUpperCase()) || nomKiosco.toUpperCase().startsWith(cNom)))));
-            });
-
             const finalClienteId = clienteExistente ? clienteExistente.id : cedKiosco;
             const finalClienteNombre = clienteExistente ? clienteExistente.nombre : nomKiosco;
 

@@ -112,7 +112,8 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
 
         // Si este cliente es el receptor / sobreviviente de una fusión, NUNCA debe considerarse eliminado
         const fusId = String(e.fusionadoEn || e.idDestino || '').trim().toUpperCase();
-        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm)) {
+        const fusDigits = cedulaDigitos(fusId);
+        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm || (fusDigits && idDigits && fusDigits === idDigits))) {
             return false;
         }
 
@@ -211,6 +212,8 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
 
     // 2. Sincronizar usuarios a clientes con vinculación total
     usuariosList.forEach(u => {
+        // Ignorar documentos fantasma (sin nombre, correo ni rol) que pudieron generarse solo con puntos
+        if (!u || (!u.nombre && !u.email && !u.rol)) return;
         const idCed = String(u.cedula || u.id || '').trim();
         if (!idCed) return;
         const idUpper = idCed.toUpperCase();
@@ -248,25 +251,38 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             }
         }
 
-        // Buscar cliente existente por ID, cédula, usuarioId, clienteId o por NOMBRE coincidente
-        let cliente = AppState.clientes.find(c => {
-            const cId = String(c.id || '').trim().toUpperCase();
-            const cCed = String(c.cedula || '').trim().toUpperCase();
-            const cUid = String(c.usuarioId || '').trim().toUpperCase();
-            const uId = String(u.id || '').trim().toUpperCase();
-            const cNom = String(c.nombre || '').trim().toUpperCase();
+        // Buscar cliente existente de forma universal (ID, código anterior, cédula normalizada, teléfono, email o nombre)
+        let cliente = typeof window.buscarClienteExistenteUniversal === 'function'
+            ? window.buscarClienteExistenteUniversal({
+                id: idCed,
+                cedula: idCed,
+                nombre: u.nombre || u.clienteVinculado || '',
+                telefono: u.telefono || '',
+                email: u.email || '',
+                clienteId: u.clienteId || (coEncontrado ? coEncontrado.id : '')
+            }, AppState.clientes)
+            : null;
 
-            if (cId === idUpper) return true;
-            if (uCliId && cId === uCliId) return true;
-            if (coEncontrado && cId === String(coEncontrado.id).trim().toUpperCase()) return true;
-            if (cUid && uId && cUid === uId) return true;
-            if (cCed && cCed === idUpper) return true;
-            if (uNom && cNom && uNom === cNom) return true;
-            if (uVin && cNom && uVin === cNom) return true;
-            if (uNom && cNom && uNom.length >= 4 && (uNom.startsWith(cNom) || cNom.startsWith(uNom))) return true;
+        if (!cliente) {
+            cliente = AppState.clientes.find(c => {
+                const cId = String(c.id || '').trim().toUpperCase();
+                const cCed = String(c.cedula || '').trim().toUpperCase();
+                const cUid = String(c.usuarioId || '').trim().toUpperCase();
+                const uId = String(u.id || '').trim().toUpperCase();
+                const cNom = String(c.nombre || '').trim().toUpperCase();
 
-            return false;
-        });
+                if (cId === idUpper) return true;
+                if (uCliId && cId === uCliId) return true;
+                if (coEncontrado && cId === String(coEncontrado.id).trim().toUpperCase()) return true;
+                if (cUid && uId && cUid === uId) return true;
+                if (cCed && cCed === idUpper) return true;
+                if (uNom && cNom && uNom === cNom) return true;
+                if (uVin && cNom && uVin === cNom) return true;
+                if (uNom && cNom && uNom.length >= 4 && (uNom.startsWith(cNom) || cNom.startsWith(uNom))) return true;
+
+                return false;
+            });
+        }
 
         if (!cliente) {
             cliente = {
@@ -336,9 +352,17 @@ function asegurarSincronizacionUsuariosAClientes(sincronizarConNube = false) {
             return;
         }
 
-        const yaExiste = AppState.clientes.some(c => 
-            (vCliId && (String(c.id).toUpperCase() === vCliId.toUpperCase() || String(c.cedula || '').toUpperCase() === vCliId.toUpperCase() || String(c.usuarioId || '').toUpperCase() === vCliId.toUpperCase())) ||
-            (vNom && String(c.nombre || '').trim().toUpperCase() === vNom.toUpperCase())
+        const yaExiste = Boolean(
+            (typeof window.buscarClienteExistenteUniversal === 'function' && window.buscarClienteExistenteUniversal({
+                id: vCliId,
+                cedula: v.clienteCedula || vCliId,
+                nombre: vNom,
+                telefono: v.clienteTelefono || ''
+            }, AppState.clientes)) ||
+            AppState.clientes.some(c => 
+                (vCliId && (String(c.id).toUpperCase() === vCliId.toUpperCase() || String(c.cedula || '').toUpperCase() === vCliId.toUpperCase() || String(c.usuarioId || '').toUpperCase() === vCliId.toUpperCase())) ||
+                (vNom && String(c.nombre || '').trim().toUpperCase() === vNom.toUpperCase())
+            )
         );
 
         if (!yaExiste) {
@@ -471,47 +495,84 @@ window.asegurarSincronizacionUsuariosAClientes = asegurarSincronizacionUsuariosA
 
 function guardarCliente(e) {
     e.preventDefault();
-    const nuevoCliente = {
-        id: document.getElementById('cli-id').value.trim(),
-        nombre: document.getElementById('cli-nombre').value.trim(),
-        telefono: document.getElementById('cli-telefono').value.trim()
-    };
+    const idIngresado = document.getElementById('cli-id').value.trim();
+    const nombreIngresado = document.getElementById('cli-nombre').value.trim();
+    const telefonoIngresado = document.getElementById('cli-telefono').value.trim();
 
-    if (!nuevoCliente.id || !nuevoCliente.nombre) {
+    if (!idIngresado || !nombreIngresado) {
         alert('Por favor completa el ID y nombre del cliente.');
         return;
     }
 
-    const idx = clientes.findIndex(c => c.id === nuevoCliente.id);
-    if (idx !== -1) {
-        clientes[idx] = nuevoCliente;
+    if (!Array.isArray(clientes)) clientes = Array.isArray(AppState.clientes) ? AppState.clientes : [];
+
+    // Búsqueda universal anti-duplicados (ID, código anterior, cédula normalizada, teléfono o nombre exacto)
+    const clienteExistente = typeof window.buscarClienteExistenteUniversal === 'function'
+        ? window.buscarClienteExistenteUniversal({
+            id: idIngresado,
+            cedula: idIngresado,
+            nombre: nombreIngresado,
+            telefono: telefonoIngresado
+        }, clientes)
+        : clientes.find(c => String(c.id).toUpperCase() === idIngresado.toUpperCase());
+
+    let clienteGuardado = null;
+    if (clienteExistente) {
+        const esMismoId = String(clienteExistente.id).trim().toUpperCase() === idIngresado.toUpperCase();
+        // Preservar deuda, historial y metadatos intactos al actualizar la ficha existente
+        clienteExistente.nombre = nombreIngresado;
+        if (telefonoIngresado) clienteExistente.telefono = telefonoIngresado;
+        if (!clienteExistente.cedula && !idIngresado.toUpperCase().startsWith('CLI-')) {
+            clienteExistente.cedula = idIngresado;
+        }
+        clienteGuardado = clienteExistente;
+        if (!esMismoId && window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast(`Cliente ya registrado (${clienteExistente.id}). Se actualizó la ficha existente para evitar duplicados.`, 'info');
+        }
     } else {
-        clientes.push(nuevoCliente);
+        clienteGuardado = {
+            id: idIngresado,
+            cedula: !idIngresado.toUpperCase().startsWith('CLI-') ? idIngresado : '',
+            nombre: nombreIngresado,
+            telefono: telefonoIngresado,
+            deudaUSD: 0,
+            deudaInicialUSD: 0
+        };
+        clientes.push(clienteGuardado);
     }
 
     // Guardar en Firestore
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarCliente === 'function') {
-        window.InventoryApp.Firebase.guardarCliente(nuevoCliente).catch(err => {
+        window.InventoryApp.Firebase.guardarCliente(clienteGuardado).catch(err => {
             console.warn('[Clientes] Error al guardar cliente en Firestore:', err);
         });
     }
 
-    // Sincronizar también con la colección de usuarios
+    // Sincronizar también con la colección de usuarios sin crear duplicados
     if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
-    const idxU = AppState.usuarios.findIndex(u => (u.cedula || u.id) === nuevoCliente.id);
-    if (idxU === -1) {
+    const usuarioExistente = typeof window.buscarUsuarioExistenteUniversal === 'function'
+        ? window.buscarUsuarioExistenteUniversal({
+            id: clienteGuardado.id,
+            cedula: clienteGuardado.cedula || clienteGuardado.id,
+            telefono: clienteGuardado.telefono
+        }, AppState.usuarios)
+        : AppState.usuarios.find(u => u && (u.nombre || u.email || u.rol) && (u.cedula || u.id) === clienteGuardado.id);
+
+    if (!usuarioExistente) {
         const passHash = (window.InventoryApp?.Helpers?.calcularHashSha256)
-            ? window.InventoryApp.Helpers.calcularHashSha256(nuevoCliente.id)
-            : nuevoCliente.id;
+            ? window.InventoryApp.Helpers.calcularHashSha256(clienteGuardado.id)
+            : clienteGuardado.id;
         const nuevoUsuario = {
-            id: nuevoCliente.id,
-            cedula: nuevoCliente.id,
-            nombre: nuevoCliente.nombre,
-            telefono: nuevoCliente.telefono || '',
-            email: `${nuevoCliente.id.toLowerCase().replace(/[^a-z0-9]/g, '')}@cliente.com`,
+            id: clienteGuardado.id,
+            cedula: clienteGuardado.cedula || clienteGuardado.id,
+            nombre: clienteGuardado.nombre,
+            telefono: clienteGuardado.telefono || '',
+            email: `${clienteGuardado.id.toLowerCase().replace(/[^a-z0-9]/g, '')}@cliente.com`,
             password: passHash,
             rol: 'cliente',
             estado: 'ACTIVO',
+            clienteId: clienteGuardado.id,
+            clienteVinculado: clienteGuardado.nombre,
             puntosAcumulados: 0,
             puntosCanjeados: 0,
             fechaRegistro: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -524,10 +585,12 @@ function guardarCliente(e) {
         if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
         if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
     } else {
-        AppState.usuarios[idxU].nombre = nuevoCliente.nombre;
-        if (nuevoCliente.telefono) AppState.usuarios[idxU].telefono = nuevoCliente.telefono;
+        usuarioExistente.nombre = clienteGuardado.nombre;
+        if (clienteGuardado.telefono) usuarioExistente.telefono = clienteGuardado.telefono;
+        usuarioExistente.clienteId = clienteGuardado.id;
+        usuarioExistente.clienteVinculado = clienteGuardado.nombre;
         if (window.InventoryApp?.Firebase?.guardarUsuario) {
-            window.InventoryApp.Firebase.guardarUsuario(AppState.usuarios[idxU]).catch(() => {});
+            window.InventoryApp.Firebase.guardarUsuario(usuarioExistente).catch(() => {});
         }
     }
 
@@ -4280,20 +4343,33 @@ async function ejecutarFusionClientes() {
     clientes = AppState.clientes;
 
     // Registrar en clientes inactivos/eliminados con motivo formal de fusión
+    // Usar el ID retirado en `nombre` (guardando el nombre original aparte) para jamás ocultar al sobreviviente por nombre
     if (!Array.isArray(AppState.clientesEliminados)) AppState.clientesEliminados = [];
     AppState.clientesEliminados.push({
         id: cliSec.id,
-        nombre: cliSec.nombre,
+        nombre: cliSec.id,
+        nombreOriginal: cliSec.nombre,
         telefono: cliSec.telefono || '',
         fecha: fechaAjuste,
         deudaUSD: estSec.saldoDeudaUSD,
         perdidaUSD: 0,
         motivo: `FUSIÓN / UNIFICACIÓN en cuenta de ${cliPrin.nombre} (${cliPrin.id}) - Modo: ${modoDeuda}`,
         fusionadoEn: cliPrin.id,
+        idDestino: cliPrin.id,
         esDuplicadoOError: true
     });
     if (typeof clientesEliminados !== 'undefined' && clientesEliminados !== AppState.clientesEliminados) {
         clientesEliminados.push(AppState.clientesEliminados[AppState.clientesEliminados.length - 1]);
+    }
+
+    // Limpiar posible documento fantasma en AppState.usuarios para el ID secundario retirado
+    if (Array.isArray(AppState.usuarios)) {
+        AppState.usuarios = AppState.usuarios.filter(u => {
+            if (!u) return false;
+            const uId = String(u.id || u.cedula || '').trim().toUpperCase();
+            const esGhostSec = uId === String(cliSec.id).trim().toUpperCase() && !u.nombre && !u.email && !u.rol;
+            return !esGhostSec;
+        });
     }
 
     // 11. Persistencia local y en Firestore
@@ -4310,8 +4386,10 @@ async function ejecutarFusionClientes() {
             if (typeof window.InventoryApp.Firebase.eliminarCliente === 'function') {
                 window.InventoryApp.Firebase.eliminarCliente(cliSec.id, {
                     motivo: 'FUSIÓN / UNIFICACIÓN',
-                    nombre: cliSec.nombre,
+                    nombre: cliSec.id,
+                    nombreOriginal: cliSec.nombre,
                     fusionadoEn: cliPrin.id,
+                    idDestino: cliPrin.id,
                     fecha: fechaAjuste
                 }).catch(() => {});
             }

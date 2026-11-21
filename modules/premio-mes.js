@@ -52,7 +52,9 @@ const PRESETS_PREMIOS = [
 function obtenerPuntosUsuario(cedulaOId) {
     if (!cedulaOId) return 0;
     const cleanId = String(cedulaOId).trim().toUpperCase();
-    const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id || '').toUpperCase() === cleanId);
+    const usuario = typeof window.buscarUsuarioExistenteUniversal === 'function'
+        ? window.buscarUsuarioExistenteUniversal(cleanId, AppState.usuarios || [])
+        : (AppState.usuarios || []).find(u => u && (u.nombre || u.email || u.rol) && (u.cedula || u.id || '').toUpperCase() === cleanId);
     if (usuario) {
         const acumulados = Number(usuario.puntosAcumulados || 0);
         const canjeados = Number(usuario.puntosCanjeados || 0);
@@ -73,10 +75,12 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
         return 0;
     }
 
-    const cleanId = String(clienteCedulaOId).trim().toUpperCase();
+    const cleanId = String(clienteCedulaOId).trim();
     
-    // Buscar en usuarios
-    const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id || '').toUpperCase() === cleanId);
+    // Buscar usuario REAL existente (incluso si llega un CLI-xxx vinculado a una cédula)
+    const usuario = typeof window.buscarUsuarioExistenteUniversal === 'function'
+        ? window.buscarUsuarioExistenteUniversal(cleanId, AppState.usuarios || [])
+        : (AppState.usuarios || []).find(u => u && (u.nombre || u.email || u.rol) && (u.cedula || u.id || '').toUpperCase() === cleanId.toUpperCase());
     const puntosPorDolar = Number(AppState.premioMes?.puntosPorDolar || 1);
 
     let puntosGanados = 0;
@@ -125,20 +129,26 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
 
     if (puntosGanados <= 0) return 0;
 
-    // Actualizar usuario en AppState
-    if (usuario) {
-        usuario.puntosAcumulados = Number(usuario.puntosAcumulados || 0) + puntosGanados;
-        
-        // Actualizar métricas financieras acumuladas
-        const prevMetrics = usuario.financialMetrics || {};
-        usuario.financialMetrics = {
-            totalNetProfitUSD: Number((Number(prevMetrics.totalNetProfitUSD || 0) + gananciaNetaTotal).toFixed(2)),
-            totalPurchasesUSD: Number((Number(prevMetrics.totalPurchasesUSD || 0) + Number(montoUSD)).toFixed(2)),
-            totalPointsEarned: Number(prevMetrics.totalPointsEarned || 0) + puntosGanados,
-            combosPurchasedCount: Number(prevMetrics.combosPurchasedCount || 0) + cantidadCombos,
-            lastUpdated: new Date().toISOString()
-        };
+    // Protección anti-duplicados: si el cliente no tiene cuenta real en `usuarios`, NO crear documentos fantasma
+    if (!usuario) {
+        console.log(`[Puntos] Cliente "${cleanId}" sin cuenta de usuario registrada; se omite escritura en usuarios para evitar duplicados fantasma.`);
+        return 0;
     }
+
+    const realUserId = String(usuario.id || usuario.cedula || cleanId).trim();
+
+    // Actualizar usuario en AppState
+    usuario.puntosAcumulados = Number(usuario.puntosAcumulados || 0) + puntosGanados;
+    
+    // Actualizar métricas financieras acumuladas
+    const prevMetrics = usuario.financialMetrics || {};
+    usuario.financialMetrics = {
+        totalNetProfitUSD: Number((Number(prevMetrics.totalNetProfitUSD || 0) + gananciaNetaTotal).toFixed(2)),
+        totalPurchasesUSD: Number((Number(prevMetrics.totalPurchasesUSD || 0) + Number(montoUSD)).toFixed(2)),
+        totalPointsEarned: Number(prevMetrics.totalPointsEarned || 0) + puntosGanados,
+        combosPurchasedCount: Number(prevMetrics.combosPurchasedCount || 0) + cantidadCombos,
+        lastUpdated: new Date().toISOString()
+    };
 
     // Persistir localmente
     if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
@@ -147,28 +157,22 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
 
     // Actualizar Árbol de Gamificación
     if (window.InventoryApp?.TreeGamification && typeof window.InventoryApp.TreeGamification.actualizarPuntos === 'function') {
-        window.InventoryApp.TreeGamification.actualizarPuntos(usuario?.puntosAcumulados || puntosGanados);
+        window.InventoryApp.TreeGamification.actualizarPuntos(usuario.puntosAcumulados);
     }
 
-    // Sincronizar atómicamente con Firestore: /users/{id} y /users/{id}/financialMetrics
+    // Sincronizar atómicamente con Firestore usando exclusivamente el ID real del usuario
     if (window.firebase?.firestore) {
         try {
             const db = window.firebase.firestore();
             const batch = db.batch();
-            const userRef = db.collection('users').doc(cleanId);
-            const usuarioRef = db.collection('usuarios').doc(cleanId);
-            const metricsRef = db.collection('users').doc(cleanId).collection('financialMetrics').doc('summary');
+            const userRef = db.collection('users').doc(realUserId);
+            const usuarioRef = db.collection('usuarios').doc(realUserId);
+            const metricsRef = db.collection('users').doc(realUserId).collection('financialMetrics').doc('summary');
 
             const updateData = {
-                id: cleanId,
-                puntosAcumulados: usuario ? usuario.puntosAcumulados : puntosGanados,
-                financialMetrics: usuario?.financialMetrics || {
-                    totalNetProfitUSD: gananciaNetaTotal,
-                    totalPurchasesUSD: Number(montoUSD),
-                    totalPointsEarned: puntosGanados,
-                    combosPurchasedCount: cantidadCombos,
-                    lastUpdated: new Date().toISOString()
-                },
+                id: realUserId,
+                puntosAcumulados: usuario.puntosAcumulados,
+                financialMetrics: usuario.financialMetrics,
                 updatedAt: new Date().toISOString()
             };
 
@@ -179,7 +183,7 @@ function otorgarPuntosPorCompra(clienteCedulaOId, montoUSD, concepto = 'Compra C
         } catch (fsErr) {
             console.warn('[Puntos] Error preparando Firestore batch:', fsErr.message);
         }
-    } else if (usuario && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+    } else if (window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
         window.InventoryApp.Firebase.guardarUsuario(usuario).catch(e => console.warn('[Puntos] Error sync usuario:', e));
     }
 

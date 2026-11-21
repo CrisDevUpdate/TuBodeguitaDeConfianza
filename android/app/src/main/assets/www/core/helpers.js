@@ -1317,7 +1317,8 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
         if (!e) return false;
 
         const fusId = String(e.fusionadoEn || e.idDestino || '').trim().toUpperCase();
-        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm)) {
+        const fusDigits = cedulaDigitos(fusId);
+        if (fusId && idClean && (fusId === idClean || normCod(fusId) === idNorm || (fusDigits && idDigits && fusDigits === idDigits))) {
             return false;
         }
 
@@ -1353,6 +1354,186 @@ function esClienteEliminadoOExcluido(clienteOId, eliminadosList = null) {
 }
 window.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
 
+/**
+ * Normaliza una cédula o identificador venezolano para comparaciones sin duplicados.
+ * Ejemplos: "V-19.110.433", "v19110433", "19110433" -> "19110433".
+ * Si no es una cédula numérica (ej: "CLI-011", "Autoservicio"), devuelve el código en mayúsculas limpio.
+ */
+function normalizarCedulaComparacion(val) {
+    const raw = String(val || '').trim();
+    if (!raw) return '';
+    const sinPrefijo = raw.replace(/^[VEJPGvejpg][\s\-_.]*/, '');
+    const soloDigitos = sinPrefijo.replace(/\D/g, '');
+    if (soloDigitos.length >= 5 && !/^CLI/i.test(raw)) {
+        return soloDigitos;
+    }
+    return raw.toUpperCase().replace(/[\s\-_.]/g, '');
+}
+window.normalizarCedulaComparacion = normalizarCedulaComparacion;
+
+/**
+ * Normaliza teléfonos a sus últimos 10 dígitos válidos (ignorando teléfonos placeholder como 04000000000).
+ */
+function normalizarTelefonoComparacion(tel) {
+    const digitos = String(tel || '').replace(/\D/g, '');
+    if (digitos.length < 7) return '';
+    const ult10 = digitos.slice(-10);
+    if (/^0+$/.test(ult10) || ult10 === '0400000000' || ult10 === '4000000000' || ult10 === '4120000000') return '';
+    return ult10;
+}
+window.normalizarTelefonoComparacion = normalizarTelefonoComparacion;
+
+/**
+ * Normaliza nombres eliminando acentos, espacios múltiples y mayúsculas para comparación exacta.
+ */
+function normalizarNombreComparacion(nombre) {
+    return String(nombre || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+}
+window.normalizarNombreComparacion = normalizarNombreComparacion;
+
+/**
+ * Busca un cliente existente evitando duplicados por:
+ * 1) ID exacto / codigoOficial / codigosAnteriores
+ * 2) Cédula normalizada (ignora V-, v, guiones y puntos)
+ * 3) Teléfono normalizado
+ * 4) Email exacto
+ * 5) Nombre normalizado (sin acentos/mayúsculas)
+ */
+function buscarClienteExistenteUniversal(criterio, listaClientes = null) {
+    const lista = Array.isArray(listaClientes)
+        ? listaClientes
+        : (Array.isArray(window.AppState?.clientes) ? window.AppState.clientes : []);
+    if (!criterio || !lista.length) return null;
+
+    const critObj = typeof criterio === 'object' ? criterio : { id: String(criterio), cedula: String(criterio) };
+    const idRaw = String(critObj.id || '').trim().toUpperCase();
+    const cedRaw = String(critObj.cedula || critObj.id || '').trim().toUpperCase();
+    const cedNorm = normalizarCedulaComparacion(cedRaw || idRaw);
+    const idNorm = normalizarCedulaComparacion(idRaw);
+    const telNorm = normalizarTelefonoComparacion(critObj.telefono);
+    const emailNorm = String(critObj.email || '').trim().toLowerCase();
+    const nomNorm = normalizarNombreComparacion(critObj.nombre);
+    const cliIdRef = String(critObj.clienteId || '').trim().toUpperCase();
+
+    // 1. Coincidencia exacta por ID, clienteId, codigoOficial o codigosAnteriores
+    let match = lista.find(c => {
+        if (!c) return false;
+        const cId = String(c.id || '').trim().toUpperCase();
+        const cOfic = String(c.codigoOficial || '').trim().toUpperCase();
+        const cAnts = Array.isArray(c.codigosAnteriores) ? c.codigosAnteriores.map(x => String(x || '').trim().toUpperCase()) : [];
+        if (idRaw && (cId === idRaw || cOfic === idRaw || cAnts.includes(idRaw))) return true;
+        if (cliIdRef && (cId === cliIdRef || cOfic === cliIdRef || cAnts.includes(cliIdRef))) return true;
+        return false;
+    });
+    if (match) return match;
+
+    // 2. Coincidencia por cédula normalizada (ej: "v19110433" === "V-19110433" === "19110433")
+    if (cedNorm || idNorm) {
+        match = lista.find(c => {
+            if (!c) return false;
+            const cIdN = normalizarCedulaComparacion(c.id);
+            const cCedN = normalizarCedulaComparacion(c.cedula);
+            const cUidN = normalizarCedulaComparacion(c.usuarioId);
+            if (cedNorm && ((cIdN && cIdN === cedNorm) || (cCedN && cCedN === cedNorm) || (cUidN && cUidN === cedNorm))) return true;
+            if (idNorm && ((cIdN && cIdN === idNorm) || (cCedN && cCedN === idNorm) || (cUidN && cUidN === idNorm))) return true;
+            return false;
+        });
+        if (match) return match;
+    }
+
+    // 3. Coincidencia por teléfono real (no placeholder)
+    if (telNorm) {
+        match = lista.find(c => c && normalizarTelefonoComparacion(c.telefono) === telNorm);
+        if (match) return match;
+    }
+
+    // 4. Coincidencia por correo real (no sintético @cliente.com)
+    if (emailNorm && !emailNorm.endsWith('@cliente.com')) {
+        match = lista.find(c => c && String(c.email || '').trim().toLowerCase() === emailNorm);
+        if (match) return match;
+    }
+
+    // 5. Coincidencia por nombre exacto normalizado (sin tildes ni mayúsculas)
+    if (nomNorm && nomNorm.length >= 3) {
+        match = lista.find(c => c && normalizarNombreComparacion(c.nombre) === nomNorm);
+        if (match) return match;
+    }
+
+    return null;
+}
+window.buscarClienteExistenteUniversal = buscarClienteExistenteUniversal;
+
+/**
+ * Busca un usuario real existente evitando crear documentos fantasma en la colección `usuarios`.
+ */
+function buscarUsuarioExistenteUniversal(criterio, listaUsuarios = null) {
+    const lista = Array.isArray(listaUsuarios)
+        ? listaUsuarios
+        : (Array.isArray(window.AppState?.usuarios) ? window.AppState.usuarios : []);
+    if (!criterio || !lista.length) return null;
+
+    const critObj = typeof criterio === 'object' ? criterio : { id: String(criterio), cedula: String(criterio) };
+    const idRaw = String(critObj.id || critObj.cedula || '').trim().toUpperCase();
+    const cedNorm = normalizarCedulaComparacion(critObj.cedula || critObj.id);
+    const emailNorm = String(critObj.email || '').trim().toLowerCase();
+    const telNorm = normalizarTelefonoComparacion(critObj.telefono);
+
+    // Filtrar usuarios reales (ignorar documentos fantasma sin nombre ni rol ni email)
+    const reales = lista.filter(u => u && (u.nombre || u.email || u.rol));
+
+    // 1. Coincidencia exacta por id, cedula o clienteId vinculado
+    let match = reales.find(u => {
+        const uId = String(u.id || '').trim().toUpperCase();
+        const uCed = String(u.cedula || '').trim().toUpperCase();
+        const uCli = String(u.clienteId || '').trim().toUpperCase();
+        return idRaw && (uId === idRaw || uCed === idRaw || uCli === idRaw);
+    });
+    if (match) return match;
+
+    // 2. Coincidencia por cédula normalizada
+    if (cedNorm) {
+        match = reales.find(u => {
+            const uIdN = normalizarCedulaComparacion(u.id);
+            const uCedN = normalizarCedulaComparacion(u.cedula);
+            return (uIdN && uIdN === cedNorm) || (uCedN && uCedN === cedNorm);
+        });
+        if (match) return match;
+    }
+
+    // 3. Si criterio era un CLI-xxx, resolverlo a través del cliente en AppState.clientes
+    if (idRaw && Array.isArray(window.AppState?.clientes)) {
+        const cli = buscarClienteExistenteUniversal({ id: idRaw, cedula: idRaw }, window.AppState.clientes);
+        if (cli) {
+            const cliCedNorm = normalizarCedulaComparacion(cli.cedula || cli.usuarioId || cli.id);
+            match = reales.find(u => {
+                const uIdN = normalizarCedulaComparacion(u.id);
+                const uCedN = normalizarCedulaComparacion(u.cedula);
+                return (cliCedNorm && ((uIdN && uIdN === cliCedNorm) || (uCedN && uCedN === cliCedNorm))) ||
+                       (cli.email && u.email && String(cli.email).trim().toLowerCase() === String(u.email).trim().toLowerCase());
+            });
+            if (match) return match;
+        }
+    }
+
+    // 4. Coincidencia por email o teléfono
+    if (emailNorm && !emailNorm.endsWith('@cliente.com')) {
+        match = reales.find(u => String(u.email || '').trim().toLowerCase() === emailNorm);
+        if (match) return match;
+    }
+    if (telNorm) {
+        match = reales.find(u => normalizarTelefonoComparacion(u.telefono) === telNorm);
+        if (match) return match;
+    }
+
+    return null;
+}
+window.buscarUsuarioExistenteUniversal = buscarUsuarioExistenteUniversal;
+
 if (window.InventoryApp) {
     window.InventoryApp.obtenerUmbralStockBajo = obtenerUmbralStockBajo;
     window.InventoryApp.fijarUmbralStockBajo = fijarUmbralStockBajo;
@@ -1361,6 +1542,9 @@ if (window.InventoryApp) {
     window.InventoryApp.abrirWhatsAppEnlace = abrirWhatsAppEnlace;
     window.InventoryApp.esIdentificadorRebeca = esIdentificadorRebeca;
     window.InventoryApp.esClienteEliminadoOExcluido = esClienteEliminadoOExcluido;
+    window.InventoryApp.normalizarCedulaComparacion = normalizarCedulaComparacion;
+    window.InventoryApp.buscarClienteExistenteUniversal = buscarClienteExistenteUniversal;
+    window.InventoryApp.buscarUsuarioExistenteUniversal = buscarUsuarioExistenteUniversal;
 }
 
 window.switchTab = switchTab;
@@ -1379,6 +1563,11 @@ window.InventoryApp.Helpers = Object.freeze({
     switchTab,
     esUsuarioAdmin,
     esIdentificadorRebeca,
-    esClienteEliminadoOExcluido
+    esClienteEliminadoOExcluido,
+    normalizarCedulaComparacion,
+    normalizarTelefonoComparacion,
+    normalizarNombreComparacion,
+    buscarClienteExistenteUniversal,
+    buscarUsuarioExistenteUniversal
 });
 

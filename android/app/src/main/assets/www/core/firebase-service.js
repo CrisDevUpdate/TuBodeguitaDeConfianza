@@ -2774,13 +2774,26 @@ window.InventoryApp = window.InventoryApp || {};
                 const secNom = (AppState.clientes?.find(c => c.id === idSecundario)?.nombre) || 'Cliente Secundario Fusionado';
                 batch.set(elimRef, {
                     id: String(idSecundario),
-                    nombre: secNom,
+                    nombre: String(idSecundario),
+                    nombreOriginal: secNom,
                     motivo: 'FUSIÓN / UNIFICACIÓN',
                     comentario: `Fusionado en el cliente ${idPrincipal} (${clientePrincipalData?.nombre || ''})`,
                     fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
                     fusionadoEn: String(idPrincipal),
+                    idDestino: String(idPrincipal),
                     deletedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
+
+                // Limpiar posible documento fantasma en `usuarios/{idSecundario}` (sin nombre, email ni rol)
+                try {
+                    const ghostUserSnap = await db.collection(COLLECTIONS.USUARIOS).doc(String(idSecundario)).get();
+                    if (ghostUserSnap.exists) {
+                        const gd = ghostUserSnap.data() || {};
+                        if (!gd.nombre && !gd.email && !gd.rol && !gd.password) {
+                            batch.delete(ghostUserSnap.ref);
+                        }
+                    }
+                } catch (_ghostErr) {}
 
                 // 3. Actualizar cliente principal consolidado
                 const prinRef = db.collection(COLLECTIONS.CLIENTES).doc(String(idPrincipal));
