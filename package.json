@@ -13,6 +13,7 @@
     "@vercel/blob": "^2.8.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "web-push": "^4.0.0",
     "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {

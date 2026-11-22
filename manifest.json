@@ -1,14 +1,16 @@
 {
-  "name": "Tu Bodeguita de Confianza - Sistema POS Multimoneda",
-  "short_name": "Bodeguita POS",
-  "description": "Sistema de punto de venta multimoneda, clientes, fidelización y auditoría.",
-  "start_url": "/?source=pwa",
+  "id": "/",
+  "name": "Tu Bodeguita de Confianza",
+  "short_name": "Bodeguita",
+  "description": "Sistema POS multimoneda, autopago con escáner, catálogo, clientes y notificaciones en tiempo real.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#1e293b",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
   "theme_color": "#1e293b",
   "lang": "es",
+  "categories": ["business", "shopping", "finance"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -27,6 +29,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Autopago Rápido",
+      "short_name": "Autopago",
+      "description": "Abrir autoservicio con escáner de código de barras",
+      "url": "/?tab=kiosco",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Notificaciones",
+      "short_name": "Alertas",
+      "description": "Ver pagos reportados y notificaciones recientes",
+      "url": "/?tab=notificaciones",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

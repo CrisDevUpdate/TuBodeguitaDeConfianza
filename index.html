@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bodeguita">
     <meta name="format-detection" content="telephone=no">
-    <title>Tu Bodeguita de Confianza — Android APK</title>
-    <meta name="description" content="Sistema POS Multimoneda con tasas oficiales BCV, ingreso de mercancía por facturas con costos de reposición, inventario, clientes, pagos y auditoría física con conciliación estricta.">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <title>Tu Bodeguita de Confianza — POS Multimoneda</title>
+    <meta name="description" content="Sistema POS Multimoneda con tasas oficiales BCV, autopago con escáner, inventario, clientes, pagos y alertas en tiempo real.">
     <!-- Script de Restauración Inmediata de Paleta y Modo Oscuro (Previene Flicker al Recargar) -->
     <script>
         (function() {
@@ -2865,6 +2871,13 @@
                     <button type="button" class="btn-icon-tasa" id="btn-header-notificaciones" onclick="switchTab('notificaciones')" title="Centro de Notificaciones" style="margin-left:6px; color:#f59e0b; position:relative;">
                         <i class="fas fa-bell"></i>
                         <span id="badge-header-notificaciones" class="badge-pill-counter" style="position:absolute; top:-5px; right:-5px; background:#ef4444; color:#ffffff; font-size:0.65rem; padding:1px 5px; display:none;">0</span>
+                    </button>
+                    <button type="button" class="js-pwa-install-btn" id="btn-pwa-install-header" onclick="event.stopPropagation(); window.InventoryApp && window.InventoryApp.PWAPush && window.InventoryApp.PWAPush.instalarApp();" title="Instalar Tu Bodeguita como App" style="display:none; align-items:center; gap:5px; margin-left:4px; padding:4px 9px; border-radius:8px; border:1px solid rgba(56,189,248,0.45); background:rgba(2,132,199,0.28); color:#e0f2fe; font-size:0.73rem; font-weight:700; cursor:pointer; white-space:nowrap;">
+                        <i class="fas fa-download"></i> <span class="js-pwa-install-label">Instalar App</span>
+                    </button>
+                    <button type="button" class="btn-icon-tasa" id="btn-pwa-push-header" onclick="event.stopPropagation(); window.InventoryApp && window.InventoryApp.PWAPush && window.InventoryApp.PWAPush.abrirModal();" title="App Instalable y Alertas Push" style="margin-left:4px; color:#38bdf8; position:relative;">
+                        <i class="fas fa-mobile-screen-button"></i>
+                        <span class="pwa-push-active-dot" style="display:none; position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:#10b981; border:1.5px solid #0f172a;"></span>
                     </button>
                     <button type="button" class="btn-icon-tasa" id="btn-editar-tasa-manual" onclick="abrirModalTasaManual()" title="Ajustar o fijar tasa manualmente">
                         <i class="fas fa-sliders"></i>
@@ -8038,6 +8051,7 @@
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
 <script src="modules/kiosco.js?v=20261122_kiosco_undo"></script>
 <script src="modules/configuracion.js?v=20260915_v5"></script>
+<script src="core/pwa-push-manager.js?v=20261122_pwa_push"></script>
 <script src="app.js?v=20260915_v5"></script>
 </body>
 </html>

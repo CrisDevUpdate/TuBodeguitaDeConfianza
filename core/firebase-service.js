@@ -1790,6 +1790,7 @@ window.InventoryApp = window.InventoryApp || {};
                                             referenciaId: idDoc,
                                             paraCliente: true,
                                             paraAdmin: false,
+                                            omitirPush: true,
                                             destino: {
                                                 tab: 'cliente-cuenta',
                                                 subAccion: 'verAbono',
@@ -1929,6 +1930,7 @@ window.InventoryApp = window.InventoryApp || {};
                                         referenciaId: idDoc,
                                         paraCliente: true,
                                         paraAdmin: false,
+                                        omitirPush: true,
                                         destino: { tab: 'cliente-cuenta', subAccion: 'verAbono', idRef: idDoc }
                                     });
                                 }

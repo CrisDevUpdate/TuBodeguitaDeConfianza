@@ -268,6 +268,21 @@
             window.InventoryApp.Firebase.guardarNotificacion(nuevaNotif).catch(() => {});
         }
 
+        // Despachar Notificación Push real al dispositivo destinatario (funciona con pantalla apagada)
+        if (!datos.omitirPush && window.InventoryApp?.PWAPush?.despacharPushEvento) {
+            const haciaCliente = tipoDest === 'CLIENTE' || esAprob;
+            window.InventoryApp.PWAPush.despacharPushEvento({
+                targetRole: haciaCliente ? 'cliente' : 'admin',
+                targetUserId: haciaCliente ? (idCli || '') : '',
+                targetNombre: haciaCliente ? (nuevaNotif.clienteNombre || '') : '',
+                title: nuevaNotif.titulo,
+                body: nuevaNotif.mensaje,
+                tab: nuevaNotif.destino?.tab || (haciaCliente ? 'cliente-cuenta' : 'transacciones'),
+                tag: `bodeguita_${nuevaNotif.tipo}_${nuevaNotif.referenciaId || nuevaNotif.id}`,
+                requireInteraction: nuevaNotif.prioridad === 'PAGO' || nuevaNotif.prioridad === 'URGENTE'
+            });
+        }
+
         actualizarBadgesNotificaciones();
 
         // Si la pestaña actual es 'notificaciones', refrescar la vista
@@ -2059,6 +2074,9 @@ ${notif.mensaje}
                             </div>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="window.InventoryApp && window.InventoryApp.PWAPush && window.InventoryApp.PWAPush.abrirModal()" style="border-color:#0284c7; color:#0284c7; font-weight:700;">
+                                <i class="fas fa-bell"></i> Alertas Push / App
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cliente-cuenta')">
                                 <i class="fas fa-file-invoice-dollar"></i> Mi Estado de Cuenta
                             </button>
@@ -2298,6 +2316,9 @@ ${notif.mensaje}
                         </div>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="window.InventoryApp && window.InventoryApp.PWAPush && window.InventoryApp.PWAPush.abrirModal()" style="border-color:#10b981; color:#059669; font-weight:700;" title="Configurar App Instalable y Notificaciones Push con pantalla bloqueada">
+                            <i class="fas fa-mobile-screen-button"></i> Alertas Push / App
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline" onclick="marcarTodasNotificacionesLeidas()" ${noLeidas === 0 ? 'disabled' : ''}>
                             <i class="fas fa-check-double"></i> Marcar todas como leídas
                         </button>

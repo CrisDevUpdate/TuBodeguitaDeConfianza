@@ -89,6 +89,9 @@ function verificarGatewall() {
     if (mobileNav) mobileNav.style.display = 'flex';
 
     configurarVistasPorRol(usuario);
+    if (window.InventoryApp && window.InventoryApp.PWAPush && typeof window.InventoryApp.PWAPush.sincronizarSuscripcionUsuario === 'function') {
+        window.InventoryApp.PWAPush.sincronizarSuscripcionUsuario();
+    }
 }
 
 /**

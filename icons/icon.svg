@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="55%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#38bdf8" stroke-opacity="0.22" stroke-width="6"/>
+  <!-- Crown accent -->
+  <path d="M186 154 L208 106 L256 138 L304 106 L326 154 Z" fill="url(#gold)"/>
+  <circle cx="208" cy="100" r="10" fill="#fde047"/>
+  <circle cx="256" cy="94" r="11" fill="#fde047"/>
+  <circle cx="304" cy="100" r="10" fill="#fde047"/>
+  <!-- Store awning -->
+  <path d="M108 176 H404 L424 246 C424 268 406 284 384 284 C366 284 352 273 346 258 C340 273 326 284 308 284 C290 284 276 273 270 258 C264 273 250 284 232 284 C214 284 200 273 194 258 C188 273 174 284 156 284 C134 284 116 268 116 246 Z" fill="url(#accent)"/>
+  <!-- Store body -->
+  <rect x="132" y="280" width="248" height="132" rx="18" fill="#f8fafc"/>
+  <!-- Door -->
+  <rect x="164" y="320" width="76" height="92" rx="10" fill="#0f172a"/>
+  <circle cx="226" cy="368" r="6" fill="#38bdf8"/>
+  <!-- Shop window -->
+  <rect x="262" y="320" width="88" height="58" rx="10" fill="#0284c7" fill-opacity="0.22" stroke="#0284c7" stroke-width="6"/>
+  <path d="M276 364 L302 336 M298 364 L322 338" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>
+  <!-- Base shelf -->
+  <rect x="108" y="406" width="296" height="18" rx="9" fill="#38bdf8"/>
+</svg>

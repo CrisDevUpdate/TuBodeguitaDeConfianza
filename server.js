@@ -1254,6 +1254,59 @@ app.post('/api/blob/sync-firestore-images', async (req, res) => {
   }
 });
 
+// --- Web Push API (Notificaciones Push Reales con VAPID) ---
+app.get('/api/push/public-key', async (req, res) => {
+  try {
+    const { getVapidKeys } = await import('./lib/web-push-server.js');
+    const keys = await getVapidKeys();
+    return res.json({ success: true, publicKey: keys.publicKey });
+  } catch (err) {
+    console.error('[Push Public Key Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const { savePushSubscription } = await import('./lib/web-push-server.js');
+    const body = req.body || {};
+    const result = await savePushSubscription({
+      subscription: body.subscription,
+      role: body.role,
+      userId: body.userId,
+      cedula: body.cedula,
+      nombre: body.nombre,
+      userAgent: req.headers['user-agent'] || body.userAgent || ''
+    });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[Push Subscribe Error]:', err);
+    return res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const { deletePushSubscription } = await import('./lib/web-push-server.js');
+    await deletePushSubscription(req.body && req.body.endpoint);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[Push Unsubscribe Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/push/send', async (req, res) => {
+  try {
+    const { sendWebPushNotification } = await import('./lib/web-push-server.js');
+    const stats = await sendWebPushNotification(req.body || {});
+    return res.json({ success: true, ...stats });
+  } catch (err) {
+    console.error('[Push Send Error]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/quotes/random', (req, res) => {
   const banco = (Array.isArray(BANCO_MENSAJES_1000) && BANCO_MENSAJES_1000.length > 0)
     ? BANCO_MENSAJES_1000
