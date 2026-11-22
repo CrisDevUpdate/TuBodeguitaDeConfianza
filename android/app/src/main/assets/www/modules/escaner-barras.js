@@ -626,8 +626,16 @@
         document.body.appendChild(modal);
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && state.abierto) {
+            if (!state.abierto) return;
+            if (e.key === 'Escape') {
                 cerrarEscanerCodigoBarras();
+                return;
+            }
+            if (e.key === 'Enter' && state.pendienteConfirmacion) {
+                const activeEl = document.activeElement;
+                if (activeEl && activeEl.id === 'scan-manual-input') return;
+                e.preventDefault();
+                window._scanConfirmarCantidad();
             }
         });
 
@@ -776,7 +784,7 @@
                 setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
 
                 state.scanTimer = setInterval(async () => {
-                    if (!state.abierto || state.pausadoPorConfirmacion || state.procesandoFrame || !video || video.readyState < 2) return;
+                    if (!state.abierto || state.procesandoFrame || !video || video.readyState < 2) return;
                     state.procesandoFrame = true;
                     try {
                         const codes = await state.detectorNativo.detect(video);
@@ -784,7 +792,9 @@
                             manejarCodigoDetectado(codes[0].rawValue);
                         } else if (state.bloqueoCodigo && (Date.now() - state.bloqueoUltimoVistoTs) > 850) {
                             state.bloqueoCodigo = '';
-                            setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
+                            if (!state.pendienteConfirmacion) {
+                                setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
+                            }
                         }
                     } catch (_e) {} finally {
                         state.procesandoFrame = false;
@@ -809,7 +819,7 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             state.scanTimer = setInterval(() => {
-                if (!state.abierto || state.pausadoPorConfirmacion || state.procesandoFrame || !video || video.readyState < 2 || !video.videoWidth) return;
+                if (!state.abierto || state.procesandoFrame || !video || video.readyState < 2 || !video.videoWidth) return;
                 state.procesandoFrame = true;
                 try {
                     const w = Math.min(video.videoWidth, 800);
@@ -828,7 +838,9 @@
                             .catch(() => {
                                 if (state.bloqueoCodigo && (Date.now() - state.bloqueoUltimoVistoTs) > 850) {
                                     state.bloqueoCodigo = '';
-                                    setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
+                                    if (!state.pendienteConfirmacion) {
+                                        setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
+                                    }
                                 }
                             })
                             .finally(() => { state.procesandoFrame = false; });
@@ -854,14 +866,32 @@
 
         const ahora = Date.now();
         if (!desdeManual) {
-            if (state.pausadoPorConfirmacion) return;
-            // Si la cámara sigue fija en el mismo código recién procesado, no volver a disparar
+            // Si la cámara sigue fija en el mismo código recién detectado/procesado, no repetir
             if (state.bloqueoCodigo && codigo === state.bloqueoCodigo) {
                 state.bloqueoUltimoVistoTs = ahora;
                 return;
             }
-            if (codigo === state.ultimoCodigo && (ahora - state.ultimoCodigoTs) < 1500) {
+            if (!state.pendienteConfirmacion && codigo === state.ultimoCodigo && (ahora - state.ultimoCodigoTs) < 1200) {
                 return;
+            }
+        }
+
+        // Si había un producto esperando confirmación en pantalla:
+        if (state.pendienteConfirmacion) {
+            // Caso A: El usuario retiró el producto y pasó una 2da unidad del MISMO código -> sumar +1 en el selector
+            if (codigo === state.pendienteConfirmacion.codigo) {
+                state.bloqueoCodigo = codigo;
+                state.bloqueoUltimoVistoTs = ahora;
+                destellarMarco();
+                reproducirBeep(true);
+                window._scanAjustarCantidad(1);
+                return;
+            }
+            // Caso B: El usuario pasó OTRO producto diferente en modo rápido -> confirmar el anterior automáticamente y seguir
+            if (state.continuo) {
+                window._scanConfirmarCantidad({ desdeCambioDeProducto: true });
+            } else {
+                ocultarPanelConfirmacion('');
             }
         }
 
@@ -959,7 +989,9 @@
             return;
         }
 
-        state.pausadoPorConfirmacion = true;
+        state.pausadoPorConfirmacion = false;
+        state.bloqueoCodigo = codigo;
+        state.bloqueoUltimoVistoTs = Date.now();
         state.pendienteConfirmacion = {
             tipo: 'pos',
             prod,
@@ -969,10 +1001,7 @@
             unidad
         };
 
-        const frame = document.getElementById('scan-frame-box');
-        if (frame) frame.classList.add('scan-paused');
-        setEstadoCamara('Escaneo en pausa · Ajusta la cantidad y toca Agregar');
-        limpiarFeedback();
+        setEstadoCamara('Presiona Enter o Agregar · O pasa el siguiente producto para continuar');
 
         const card = document.getElementById('scan-confirm-card');
         if (!card) return;
@@ -980,7 +1009,7 @@
         const paso = esPesable ? '0.1' : '1';
         const valorInicial = restante >= 1 ? '1' : String(restante);
         const pillCarrito = enCarrito > 0
-            ? `<span class="scan-confirm-cart-pill">En carrito: <strong id="scan-en-carrito-val">${enCarrito}</strong> <button type="button" class="scan-confirm-cart-minus" onclick="window._scanRestarUnoEnCarrito('${escaparHtml(prod.id)}')" title="Quitar 1 unidad del carrito">−1</button></span>`
+            ? `<span class="scan-confirm-cart-pill">Ya en carrito: <strong id="scan-en-carrito-val">${enCarrito}</strong> <button type="button" class="scan-confirm-cart-minus" onclick="window._scanRestarUnoEnCarrito('${escaparHtml(prod.id)}')" title="Quitar 1 unidad del carrito">−1</button></span>`
             : '';
 
         card.innerHTML = `
@@ -999,14 +1028,14 @@
                 <span class="scan-qty-label">Cantidad a agregar:</span>
                 <div class="scan-qty-stepper">
                     <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(-1)" aria-label="Disminuir cantidad">−</button>
-                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${valorInicial}" min="${esPesable ? '0.05' : '1'}" max="${restante}" step="${paso}" inputmode="${esPesable ? 'decimal' : 'numeric'}" onfocus="this.select()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._scanConfirmarCantidad(); }">
+                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${valorInicial}" min="${esPesable ? '0.05' : '1'}" max="${restante}" step="${paso}" inputmode="${esPesable ? 'decimal' : 'numeric'}" onfocus="this.select()">
                     <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(1)" aria-label="Aumentar cantidad">+</button>
                 </div>
             </div>
             <div class="scan-confirm-actions">
                 <button type="button" class="scan-btn-cancel" onclick="window._scanCancelarCantidad()">Cancelar</button>
                 <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
-                    <i class="fas fa-cart-plus"></i> Agregar al carrito
+                    <i class="fas fa-cart-plus"></i> Agregar al carrito (↵ Enter)
                 </button>
             </div>
         `;
@@ -1119,7 +1148,9 @@
         const actualNum = actualRaw === '' ? 0 : Math.max(0, Number(actualRaw) || 0);
         const sugerido = actualNum + 1;
 
-        state.pausadoPorConfirmacion = true;
+        state.pausadoPorConfirmacion = false;
+        state.bloqueoCodigo = codigo;
+        state.bloqueoUltimoVistoTs = Date.now();
         state.pendienteConfirmacion = {
             tipo: 'auditoria',
             prod,
@@ -1129,10 +1160,7 @@
             actualNum
         };
 
-        const frame = document.getElementById('scan-frame-box');
-        if (frame) frame.classList.add('scan-paused');
-        setEstadoCamara('Escaneo en pausa · Confirma o corrige el conteo físico');
-        limpiarFeedback();
+        setEstadoCamara('Presiona Enter o Guardar · O pasa el siguiente producto');
 
         const card = document.getElementById('scan-confirm-card');
         if (!card) return;
@@ -1152,14 +1180,14 @@
                 <span class="scan-qty-label">Conteo físico total:</span>
                 <div class="scan-qty-stepper">
                     <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(-1)" aria-label="Disminuir conteo">−</button>
-                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${sugerido}" min="0" max="999999" step="1" inputmode="numeric" onfocus="this.select()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._scanConfirmarCantidad(); }">
+                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${sugerido}" min="0" max="999999" step="1" inputmode="numeric" onfocus="this.select()">
                     <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(1)" aria-label="Aumentar conteo">+</button>
                 </div>
             </div>
             <div class="scan-confirm-actions">
                 <button type="button" class="scan-btn-cancel" onclick="window._scanCancelarCantidad()">Cancelar</button>
                 <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
-                    <i class="fas fa-clipboard-check"></i> Guardar conteo
+                    <i class="fas fa-clipboard-check"></i> Guardar conteo (↵ Enter)
                 </button>
             </div>
         `;
@@ -1264,7 +1292,8 @@
         setEstadoCamara('Cancelado · Apunta a otro producto (o retira el código actual)');
     };
 
-    window._scanConfirmarCantidad = function () {
+    window._scanConfirmarCantidad = function (opts = {}) {
+        const desdeCambioDeProducto = Boolean(opts && opts.desdeCambioDeProducto);
         const pend = state.pendienteConfirmacion;
         const inp = document.getElementById('scan-qty-input');
         if (!pend || !inp) return;
@@ -1295,16 +1324,17 @@
 
             state.escaneosSesion = Number((state.escaneosSesion + cantFinal).toFixed(3));
             const totalAhora = obtenerCantidadEnCarrito(pend.prod.id);
-            ocultarPanelConfirmacion(pend.codigo);
+            ocultarPanelConfirmacion(desdeCambioDeProducto ? '' : pend.codigo);
 
             mostrarFeedback('ok', `
                 <span><i class="fas fa-cart-plus"></i> Agregado <strong>+${cantFinal} ${escaparHtml(pend.prod.nombre)}</strong> (En carrito: ${totalAhora})</span>
                 <span style="font-size:0.76rem; opacity:0.9;">Total escaneado: ${state.escaneosSesion}</span>
             `);
-            setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
-
-            if (!state.continuo) {
-                setTimeout(() => cerrarEscanerCodigoBarras(), 420);
+            if (!desdeCambioDeProducto) {
+                setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
+                if (!state.continuo) {
+                    setTimeout(() => cerrarEscanerCodigoBarras(), 420);
+                }
             }
             return;
         }
@@ -1330,19 +1360,20 @@
             const difTxt = dif === 0 ? 'Conforme (0)' : (dif > 0 ? `+${dif} sobrante` : `${dif} faltante`);
 
             state.escaneosSesion += 1;
-            ocultarPanelConfirmacion(pend.codigo);
+            ocultarPanelConfirmacion(desdeCambioDeProducto ? '' : pend.codigo);
 
             mostrarFeedback('ok', `
                 <span><i class="fas fa-clipboard-check"></i> <strong>${escaparHtml(prod.nombre)}</strong> → Conteo físico: <strong>${nuevoConteo}</strong> (Sistema: ${Number(prod.stock || 0)} · ${difTxt})</span>
             `);
-            setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
-
-            if (!state.continuo) {
-                cerrarEscanerCodigoBarras();
-                const target = inputDesk || inputMob;
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    target.focus();
+            if (!desdeCambioDeProducto) {
+                setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
+                if (!state.continuo) {
+                    cerrarEscanerCodigoBarras();
+                    const target = inputDesk || inputMob;
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        target.focus();
+                    }
                 }
             }
         }
