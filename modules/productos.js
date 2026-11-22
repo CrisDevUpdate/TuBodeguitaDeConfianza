@@ -925,6 +925,9 @@ function renderizarInventario() {
     if (badgeTotal) {
         badgeTotal.textContent = `${prodsFiltrados.length} ${prodsFiltrados.length === 1 ? 'producto' : 'productos'}${prodsFiltrados.length !== productos.length ? ` (de ${productos.length})` : ''}`;
     }
+    if (typeof window.actualizarBadgeReposicionCompras === 'function') {
+        window.actualizarBadgeReposicionCompras();
+    }
 
     // Mensaje contextual para estados vacíos
     let mensajeVacio = 'Prueba ajustando los filtros de búsqueda';

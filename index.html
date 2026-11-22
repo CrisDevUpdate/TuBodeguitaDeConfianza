@@ -3613,6 +3613,10 @@
                     <span id="inventario-total-items-badge" class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.75rem;">0 productos</span>
                 </div>
                 <div class="inventario-header-actions">
+                    <button type="button" id="btn-abrir-reposicion" class="btn btn-sm" onclick="if(window.abrirModalReposicionCompras) window.abrirModalReposicionCompras();" style="font-weight:700; background:#1e3a8a; color:#fff; border-color:#1e40af; display:inline-flex; align-items:center; gap:6px; border-radius:8px; padding:6px 14px;" title="Predicción de agotamiento y lista descargable de compras">
+                        <i class="fas fa-cart-flatbed"></i> Lista de Compras
+                        <span id="badge-reposicion-urgentes" style="display:none; background:#ef4444; color:#fff; font-size:0.7rem; font-weight:800; padding:1px 6px; border-radius:999px; line-height:1.3;">0</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-info" onclick="abrirModalMovimientosStock()" style="font-weight:700; background:#0284c7; color:#fff; border-color:#0369a1; display:inline-flex; align-items:center; gap:6px; border-radius:8px; padding:6px 14px;" title="Ver desglose y movimientos de stock (Kardex)">
                         <i class="fas fa-boxes-packing"></i> Movimientos de Stock
                     </button>
@@ -7551,6 +7555,7 @@
 <script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
 <script src="modules/facturas.js?v=20260918_v1"></script>
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
+<script src="modules/reposicion-compras.js?v=20261121_v1"></script>
 <script src="modules/auditoria.js?v=20260915_v5"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
