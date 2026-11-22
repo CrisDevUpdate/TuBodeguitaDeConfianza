@@ -442,32 +442,53 @@
             .scan-confirm-actions {
                 display: flex;
                 gap: 8px;
+                flex-wrap: wrap;
             }
             .scan-btn-confirm {
                 flex: 1;
+                min-width: 120px;
+                height: 42px;
+                border-radius: 10px;
+                border: none;
+                background: #2563eb;
+                color: #ffffff;
+                font-weight: 800;
+                font-size: 0.88rem;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                padding: 0 12px;
+            }
+            .scan-btn-confirm:hover { background: #1d4ed8; }
+            .scan-btn-confirm-pay {
+                flex: 1;
+                min-width: 135px;
                 height: 42px;
                 border-radius: 10px;
                 border: none;
                 background: #16a34a;
                 color: #ffffff;
                 font-weight: 800;
-                font-size: 0.9rem;
+                font-size: 0.88rem;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 7px;
+                gap: 6px;
+                padding: 0 12px;
             }
-            .scan-btn-confirm:hover { background: #15803d; }
+            .scan-btn-confirm-pay:hover { background: #15803d; }
             .scan-btn-cancel {
                 height: 42px;
-                padding: 0 14px;
+                padding: 0 12px;
                 border-radius: 10px;
                 border: 1px solid #475569;
                 background: #1e293b;
                 color: #e2e8f0;
                 font-weight: 700;
-                font-size: 0.84rem;
+                font-size: 0.82rem;
                 cursor: pointer;
             }
             .scan-laser {
@@ -670,8 +691,8 @@
                 <div class="scan-feedback-banner" id="scan-feedback-banner"></div>
 
                 <div class="scan-kiosco-checkout-bar" id="scan-kiosco-checkout-bar">
-                    <button type="button" class="scan-kiosco-checkout-info" onclick="cerrarEscanerCodigoBarras(); if(window.KioscoModule && window.KioscoModule.abrirResumenOrdenMovil) window.KioscoModule.abrirResumenOrdenMovil();" style="background:transparent; border:none; padding:0; text-align:left; cursor:pointer;" title="Ver o quitar productos de tu orden">
-                        <span class="scan-kiosco-checkout-count" id="scan-kiosco-order-count">Tu orden · 0 productos</span>
+                    <button type="button" class="scan-kiosco-checkout-info" onclick="window._scanVerResumenOrden()" style="background:transparent; border:none; padding:0; text-align:left; cursor:pointer;" title="Ver o editar productos de tu pedido">
+                        <span class="scan-kiosco-checkout-count" id="scan-kiosco-order-count">Tu pedido · 0 productos</span>
                         <div class="scan-kiosco-checkout-totals">
                             <span id="scan-kiosco-order-usd">$0.00</span>
                             <span class="scan-kiosco-checkout-bs" id="scan-kiosco-order-bs">Bs. 0.00</span>
@@ -1104,9 +1125,10 @@
         const precioUSD = Number(prod.precio || 0);
         const tasa = Number(window.AppState?.tasaActiva || 0);
         const precioBsTxt = tasa > 0 ? ` <span>(Bs. ${(precioUSD * tasa).toFixed(2)})</span>` : '';
+        const esFlujoPagoDirecto = (modoCompra === 'cliente' || modoCompra === 'kiosco');
         const textoBotonConfirmar = modoCompra === 'kiosco'
-            ? 'Agregar a mi orden (↵ Enter)'
-            : 'Agregar al carrito (↵ Enter)';
+            ? 'Agregar'
+            : (modoCompra === 'cliente' ? 'Agregar' : 'Agregar al carrito (↵ Enter)');
 
         const rawImg = (typeof window.obtenerImagenProducto === 'function')
             ? window.obtenerImagenProducto(prod)
@@ -1141,6 +1163,11 @@
                 <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
                     <i class="fas fa-cart-plus"></i> ${textoBotonConfirmar}
                 </button>
+                ${esFlujoPagoDirecto ? `
+                    <button type="button" class="scan-btn-confirm-pay" onclick="window._scanConfirmarYPagar()">
+                        <i class="fas fa-credit-card"></i> Agregar y Pagar
+                    </button>
+                ` : ''}
             </div>
         `;
         card.style.display = 'flex';
@@ -1353,17 +1380,39 @@
         iniciarCamara();
     }
 
+    function obtenerResumenCarritoCliente() {
+        const lista = Array.isArray(window.AppState?.carrito)
+            ? window.AppState.carrito
+            : (typeof carrito !== 'undefined' && Array.isArray(carrito) ? carrito : []);
+        let totalItems = 0;
+        let totalUSD = 0;
+        lista.forEach(item => {
+            if (!item) return;
+            const cant = Number(item.cantidad || 0);
+            const precio = Number(item.precio || 0);
+            totalItems += cant;
+            totalUSD += cant * precio;
+        });
+        const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
+        const totalVES = tasa > 0 ? totalUSD * tasa : 0;
+        return { totalItems, totalUSD, totalVES };
+    }
+
     function actualizarBarraAutopagoKiosco() {
         const bar = document.getElementById('scan-kiosco-checkout-bar');
         if (!bar) return;
-        if (state.modo !== 'kiosco') {
+        if (state.modo !== 'kiosco' && state.modo !== 'cliente') {
             bar.style.display = 'none';
             return;
         }
         bar.style.display = 'flex';
-        const resumen = (window.KioscoModule && typeof window.KioscoModule.obtenerResumenCarrito === 'function')
-            ? window.KioscoModule.obtenerResumenCarrito()
-            : { totalItems: 0, totalUSD: 0, totalVES: 0 };
+
+        const esKiosco = state.modo === 'kiosco';
+        const resumen = esKiosco
+            ? ((window.KioscoModule && typeof window.KioscoModule.obtenerResumenCarrito === 'function')
+                ? window.KioscoModule.obtenerResumenCarrito()
+                : { totalItems: 0, totalUSD: 0, totalVES: 0 })
+            : obtenerResumenCarritoCliente();
 
         const countEl = document.getElementById('scan-kiosco-order-count');
         const usdEl = document.getElementById('scan-kiosco-order-usd');
@@ -1371,21 +1420,48 @@
         const btnPagar = document.getElementById('scan-btn-ir-pagar');
 
         const n = Number(resumen.totalItems || 0);
-        const hayPendiente = Boolean(state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'kiosco');
-        if (countEl) countEl.textContent = `Tu orden · ${n} ${n === 1 ? 'producto' : 'productos'}`;
+        const hayPendiente = Boolean(state.pendienteConfirmacion && (state.pendienteConfirmacion.tipo === 'kiosco' || state.pendienteConfirmacion.tipo === 'cliente'));
+        const prefijo = esKiosco ? 'Tu orden' : 'Tu carrito';
+        if (countEl) countEl.textContent = `${prefijo} · ${n} ${n === 1 ? 'producto' : 'productos'}`;
         if (usdEl) usdEl.textContent = `$${Number(resumen.totalUSD || 0).toFixed(2)}`;
         if (bsEl) bsEl.textContent = Number(resumen.totalVES || 0) > 0 ? `Bs. ${Number(resumen.totalVES).toFixed(2)}` : '';
         if (btnPagar) btnPagar.disabled = (n <= 0 && !hayPendiente);
     }
 
+    window._scanVerResumenOrden = function () {
+        const modoActual = state.modo;
+        cerrarEscanerCodigoBarras();
+        if (modoActual === 'kiosco') {
+            if (window.KioscoModule && typeof window.KioscoModule.abrirResumenOrdenMovil === 'function') {
+                window.KioscoModule.abrirResumenOrdenMovil();
+            }
+        } else if (modoActual === 'cliente') {
+            if (typeof window.abrirModalCarritoCliente === 'function') {
+                window.abrirModalCarritoCliente();
+            }
+        }
+    };
+
     window._scanIrAPagarKiosco = function () {
-        if (state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'kiosco') {
-            window._scanConfirmarCantidad({ desdeCambioDeProducto: true });
+        const modoActual = state.modo;
+        if (state.pendienteConfirmacion && (state.pendienteConfirmacion.tipo === 'kiosco' || state.pendienteConfirmacion.tipo === 'cliente')) {
+            const agregado = window._scanConfirmarCantidad({ desdeCambioDeProducto: true });
+            if (agregado === false) return;
         }
         cerrarEscanerCodigoBarras();
-        if (window.KioscoModule && typeof window.KioscoModule.iniciarCheckout === 'function') {
-            window.KioscoModule.iniciarCheckout();
+        if (modoActual === 'kiosco') {
+            if (window.KioscoModule && typeof window.KioscoModule.iniciarCheckout === 'function') {
+                window.KioscoModule.iniciarCheckout();
+            }
+        } else if (modoActual === 'cliente') {
+            if (typeof window.abrirModalCarritoCliente === 'function') {
+                window.abrirModalCarritoCliente();
+            }
         }
+    };
+
+    window._scanConfirmarYPagar = function () {
+        window._scanIrAPagarKiosco();
     };
 
     function cerrarEscanerCodigoBarras() {
@@ -1439,6 +1515,7 @@
         if (pend && (pend.tipo === 'pos' || pend.tipo === 'cliente')) {
             mostrarPanelConfirmacionPOS(pend.prod, pend.codigo);
         }
+        actualizarBarraAutopagoKiosco();
     };
 
     window._scanCancelarCantidad = function () {
@@ -1452,7 +1529,7 @@
         const desdeCambioDeProducto = Boolean(opts && opts.desdeCambioDeProducto);
         const pend = state.pendienteConfirmacion;
         const inp = document.getElementById('scan-qty-input');
-        if (!pend || !inp) return;
+        if (!pend || !inp) return false;
 
         const rawVal = parseFloat(inp.value);
         if (pend.tipo === 'pos' || pend.tipo === 'cliente' || pend.tipo === 'kiosco') {
@@ -1460,13 +1537,13 @@
             if (isNaN(rawVal) || rawVal < minVal) {
                 notificar('Ingresa una cantidad válida mayor a 0.', 'warning');
                 inp.focus();
-                return;
+                return false;
             }
             const cantFinal = pend.esPesable ? Number(rawVal.toFixed(3)) : Math.floor(rawVal);
             if (cantFinal > pend.maxDisp + 0.0001) {
                 notificar(`Stock insuficiente. Máximo disponible para agregar: ${pend.maxDisp}`, 'warning');
                 inp.value = String(pend.maxDisp);
-                return;
+                return false;
             }
 
             if (pend.tipo === 'kiosco') {
