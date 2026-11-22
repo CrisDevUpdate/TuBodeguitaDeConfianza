@@ -191,6 +191,7 @@ function manejarDropImagenProducto(event) {
 
 let estaSubiendoImagenProducto = false;
 let promesaSubidaImagen = null;
+let productoImagenRespaldoBase64 = '';
 
 async function procesarImagenProducto(archivo) {
     if (!archivo.type || !archivo.type.startsWith('image/')) {
@@ -225,6 +226,7 @@ async function procesarImagenProducto(archivo) {
                 optimizadoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
             }
             productoImagenTemporal = optimizadoDataUrl;
+            productoImagenRespaldoBase64 = optimizadoDataUrl;
             actualizarVistaImagenProducto('subiendo');
 
             // Subir a Vercel Blob en segundo plano a través de la API segura
@@ -354,6 +356,7 @@ function resetearFormularioProducto() {
     const input = document.getElementById('prod-imagen-input');
     if (input) input.value = '';
     productoImagenTemporal = '';
+    productoImagenRespaldoBase64 = '';
     actualizarVistaImagenProducto();
     const stockInput = document.getElementById('prod-stock');
     if (stockInput) {
@@ -529,6 +532,12 @@ async function guardarProducto(e) {
     if (productoGuardado && window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarProducto === 'function') {
         try {
             await window.InventoryApp.Firebase.guardarProducto(productoGuardado);
+            if (productoImagenRespaldoBase64 && productoGuardado.imagen && !String(productoGuardado.imagen).startsWith('data:') && typeof window.InventoryApp.Firebase.guardarRespaldoImagenProducto === 'function') {
+                window.InventoryApp.Firebase.guardarRespaldoImagenProducto(productoGuardado.id, productoImagenRespaldoBase64, {
+                    nombre: productoGuardado.nombre,
+                    blobUrl: productoGuardado.imagen
+                }).catch(() => {});
+            }
         } catch (err) {
             console.warn('[Productos] Error en guardado cloud:', err);
         }
@@ -614,6 +623,7 @@ function editarProducto(id) {
     }
 
     productoImagenTemporal = p.imagen || '';
+    productoImagenRespaldoBase64 = '';
     actualizarVistaImagenProducto();
     actualizarIndicadorGananciaUnitaria();
 

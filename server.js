@@ -1152,7 +1152,7 @@ app.get('/api/blob/list', async (req, res) => {
   }
 });
 
-// Sincronizar automáticamente imágenes pendientes desde Firestore hacia Vercel Blob
+// Sincronizar automáticamente imágenes pendientes desde Firestore hacia Vercel Blob (con respaldo en Firebase)
 app.post('/api/blob/sync-firestore-images', async (req, res) => {
   try {
     const token = obtenerVercelBlobToken(req);
@@ -1160,59 +1160,94 @@ app.post('/api/blob/sync-firestore-images', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Token de Vercel Blob no configurado' });
     }
     const { put } = await import('@vercel/blob');
-    
-    // Consultar productos de Firestore
-    const fsUrl = 'https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents/productos';
-    const fsRes = await fetch(fsUrl);
-    const fsData = await fsRes.json();
-    
+    const fsBase = 'https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents';
+
+    // Consultar todos los productos de Firestore (con paginación)
+    const allDocs = [];
+    let pageToken = '';
+    do {
+      const fsUrl = `${fsBase}/productos?pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+      const fsRes = await fetch(fsUrl);
+      const fsData = await fsRes.json();
+      if (fsData && Array.isArray(fsData.documents)) {
+        allDocs.push(...fsData.documents);
+      }
+      pageToken = fsData && fsData.nextPageToken ? fsData.nextPageToken : '';
+    } while (pageToken);
+
     const results = [];
-    if (fsData && fsData.documents) {
-      for (const doc of fsData.documents) {
-        const id = doc.name.split('/').pop();
-        const f = doc.fields || {};
-        const img = (f.imagen && f.imagen.stringValue) || '';
-        
-        if (img && img.startsWith('data:')) {
-          try {
-            const parts = img.split(',');
-            const mimeMatch = parts[0].match(/:(.*?);/);
-            const mime = mimeMatch ? mimeMatch[1] : 'image/webp';
-            const buf = Buffer.from(parts[1], 'base64');
-            const ext = mime.includes('png') ? 'png' : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp';
-            const targetName = `productos/prod_${id}_${Date.now()}.${ext}`;
-            
-            const vRes = await put(targetName, buf, {
-              access: 'private',
-              token: token,
-              contentType: mime
-            });
-            
-            const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(vRes.pathname)}`;
-            
-            // Actualizar doc en Firestore
-            const patchUrl = `https://firestore.googleapis.com/v1/projects/tubodeguitadeconfianza/databases/(default)/documents/productos/${id}?updateMask.fieldPaths=imagen`;
-            await fetch(patchUrl, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                fields: {
-                  imagen: { stringValue: viewUrl }
-                }
-              })
-            });
-            
-            results.push({ id, status: 'migrated_to_blob', pathname: vRes.pathname, url: vRes.url, viewUrl });
-          } catch (itemErr) {
-            results.push({ id, status: 'error', error: itemErr.message });
+    for (const doc of allDocs) {
+      const id = doc.name.split('/').pop();
+      const f = doc.fields || {};
+      const nombre = (f.nombre && f.nombre.stringValue) || id;
+      const img = (f.imagen && f.imagen.stringValue) || '';
+
+      if (img && img.startsWith('data:')) {
+        try {
+          const parts = img.split(',');
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          const mime = mimeMatch ? mimeMatch[1] : 'image/webp';
+          const buf = Buffer.from(parts[1] || '', 'base64');
+          const ext = mime.includes('png') ? 'png' : mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp';
+          const targetName = `productos/prod_${id}.${ext}`;
+
+          // 1. Subir a Vercel Blob
+          const vRes = await put(targetName, buf, {
+            access: 'private',
+            token: token,
+            contentType: mime,
+            allowOverwrite: true
+          });
+
+          const viewUrl = `/api/avatar/view?pathname=${encodeURIComponent(vRes.pathname)}`;
+
+          // 2. Guardar respaldo íntegro en Firebase (colección respaldo_imagenes_productos) ANTES de modificar productos
+          const backupUrl = `${fsBase}/respaldo_imagenes_productos/${encodeURIComponent(id)}`;
+          const backupRes = await fetch(backupUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                productoId: { stringValue: id },
+                nombre: { stringValue: nombre },
+                imagenBase64: { stringValue: img },
+                blobPathname: { stringValue: vRes.pathname },
+                blobUrl: { stringValue: viewUrl },
+                respaldadoEn: { stringValue: new Date().toISOString() }
+              }
+            })
+          });
+
+          if (!backupRes.ok) {
+            throw new Error(`No se pudo guardar respaldo en Firebase (${backupRes.status})`);
           }
-        } else if (img) {
-          results.push({ id, status: 'already_url', url: img.substring(0, 60) });
+
+          // 3. Actualizar doc del producto en Firestore con la URL liviana de Vercel Blob
+          const patchUrl = `${fsBase}/productos/${encodeURIComponent(id)}?updateMask.fieldPaths=imagen`;
+          const patchRes = await fetch(patchUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                imagen: { stringValue: viewUrl }
+              }
+            })
+          });
+
+          if (!patchRes.ok) {
+            throw new Error(`No se pudo actualizar producto ${id} (${patchRes.status})`);
+          }
+
+          results.push({ id, nombre, status: 'migrated_to_blob', pathname: vRes.pathname, url: vRes.url, viewUrl, backedUpInFirebase: true });
+        } catch (itemErr) {
+          results.push({ id, nombre, status: 'error', error: itemErr.message });
         }
+      } else if (img) {
+        results.push({ id, nombre, status: 'already_url', url: img.substring(0, 80) });
       }
     }
-    
-    return res.json({ success: true, processed: results });
+
+    return res.json({ success: true, total: allDocs.length, processed: results });
   } catch (err) {
     console.error('[Sync Firestore Images Error]:', err);
     return res.status(500).json({ success: false, error: err.message });

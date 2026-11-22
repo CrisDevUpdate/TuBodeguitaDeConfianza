@@ -1,1 +1,1 @@
-export { default } from './view.js';
+export { default } from '../avatar/view.js';

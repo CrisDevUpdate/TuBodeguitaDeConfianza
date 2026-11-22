@@ -2346,14 +2346,20 @@ window.InventoryApp = window.InventoryApp || {};
         try {
             if (db) {
                 let imagenUrl = producto.imagen || '';
-                // Si la imagen está en formato base64/dataURI, asegurar su subida a Vercel Blob
+                // Si la imagen está en formato base64/dataURI, asegurar su subida a Vercel Blob y respaldo en Firebase
                 if (imagenUrl.startsWith('data:')) {
+                    const imagenBase64Original = imagenUrl;
                     try {
                         if (window.InventoryApp && window.InventoryApp.ImageCache) {
                             const resBlob = await window.InventoryApp.ImageCache.subirImagenVercelBlob(imagenUrl, 'productos', `prod_${producto.id || Date.now()}.webp`);
                             if (resBlob && (resBlob.url || resBlob.viewUrl || resBlob.pathname)) {
                                 imagenUrl = resBlob.viewUrl || resBlob.url || (resBlob.pathname ? `/api/avatar/view?pathname=${encodeURIComponent(resBlob.pathname)}` : imagenUrl);
                                 producto.imagen = imagenUrl;
+                                guardarRespaldoImagenProductoCloud(producto.id, imagenBase64Original, {
+                                    nombre: producto.nombre || '',
+                                    blobPathname: resBlob.pathname || '',
+                                    blobUrl: imagenUrl
+                                }).catch(() => {});
                             }
                         }
                     } catch (e) {
@@ -4387,6 +4393,26 @@ window.InventoryApp = window.InventoryApp || {};
         }
     }
 
+    async function guardarRespaldoImagenProductoCloud(productoId, imagenBase64, meta = {}) {
+        if (!db || isQuotaExhausted || !productoId || !imagenBase64 || !String(imagenBase64).startsWith('data:')) {
+            return false;
+        }
+        try {
+            await db.collection('respaldo_imagenes_productos').doc(String(productoId)).set({
+                productoId: String(productoId),
+                nombre: String(meta.nombre || ''),
+                imagenBase64: String(imagenBase64),
+                blobPathname: String(meta.blobPathname || ''),
+                blobUrl: String(meta.blobUrl || ''),
+                respaldadoEn: new Date().toISOString()
+            }, { merge: true });
+            return true;
+        } catch (err) {
+            console.warn('[Firebase] Aviso al guardar respaldo de imagen de producto:', err);
+            return false;
+        }
+    }
+
     // Exportar servicio a la ventana global
     window.InventoryApp.Firebase = {
         init: inicializarFirebase,
@@ -4395,6 +4421,7 @@ window.InventoryApp = window.InventoryApp || {};
         sincronizarTodo: sincronizarTodoDesdeNube,
         sincronizarEstadoCuentaCliente: sincronizarEstadoCuentaCliente,
         guardarProducto: guardarProductoCloud,
+        guardarRespaldoImagenProducto: guardarRespaldoImagenProductoCloud,
         eliminarProducto: eliminarProductoCloud,
         registrarVenta: registrarVentaCloud,
         guardarVenta: registrarVentaCloud,

@@ -308,20 +308,37 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
+        let dataUrlToSend = '';
+        if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+            dataUrlToSend = fileOrDataUrl;
+        } else if (blobToSend) {
+            dataUrlToSend = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                reader.onerror = () => reject(new Error('No se pudo leer el archivo para subir a Blob.'));
+                reader.readAsDataURL(blobToSend);
+            });
+        }
+
         let response;
-        if (blobToSend) {
+        if (dataUrlToSend) {
+            headers['Content-Type'] = 'application/json';
+            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                    filename: cleanFilename,
+                    folder: folder,
+                    fileData: dataUrlToSend,
+                    contentType: contentType
+                })
+            });
+        } else if (blobToSend) {
             headers['Content-Type'] = contentType;
             response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
                 method: 'POST',
                 headers: headers,
                 body: blobToSend
-            });
-        } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
-            headers['Content-Type'] = 'application/json';
-            response = await fetch(`/api/avatar/upload?filename=${encodeURIComponent(cleanFilename)}`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ fileData: fileOrDataUrl, contentType: contentType })
             });
         } else {
             throw new Error('Formato de imagen inválido o no soportado para subir a Blob.');
@@ -367,7 +384,7 @@ window.InventoryApp = window.InventoryApp || {};
 
         const ejecutarPrecarga = () => {
             urls.forEach(url => {
-                if (url && (url.startsWith('http') || url.startsWith('data:'))) {
+                if (url && (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/api/'))) {
                     obtenerUrlConCache(url).catch(() => {});
                 }
             });
