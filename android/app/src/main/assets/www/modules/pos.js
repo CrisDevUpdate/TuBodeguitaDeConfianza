@@ -441,8 +441,9 @@ function renderizarPosProductos(filtro = null) {
         if (!f) return true;
         const nombre = (p.nombre || "").toLowerCase();
         const codigo = (p.codigo || "").toLowerCase();
+        const codigoBarras = String(p.codigoBarras || p.barcode || p.ean || "").toLowerCase();
         const cat = (p.categoria || "").toLowerCase();
-        return nombre.includes(f) || codigo.includes(f) || cat.includes(f);
+        return nombre.includes(f) || codigo.includes(f) || (codigoBarras && codigoBarras.includes(f)) || cat.includes(f);
     });
 
     const countEl = document.getElementById('pos-catalog-count');
@@ -512,8 +513,9 @@ function renderizarPosProductos(filtro = null) {
                     if (!f) return false;
                     const nombre = (p.nombre || "").toLowerCase();
                     const codigo = (p.codigo || "").toLowerCase();
+                    const codigoBarras = String(p.codigoBarras || p.barcode || p.ean || "").toLowerCase();
                     const cat = (p.categoria || "").toLowerCase();
-                    return nombre.includes(f) || codigo.includes(f) || cat.includes(f);
+                    return nombre.includes(f) || codigo.includes(f) || (codigoBarras && codigoBarras.includes(f)) || cat.includes(f);
                 });
 
                 if (agotadosCoincidentes.length > 0) {

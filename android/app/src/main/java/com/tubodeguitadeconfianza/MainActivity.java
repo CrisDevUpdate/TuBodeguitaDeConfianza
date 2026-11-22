@@ -35,6 +35,10 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.OnBackPressedDispatcher;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.webkit.PermissionRequest;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
@@ -52,6 +56,8 @@ public class MainActivity extends ComponentActivity {
 
     private ValueCallback<Uri[]> uploadMessage;
     private ActivityResultLauncher<Intent> fileChooserLauncher;
+    private ActivityResultLauncher<String> cameraPermissionLauncher;
+    private PermissionRequest pendingWebPermissionRequest;
     private Uri cameraImageUri;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -109,6 +115,20 @@ public class MainActivity extends ComponentActivity {
                 }
         );
 
+        cameraPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (pendingWebPermissionRequest != null) {
+                        if (isGranted) {
+                            pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
+                        } else {
+                            pendingWebPermissionRequest.deny();
+                        }
+                        pendingWebPermissionRequest = null;
+                    }
+                }
+        );
+
         configureWebView();
 
         webView.loadUrl(APP_URL);
@@ -150,6 +170,32 @@ public class MainActivity extends ComponentActivity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    String[] resources = request.getResources();
+                    boolean needsCamera = false;
+                    if (resources != null) {
+                        for (String res : resources) {
+                            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res)) {
+                                needsCamera = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!needsCamera) {
+                        request.deny();
+                        return;
+                    }
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(resources);
+                    } else {
+                        pendingWebPermissionRequest = request;
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+                    }
+                });
+            }
+
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (uploadMessage != null) {

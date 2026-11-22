@@ -498,8 +498,19 @@ function buscarProductoPorCodigoFlexible(valor) {
 
     const entradaNormalizada = entrada.toUpperCase().replace(/\s+/g, '');
 
-    // 1) Primero intentamos coincidencia exacta con el código real.
-    let encontrados = productos.filter(p =>
+    // 0) Primero intentamos coincidencia por código de barras (EAN/UPC)
+    const sinCerosEntrada = /^\d{8,14}$/.test(entradaNormalizada) ? entradaNormalizada.replace(/^0+/, '') : '';
+    let encontrados = productos.filter(p => {
+        const cb = String(p.codigoBarras || p.barcode || p.ean || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!cb) return false;
+        if (cb === entradaNormalizada) return true;
+        if (sinCerosEntrada && /^\d{8,14}$/.test(cb) && cb.replace(/^0+/, '') === sinCerosEntrada) return true;
+        return false;
+    });
+    if (encontrados.length >= 1) return encontrados[0];
+
+    // 1) Luego intentamos coincidencia exacta con el código interno real.
+    encontrados = productos.filter(p =>
         String(p.codigo || '').trim().toUpperCase() === entradaNormalizada
     );
     if (encontrados.length === 1) return encontrados[0];

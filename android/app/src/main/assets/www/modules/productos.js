@@ -335,6 +335,8 @@ function resetearFormularioProducto() {
     if (form) form.reset();
     const id = document.getElementById('prod-id');
     if (id) id.value = '';
+    const codigoBarrasEl = document.getElementById('prod-codigo-barras');
+    if (codigoBarrasEl) codigoBarrasEl.value = '';
     const gananciaInput = document.getElementById('prod-ganancia');
     if (gananciaInput && !gananciaInput.value) gananciaInput.value = '40';
     const input = document.getElementById('prod-imagen-input');
@@ -431,10 +433,13 @@ async function guardarProducto(e) {
         catNorm === 'combos' || catNorm === 'combos & ofertas' || catNorm === 'super combos'
     );
 
+    const codigoBarras = (document.getElementById('prod-codigo-barras')?.value || '').trim();
+
     // IMPORTANTE: Descripción y Contenido/Medida son campos independientes.
     // Nunca usamos uno para construir o reemplazar el otro.
     const datosProducto = {
         codigo: document.getElementById('prod-codigo').value,
+        codigoBarras: codigoBarras,
         nombre: document.getElementById('prod-nombre').value,
         categoria: categoria,
         costo: parseFloat(document.getElementById('prod-costo').value),
@@ -521,6 +526,8 @@ function editarProducto(id) {
     document.getElementById('prod-id').value = p.id;
     document.getElementById('prod-codigo').value = p.codigo;
     document.getElementById('prod-codigo').readOnly = true;
+    const codigoBarrasInput = document.getElementById('prod-codigo-barras');
+    if (codigoBarrasInput) codigoBarrasInput.value = p.codigoBarras || p.barcode || p.ean || '';
     document.getElementById('prod-nombre').value = p.nombre;
     document.getElementById('prod-costo').value = p.costo;
     document.getElementById('prod-ganancia').value = p.ganancia;
@@ -806,6 +813,8 @@ function renderizarInventario() {
         prodsFiltrados = prodsFiltrados.filter(p => 
             (p.nombre && p.nombre.toLowerCase().includes(q)) ||
             (p.codigo && String(p.codigo).toLowerCase().includes(q)) ||
+            (p.codigoBarras && String(p.codigoBarras).toLowerCase().includes(q)) ||
+            (p.barcode && String(p.barcode).toLowerCase().includes(q)) ||
             (p.categoria && p.categoria.toLowerCase().includes(q)) ||
             (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
             (p.contenido && p.contenido.toLowerCase().includes(q))

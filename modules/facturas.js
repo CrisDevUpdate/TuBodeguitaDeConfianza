@@ -855,7 +855,8 @@ window.InventoryApp = window.InventoryApp || {};
             const nom = String(p.nombre || '').toLowerCase();
             const cod = String(p.codigo || '').toLowerCase();
             const id = String(p.id || '').toLowerCase();
-            return nom.includes(q) || cod.includes(q) || id.includes(q);
+            const cb = String(p.codigoBarras || p.barcode || p.ean || '').toLowerCase();
+            return nom.includes(q) || cod.includes(q) || id.includes(q) || (cb && cb.includes(q));
         }).slice(0, 10);
 
         if (resultados.length === 0) {

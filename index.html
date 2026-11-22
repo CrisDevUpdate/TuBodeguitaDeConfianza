@@ -3086,6 +3086,11 @@
                                 <i class="fas fa-times-circle"></i>
                             </button>
                         </div>
+                        <button type="button" class="btn-scan-camera-inline" id="btn-pos-scan-barcode"
+                                onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('pos');"
+                                title="Escanear código de barras con la cámara">
+                            <i class="fas fa-barcode"></i> <span>Escanear</span>
+                        </button>
                         <!-- Selector de Vista (Cuadrícula / Lista) -->
                         <div class="pos-view-mode-toggle" role="group" aria-label="Modo de visualización">
                             <button type="button" class="pos-view-btn active" id="btn-pos-view-grid" 
@@ -3460,6 +3465,16 @@
                             <small>Se genera automáticamente en secuencia.</small>
                         </div>
                         <div class="form-group">
+                            <label for="prod-codigo-barras">Código de Barras (EAN / UPC)</label>
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <input type="text" id="prod-codigo-barras" placeholder="Ej. 7591234567890 (opcional)" autocomplete="off" style="flex:1; min-width:0;">
+                                <button type="button" class="btn-scan-camera-inline" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('producto_form');" title="Escanear código de barras con cámara" style="height:38px; padding:0 11px;">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                            <small>Opcional. Permite escanear el empaque en POS, facturas y auditoría.</small>
+                        </div>
+                        <div class="form-group">
                             <label>Nombre del Producto</label>
                             <input type="text" id="prod-nombre" required>
                         </div>
@@ -3636,11 +3651,14 @@
             <div class="inventario-search-bar-wrap">
                 <div class="inventario-search-input-box">
                     <i class="fas fa-search inventario-search-icon"></i>
-                    <input type="text" id="inventario-buscar-input" class="inventario-search-input" placeholder="Buscar por nombre, código o categoría..." oninput="filtrarInventarioTexto(this.value)">
+                    <input type="text" id="inventario-buscar-input" class="inventario-search-input" placeholder="Buscar por nombre, código, barras o categoría..." oninput="filtrarInventarioTexto(this.value)">
                     <button type="button" class="inventario-search-clear" id="btn-clear-inv-search" onclick="limpiarBusquedaInventario()" style="display:none;" title="Limpiar búsqueda">
                         <i class="fas fa-times-circle"></i>
                     </button>
                 </div>
+                <button type="button" class="btn-scan-camera-inline" id="btn-inv-scan-barcode" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('inventario');" title="Buscar o crear producto escaneando su código de barras">
+                    <i class="fas fa-barcode"></i> <span>Escanear</span>
+                </button>
                 <div class="inventario-filter-chips">
                     <button type="button" class="inv-chip active" id="chip-stock-todos" onclick="filtrarInventarioStock('todos')">Todos</button>
                     <div class="inv-chip inv-chip-qty-group" id="chip-stock-bajo" onclick="alClickChipStockCustom(event)" title="Filtrar por cantidad en stock. Haz clic para activar o escribe la cantidad directamente.">
@@ -4249,11 +4267,16 @@
 
                         <!-- Input buscador reactivo -->
                         <div style="position:relative; margin-bottom:14px;">
-                            <div style="position:relative; display:flex; align-items:center;">
-                                <i class="fas fa-magnifying-glass" style="position:absolute; left:12px; color:var(--text-muted); pointer-events:none;"></i>
-                                <input type="text" id="factura-search-producto" oninput="alBuscarProductoFactura(this.value)" placeholder="Escribe nombre o escanea código de barras..." style="width:100%; padding:11px 40px 11px 36px; border:2px solid #3b82f6; border-radius:10px; font-size:0.95rem; font-weight:600; outline:none; background:var(--input-bg, #ffffff); color:var(--text-color);">
-                                <button type="button" onclick="limpiarBuscadorProductoFactura()" style="position:absolute; right:10px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; padding:4px;">
-                                    <i class="fas fa-xmark"></i>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="position:relative; display:flex; align-items:center; flex:1; min-width:0;">
+                                    <i class="fas fa-magnifying-glass" style="position:absolute; left:12px; color:var(--text-muted); pointer-events:none;"></i>
+                                    <input type="text" id="factura-search-producto" oninput="alBuscarProductoFactura(this.value)" placeholder="Escribe nombre o escanea código de barras..." style="width:100%; padding:11px 40px 11px 36px; border:2px solid #3b82f6; border-radius:10px; font-size:0.95rem; font-weight:600; outline:none; background:var(--input-bg, #ffffff); color:var(--text-color);">
+                                    <button type="button" onclick="limpiarBuscadorProductoFactura()" style="position:absolute; right:10px; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; padding:4px;">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <button type="button" class="btn-scan-camera-inline" id="btn-factura-scan-barcode" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('factura');" title="Escanear código de barras con cámara para cargar en factura" style="height:44px; padding:0 14px;">
+                                    <i class="fas fa-camera"></i> <span>Escanear</span>
                                 </button>
                             </div>
 
@@ -4642,6 +4665,9 @@
                 <div class="audit-input-group">
                     <span class="audit-input-icon-left"><i class="fas fa-barcode"></i></span>
                     <input type="text" class="audit-input-field" id="auditoria-scan" placeholder="Escanear o escribir código..." onkeyup="escanearProductoAuditoria(event)">
+                    <button type="button" class="btn-scan-camera-inline" id="btn-auditoria-scan-barcode" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('auditoria');" title="Contar rápido con cámara (+1 por cada escaneo)" style="height:32px; padding:0 10px; font-size:0.76rem; margin-right:6px;">
+                        <i class="fas fa-camera"></i> <span>Cámara</span>
+                    </button>
                     <span class="audit-shortcut-badge">↵ Enter</span>
                 </div>
 
@@ -7556,6 +7582,7 @@
 <script src="modules/facturas.js?v=20260918_v1"></script>
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/reposicion-compras.js?v=20261121_v1"></script>
+<script src="modules/escaner-barras.js?v=20261121_v1"></script>
 <script src="modules/auditoria.js?v=20260915_v5"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
