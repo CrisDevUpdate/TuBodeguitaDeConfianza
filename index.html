@@ -1723,18 +1723,171 @@
         }
         .kiosco-btn-mobile-scan {
             min-height: 42px;
-            padding: 0 14px;
+            padding: 0 12px;
             border-radius: 10px;
             border: 1px solid rgba(56, 189, 248, 0.45);
             background: #0284c7;
             color: #ffffff;
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             display: inline-flex;
             align-items: center;
             gap: 6px;
             cursor: pointer;
             white-space: nowrap;
+        }
+        /* STEPPER TÁCTIL (+/-) DIRECTO EN LA TARJETA DE PRODUCTO DEL AUTOSERVICIO */
+        .kiosco-card-stepper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            width: 100%;
+            height: 40px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 3px;
+            box-sizing: border-box;
+        }
+        .kiosco-card-step-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.88rem;
+            font-weight: 800;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: transform 0.1s ease, background 0.15s ease;
+        }
+        .kiosco-card-step-btn:active { transform: scale(0.94); }
+        .kiosco-card-step-btn.is-minus {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .kiosco-card-step-btn.is-minus:hover {
+            background: #fecaca;
+        }
+        .kiosco-card-step-btn.is-plus {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        .kiosco-card-step-btn.is-plus:hover {
+            background: #0369a1;
+        }
+        .kiosco-card-step-qty {
+            flex: 1;
+            text-align: center;
+            font-size: 0.96rem;
+            font-weight: 800;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+            min-width: 24px;
+        }
+        @media (max-width: 899px) {
+            .kiosco-card-stepper {
+                width: auto !important;
+                min-width: 96px !important;
+                height: 38px !important;
+                padding: 2px !important;
+            }
+            .kiosco-card-step-btn {
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 0.82rem !important;
+            }
+            .kiosco-card-step-qty {
+                font-size: 0.9rem !important;
+                min-width: 22px !important;
+            }
+        }
+        /* BOTÓN INTERACTIVO VER/EDITAR EN BARRA MÓVIL + HOJA DE ORDEN */
+        .kiosco-bottom-info-btn {
+            background: transparent;
+            border: none;
+            padding: 2px 4px;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            color: inherit;
+            min-width: 0;
+        }
+        .kiosco-bottom-edit-hint {
+            font-size: 0.72rem;
+            color: #7dd3fc;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .kiosco-mobile-order-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(3px);
+            z-index: 10020;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .kiosco-mobile-order-sheet {
+            width: 100%;
+            max-width: 540px;
+            max-height: 85vh;
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 20px 20px 0 0;
+            padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)) 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-sizing: border-box;
+            box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.25);
+        }
+        .kiosco-mobile-order-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .kiosco-mobile-order-header h3 {
+            margin: 0;
+            font-size: 1.08rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .kiosco-mobile-order-list {
+            overflow-y: auto;
+            max-height: 46vh;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 2px;
+        }
+        .kiosco-mobile-order-footer {
+            display: flex;
+            gap: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+        }
+        @media (min-width: 641px) {
+            .kiosco-mobile-order-modal {
+                align-items: center;
+                padding: 16px;
+            }
+            .kiosco-mobile-order-sheet {
+                border-radius: 18px;
+            }
         }
         @media (max-width: 640px) {
             .kiosco-scan-hero {
@@ -2997,10 +3150,10 @@
 
         <!-- BARRA INFERIOR FLOTANTE PARA MÓVILES / TERMINALES VERTICALES (DENTRO DE KIOSCO-VIEW) -->
         <div class="kiosco-bottom-bar" id="kiosco-bottom-cart-bar">
-            <div class="kiosco-bottom-info">
-                <small><span id="kiosco-mobile-cart-count">0</span> productos</small>
+            <button type="button" class="kiosco-bottom-info kiosco-bottom-info-btn" onclick="window.KioscoModule.abrirResumenOrdenMovil()" title="Toca para ver, quitar o vaciar productos de tu orden">
+                <small><span id="kiosco-mobile-cart-count">0</span> productos · <span class="kiosco-bottom-edit-hint">Ver / Quitar <i class="fas fa-chevron-up"></i></span></small>
                 <strong id="kiosco-mobile-total-usd" style="font-variant-numeric:tabular-nums;">$0.00</strong>
-            </div>
+            </button>
             <div class="kiosco-bottom-actions">
                 <button type="button" class="kiosco-btn-mobile-scan" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('kiosco');" title="Escanear otro producto">
                     <i class="fas fa-barcode"></i>
@@ -3010,6 +3163,47 @@
                     <span>Pagar</span>
                     <i class="fas fa-chevron-right"></i>
                 </button>
+            </div>
+        </div>
+
+        <!-- HOJA MODAL EDITABLE: VER / QUITAR PRODUCTOS DE LA ORDEN EN AUTOSERVICIO -->
+        <div class="kiosco-mobile-order-modal" id="modal-kiosco-orden-movil" onclick="if(event.target === this) window.KioscoModule.cerrarResumenOrdenMovil();">
+            <div class="kiosco-mobile-order-sheet">
+                <div class="kiosco-mobile-order-header">
+                    <h3>
+                        <i class="fas fa-shopping-basket" style="color:#0284c7;"></i>
+                        Tu Orden (<span id="kiosco-orden-movil-count">0</span>)
+                    </h3>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="kiosco-btn-clear-cart" onclick="window.KioscoModule.vaciarCarrito();" title="Quitar todos los productos">
+                            <i class="fas fa-trash-alt"></i> Vaciar todo
+                        </button>
+                        <button type="button" onclick="window.KioscoModule.cerrarResumenOrdenMovil();" aria-label="Cerrar resumen de orden" style="width:34px; height:34px; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; color:#334155; font-size:1.15rem; font-weight:700; cursor:pointer;">&times;</button>
+                    </div>
+                </div>
+
+                <div class="kiosco-mobile-order-list" id="kiosco-orden-movil-lista"></div>
+
+                <div class="kiosco-cart-totals-card" style="margin:0;">
+                    <div class="kiosco-total-row">
+                        <span style="color:#64748b; font-size:0.85rem;">Total en Divisas:</span>
+                        <span id="kiosco-orden-movil-usd" style="font-weight:700; color:#0f172a; font-size:1.08rem; font-variant-numeric:tabular-nums;">$0.00</span>
+                    </div>
+                    <div class="kiosco-total-row big">
+                        <span>Total a Pagar:</span>
+                        <strong id="kiosco-orden-movil-ves" style="font-variant-numeric:tabular-nums;">Bs. 0.00</strong>
+                    </div>
+                </div>
+
+                <div class="kiosco-mobile-order-footer">
+                    <button type="button" onclick="window.KioscoModule.cerrarResumenOrdenMovil();" style="flex:1; min-height:46px; border-radius:10px; border:1px solid #cbd5e1; background:#f8fafc; color:#334155; font-weight:700; font-size:0.9rem; cursor:pointer;">
+                        Seguir comprando
+                    </button>
+                    <button type="button" id="kiosco-orden-movil-pagar-btn" onclick="window.KioscoModule.cerrarResumenOrdenMovil(); window.KioscoModule.iniciarCheckout();" style="flex:1.2; min-height:46px; border-radius:10px; border:none; background:#16a34a; color:#ffffff; font-weight:800; font-size:0.95rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+                        <span>Ir a Pagar</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -7833,7 +8027,7 @@
 <script src="modules/facturas.js?v=20261121_barcode"></script>
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/reposicion-compras.js?v=20261121_v1"></script>
-<script src="modules/escaner-barras.js?v=20261122_autopago_scan"></script>
+<script src="modules/escaner-barras.js?v=20261122_kiosco_undo"></script>
 <script src="modules/auditoria.js?v=20261121_barcode"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
@@ -7842,7 +8036,7 @@
 <script src="modules/historial-ventas.js?v=20260915_v5"></script>
 <script src="modules/usuarios.js?v=20260915_v5"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
-<script src="modules/kiosco.js?v=20261122_autopago_scan"></script>
+<script src="modules/kiosco.js?v=20261122_kiosco_undo"></script>
 <script src="modules/configuracion.js?v=20260915_v5"></script>
 <script src="app.js?v=20260915_v5"></script>
 </body>

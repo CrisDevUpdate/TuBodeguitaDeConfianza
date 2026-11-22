@@ -439,13 +439,31 @@
                         </div>
                     </div>
 
-                    <div class="kiosco-product-action cliente-prod-action">
-                        <button type="button" class="kiosco-btn-add-touch cliente-btn-add ${agotado ? 'disabled' : ''}" ${agotado ? 'disabled' : ''} 
-                                onclick="event.stopPropagation(); window.KioscoModule.agregarAlCarrito('${p.id}')"
-                                title="${agotado ? 'Agotado' : (cantEnCarrito > 0 ? 'Agregar más' : 'Agregar')}">
-                            <i class="fas ${cantEnCarrito > 0 ? 'fa-plus' : 'fa-cart-plus'}"></i>
-                            <span class="kiosco-btn-text cliente-btn-text">${agotado ? 'Agotado' : (cantEnCarrito > 0 ? 'Agregar más' : 'Agregar')}</span>
-                        </button>
+                    <div class="kiosco-product-action cliente-prod-action" onclick="event.stopPropagation();">
+                        ${(!agotado && cantEnCarrito > 0) ? `
+                            <div class="kiosco-card-stepper" onclick="event.stopPropagation();">
+                                <button type="button" class="kiosco-card-step-btn is-minus"
+                                        onclick="event.stopPropagation(); window.KioscoModule.restarUnoEnCarrito('${p.id}')"
+                                        title="${cantEnCarrito === 1 ? 'Quitar de mi orden' : 'Restar 1'}"
+                                        aria-label="${cantEnCarrito === 1 ? 'Quitar producto' : 'Disminuir cantidad'}">
+                                    <i class="fas ${cantEnCarrito === 1 ? 'fa-trash-alt' : 'fa-minus'}"></i>
+                                </button>
+                                <span class="kiosco-card-step-qty" aria-label="Cantidad en orden">${cantEnCarrito}</span>
+                                <button type="button" class="kiosco-card-step-btn is-plus"
+                                        onclick="event.stopPropagation(); window.KioscoModule.agregarAlCarrito('${p.id}')"
+                                        title="Agregar 1 más"
+                                        aria-label="Aumentar cantidad">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        ` : `
+                            <button type="button" class="kiosco-btn-add-touch cliente-btn-add ${agotado ? 'disabled' : ''}" ${agotado ? 'disabled' : ''} 
+                                    onclick="event.stopPropagation(); window.KioscoModule.agregarAlCarrito('${p.id}')"
+                                    title="${agotado ? 'Agotado' : 'Agregar a mi orden'}">
+                                <i class="fas fa-cart-plus"></i>
+                                <span class="kiosco-btn-text cliente-btn-text">${agotado ? 'Agotado' : 'Agregar'}</span>
+                            </button>
+                        `}
                     </div>
                 </div>
             `;
@@ -632,6 +650,75 @@
                 }).join('');
             }
         }
+
+        // Sincronizar también el modal/hoja móvil de revisión y edición de orden
+        actualizarModalOrdenMovil(totalItems, totalUSD, totalVES, tasa);
+    }
+
+    function actualizarModalOrdenMovil(totalItems, totalUSD, totalVES, tasa) {
+        const modal = document.getElementById('modal-kiosco-orden-movil');
+        const countEl = document.getElementById('kiosco-orden-movil-count');
+        const usdEl = document.getElementById('kiosco-orden-movil-usd');
+        const vesEl = document.getElementById('kiosco-orden-movil-ves');
+        const listEl = document.getElementById('kiosco-orden-movil-lista');
+        const btnPagar = document.getElementById('kiosco-orden-movil-pagar-btn');
+
+        if (countEl) countEl.textContent = String(totalItems);
+        if (usdEl) usdEl.textContent = `$${totalUSD.toFixed(2)}`;
+        if (vesEl) vesEl.textContent = `Bs. ${tasa > 0 ? totalVES.toFixed(2) : '—'}`;
+        if (btnPagar) btnPagar.disabled = (carritoKiosco.length === 0);
+
+        if (listEl) {
+            if (carritoKiosco.length === 0) {
+                listEl.innerHTML = `
+                    <div style="text-align:center; padding:28px 12px; color:#64748b;">
+                        <i class="fas fa-shopping-basket" style="font-size:2rem; color:#cbd5e1; display:block; margin-bottom:8px;"></i>
+                        <strong>Tu orden está vacía</strong>
+                    </div>
+                `;
+                if (modal && modal.classList.contains('active')) {
+                    cerrarResumenOrdenMovil();
+                }
+            } else {
+                listEl.innerHTML = carritoKiosco.map((item, idx) => {
+                    const subtotalUSD = Number(item.precio || 0) * Number(item.cantidad || 0);
+                    return `
+                        <div class="kiosco-cart-item">
+                            <div class="kiosco-cart-item-info">
+                                <strong>${escaparHtmlKiosco(item.nombre)}</strong>
+                                <small>$${Number(item.precio || 0).toFixed(2)} c/u</small>
+                            </div>
+                            <div class="kiosco-cart-item-controls">
+                                <div class="kiosco-stepper">
+                                    <button type="button" onclick="window.KioscoModule.modificarCantidad(${idx}, -1)" aria-label="Restar 1">−</button>
+                                    <span>${item.cantidad}</span>
+                                    <button type="button" onclick="window.KioscoModule.modificarCantidad(${idx}, 1)" aria-label="Sumar 1">+</button>
+                                </div>
+                                <div class="kiosco-cart-item-subtotal">$${subtotalUSD.toFixed(2)}</div>
+                                <button type="button" class="kiosco-btn-remove-item" onclick="window.KioscoModule.modificarCantidad(${idx}, -${item.cantidad})" title="Quitar producto" aria-label="Quitar producto">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    }
+
+    function abrirResumenOrdenMovil() {
+        const modal = document.getElementById('modal-kiosco-orden-movil');
+        if (!modal) return;
+        actualizarResumenCarritoKiosco();
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+    }
+
+    function cerrarResumenOrdenMovil() {
+        const modal = document.getElementById('modal-kiosco-orden-movil');
+        if (!modal) return;
+        modal.classList.remove('active');
+        modal.style.display = 'none';
     }
 
     /**
@@ -1738,6 +1825,8 @@
             if (idx !== -1) modificarCantidad(idx, -1);
         },
         vaciarCarrito,
+        abrirResumenOrdenMovil,
+        cerrarResumenOrdenMovil,
         seleccionarCategoria,
         alBuscarProducto,
         iniciarCheckout: iniciarCheckoutKiosco,

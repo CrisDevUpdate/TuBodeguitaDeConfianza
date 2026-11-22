@@ -670,13 +670,14 @@
                 <div class="scan-feedback-banner" id="scan-feedback-banner"></div>
 
                 <div class="scan-kiosco-checkout-bar" id="scan-kiosco-checkout-bar">
-                    <div class="scan-kiosco-checkout-info">
+                    <button type="button" class="scan-kiosco-checkout-info" onclick="cerrarEscanerCodigoBarras(); if(window.KioscoModule && window.KioscoModule.abrirResumenOrdenMovil) window.KioscoModule.abrirResumenOrdenMovil();" style="background:transparent; border:none; padding:0; text-align:left; cursor:pointer;" title="Ver o quitar productos de tu orden">
                         <span class="scan-kiosco-checkout-count" id="scan-kiosco-order-count">Tu orden · 0 productos</span>
                         <div class="scan-kiosco-checkout-totals">
                             <span id="scan-kiosco-order-usd">$0.00</span>
                             <span class="scan-kiosco-checkout-bs" id="scan-kiosco-order-bs">Bs. 0.00</span>
+                            <span style="font-size:0.74rem; font-weight:700; color:#94a3b8; text-decoration:underline;">Editar</span>
                         </div>
-                    </div>
+                    </button>
                     <button type="button" class="scan-btn-ir-pagar" id="scan-btn-ir-pagar" onclick="window._scanIrAPagarKiosco()" disabled>
                         <span>Ir a Pagar</span>
                         <i class="fas fa-arrow-right"></i>
