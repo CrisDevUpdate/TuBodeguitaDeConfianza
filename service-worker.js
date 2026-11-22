@@ -4,14 +4,14 @@
 // 3. Shell PWA (Network-First): Resiliencia offline para la interfaz.
 // 4. Web Push API: Recepción y apertura de notificaciones incluso con la pantalla bloqueada.
 
-const SHELL_CACHE_NAME = 'bodeguita-shell-v3';
+const SHELL_CACHE_NAME = 'bodeguita-shell-v4';
 const IMAGE_CACHE_NAME = 'bodeguita-images-v1';
 const APP_SHELL = [
   '/',
-  '/manifest.json?v=3',
-  '/icons/icon-192.png?v=3',
-  '/icons/icon-512.png?v=3',
-  '/icons/apple-touch-icon.png?v=3'
+  '/manifest.json?v=4',
+  '/icons/icon-192.png?v=4',
+  '/icons/icon-512.png?v=4',
+  '/icons/apple-touch-icon.png?v=4'
 ];
 
 self.addEventListener('install', (event) => {
@@ -124,8 +124,8 @@ self.addEventListener('push', (event) => {
   let payload = {
     title: 'Tu Bodeguita de Confianza',
     body: 'Tienes una nueva notificación importante.',
-    icon: '/icons/icon-192.png?v=3',
-    badge: '/icons/icon-192.png?v=3',
+    icon: '/icons/icon-192.png?v=4',
+    badge: '/icons/icon-192.png?v=4',
     tag: 'bodeguita-notif',
     tab: 'notificaciones',
     url: '/'
@@ -144,8 +144,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: payload.body,
-    icon: payload.icon || '/icons/icon-192.png?v=3',
-    badge: payload.badge || '/icons/icon-192.png?v=3',
+    icon: payload.icon || '/icons/icon-192.png?v=4',
+    badge: payload.badge || '/icons/icon-192.png?v=4',
     tag: payload.tag || 'bodeguita-notif',
     renotify: true,
     vibrate: [180, 90, 180],
