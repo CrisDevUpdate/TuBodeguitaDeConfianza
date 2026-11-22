@@ -4,6 +4,28 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/api/push/:action",
+      "destination": "/api/push?action=:action"
+    },
+    {
+      "source": "/api/avatar/upload",
+      "destination": "/api/upload/blob"
+    },
+    {
+      "source": "/api/blob/view",
+      "destination": "/api/avatar/view"
+    },
+    {
+      "source": "/api/blob/list",
+      "destination": "/api/upload/blob?action=list"
+    },
+    {
+      "source": "/api/blob/sync-firestore-images",
+      "destination": "/api/upload/blob?action=sync"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
