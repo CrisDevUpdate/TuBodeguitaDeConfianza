@@ -398,12 +398,17 @@
             /* Optimización de Espacio Viewport Móvil Kiosco */
             .kiosco-container {
                 padding: 10px 10px 84px 10px !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                overflow-x: hidden !important;
             }
             .kiosco-header-banner {
                 padding: 12px 14px !important;
                 margin-bottom: 10px !important;
                 gap: 8px !important;
                 border-radius: 14px !important;
+                box-sizing: border-box !important;
+                max-width: 100% !important;
             }
             .kiosco-header-top-row {
                 flex-wrap: wrap !important;
@@ -422,9 +427,21 @@
                 padding: 8px 10px !important;
                 margin-bottom: 10px !important;
                 border-radius: 12px !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
             }
             .kiosco-search-input-wrap {
                 padding: 6px 10px !important;
+                min-width: 0 !important;
+            }
+            #btn-kiosco-scan-barcode span {
+                display: none !important;
+            }
+            #btn-kiosco-scan-barcode {
+                width: 42px !important;
+                height: 42px !important;
+                padding: 0 !important;
+                flex-shrink: 0 !important;
             }
             .kiosco-cat-chip {
                 padding: 6px 12px !important;
@@ -1549,13 +1566,21 @@
         }
         .kiosco-main-grid {
             display: grid;
-            grid-template-columns: 1fr 360px;
+            grid-template-columns: minmax(0, 1fr) 360px;
             gap: 20px;
             align-items: start;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .kiosco-main-grid > * {
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         @media (max-width: 991px) {
             .kiosco-main-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(0, 1fr);
             }
             .kiosco-order-sidebar {
                 display: none !important;
@@ -1573,21 +1598,28 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
         .kiosco-scan-hero-main {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
+            gap: 14px;
             flex-wrap: wrap;
+            width: 100%;
+            min-width: 0;
         }
         .kiosco-scan-hero-copy {
-            flex: 1 1 260px;
+            flex: 1 1 220px;
             min-width: 0;
+            max-width: 100%;
         }
         .kiosco-scan-hero-title {
             margin: 0 0 4px 0;
-            font-size: 1.22rem;
+            font-size: 1.2rem;
             font-weight: 800;
             color: #ffffff;
             line-height: 1.25;
@@ -1598,6 +1630,7 @@
             font-size: 0.88rem;
             color: #cbd5e1;
             line-height: 1.45;
+            overflow-wrap: break-word;
         }
         .kiosco-scan-hero-steps {
             margin-top: 8px;
@@ -1607,16 +1640,16 @@
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 6px;
+            gap: 4px 6px;
         }
         .kiosco-scan-hero-btn {
-            min-height: 54px;
-            padding: 0 24px;
+            min-height: 52px;
+            padding: 0 22px;
             border-radius: 12px;
             border: none;
             background: #0284c7;
             color: #ffffff;
-            font-size: 1.02rem;
+            font-size: 1rem;
             font-weight: 800;
             cursor: pointer;
             display: inline-flex;
@@ -1625,6 +1658,8 @@
             gap: 10px;
             white-space: nowrap;
             flex-shrink: 0;
+            box-sizing: border-box;
+            max-width: 100%;
             box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
             transition: background 0.15s ease, transform 0.12s ease;
         }
@@ -1645,6 +1680,8 @@
             font-size: 0.86rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
+            box-sizing: border-box;
+            max-width: 100%;
         }
         .kiosco-usb-scan-feedback.is-ok { background: #14532d; color: #dcfce7; }
         .kiosco-usb-scan-feedback.is-warn { background: #78350f; color: #fef3c7; }
@@ -1701,10 +1738,24 @@
         }
         @media (max-width: 640px) {
             .kiosco-scan-hero {
-                padding: 16px;
+                padding: 14px;
+                border-radius: 14px;
+                margin-bottom: 10px;
+            }
+            .kiosco-scan-hero-title {
+                font-size: 1.06rem;
+            }
+            .kiosco-scan-hero-desc {
+                font-size: 0.82rem;
+            }
+            .kiosco-scan-hero-steps {
+                font-size: 0.74rem;
             }
             .kiosco-scan-hero-btn {
                 width: 100%;
+                min-height: 48px;
+                font-size: 0.96rem;
+                padding: 0 16px;
             }
         }
         .kiosco-search-bar {
@@ -1717,6 +1768,10 @@
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
             border: 1px solid var(--border, #e2e8f0);
             margin-bottom: 16px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
         .kiosco-search-input-wrap {
             display: flex;
@@ -1724,13 +1779,20 @@
             background: #f1f5f9;
             border-radius: 12px;
             padding: 8px 14px;
-            gap: 10px;
+            gap: 8px;
+            min-width: 0;
+            box-sizing: border-box;
         }
         .kiosco-search-input-wrap input {
-            border: none;
-            background: transparent;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
             width: 100%;
-            font-size: 1.05rem;
+            min-width: 0;
+            flex: 1;
+            font-size: 0.96rem;
             outline: none;
             color: #1e293b;
             font-weight: 500;
