@@ -912,7 +912,7 @@
         // Acción según el módulo desde el que se abrió el escáner
         if (state.modo === 'producto_form') {
             procesarEscaneoFormularioProducto(codigo);
-        } else if (state.modo === 'pos') {
+        } else if (state.modo === 'pos' || state.modo === 'cliente' || state.modo === 'kiosco') {
             procesarEscaneoPOS(codigo);
         } else if (state.modo === 'factura') {
             procesarEscaneoFactura(codigo);
@@ -947,7 +947,10 @@
         cerrarEscanerCodigoBarras();
     }
 
-    function obtenerCantidadEnCarrito(prodId) {
+    function obtenerCantidadEnCarrito(prodId, modo = state.modo) {
+        if (modo === 'kiosco' && window.KioscoModule && typeof window.KioscoModule.obtenerCantidadEnCarrito === 'function') {
+            return Number(window.KioscoModule.obtenerCantidadEnCarrito(prodId) || 0);
+        }
         const listaCarrito = Array.isArray(window.AppState?.carrito)
             ? window.AppState.carrito
             : (typeof carrito !== 'undefined' && Array.isArray(carrito) ? carrito : []);
@@ -973,18 +976,20 @@
     }
 
     function mostrarPanelConfirmacionPOS(prod, codigo) {
+        const modoCompra = (state.modo === 'cliente' || state.modo === 'kiosco') ? state.modo : 'pos';
         const stockDisp = Number(prod.stock || 0);
-        const enCarrito = obtenerCantidadEnCarrito(prod.id);
+        const enCarrito = obtenerCantidadEnCarrito(prod.id, modoCompra);
         const restante = Math.max(0, Number((stockDisp - enCarrito).toFixed(3)));
-        const esPesable = Boolean(prod.es_pesable || prod.esPesable);
+        const esPesable = modoCompra === 'pos' && Boolean(prod.es_pesable || prod.esPesable);
         const unidad = prod.unidad_medida || prod.unidadMedida || 'und';
 
         if (restante <= 0) {
             reproducirBeep(false);
             state.bloqueoCodigo = codigo;
             state.bloqueoUltimoVistoTs = Date.now();
+            const destinoTxt = modoCompra === 'kiosco' ? 'en tu orden' : 'en el carrito';
             mostrarFeedback('warn', `
-                <span><i class="fas fa-triangle-exclamation"></i> Ya tienes todo el stock disponible (${stockDisp}) de <strong>${escaparHtml(prod.nombre)}</strong> en el carrito.</span>
+                <span><i class="fas fa-triangle-exclamation"></i> Ya tienes todo el stock disponible (${stockDisp}) de <strong>${escaparHtml(prod.nombre)}</strong> ${destinoTxt}.</span>
             `);
             return;
         }
@@ -993,7 +998,7 @@
         state.bloqueoCodigo = codigo;
         state.bloqueoUltimoVistoTs = Date.now();
         state.pendienteConfirmacion = {
-            tipo: 'pos',
+            tipo: modoCompra,
             prod,
             codigo,
             maxDisp: restante,
@@ -1008,16 +1013,24 @@
 
         const paso = esPesable ? '0.1' : '1';
         const valorInicial = restante >= 1 ? '1' : String(restante);
+        const etiquetaCarrito = modoCompra === 'kiosco' ? 'Ya en orden' : 'Ya en carrito';
         const pillCarrito = enCarrito > 0
-            ? `<span class="scan-confirm-cart-pill">Ya en carrito: <strong id="scan-en-carrito-val">${enCarrito}</strong> <button type="button" class="scan-confirm-cart-minus" onclick="window._scanRestarUnoEnCarrito('${escaparHtml(prod.id)}')" title="Quitar 1 unidad del carrito">−1</button></span>`
+            ? `<span class="scan-confirm-cart-pill">${etiquetaCarrito}: <strong id="scan-en-carrito-val">${enCarrito}</strong> <button type="button" class="scan-confirm-cart-minus" onclick="window._scanRestarUnoEnCarrito('${escaparHtml(prod.id)}')" title="Quitar 1 unidad">−1</button></span>`
             : '';
+
+        const precioUSD = Number(prod.precio || 0);
+        const tasa = Number(window.AppState?.tasaActiva || 0);
+        const precioBsTxt = tasa > 0 ? ` <span>(Bs. ${(precioUSD * tasa).toFixed(2)})</span>` : '';
+        const textoBotonConfirmar = modoCompra === 'kiosco'
+            ? 'Agregar a mi orden (↵ Enter)'
+            : 'Agregar al carrito (↵ Enter)';
 
         card.innerHTML = `
             <div class="scan-confirm-top">
                 <div>
                     <div class="scan-confirm-name">${escaparHtml(prod.nombre)}</div>
                     <div class="scan-confirm-meta">
-                        <span><strong>$${Number(prod.precio || 0).toFixed(2)}</strong></span>
+                        <span><strong>$${precioUSD.toFixed(2)}</strong>${precioBsTxt}</span>
                         <span>·</span>
                         <span>Disponible: <strong>${restante}</strong> ${escaparHtml(unidad)}</span>
                         ${pillCarrito}
@@ -1035,7 +1048,7 @@
             <div class="scan-confirm-actions">
                 <button type="button" class="scan-btn-cancel" onclick="window._scanCancelarCantidad()">Cancelar</button>
                 <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
-                    <i class="fas fa-cart-plus"></i> Agregar al carrito (↵ Enter)
+                    <i class="fas fa-cart-plus"></i> ${textoBotonConfirmar}
                 </button>
             </div>
         `;
@@ -1211,13 +1224,15 @@
         state.escaneosSesion = 0;
         state.callbackCustom = typeof opciones.onDetect === 'function' ? opciones.onDetect : null;
 
-        // En POS y Auditoría el modo continuo viene activado por defecto para escanear varios productos seguidos
+        // En POS, Cliente, Kiosco y Auditoría el modo continuo viene activado por defecto para escanear rápido
         state.continuo = opciones.continuo !== undefined
             ? Boolean(opciones.continuo)
-            : (state.modo === 'pos' || state.modo === 'auditoria');
+            : (state.modo === 'pos' || state.modo === 'cliente' || state.modo === 'kiosco' || state.modo === 'auditoria');
 
         const titulos = {
             pos: { t: 'Escáner POS · Agregar al Carrito', s: 'Escanea, elige la cantidad exacta y confirma para agregar' },
+            cliente: { t: 'Escáner de Productos · Mi Pedido', s: 'Escanea productos para ver su precio y agregarlos a tu carrito' },
+            kiosco: { t: 'Escáner Autoservicio · Mi Orden', s: 'Escanea tus productos y confirma la cantidad para tu orden' },
             inventario: { t: 'Escáner de Inventario', s: 'Busca un producto por su código de barras o créalo al instante' },
             producto_form: { t: 'Capturar Código de Barras', s: 'Escanea el código EAN/UPC impreso en el empaque del producto' },
             factura: { t: 'Escáner de Ingreso (Facturas)', s: 'Escanea el producto para cargarlo de inmediato en la factura' },
@@ -1265,12 +1280,20 @@
     };
 
     window._scanRestarUnoEnCarrito = function (prodId) {
+        const pend = state.pendienteConfirmacion;
+        const modoCompra = pend ? pend.tipo : state.modo;
+        if (modoCompra === 'kiosco' && window.KioscoModule && typeof window.KioscoModule.restarUnoEnCarrito === 'function') {
+            window.KioscoModule.restarUnoEnCarrito(prodId);
+            if (pend) mostrarPanelConfirmacionPOS(pend.prod, pend.codigo);
+            return;
+        }
+
         const listaCarrito = Array.isArray(window.AppState?.carrito)
             ? window.AppState.carrito
             : (typeof carrito !== 'undefined' && Array.isArray(carrito) ? carrito : []);
         const idx = listaCarrito.findIndex(item => item && String(item.productoId) === String(prodId));
         if (idx === -1) return;
-        if (typeof window.modificarCantidadCarrito === 'function') {
+        if (modoCompra === 'pos' && typeof window.modificarCantidadCarrito === 'function') {
             window.modificarCantidadCarrito(idx, -1);
         } else {
             if (listaCarrito[idx].cantidad > 1) {
@@ -1278,11 +1301,12 @@
             } else {
                 listaCarrito.splice(idx, 1);
             }
+            if (typeof window.renderizarCarritoCliente === 'function') window.renderizarCarritoCliente();
             if (typeof window.renderizarCarrito === 'function') window.renderizarCarrito();
         }
         // Refrescar panel con el nuevo disponible y total en carrito
-        if (state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'pos') {
-            mostrarPanelConfirmacionPOS(state.pendienteConfirmacion.prod, state.pendienteConfirmacion.codigo);
+        if (pend && (pend.tipo === 'pos' || pend.tipo === 'cliente')) {
+            mostrarPanelConfirmacionPOS(pend.prod, pend.codigo);
         }
     };
 
@@ -1299,7 +1323,7 @@
         if (!pend || !inp) return;
 
         const rawVal = parseFloat(inp.value);
-        if (pend.tipo === 'pos') {
+        if (pend.tipo === 'pos' || pend.tipo === 'cliente' || pend.tipo === 'kiosco') {
             const minVal = pend.esPesable ? 0.01 : 1;
             if (isNaN(rawVal) || rawVal < minVal) {
                 notificar('Ingresa una cantidad válida mayor a 0.', 'warning');
@@ -1313,21 +1337,38 @@
                 return;
             }
 
-            if (typeof window.agregarAlCarritoConPresentacion === 'function') {
-                window.agregarAlCarritoConPresentacion(pend.prod.id, 'unidad', cantFinal);
-            } else if (typeof window.agregarAlCarrito === 'function') {
-                const veces = Math.max(1, Math.round(cantFinal));
-                for (let i = 0; i < veces; i++) {
-                    window.agregarAlCarrito(pend.prod.id);
+            if (pend.tipo === 'kiosco') {
+                if (window.KioscoModule && typeof window.KioscoModule.agregarAlCarrito === 'function') {
+                    const veces = Math.max(1, Math.round(cantFinal));
+                    for (let i = 0; i < veces; i++) {
+                        window.KioscoModule.agregarAlCarrito(pend.prod.id);
+                    }
+                }
+            } else if (pend.tipo === 'cliente') {
+                if (typeof window.agregarAlCarritoCliente === 'function') {
+                    const veces = Math.max(1, Math.round(cantFinal));
+                    for (let i = 0; i < veces; i++) {
+                        window.agregarAlCarritoCliente(pend.prod.id);
+                    }
+                }
+            } else {
+                if (typeof window.agregarAlCarritoConPresentacion === 'function') {
+                    window.agregarAlCarritoConPresentacion(pend.prod.id, 'unidad', cantFinal);
+                } else if (typeof window.agregarAlCarrito === 'function') {
+                    const veces = Math.max(1, Math.round(cantFinal));
+                    for (let i = 0; i < veces; i++) {
+                        window.agregarAlCarrito(pend.prod.id);
+                    }
                 }
             }
 
             state.escaneosSesion = Number((state.escaneosSesion + cantFinal).toFixed(3));
-            const totalAhora = obtenerCantidadEnCarrito(pend.prod.id);
+            const totalAhora = obtenerCantidadEnCarrito(pend.prod.id, pend.tipo);
             ocultarPanelConfirmacion(desdeCambioDeProducto ? '' : pend.codigo);
 
+            const etiquetaDestino = pend.tipo === 'kiosco' ? 'En orden' : 'En carrito';
             mostrarFeedback('ok', `
-                <span><i class="fas fa-cart-plus"></i> Agregado <strong>+${cantFinal} ${escaparHtml(pend.prod.nombre)}</strong> (En carrito: ${totalAhora})</span>
+                <span><i class="fas fa-cart-plus"></i> Agregado <strong>+${cantFinal} ${escaparHtml(pend.prod.nombre)}</strong> (${etiquetaDestino}: ${totalAhora})</span>
                 <span style="font-size:0.76rem; opacity:0.9;">Total escaneado: ${state.escaneosSesion}</span>
             `);
             if (!desdeCambioDeProducto) {

@@ -282,8 +282,9 @@
                 const term = busquedaKiosco.toLowerCase().trim();
                 const nom = String(p.nombre || '').toLowerCase();
                 const cod = String(p.codigo || p.id || '').toLowerCase();
+                const cb = String(p.codigoBarras || p.barcode || p.ean || '').toLowerCase();
                 const cat = String(p.categoria || '').toLowerCase();
-                if (!nom.includes(term) && !cod.includes(term) && !cat.includes(term)) {
+                if (!nom.includes(term) && !cod.includes(term) && !(cb && cb.includes(term)) && !cat.includes(term)) {
                     return false;
                 }
             }
@@ -359,8 +360,9 @@
                     const term = busquedaKiosco.toLowerCase().trim();
                     const nom = String(p.nombre || '').toLowerCase();
                     const cod = String(p.codigo || p.id || '').toLowerCase();
+                    const cb = String(p.codigoBarras || p.barcode || p.ean || '').toLowerCase();
                     const cat = String(p.categoria || '').toLowerCase();
-                    return nom.includes(term) || cod.includes(term) || cat.includes(term);
+                    return nom.includes(term) || cod.includes(term) || (cb && cb.includes(term)) || cat.includes(term);
                 });
 
                 if (agotadosCoincidentes.length > 0) {
@@ -1542,6 +1544,14 @@
         toggleMostrarAgotados: toggleMostrarAgotadosKiosco,
         agregarAlCarrito,
         modificarCantidad,
+        obtenerCantidadEnCarrito(productoId) {
+            const it = carritoKiosco.find(i => i && String(i.productoId) === String(productoId));
+            return it ? Number(it.cantidad || 0) : 0;
+        },
+        restarUnoEnCarrito(productoId) {
+            const idx = carritoKiosco.findIndex(i => i && String(i.productoId) === String(productoId));
+            if (idx !== -1) modificarCantidad(idx, -1);
+        },
         vaciarCarrito,
         seleccionarCategoria,
         alBuscarProducto,

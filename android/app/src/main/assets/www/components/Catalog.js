@@ -63,10 +63,11 @@ class CatalogManager {
             lista = lista.filter(p => {
                 const nombre = (p.nombre || '').toLowerCase();
                 const codigo = (p.codigo || '').toLowerCase();
+                const codigoBarras = String(p.codigoBarras || p.barcode || p.ean || '').toLowerCase();
                 const categoria = (p.categoria || '').toLowerCase();
                 const descripcion = (p.descripcion || p.description || '').toLowerCase();
                 const contenido = (p.contenido || p.medida || '').toLowerCase();
-                return nombre.includes(q) || codigo.includes(q) || categoria.includes(q) || descripcion.includes(q) || contenido.includes(q);
+                return nombre.includes(q) || codigo.includes(q) || (codigoBarras && codigoBarras.includes(q)) || categoria.includes(q) || descripcion.includes(q) || contenido.includes(q);
             });
         }
 

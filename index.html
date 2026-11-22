@@ -2690,11 +2690,16 @@
                 <div>
                     <!-- Barra de Búsqueda y Chips de Categorías -->
                     <div class="kiosco-search-bar">
-                        <div class="kiosco-search-input-wrap">
-                            <i class="fas fa-search" style="color:#64748b; font-size:1.1rem;"></i>
-                            <input type="text" id="kiosco-search-input" placeholder="Toca aquí para buscar golosinas, bebidas, snacks..." oninput="window.KioscoModule.alBuscarProducto(this.value)">
-                            <button type="button" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;" onclick="document.getElementById('kiosco-search-input').value=''; window.KioscoModule.alBuscarProducto('');">
-                                <i class="fas fa-times-circle"></i>
+                        <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                            <div class="kiosco-search-input-wrap" style="flex:1; min-width:0;">
+                                <i class="fas fa-search" style="color:#64748b; font-size:1.1rem;"></i>
+                                <input type="text" id="kiosco-search-input" placeholder="Toca aquí para buscar golosinas, bebidas, snacks..." oninput="window.KioscoModule.alBuscarProducto(this.value)">
+                                <button type="button" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;" onclick="document.getElementById('kiosco-search-input').value=''; window.KioscoModule.alBuscarProducto('');">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
+                            <button type="button" class="btn-scan-camera-inline" id="btn-kiosco-scan-barcode" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('kiosco');" title="Escanear código de barras del producto" style="height:44px; padding:0 14px; border-radius:12px;">
+                                <i class="fas fa-barcode"></i> <span>Escanear</span>
                             </button>
                         </div>
                         <div class="kiosco-cats-scroll" id="kiosco-categorias-chips">
@@ -5645,10 +5650,13 @@
             <div class="card" style="padding:14px;">
                 <!-- Controles de búsqueda y filtros con soporte sticky en móvil -->
                 <div class="cliente-catalog-controls-sticky">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                        <div style="flex:1; min-width:200px;">
-                            <input type="text" id="cliente-search" placeholder="🔍 Buscar productos o combos..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%; border-radius:20px; padding:8px 14px; font-size:0.9rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:nowrap; gap:8px; margin-bottom:10px;">
+                        <div style="flex:1; min-width:0;">
+                            <input type="text" id="cliente-search" placeholder="🔍 Buscar productos, combos o código..." oninput="filtrarCatalogoCliente(this.value)" style="width:100%; border-radius:20px; padding:8px 14px; font-size:0.9rem;">
                         </div>
+                        <button type="button" class="btn-scan-camera-inline" id="btn-cliente-scan-barcode" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('cliente');" title="Escanear código de barras con tu cámara" style="border-radius:20px; height:38px; padding:0 14px; flex-shrink:0;">
+                            <i class="fas fa-barcode"></i> <span>Escanear</span>
+                        </button>
                     </div>
 
                     <!-- Chips de Categorías con scroll horizontal suave y Drag-to-Scroll -->
@@ -7571,7 +7579,7 @@
 <script src="core/bcv.js?v=4.5.0_anti_dup"></script>
 <script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
 <script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
-<script src="components/Catalog.js?v=4.5.0_anti_dup"></script>
+<script src="components/Catalog.js?v=20261121_cliente_scan"></script>
 <script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
 <script src="components/TerminosPrivacidad.js?v=20260927_v1"></script>
 <script src="modules/productos.js?v=20261121_barcode"></script>
@@ -7582,16 +7590,16 @@
 <script src="modules/facturas.js?v=20261121_barcode"></script>
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/reposicion-compras.js?v=20261121_v1"></script>
-<script src="modules/escaner-barras.js?v=20261121_fast"></script>
+<script src="modules/escaner-barras.js?v=20261121_cliente_scan"></script>
 <script src="modules/auditoria.js?v=20261121_barcode"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
 <script src="data/banco-frases.js?v=20261002_v1"></script>
-<script src="modules/cliente-view.js?v=20260915_v5"></script>
+<script src="modules/cliente-view.js?v=20261121_cliente_scan"></script>
 <script src="modules/historial-ventas.js?v=20260915_v5"></script>
 <script src="modules/usuarios.js?v=20260915_v5"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
-<script src="modules/kiosco.js?v=20260915_v5"></script>
+<script src="modules/kiosco.js?v=20261121_cliente_scan"></script>
 <script src="modules/configuracion.js?v=20260915_v5"></script>
 <script src="app.js?v=20260915_v5"></script>
 </body>

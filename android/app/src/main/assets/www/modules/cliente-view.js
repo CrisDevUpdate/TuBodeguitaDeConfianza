@@ -368,7 +368,12 @@ function renderizarCatalogoCliente() {
     // Filtros de búsqueda y categorías
     if (clienteBusqueda) {
         const q = clienteBusqueda.toLowerCase();
-        prods = prods.filter(p => (p.nombre || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || (p.categoria || '').toLowerCase().includes(q));
+        prods = prods.filter(p =>
+            (p.nombre || '').toLowerCase().includes(q) ||
+            (p.codigo || '').toLowerCase().includes(q) ||
+            String(p.codigoBarras || p.barcode || p.ean || '').toLowerCase().includes(q) ||
+            (p.categoria || '').toLowerCase().includes(q)
+        );
     }
     
     // Para clientes, únicamente productos disponibles en inventario
