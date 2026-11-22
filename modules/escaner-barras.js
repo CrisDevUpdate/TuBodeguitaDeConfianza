@@ -286,9 +286,77 @@
             }
             .scan-confirm-top {
                 display: flex;
-                align-items: flex-start;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 12px;
+            }
+            .scan-confirm-thumb {
+                width: 56px;
+                height: 56px;
+                border-radius: 10px;
+                object-fit: contain;
+                background: #ffffff;
+                padding: 4px;
+                flex-shrink: 0;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+            }
+            .scan-kiosco-checkout-bar {
+                display: none;
+                padding: 12px 16px;
+                background: #020617;
+                border-top: 1px solid #334155;
+                align-items: center;
                 justify-content: space-between;
-                gap: 10px;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .scan-kiosco-checkout-info {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                font-variant-numeric: tabular-nums;
+            }
+            .scan-kiosco-checkout-count {
+                font-size: 0.78rem;
+                color: #94a3b8;
+                font-weight: 600;
+            }
+            .scan-kiosco-checkout-totals {
+                font-size: 1rem;
+                font-weight: 800;
+                color: #ffffff;
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .scan-kiosco-checkout-bs {
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: #38bdf8;
+            }
+            .scan-btn-ir-pagar {
+                height: 44px;
+                padding: 0 18px;
+                border-radius: 10px;
+                border: none;
+                background: #16a34a;
+                color: #ffffff;
+                font-weight: 800;
+                font-size: 0.92rem;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                white-space: nowrap;
+                transition: background 0.15s ease, transform 0.1s ease;
+            }
+            .scan-btn-ir-pagar:hover:not(:disabled) { background: #15803d; }
+            .scan-btn-ir-pagar:active:not(:disabled) { transform: scale(0.98); }
+            .scan-btn-ir-pagar:disabled {
+                background: #334155;
+                color: #94a3b8;
+                cursor: not-allowed;
             }
             .scan-confirm-name {
                 font-size: 0.98rem;
@@ -601,9 +669,23 @@
 
                 <div class="scan-feedback-banner" id="scan-feedback-banner"></div>
 
+                <div class="scan-kiosco-checkout-bar" id="scan-kiosco-checkout-bar">
+                    <div class="scan-kiosco-checkout-info">
+                        <span class="scan-kiosco-checkout-count" id="scan-kiosco-order-count">Tu orden · 0 productos</span>
+                        <div class="scan-kiosco-checkout-totals">
+                            <span id="scan-kiosco-order-usd">$0.00</span>
+                            <span class="scan-kiosco-checkout-bs" id="scan-kiosco-order-bs">Bs. 0.00</span>
+                        </div>
+                    </div>
+                    <button type="button" class="scan-btn-ir-pagar" id="scan-btn-ir-pagar" onclick="window._scanIrAPagarKiosco()" disabled>
+                        <span>Ir a Pagar</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
                 <div class="scan-controls-bar">
                     <div class="scan-toggles-row">
-                        <label style="display:inline-flex; align-items:center; gap:7px; cursor:pointer; font-weight:600;">
+                        <label id="scan-chk-continuo-label" style="display:inline-flex; align-items:center; gap:7px; cursor:pointer; font-weight:600;">
                             <input type="checkbox" id="scan-chk-continuo" onchange="window._scanToggleContinuo(this.checked)">
                             Escaneo continuo (varios productos seguidos)
                         </label>
@@ -1025,9 +1107,17 @@
             ? 'Agregar a mi orden (↵ Enter)'
             : 'Agregar al carrito (↵ Enter)';
 
+        const rawImg = (typeof window.obtenerImagenProducto === 'function')
+            ? window.obtenerImagenProducto(prod)
+            : (prod.imagen || '');
+        const thumbHtml = rawImg
+            ? `<img src="${escaparHtml(rawImg)}" alt="${escaparHtml(prod.nombre)}" class="scan-confirm-thumb" onerror="this.style.display='none'">`
+            : '';
+
         card.innerHTML = `
             <div class="scan-confirm-top">
-                <div>
+                ${thumbHtml}
+                <div style="min-width:0; flex:1;">
                     <div class="scan-confirm-name">${escaparHtml(prod.nombre)}</div>
                     <div class="scan-confirm-meta">
                         <span><strong>$${precioUSD.toFixed(2)}</strong>${precioBsTxt}</span>
@@ -1053,6 +1143,7 @@
             </div>
         `;
         card.style.display = 'flex';
+        actualizarBarraAutopagoKiosco();
     }
 
     function procesarEscaneoPOS(codigo) {
@@ -1243,20 +1334,58 @@
         const titleEl = document.getElementById('scan-modal-title');
         const subEl = document.getElementById('scan-modal-sub');
         const chkCont = document.getElementById('scan-chk-continuo');
+        const chkContLabel = document.getElementById('scan-chk-continuo-label');
         const manualInp = document.getElementById('scan-manual-input');
         const fileInp = document.getElementById('scan-file-input');
 
         if (titleEl) titleEl.innerHTML = `<i class="fas fa-barcode" style="color:#38bdf8;"></i> ${info.t}`;
         if (subEl) subEl.textContent = info.s;
         if (chkCont) chkCont.checked = state.continuo;
+        if (chkContLabel) chkContLabel.style.display = (state.modo === 'kiosco') ? 'none' : 'inline-flex';
         if (manualInp) manualInp.value = '';
         if (fileInp) fileInp.value = '';
         ocultarPanelConfirmacion('');
         limpiarFeedback();
+        actualizarBarraAutopagoKiosco();
 
         modal.classList.add('active');
         iniciarCamara();
     }
+
+    function actualizarBarraAutopagoKiosco() {
+        const bar = document.getElementById('scan-kiosco-checkout-bar');
+        if (!bar) return;
+        if (state.modo !== 'kiosco') {
+            bar.style.display = 'none';
+            return;
+        }
+        bar.style.display = 'flex';
+        const resumen = (window.KioscoModule && typeof window.KioscoModule.obtenerResumenCarrito === 'function')
+            ? window.KioscoModule.obtenerResumenCarrito()
+            : { totalItems: 0, totalUSD: 0, totalVES: 0 };
+
+        const countEl = document.getElementById('scan-kiosco-order-count');
+        const usdEl = document.getElementById('scan-kiosco-order-usd');
+        const bsEl = document.getElementById('scan-kiosco-order-bs');
+        const btnPagar = document.getElementById('scan-btn-ir-pagar');
+
+        const n = Number(resumen.totalItems || 0);
+        const hayPendiente = Boolean(state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'kiosco');
+        if (countEl) countEl.textContent = `Tu orden · ${n} ${n === 1 ? 'producto' : 'productos'}`;
+        if (usdEl) usdEl.textContent = `$${Number(resumen.totalUSD || 0).toFixed(2)}`;
+        if (bsEl) bsEl.textContent = Number(resumen.totalVES || 0) > 0 ? `Bs. ${Number(resumen.totalVES).toFixed(2)}` : '';
+        if (btnPagar) btnPagar.disabled = (n <= 0 && !hayPendiente);
+    }
+
+    window._scanIrAPagarKiosco = function () {
+        if (state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'kiosco') {
+            window._scanConfirmarCantidad({ desdeCambioDeProducto: true });
+        }
+        cerrarEscanerCodigoBarras();
+        if (window.KioscoModule && typeof window.KioscoModule.iniciarCheckout === 'function') {
+            window.KioscoModule.iniciarCheckout();
+        }
+    };
 
     function cerrarEscanerCodigoBarras() {
         state.abierto = false;
@@ -1285,6 +1414,7 @@
         if (modoCompra === 'kiosco' && window.KioscoModule && typeof window.KioscoModule.restarUnoEnCarrito === 'function') {
             window.KioscoModule.restarUnoEnCarrito(prodId);
             if (pend) mostrarPanelConfirmacionPOS(pend.prod, pend.codigo);
+            actualizarBarraAutopagoKiosco();
             return;
         }
 
@@ -1313,6 +1443,7 @@
     window._scanCancelarCantidad = function () {
         const codigo = state.pendienteConfirmacion ? state.pendienteConfirmacion.codigo : '';
         ocultarPanelConfirmacion(codigo);
+        actualizarBarraAutopagoKiosco();
         setEstadoCamara('Cancelado · Apunta a otro producto (o retira el código actual)');
     };
 
@@ -1371,6 +1502,7 @@
                 <span><i class="fas fa-cart-plus"></i> Agregado <strong>+${cantFinal} ${escaparHtml(pend.prod.nombre)}</strong> (${etiquetaDestino}: ${totalAhora})</span>
                 <span style="font-size:0.76rem; opacity:0.9;">Total escaneado: ${state.escaneosSesion}</span>
             `);
+            actualizarBarraAutopagoKiosco();
             if (!desdeCambioDeProducto) {
                 setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
                 if (!state.continuo) {

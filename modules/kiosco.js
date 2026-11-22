@@ -1526,6 +1526,188 @@
         }
     }
 
+    // =========================================================================
+    // SISTEMA DE AUTOPAGO RÁPIDO CON ESCÁNER (CÁMARA + LECTOR USB/BLUETOOTH)
+    // =========================================================================
+    let usbScanBuffer = '';
+    let usbScanLastTs = 0;
+    let usbFeedbackTimer = null;
+
+    function obtenerResumenCarritoKiosco() {
+        const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
+        let totalUSD = 0;
+        let totalItems = 0;
+        carritoKiosco.forEach(it => {
+            totalUSD += (Number(it.precio || 0) * Number(it.cantidad || 0));
+            totalItems += Number(it.cantidad || 0);
+        });
+        const totalVES = tasa > 0 ? (totalUSD * tasa) : 0;
+        return {
+            totalItems,
+            totalUSD: Number(totalUSD.toFixed(2)),
+            totalVES: Number(totalVES.toFixed(2)),
+            itemsCount: carritoKiosco.length
+        };
+    }
+
+    function reproducirBeepKiosco(exito = true) {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = exito ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(exito ? 1180 : 320, ctx.currentTime);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (exito ? 0.12 : 0.2));
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + (exito ? 0.13 : 0.22));
+            setTimeout(() => ctx.close().catch(() => {}), 300);
+        } catch (_e) {}
+    }
+
+    function mostrarFeedbackEscaneoRapido(tipo, html) {
+        const el = document.getElementById('kiosco-usb-scan-feedback');
+        if (!el) return;
+        el.className = `kiosco-usb-scan-feedback is-${tipo}`;
+        el.innerHTML = html;
+        el.style.display = 'flex';
+        if (usbFeedbackTimer) clearTimeout(usbFeedbackTimer);
+        usbFeedbackTimer = setTimeout(() => {
+            el.style.display = 'none';
+        }, 5500);
+    }
+
+    function escaparHtmlKiosco(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function procesarCodigoEscaneadoRapido(codigoRaw) {
+        const codigo = String(codigoRaw || '').trim();
+        if (!codigo) return false;
+
+        let prod = null;
+        if (typeof window.buscarProductoPorCodigoDeBarras === 'function') {
+            prod = window.buscarProductoPorCodigoDeBarras(codigo);
+        }
+        if (!prod) {
+            const up = codigo.toUpperCase();
+            prod = (window.AppState?.productos || []).find(p => {
+                if (!p) return false;
+                const cb = String(p.codigoBarras || p.barcode || p.ean || '').trim().toUpperCase();
+                const cod = String(p.codigo || '').trim().toUpperCase();
+                return (cb && cb === up) || (cod && cod === up);
+            }) || null;
+        }
+
+        if (!prod) {
+            reproducirBeepKiosco(false);
+            mostrarFeedbackEscaneoRapido('err', `
+                <span><i class="fas fa-circle-xmark"></i> Código <strong>${escaparHtmlKiosco(codigo)}</strong> no encontrado. Puedes buscarlo abajo por nombre.</span>
+            `);
+            return false;
+        }
+
+        const stock = Number(prod.stock || 0);
+        if (stock <= 0) {
+            reproducirBeepKiosco(false);
+            mostrarFeedbackEscaneoRapido('warn', `
+                <span><i class="fas fa-ban"></i> <strong>${escaparHtmlKiosco(prod.nombre)}</strong> está agotado.</span>
+            `);
+            return false;
+        }
+
+        const antes = carritoKiosco
+            .filter(i => i && String(i.productoId) === String(prod.id))
+            .reduce((acc, i) => acc + Number(i.cantidad || 0), 0);
+
+        if (antes >= stock) {
+            reproducirBeepKiosco(false);
+            mostrarFeedbackEscaneoRapido('warn', `
+                <span><i class="fas fa-triangle-exclamation"></i> Ya tienes todo el stock disponible (${stock}) de <strong>${escaparHtmlKiosco(prod.nombre)}</strong> en tu orden.</span>
+            `);
+            return false;
+        }
+
+        agregarAlCarrito(prod.id);
+        reproducirBeepKiosco(true);
+        const enOrden = antes + 1;
+        const tasa = Number(window.AppState?.tasaActiva || window.AppState?.tasaUSD_BCV || 0);
+        const precioUSD = Number(prod.precio || 0);
+        const precioBs = tasa > 0 ? ` · Bs. ${(precioUSD * tasa).toFixed(2)}` : '';
+
+        mostrarFeedbackEscaneoRapido('ok', `
+            <span><i class="fas fa-check-circle"></i> <strong>+1 ${escaparHtmlKiosco(prod.nombre)}</strong> · $${precioUSD.toFixed(2)}${precioBs} (En orden: ${enOrden})</span>
+            <button type="button" class="kiosco-usb-undo-btn" onclick="window.KioscoModule.restarUnoEnCarrito('${escaparHtmlKiosco(prod.id)}'); document.getElementById('kiosco-usb-scan-feedback').style.display='none';">−1 Quitar</button>
+        `);
+        return true;
+    }
+
+    function alPresionarTeclaBuscadorKiosco(event) {
+        if (!event || event.key !== 'Enter') return;
+        const input = event.target;
+        const val = String(input?.value || '').trim();
+        if (!val) return;
+        // Si coincide exactamente con un código de barras o código interno, agregar directo
+        const match = (typeof window.buscarProductoPorCodigoDeBarras === 'function')
+            ? window.buscarProductoPorCodigoDeBarras(val)
+            : null;
+        if (match) {
+            event.preventDefault();
+            procesarCodigoEscaneadoRapido(val);
+            input.value = '';
+            alBuscarProducto('');
+        }
+    }
+
+    // Escucha pasiva de lector de código de barras físico (USB/Bluetooth) cuando Autoservicio está activo
+    if (typeof document !== 'undefined' && !window._kioscoUsbScannerBound) {
+        window._kioscoUsbScannerBound = true;
+        document.addEventListener('keydown', (e) => {
+            const kioscoView = document.getElementById('kiosco-view');
+            if (!kioscoView || !kioscoView.classList.contains('active') || !document.body.classList.contains('modo-autoservicio')) {
+                return;
+            }
+            if (document.querySelector('.modal.active, .kiosco-wizard-modal.active')) {
+                return;
+            }
+            const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                return;
+            }
+
+            const now = Date.now();
+            if (now - usbScanLastTs > 90) {
+                usbScanBuffer = '';
+            }
+            usbScanLastTs = now;
+
+            if (e.key === 'Enter') {
+                if (usbScanBuffer.length >= 4) {
+                    e.preventDefault();
+                    const code = usbScanBuffer;
+                    usbScanBuffer = '';
+                    procesarCodigoEscaneadoRapido(code);
+                } else {
+                    usbScanBuffer = '';
+                }
+                return;
+            }
+
+            if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                usbScanBuffer += e.key;
+            }
+        });
+    }
+
     // Exponer API global
     window.solicitarSalidaKiosco = solicitarSalidaKiosco;
     window.cerrarModalSalidaKiosco = cerrarModalSalidaKiosco;
@@ -1544,6 +1726,9 @@
         toggleMostrarAgotados: toggleMostrarAgotadosKiosco,
         agregarAlCarrito,
         modificarCantidad,
+        obtenerResumenCarrito: obtenerResumenCarritoKiosco,
+        procesarCodigoEscaneadoRapido,
+        alPresionarTeclaBuscador: alPresionarTeclaBuscadorKiosco,
         obtenerCantidadEnCarrito(productoId) {
             const it = carritoKiosco.find(i => i && String(i.productoId) === String(productoId));
             return it ? Number(it.cantidad || 0) : 0;

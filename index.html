@@ -1561,6 +1561,152 @@
                 display: none !important;
             }
         }
+        /* ESTACIÓN DESTACADA DE AUTOPAGO CON ESCÁNER */
+        .kiosco-scan-hero {
+            background: #0f172a;
+            color: #f8fafc;
+            border: 1px solid rgba(56, 189, 248, 0.28);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .kiosco-scan-hero-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .kiosco-scan-hero-copy {
+            flex: 1 1 260px;
+            min-width: 0;
+        }
+        .kiosco-scan-hero-title {
+            margin: 0 0 4px 0;
+            font-size: 1.22rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.25;
+            text-wrap: balance;
+        }
+        .kiosco-scan-hero-desc {
+            margin: 0;
+            font-size: 0.88rem;
+            color: #cbd5e1;
+            line-height: 1.45;
+        }
+        .kiosco-scan-hero-steps {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            font-weight: 600;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .kiosco-scan-hero-btn {
+            min-height: 54px;
+            padding: 0 24px;
+            border-radius: 12px;
+            border: none;
+            background: #0284c7;
+            color: #ffffff;
+            font-size: 1.02rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+            transition: background 0.15s ease, transform 0.12s ease;
+        }
+        .kiosco-scan-hero-btn:hover {
+            background: #0369a1;
+        }
+        .kiosco-scan-hero-btn:active {
+            transform: scale(0.98);
+        }
+        .kiosco-usb-scan-feedback {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.86rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        .kiosco-usb-scan-feedback.is-ok { background: #14532d; color: #dcfce7; }
+        .kiosco-usb-scan-feedback.is-warn { background: #78350f; color: #fef3c7; }
+        .kiosco-usb-scan-feedback.is-err { background: #7f1d1d; color: #fee2e2; }
+        .kiosco-usb-undo-btn {
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.32);
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .kiosco-sidebar-scan-btn {
+            margin-top: 14px;
+            min-height: 44px;
+            padding: 0 18px;
+            border-radius: 10px;
+            border: none;
+            background: #0284c7;
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: background 0.15s ease;
+        }
+        .kiosco-sidebar-scan-btn:hover { background: #0369a1; }
+        .kiosco-bottom-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .kiosco-btn-mobile-scan {
+            min-height: 42px;
+            padding: 0 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            background: #0284c7;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        @media (max-width: 640px) {
+            .kiosco-scan-hero {
+                padding: 16px;
+            }
+            .kiosco-scan-hero-btn {
+                width: 100%;
+            }
+        }
         .kiosco-search-bar {
             position: sticky;
             top: 10px;
@@ -1711,9 +1857,12 @@
         }
         .kiosco-product-category {
             font-size: 0.7rem;
-            color: #64748b;
+            color: #ffffff;
+            background: rgba(15, 23, 42, 0.86);
             text-transform: uppercase;
             font-weight: 700;
+            letter-spacing: 0.03em;
+            z-index: 2;
             margin-bottom: 2px;
         }
         .kiosco-product-name {
@@ -2686,15 +2835,37 @@
 
             <!-- LAYOUT PRINCIPAL: CATÁLOGO Y PANEL LATERAL DE ORDEN -->
             <div class="kiosco-main-grid">
-                <!-- COLUMNA IZQUIERDA: BÚSQUEDA, CATEGORÍAS Y CATÁLOGO TÁCTIL -->
+                <!-- COLUMNA IZQUIERDA: ESTACIÓN ESCÁNER, BÚSQUEDA Y CATÁLOGO TÁCTIL -->
                 <div>
-                    <!-- Barra de Búsqueda y Chips de Categorías -->
+                    <!-- Estación Principal de Autopago con Escáner -->
+                    <div class="kiosco-scan-hero" id="kiosco-scan-hero">
+                        <div class="kiosco-scan-hero-main">
+                            <div class="kiosco-scan-hero-copy">
+                                <h2 class="kiosco-scan-hero-title">Autopago rápido con escáner</h2>
+                                <p class="kiosco-scan-hero-desc">Apunta la cámara al código de barras o pasa el producto por el lector para sumarlo al instante.</p>
+                                <div class="kiosco-scan-hero-steps">
+                                    <span>1. Escanea tus productos</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>2. Confirma la cantidad</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>3. Paga en segundos</span>
+                                </div>
+                            </div>
+                            <button type="button" class="kiosco-scan-hero-btn" id="btn-kiosco-hero-scan" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('kiosco');">
+                                <i class="fas fa-barcode"></i>
+                                <span>Escanear Producto</span>
+                            </button>
+                        </div>
+                        <div class="kiosco-usb-scan-feedback" id="kiosco-usb-scan-feedback" aria-live="polite"></div>
+                    </div>
+
+                    <!-- Barra de Búsqueda Secundaria (para productos sin código) y Categorías -->
                     <div class="kiosco-search-bar">
                         <div style="display:flex; align-items:center; gap:8px; width:100%;">
                             <div class="kiosco-search-input-wrap" style="flex:1; min-width:0;">
-                                <i class="fas fa-search" style="color:#64748b; font-size:1.1rem;"></i>
-                                <input type="text" id="kiosco-search-input" placeholder="Toca aquí para buscar golosinas, bebidas, snacks..." oninput="window.KioscoModule.alBuscarProducto(this.value)">
-                                <button type="button" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;" onclick="document.getElementById('kiosco-search-input').value=''; window.KioscoModule.alBuscarProducto('');">
+                                <i class="fas fa-search" style="color:#64748b; font-size:1.05rem;"></i>
+                                <input type="text" id="kiosco-search-input" placeholder="¿Sin código de barras? Busca por nombre o categoría..." oninput="window.KioscoModule.alBuscarProducto(this.value)" onkeydown="if(window.KioscoModule && window.KioscoModule.alPresionarTeclaBuscador) window.KioscoModule.alPresionarTeclaBuscador(event)">
+                                <button type="button" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;" onclick="document.getElementById('kiosco-search-input').value=''; window.KioscoModule.alBuscarProducto('');" aria-label="Limpiar búsqueda">
                                     <i class="fas fa-times-circle"></i>
                                 </button>
                             </div>
@@ -2726,10 +2897,14 @@
                     </div>
 
                     <!-- Estado Vacío -->
-                    <div id="kiosco-orden-vacia" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 12px; text-align:center; color:#94a3b8;">
-                        <i class="fas fa-cart-plus" style="font-size:3rem; margin-bottom:12px; color:#cbd5e1;"></i>
-                        <strong style="color:#475569; font-size:1.05rem;">Tu carrito está vacío</strong>
-                        <small style="margin-top:4px;">Toca cualquier producto del catálogo para agregarlo a tu orden.</small>
+                    <div id="kiosco-orden-vacia" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 12px; text-align:center; color:#94a3b8;">
+                        <i class="fas fa-barcode" style="font-size:2.6rem; margin-bottom:10px; color:#0284c7;"></i>
+                        <strong style="color:#334155; font-size:1.02rem;">Tu orden está vacía</strong>
+                        <small style="margin-top:4px; color:#64748b; line-height:1.4;">Escanea el código de barras de tus productos o tócalos en el catálogo.</small>
+                        <button type="button" class="kiosco-sidebar-scan-btn" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('kiosco');">
+                            <i class="fas fa-barcode"></i>
+                            <span>Escanear ahora</span>
+                        </button>
                     </div>
 
                     <!-- Lista de Ítems del Pedido -->
@@ -2741,11 +2916,11 @@
                     <div class="kiosco-cart-totals-card">
                         <div class="kiosco-total-row">
                             <span style="color:#64748b; font-size:0.85rem;">Total en Divisas:</span>
-                            <span id="kiosco-total-usd" style="font-weight:700; color:#0f172a; font-size:1.1rem;">$0.00</span>
+                            <span id="kiosco-total-usd" style="font-weight:700; color:#0f172a; font-size:1.1rem; font-variant-numeric:tabular-nums;">$0.00</span>
                         </div>
                         <div class="kiosco-total-row big">
                             <span>Total a Pagar:</span>
-                            <strong id="kiosco-total-ves">Bs. 0.00</strong>
+                            <strong id="kiosco-total-ves" style="font-variant-numeric:tabular-nums;">Bs. 0.00</strong>
                         </div>
                     </div>
 
@@ -2761,13 +2936,19 @@
         <!-- BARRA INFERIOR FLOTANTE PARA MÓVILES / TERMINALES VERTICALES (DENTRO DE KIOSCO-VIEW) -->
         <div class="kiosco-bottom-bar" id="kiosco-bottom-cart-bar">
             <div class="kiosco-bottom-info">
-                <small><span id="kiosco-mobile-cart-count">0</span> productos agregados</small>
-                <strong id="kiosco-mobile-total-usd">$0.00</strong>
+                <small><span id="kiosco-mobile-cart-count">0</span> productos</small>
+                <strong id="kiosco-mobile-total-usd" style="font-variant-numeric:tabular-nums;">$0.00</strong>
             </div>
-            <button type="button" class="kiosco-btn-mobile-checkout" onclick="window.KioscoModule.iniciarCheckout()">
-                <span>Ver Orden y Pagar</span>
-                <i class="fas fa-chevron-right"></i>
-            </button>
+            <div class="kiosco-bottom-actions">
+                <button type="button" class="kiosco-btn-mobile-scan" onclick="if(window.abrirEscanerCodigoBarras) window.abrirEscanerCodigoBarras('kiosco');" title="Escanear otro producto">
+                    <i class="fas fa-barcode"></i>
+                    <span>Escanear</span>
+                </button>
+                <button type="button" class="kiosco-btn-mobile-checkout" onclick="window.KioscoModule.iniciarCheckout()">
+                    <span>Pagar</span>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -7590,7 +7771,7 @@
 <script src="modules/facturas.js?v=20261121_barcode"></script>
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/reposicion-compras.js?v=20261121_v1"></script>
-<script src="modules/escaner-barras.js?v=20261121_cliente_scan"></script>
+<script src="modules/escaner-barras.js?v=20261122_autopago_scan"></script>
 <script src="modules/auditoria.js?v=20261121_barcode"></script>
 <script src="modules/perdidas.js?v=20260915_v5"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
@@ -7599,7 +7780,7 @@
 <script src="modules/historial-ventas.js?v=20260915_v5"></script>
 <script src="modules/usuarios.js?v=20260915_v5"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
-<script src="modules/kiosco.js?v=20261121_cliente_scan"></script>
+<script src="modules/kiosco.js?v=20261122_autopago_scan"></script>
 <script src="modules/configuracion.js?v=20260915_v5"></script>
 <script src="app.js?v=20260915_v5"></script>
 </body>
