@@ -10,6 +10,8 @@
     let deferredInstallPrompt = null;
     let swRegistration = null;
     let currentSubscription = null;
+    let localOsNotificationsEnabled = localStorage.getItem('bodeguita_local_os_notif') === '1';
+    let lastPushErrorHint = '';
     let isInstalled = false;
     let isIOS = false;
     let isStandalone = false;
@@ -171,32 +173,82 @@
                 return false;
             }
 
+            // Esperar SIEMPRE a que el Service Worker esté completamente activo (ready)
             if (!swRegistration) {
-                swRegistration = await navigator.serviceWorker.ready;
+                await registrarServiceWorker();
             }
+            const readyReg = await navigator.serviceWorker.ready;
+            swRegistration = readyReg;
 
-            const keyRes = await fetch('/api/push/public-key');
+            const keyRes = await fetch('/api/push/public-key', { cache: 'no-store' });
             const keyData = await keyRes.json();
             if (!keyData || !keyData.success || !keyData.publicKey) {
                 throw new Error(keyData?.error || 'No se pudo obtener la clave pública VAPID del servidor.');
             }
 
-            let sub = await swRegistration.pushManager.getSubscription();
+            const appServerKey = urlBase64ToUint8Array(keyData.publicKey.trim());
+            if (appServerKey.length !== 65 || appServerKey[0] !== 0x04) {
+                throw new Error('Clave VAPID del servidor inválida. Recarga la app o verifica las variables de entorno.');
+            }
+
+            let sub = await readyReg.pushManager.getSubscription();
+            // Si había una suscripción vieja con otra clave VAPID, limpiarla primero
+            if (sub && sub.options && sub.options.applicationServerKey) {
+                const existingKey = new Uint8Array(sub.options.applicationServerKey);
+                const sameKey = existingKey.length === appServerKey.length && existingKey.every((v, i) => v === appServerKey[i]);
+                if (!sameKey) {
+                    await sub.unsubscribe().catch(() => {});
+                    sub = null;
+                }
+            }
+
             if (!sub) {
-                sub = await swRegistration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
-                });
+                try {
+                    sub = await readyReg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: appServerKey
+                    });
+                } catch (firstSubErr) {
+                    // Reintento único tras 450ms (resuelve fallos transitorios recién instalada la PWA)
+                    await new Promise((r) => setTimeout(r, 450));
+                    sub = await readyReg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: appServerKey
+                    });
+                }
             }
 
             currentSubscription = sub;
+            localOsNotificationsEnabled = false;
+            lastPushErrorHint = '';
+            try { localStorage.removeItem('bodeguita_local_os_notif'); } catch {}
             await enviarSuscripcionAlServidor(sub);
             actualizarUIPWAPush();
             mostrarToast('¡Notificaciones Push activadas! Recibirás alertas incluso con el teléfono bloqueado.', 'success');
             return true;
         } catch (err) {
             console.error('[PWA Push] Error activando push:', err);
-            mostrarToast(`No se pudieron activar las alertas Push: ${err.message}`, 'danger');
+            const rawMsg = String(err && err.message ? err.message : err);
+            const esErrorServicioPush = /push service error|Registration failed|AbortError/i.test(rawMsg);
+
+            if (esErrorServicioPush && 'Notification' in window && Notification.permission === 'granted') {
+                // El permiso del navegador SÍ fue concedido, pero el navegador/red bloquea Google FCM (ej. Brave, modo incógnito, DNS/VPN o sin Google Play Services).
+                localOsNotificationsEnabled = true;
+                try { localStorage.setItem('bodeguita_local_os_notif', '1'); } catch {}
+                lastPushErrorHint =
+                    'Tu navegador bloqueó el servicio Push en la nube (muy común en Brave, modo incógnito o VPN). ' +
+                    'Activamos alertas del sistema mientras la app esté abierta. Para recibirlas también con la app cerrada: ' +
+                    'en Brave activa "Usar servicios de Google para mensajes push" en Configuración → Privacidad, o instala desde Google Chrome.';
+                actualizarUIPWAPush();
+                mostrarToast(
+                    'Alertas del sistema activadas. Nota: tu navegador bloqueó Push en segundo plano (si usas Brave, habilita "Servicios de Google para mensajes push" en Privacidad).',
+                    'warning'
+                );
+                return true;
+            }
+
+            lastPushErrorHint = rawMsg;
+            mostrarToast(`No se pudieron activar las alertas Push: ${rawMsg}`, 'danger');
             actualizarUIPWAPush();
             return false;
         }
@@ -262,6 +314,9 @@
                 }
             }
             currentSubscription = null;
+            localOsNotificationsEnabled = false;
+            lastPushErrorHint = '';
+            try { localStorage.removeItem('bodeguita_local_os_notif'); } catch {}
             actualizarUIPWAPush();
             mostrarToast('Notificaciones Push desactivadas en este dispositivo.', 'info');
             return true;
@@ -272,13 +327,53 @@
     }
 
     /**
+     * Muestra una notificación nativa del sistema vía Service Worker (fallback cuando FCM está bloqueado)
+     */
+    async function mostrarNotificacionLocalSistema(title, body, tab = 'notificaciones') {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+        try {
+            const reg = swRegistration || (await navigator.serviceWorker.ready);
+            if (reg && typeof reg.showNotification === 'function') {
+                await reg.showNotification(title || 'Tu Bodeguita de Confianza', {
+                    body: body || 'Tienes una nueva notificación.',
+                    icon: '/icons/icon-192.png',
+                    badge: '/icons/icon-192.png',
+                    vibrate: [180, 90, 180],
+                    tag: 'bodeguita-local-' + Date.now(),
+                    data: { tab, url: `/?tab=${encodeURIComponent(tab)}` }
+                });
+                return true;
+            }
+            new Notification(title || 'Tu Bodeguita de Confianza', {
+                body: body || 'Tienes una nueva notificación.',
+                icon: '/icons/icon-192.png'
+            });
+            return true;
+        } catch (err) {
+            console.warn('[PWA Push] Aviso en notificación local:', err);
+            return false;
+        }
+    }
+
+    /**
      * Envía una notificación Push de prueba real a este dispositivo
      */
     async function enviarPruebaPush() {
         try {
-            if (!currentSubscription) {
+            if (!currentSubscription && !localOsNotificationsEnabled) {
                 const ok = await activarPush();
-                if (!ok || !currentSubscription) return false;
+                if (!ok) return false;
+            }
+            if (!currentSubscription && localOsNotificationsEnabled) {
+                const okLocal = await mostrarNotificacionLocalSistema(
+                    'Tu Bodeguita de Confianza',
+                    '¡Alertas del sistema activas! (Modo local: tu navegador bloqueó el servicio Push en la nube).'
+                );
+                if (okLocal) {
+                    mostrarToast('Notificación de prueba enviada a tu dispositivo.', 'success');
+                    return true;
+                }
+                throw new Error('No se pudo mostrar la notificación del sistema.');
             }
             const res = await fetch('/api/push/send', {
                 method: 'POST',
@@ -438,6 +533,7 @@
         const pushSupported = soportaPush();
         const permission = pushSupported ? Notification.permission : 'unsupported';
         const isSubscribed = Boolean(currentSubscription && permission === 'granted');
+        const isLocalFallback = Boolean(!isSubscribed && localOsNotificationsEnabled && permission === 'granted');
 
         const installSection = isInstalled
             ? `<div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#047857; font-size:0.86rem; font-weight:700;">
@@ -484,6 +580,20 @@
                     </button>
                 </div>
             `;
+        } else if (isLocalFallback) {
+            pushActionsHtml = `
+                <div style="padding:10px 12px; border-radius:10px; background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.4); color:#b45309; font-size:0.8rem; line-height:1.45; margin-bottom:10px;">
+                    <strong><i class="fas fa-circle-info"></i> Modo Alertas Locales activo:</strong> ${lastPushErrorHint || 'Tu navegador bloqueó el servicio Push en la nube (común en Brave, incógnito o VPN). Activa "Servicios de Google para mensajes push" en Brave o usa Google Chrome para recibir alertas con la app cerrada.'}
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" onclick="window.InventoryApp.PWAPush.enviarPruebaPush()" style="flex:1; padding:9px 12px; border:none; border-radius:9px; background:#0284c7; color:#ffffff; font-weight:700; font-size:0.84rem; cursor:pointer;">
+                        <i class="fas fa-paper-plane"></i> Probar alerta
+                    </button>
+                    <button type="button" onclick="window.InventoryApp.PWAPush.activarPush()" style="padding:9px 12px; border:1px solid #10b981; border-radius:9px; background:transparent; color:#059669; font-weight:700; font-size:0.84rem; cursor:pointer;">
+                        Reintentar Push
+                    </button>
+                </div>
+            `;
         } else if (permission === 'denied') {
             pushActionsHtml = `
                 <div style="color:#dc2626; font-size:0.83rem; font-weight:600; line-height:1.45;">
@@ -516,7 +626,7 @@
      * Actualiza todos los botones/indicadores de instalación y push en la interfaz
      */
     function actualizarUIPWAPush() {
-        const pushActivo = Boolean(currentSubscription && soportaPush() && Notification.permission === 'granted');
+        const pushActivo = Boolean((currentSubscription || localOsNotificationsEnabled) && soportaPush() && Notification.permission === 'granted');
 
         // Botón "Instalar App" en la cabecera y login (oculto si ya está instalada en standalone)
         const installBtns = document.querySelectorAll('.js-pwa-install-btn');
@@ -632,13 +742,14 @@
         enviarPruebaPush,
         sincronizarSuscripcionUsuario,
         despacharPushEvento,
+        mostrarNotificacionLocalSistema,
         abrirModal: abrirModalPWAPush,
         cerrarModal: cerrarModalPWAPush,
         abrirGuiaIOS,
         cerrarGuiaIOS,
         actualizarUI: actualizarUIPWAPush,
         estaInstalada: () => isInstalled,
-        tienePushActivo: () => Boolean(currentSubscription && soportaPush() && Notification.permission === 'granted')
+        tienePushActivo: () => Boolean((currentSubscription || localOsNotificationsEnabled) && soportaPush() && Notification.permission === 'granted')
     };
 
     init();
