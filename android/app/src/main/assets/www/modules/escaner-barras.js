@@ -36,6 +36,10 @@
         procesandoFrame: false,
         ultimoCodigo: '',
         ultimoCodigoTs: 0,
+        bloqueoCodigo: '',
+        bloqueoUltimoVistoTs: 0,
+        pausadoPorConfirmacion: false,
+        pendienteConfirmacion: null,
         escaneosSesion: 0,
         callbackCustom: null
     };
@@ -262,6 +266,142 @@
                 border-color: #22c55e;
                 box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.35), 0 0 24px rgba(34, 197, 94, 0.75);
             }
+            .scan-frame.scan-paused {
+                border-color: #f59e0b;
+                box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.68);
+            }
+            .scan-frame.scan-paused .scan-laser {
+                animation-play-state: paused;
+                opacity: 0.25;
+            }
+            .scan-confirm-card {
+                background: #0f172a;
+                border-top: 1px solid #334155;
+                border-bottom: 1px solid #334155;
+                padding: 14px 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 11px;
+                color: #f8fafc;
+            }
+            .scan-confirm-top {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 10px;
+            }
+            .scan-confirm-name {
+                font-size: 0.98rem;
+                font-weight: 800;
+                color: #ffffff;
+                line-height: 1.25;
+            }
+            .scan-confirm-meta {
+                font-size: 0.78rem;
+                color: #94a3b8;
+                margin-top: 3px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+            }
+            .scan-confirm-cart-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(56, 189, 248, 0.14);
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                color: #7dd3fc;
+                padding: 2px 8px;
+                border-radius: 7px;
+                font-weight: 700;
+                font-size: 0.74rem;
+            }
+            .scan-confirm-cart-minus {
+                background: rgba(239, 68, 68, 0.22);
+                border: 1px solid rgba(248, 113, 113, 0.45);
+                color: #fecaca;
+                border-radius: 5px;
+                padding: 1px 6px;
+                font-size: 0.72rem;
+                font-weight: 800;
+                cursor: pointer;
+            }
+            .scan-qty-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .scan-qty-label {
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #cbd5e1;
+            }
+            .scan-qty-stepper {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .scan-qty-btn {
+                width: 42px;
+                height: 42px;
+                border-radius: 10px;
+                border: 1px solid #475569;
+                background: #1e293b;
+                color: #ffffff;
+                font-size: 1.15rem;
+                font-weight: 800;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .scan-qty-btn:active { transform: scale(0.95); }
+            .scan-qty-input {
+                width: 78px;
+                height: 42px;
+                text-align: center;
+                border-radius: 10px;
+                border: 2px solid #38bdf8;
+                background: #020617;
+                color: #ffffff;
+                font-size: 1.12rem;
+                font-weight: 800;
+                outline: none;
+            }
+            .scan-confirm-actions {
+                display: flex;
+                gap: 8px;
+            }
+            .scan-btn-confirm {
+                flex: 1;
+                height: 42px;
+                border-radius: 10px;
+                border: none;
+                background: #16a34a;
+                color: #ffffff;
+                font-weight: 800;
+                font-size: 0.9rem;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+            }
+            .scan-btn-confirm:hover { background: #15803d; }
+            .scan-btn-cancel {
+                height: 42px;
+                padding: 0 14px;
+                border-radius: 10px;
+                border: 1px solid #475569;
+                background: #1e293b;
+                color: #e2e8f0;
+                font-weight: 700;
+                font-size: 0.84rem;
+                cursor: pointer;
+            }
             .scan-laser {
                 position: absolute;
                 left: 6%;
@@ -457,6 +597,8 @@
                     <div class="scan-status-msg" id="scan-status-msg">Iniciando cámara...</div>
                 </div>
 
+                <div class="scan-confirm-card" id="scan-confirm-card" style="display:none;"></div>
+
                 <div class="scan-feedback-banner" id="scan-feedback-banner"></div>
 
                 <div class="scan-controls-bar">
@@ -634,12 +776,15 @@
                 setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
 
                 state.scanTimer = setInterval(async () => {
-                    if (!state.abierto || state.procesandoFrame || !video || video.readyState < 2) return;
+                    if (!state.abierto || state.pausadoPorConfirmacion || state.procesandoFrame || !video || video.readyState < 2) return;
                     state.procesandoFrame = true;
                     try {
                         const codes = await state.detectorNativo.detect(video);
                         if (Array.isArray(codes) && codes.length > 0 && codes[0].rawValue) {
                             manejarCodigoDetectado(codes[0].rawValue);
+                        } else if (state.bloqueoCodigo && (Date.now() - state.bloqueoUltimoVistoTs) > 850) {
+                            state.bloqueoCodigo = '';
+                            setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
                         }
                     } catch (_e) {} finally {
                         state.procesandoFrame = false;
@@ -664,7 +809,7 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             state.scanTimer = setInterval(() => {
-                if (!state.abierto || state.procesandoFrame || !video || video.readyState < 2 || !video.videoWidth) return;
+                if (!state.abierto || state.pausadoPorConfirmacion || state.procesandoFrame || !video || video.readyState < 2 || !video.videoWidth) return;
                 state.procesandoFrame = true;
                 try {
                     const w = Math.min(video.videoWidth, 800);
@@ -680,7 +825,12 @@
                                     manejarCodigoDetectado(result.getText());
                                 }
                             })
-                            .catch(() => {})
+                            .catch(() => {
+                                if (state.bloqueoCodigo && (Date.now() - state.bloqueoUltimoVistoTs) > 850) {
+                                    state.bloqueoCodigo = '';
+                                    setEstadoCamara('Cámara lista · Centra el código de barras dentro del recuadro');
+                                }
+                            })
                             .finally(() => { state.procesandoFrame = false; });
                     };
                     imgEl.onerror = () => { state.procesandoFrame = false; };
@@ -703,8 +853,20 @@
         if (!codigo) return;
 
         const ahora = Date.now();
-        if (!desdeManual && codigo === state.ultimoCodigo && (ahora - state.ultimoCodigoTs) < 1600) {
-            return;
+        if (!desdeManual) {
+            if (state.pausadoPorConfirmacion) return;
+            // Si la cámara sigue fija en el mismo código recién procesado, no volver a disparar
+            if (state.bloqueoCodigo && codigo === state.bloqueoCodigo) {
+                state.bloqueoUltimoVistoTs = ahora;
+                return;
+            }
+            if (codigo === state.ultimoCodigo && (ahora - state.ultimoCodigoTs) < 1500) {
+                return;
+            }
+        }
+
+        if (state.bloqueoCodigo && codigo !== state.bloqueoCodigo) {
+            state.bloqueoCodigo = '';
         }
         state.ultimoCodigo = codigo;
         state.ultimoCodigoTs = ahora;
@@ -755,10 +917,108 @@
         cerrarEscanerCodigoBarras();
     }
 
+    function obtenerCantidadEnCarrito(prodId) {
+        const listaCarrito = Array.isArray(window.AppState?.carrito)
+            ? window.AppState.carrito
+            : (typeof carrito !== 'undefined' && Array.isArray(carrito) ? carrito : []);
+        return listaCarrito
+            .filter(item => item && String(item.productoId) === String(prodId))
+            .reduce((acc, item) => acc + (Number(item.cantidad || 0) * Number(item.factorStock || 1)), 0);
+    }
+
+    function ocultarPanelConfirmacion(bloquearCodigoActual = '') {
+        state.pausadoPorConfirmacion = false;
+        state.pendienteConfirmacion = null;
+        if (bloquearCodigoActual) {
+            state.bloqueoCodigo = bloquearCodigoActual;
+            state.bloqueoUltimoVistoTs = Date.now();
+        }
+        const card = document.getElementById('scan-confirm-card');
+        if (card) {
+            card.style.display = 'none';
+            card.innerHTML = '';
+        }
+        const frame = document.getElementById('scan-frame-box');
+        if (frame) frame.classList.remove('scan-paused');
+    }
+
+    function mostrarPanelConfirmacionPOS(prod, codigo) {
+        const stockDisp = Number(prod.stock || 0);
+        const enCarrito = obtenerCantidadEnCarrito(prod.id);
+        const restante = Math.max(0, Number((stockDisp - enCarrito).toFixed(3)));
+        const esPesable = Boolean(prod.es_pesable || prod.esPesable);
+        const unidad = prod.unidad_medida || prod.unidadMedida || 'und';
+
+        if (restante <= 0) {
+            reproducirBeep(false);
+            state.bloqueoCodigo = codigo;
+            state.bloqueoUltimoVistoTs = Date.now();
+            mostrarFeedback('warn', `
+                <span><i class="fas fa-triangle-exclamation"></i> Ya tienes todo el stock disponible (${stockDisp}) de <strong>${escaparHtml(prod.nombre)}</strong> en el carrito.</span>
+            `);
+            return;
+        }
+
+        state.pausadoPorConfirmacion = true;
+        state.pendienteConfirmacion = {
+            tipo: 'pos',
+            prod,
+            codigo,
+            maxDisp: restante,
+            esPesable,
+            unidad
+        };
+
+        const frame = document.getElementById('scan-frame-box');
+        if (frame) frame.classList.add('scan-paused');
+        setEstadoCamara('Escaneo en pausa · Ajusta la cantidad y toca Agregar');
+        limpiarFeedback();
+
+        const card = document.getElementById('scan-confirm-card');
+        if (!card) return;
+
+        const paso = esPesable ? '0.1' : '1';
+        const valorInicial = restante >= 1 ? '1' : String(restante);
+        const pillCarrito = enCarrito > 0
+            ? `<span class="scan-confirm-cart-pill">En carrito: <strong id="scan-en-carrito-val">${enCarrito}</strong> <button type="button" class="scan-confirm-cart-minus" onclick="window._scanRestarUnoEnCarrito('${escaparHtml(prod.id)}')" title="Quitar 1 unidad del carrito">−1</button></span>`
+            : '';
+
+        card.innerHTML = `
+            <div class="scan-confirm-top">
+                <div>
+                    <div class="scan-confirm-name">${escaparHtml(prod.nombre)}</div>
+                    <div class="scan-confirm-meta">
+                        <span><strong>$${Number(prod.precio || 0).toFixed(2)}</strong></span>
+                        <span>·</span>
+                        <span>Disponible: <strong>${restante}</strong> ${escaparHtml(unidad)}</span>
+                        ${pillCarrito}
+                    </div>
+                </div>
+            </div>
+            <div class="scan-qty-row">
+                <span class="scan-qty-label">Cantidad a agregar:</span>
+                <div class="scan-qty-stepper">
+                    <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(-1)" aria-label="Disminuir cantidad">−</button>
+                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${valorInicial}" min="${esPesable ? '0.05' : '1'}" max="${restante}" step="${paso}" inputmode="${esPesable ? 'decimal' : 'numeric'}" onfocus="this.select()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._scanConfirmarCantidad(); }">
+                    <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(1)" aria-label="Aumentar cantidad">+</button>
+                </div>
+            </div>
+            <div class="scan-confirm-actions">
+                <button type="button" class="scan-btn-cancel" onclick="window._scanCancelarCantidad()">Cancelar</button>
+                <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
+                    <i class="fas fa-cart-plus"></i> Agregar al carrito
+                </button>
+            </div>
+        `;
+        card.style.display = 'flex';
+    }
+
     function procesarEscaneoPOS(codigo) {
         const prod = buscarProductoPorCodigoDeBarras(codigo);
         if (!prod) {
             reproducirBeep(false);
+            state.bloqueoCodigo = codigo;
+            state.bloqueoUltimoVistoTs = Date.now();
             mostrarFeedback('err', `
                 <span><i class="fas fa-circle-xmark"></i> Código <strong>${escaparHtml(codigo)}</strong> no registrado en tu inventario.</span>
             `);
@@ -768,6 +1028,8 @@
         const stockDisp = Number(prod.stock || 0);
         if (stockDisp <= 0) {
             reproducirBeep(false);
+            state.bloqueoCodigo = codigo;
+            state.bloqueoUltimoVistoTs = Date.now();
             mostrarFeedback('warn', `
                 <span><i class="fas fa-ban"></i> <strong>${escaparHtml(prod.nombre)}</strong> está agotado (Stock: 0).</span>
             `);
@@ -775,26 +1037,7 @@
         }
 
         reproducirBeep(true);
-        state.escaneosSesion += 1;
-
-        if (typeof window.agregarAlCarrito === 'function') {
-            window.agregarAlCarrito(prod.id);
-        } else {
-            const posSearch = document.getElementById('pos-search');
-            if (posSearch) {
-                posSearch.value = prod.codigo || prod.nombre;
-                if (typeof window.filtrarPosProductos === 'function') window.filtrarPosProductos();
-            }
-        }
-
-        mostrarFeedback('ok', `
-            <span><i class="fas fa-cart-plus"></i> <strong>+1 ${escaparHtml(prod.nombre)}</strong> ($${Number(prod.precio || 0).toFixed(2)}) agregado al carrito</span>
-            <span style="font-size:0.76rem; opacity:0.9;">Escaneados: ${state.escaneosSesion}</span>
-        `);
-
-        if (!state.continuo) {
-            setTimeout(() => cerrarEscanerCodigoBarras(), 420);
-        }
+        mostrarPanelConfirmacionPOS(prod, codigo);
     }
 
     function procesarEscaneoInventario(codigo) {
@@ -858,6 +1101,8 @@
         const prod = buscarProductoPorCodigoDeBarras(codigo);
         if (!prod) {
             reproducirBeep(false);
+            state.bloqueoCodigo = codigo;
+            state.bloqueoUltimoVistoTs = Date.now();
             mostrarFeedback('err', `
                 <span><i class="fas fa-circle-xmark"></i> Código <strong>${escaparHtml(codigo)}</strong> no encontrado para auditoría.</span>
             `);
@@ -865,38 +1110,60 @@
         }
 
         reproducirBeep(true);
-        state.escaneosSesion += 1;
 
-        // Leer conteo físico actual del producto y sumar +1 automáticamente
         const inputDesk = document.getElementById(`auditoria-input-${prod.id}`);
         const inputMob = document.getElementById(`auditoria-mob-input-${prod.id}`);
         const actualRaw = (inputDesk && inputDesk.value !== '')
             ? inputDesk.value
             : ((inputMob && inputMob.value !== '') ? inputMob.value : '');
         const actualNum = actualRaw === '' ? 0 : Math.max(0, Number(actualRaw) || 0);
-        const nuevoConteo = actualNum + 1;
+        const sugerido = actualNum + 1;
 
-        if (typeof window.actualizarConteoFisico === 'function') {
-            window.actualizarConteoFisico(prod.id, String(nuevoConteo));
-        }
-        if (inputDesk) inputDesk.value = String(nuevoConteo);
-        if (inputMob) inputMob.value = String(nuevoConteo);
+        state.pausadoPorConfirmacion = true;
+        state.pendienteConfirmacion = {
+            tipo: 'auditoria',
+            prod,
+            codigo,
+            maxDisp: 999999,
+            esPesable: Boolean(prod.es_pesable || prod.esPesable),
+            actualNum
+        };
 
-        const dif = nuevoConteo - Number(prod.stock || 0);
-        const difTxt = dif === 0 ? 'Conforme (0)' : (dif > 0 ? `+${dif} sobrante` : `${dif} faltante`);
+        const frame = document.getElementById('scan-frame-box');
+        if (frame) frame.classList.add('scan-paused');
+        setEstadoCamara('Escaneo en pausa · Confirma o corrige el conteo físico');
+        limpiarFeedback();
 
-        mostrarFeedback('ok', `
-            <span><i class="fas fa-clipboard-check"></i> <strong>+1 ${escaparHtml(prod.nombre)}</strong> → Conteo físico: <strong>${nuevoConteo}</strong> (Digital: ${Number(prod.stock || 0)} · ${difTxt})</span>
-        `);
+        const card = document.getElementById('scan-confirm-card');
+        if (!card) return;
 
-        if (!state.continuo) {
-            cerrarEscanerCodigoBarras();
-            const target = inputDesk || inputMob;
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                target.focus();
-            }
-        }
+        card.innerHTML = `
+            <div class="scan-confirm-top">
+                <div>
+                    <div class="scan-confirm-name">${escaparHtml(prod.nombre)}</div>
+                    <div class="scan-confirm-meta">
+                        <span>Stock sistema: <strong>${Number(prod.stock || 0)}</strong></span>
+                        <span>·</span>
+                        <span>Conteo previo: <strong>${actualRaw === '' ? 'Sin contar' : actualNum}</strong></span>
+                    </div>
+                </div>
+            </div>
+            <div class="scan-qty-row">
+                <span class="scan-qty-label">Conteo físico total:</span>
+                <div class="scan-qty-stepper">
+                    <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(-1)" aria-label="Disminuir conteo">−</button>
+                    <input type="number" id="scan-qty-input" class="scan-qty-input" value="${sugerido}" min="0" max="999999" step="1" inputmode="numeric" onfocus="this.select()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._scanConfirmarCantidad(); }">
+                    <button type="button" class="scan-qty-btn" onclick="window._scanAjustarCantidad(1)" aria-label="Aumentar conteo">+</button>
+                </div>
+            </div>
+            <div class="scan-confirm-actions">
+                <button type="button" class="scan-btn-cancel" onclick="window._scanCancelarCantidad()">Cancelar</button>
+                <button type="button" class="scan-btn-confirm" onclick="window._scanConfirmarCantidad()">
+                    <i class="fas fa-clipboard-check"></i> Guardar conteo
+                </button>
+            </div>
+        `;
+        card.style.display = 'flex';
     }
 
     // =========================================================================
@@ -909,20 +1176,24 @@
         state.abierto = true;
         state.ultimoCodigo = '';
         state.ultimoCodigoTs = 0;
+        state.bloqueoCodigo = '';
+        state.bloqueoUltimoVistoTs = 0;
+        state.pausadoPorConfirmacion = false;
+        state.pendienteConfirmacion = null;
         state.escaneosSesion = 0;
         state.callbackCustom = typeof opciones.onDetect === 'function' ? opciones.onDetect : null;
 
-        // En POS y Auditoría el modo continuo viene activado por defecto para escanear rápido
+        // En POS y Auditoría el modo continuo viene activado por defecto para escanear varios productos seguidos
         state.continuo = opciones.continuo !== undefined
             ? Boolean(opciones.continuo)
             : (state.modo === 'pos' || state.modo === 'auditoria');
 
         const titulos = {
-            pos: { t: 'Escáner POS · Agregar al Carrito', s: 'Escanea cada producto para sumarlo automáticamente a la venta' },
+            pos: { t: 'Escáner POS · Agregar al Carrito', s: 'Escanea, elige la cantidad exacta y confirma para agregar' },
             inventario: { t: 'Escáner de Inventario', s: 'Busca un producto por su código de barras o créalo al instante' },
             producto_form: { t: 'Capturar Código de Barras', s: 'Escanea el código EAN/UPC impreso en el empaque del producto' },
             factura: { t: 'Escáner de Ingreso (Facturas)', s: 'Escanea el producto para cargarlo de inmediato en la factura' },
-            auditoria: { t: 'Escáner de Conteo Físico (+1)', s: 'Cada escaneo suma +1 unidad al conteo físico de auditoría' }
+            auditoria: { t: 'Escáner de Conteo Físico', s: 'Escanea cada producto y confirma o corrige la cantidad contada' }
         };
         const info = titulos[state.modo] || titulos.pos;
 
@@ -937,6 +1208,7 @@
         if (chkCont) chkCont.checked = state.continuo;
         if (manualInp) manualInp.value = '';
         if (fileInp) fileInp.value = '';
+        ocultarPanelConfirmacion('');
         limpiarFeedback();
 
         modal.classList.add('active');
@@ -945,10 +1217,136 @@
 
     function cerrarEscanerCodigoBarras() {
         state.abierto = false;
+        ocultarPanelConfirmacion('');
         detenerCamara();
         const modal = document.getElementById('modal-escaner-barras');
         if (modal) modal.classList.remove('active');
     }
+
+    window._scanAjustarCantidad = function (delta) {
+        const inp = document.getElementById('scan-qty-input');
+        const pend = state.pendienteConfirmacion;
+        if (!inp || !pend) return;
+        const minVal = pend.tipo === 'auditoria' ? 0 : (pend.esPesable ? 0.1 : 1);
+        const maxVal = Number(pend.maxDisp || 999999);
+        const step = pend.esPesable ? 0.5 : 1;
+        const actual = parseFloat(inp.value);
+        const base = isNaN(actual) ? minVal : actual;
+        const siguiente = Math.min(maxVal, Math.max(minVal, Number((base + (delta * step)).toFixed(3))));
+        inp.value = String(siguiente);
+    };
+
+    window._scanRestarUnoEnCarrito = function (prodId) {
+        const listaCarrito = Array.isArray(window.AppState?.carrito)
+            ? window.AppState.carrito
+            : (typeof carrito !== 'undefined' && Array.isArray(carrito) ? carrito : []);
+        const idx = listaCarrito.findIndex(item => item && String(item.productoId) === String(prodId));
+        if (idx === -1) return;
+        if (typeof window.modificarCantidadCarrito === 'function') {
+            window.modificarCantidadCarrito(idx, -1);
+        } else {
+            if (listaCarrito[idx].cantidad > 1) {
+                listaCarrito[idx].cantidad = Number((listaCarrito[idx].cantidad - 1).toFixed(3));
+            } else {
+                listaCarrito.splice(idx, 1);
+            }
+            if (typeof window.renderizarCarrito === 'function') window.renderizarCarrito();
+        }
+        // Refrescar panel con el nuevo disponible y total en carrito
+        if (state.pendienteConfirmacion && state.pendienteConfirmacion.tipo === 'pos') {
+            mostrarPanelConfirmacionPOS(state.pendienteConfirmacion.prod, state.pendienteConfirmacion.codigo);
+        }
+    };
+
+    window._scanCancelarCantidad = function () {
+        const codigo = state.pendienteConfirmacion ? state.pendienteConfirmacion.codigo : '';
+        ocultarPanelConfirmacion(codigo);
+        setEstadoCamara('Cancelado · Apunta a otro producto (o retira el código actual)');
+    };
+
+    window._scanConfirmarCantidad = function () {
+        const pend = state.pendienteConfirmacion;
+        const inp = document.getElementById('scan-qty-input');
+        if (!pend || !inp) return;
+
+        const rawVal = parseFloat(inp.value);
+        if (pend.tipo === 'pos') {
+            const minVal = pend.esPesable ? 0.01 : 1;
+            if (isNaN(rawVal) || rawVal < minVal) {
+                notificar('Ingresa una cantidad válida mayor a 0.', 'warning');
+                inp.focus();
+                return;
+            }
+            const cantFinal = pend.esPesable ? Number(rawVal.toFixed(3)) : Math.floor(rawVal);
+            if (cantFinal > pend.maxDisp + 0.0001) {
+                notificar(`Stock insuficiente. Máximo disponible para agregar: ${pend.maxDisp}`, 'warning');
+                inp.value = String(pend.maxDisp);
+                return;
+            }
+
+            if (typeof window.agregarAlCarritoConPresentacion === 'function') {
+                window.agregarAlCarritoConPresentacion(pend.prod.id, 'unidad', cantFinal);
+            } else if (typeof window.agregarAlCarrito === 'function') {
+                const veces = Math.max(1, Math.round(cantFinal));
+                for (let i = 0; i < veces; i++) {
+                    window.agregarAlCarrito(pend.prod.id);
+                }
+            }
+
+            state.escaneosSesion = Number((state.escaneosSesion + cantFinal).toFixed(3));
+            const totalAhora = obtenerCantidadEnCarrito(pend.prod.id);
+            ocultarPanelConfirmacion(pend.codigo);
+
+            mostrarFeedback('ok', `
+                <span><i class="fas fa-cart-plus"></i> Agregado <strong>+${cantFinal} ${escaparHtml(pend.prod.nombre)}</strong> (En carrito: ${totalAhora})</span>
+                <span style="font-size:0.76rem; opacity:0.9;">Total escaneado: ${state.escaneosSesion}</span>
+            `);
+            setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
+
+            if (!state.continuo) {
+                setTimeout(() => cerrarEscanerCodigoBarras(), 420);
+            }
+            return;
+        }
+
+        if (pend.tipo === 'auditoria') {
+            if (isNaN(rawVal) || rawVal < 0) {
+                notificar('Ingresa una cantidad válida (0 o mayor).', 'warning');
+                inp.focus();
+                return;
+            }
+            const nuevoConteo = pend.esPesable ? Number(rawVal.toFixed(3)) : Math.floor(rawVal);
+            const prod = pend.prod;
+            const inputDesk = document.getElementById(`auditoria-input-${prod.id}`);
+            const inputMob = document.getElementById(`auditoria-mob-input-${prod.id}`);
+
+            if (typeof window.actualizarConteoFisico === 'function') {
+                window.actualizarConteoFisico(prod.id, String(nuevoConteo));
+            }
+            if (inputDesk) inputDesk.value = String(nuevoConteo);
+            if (inputMob) inputMob.value = String(nuevoConteo);
+
+            const dif = Number((nuevoConteo - Number(prod.stock || 0)).toFixed(3));
+            const difTxt = dif === 0 ? 'Conforme (0)' : (dif > 0 ? `+${dif} sobrante` : `${dif} faltante`);
+
+            state.escaneosSesion += 1;
+            ocultarPanelConfirmacion(pend.codigo);
+
+            mostrarFeedback('ok', `
+                <span><i class="fas fa-clipboard-check"></i> <strong>${escaparHtml(prod.nombre)}</strong> → Conteo físico: <strong>${nuevoConteo}</strong> (Sistema: ${Number(prod.stock || 0)} · ${difTxt})</span>
+            `);
+            setEstadoCamara('Listo · Retira este código o apunta al siguiente producto');
+
+            if (!state.continuo) {
+                cerrarEscanerCodigoBarras();
+                const target = inputDesk || inputMob;
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.focus();
+                }
+            }
+        }
+    };
 
     window._scanToggleContinuo = function (activo) {
         state.continuo = Boolean(activo);
