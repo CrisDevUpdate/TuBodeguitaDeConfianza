@@ -25,6 +25,7 @@
       "fields": {
         "id": "string",
         "codigo": "string",
+        "codigoBarras": "string",
         "nombre": "string",
         "categoria": "string",
         "precioUSD": "number",

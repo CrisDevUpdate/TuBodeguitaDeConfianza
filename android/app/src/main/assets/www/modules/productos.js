@@ -587,6 +587,7 @@ function normalizarDatosProducto(p) {
     if (p.contenido === undefined) {
         p.contenido = p.medida ?? p.presentacion ?? '';
     }
+    p.codigoBarras = String(p.codigoBarras || p.barcode || p.ean || '').trim();
     const precio = Number(p.precio) || 0;
     const costo = Number(p.costo) || 0;
     if (p.gananciaUnitaria === undefined || isNaN(p.gananciaUnitaria)) {
@@ -973,7 +974,10 @@ function renderizarInventario() {
                 const esPerdida = Number(p.costo || 0) > 0 && Number(p.precio || 0) < Number(p.costo || 0);
                 return `
                 <tr style="${esPerdida ? 'background:#fffbfb;' : ''}">
-                    <td>${p.codigo}</td>
+                    <td>
+                        <div>${p.codigo}</div>
+                        ${p.codigoBarras ? `<small style="display:inline-flex; align-items:center; gap:4px; margin-top:2px; color:#0369a1; font-size:0.72rem; font-weight:700; font-family:monospace;"><i class="fas fa-barcode"></i> ${escaparHtmlInventario(p.codigoBarras)}</small>` : ''}
+                    </td>
                     <td>
                         <div class="inventory-product-cell">
                             <div class="inventory-product-thumb">

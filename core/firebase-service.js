@@ -1247,6 +1247,7 @@ window.InventoryApp = window.InventoryApp || {};
                     : Boolean((Array.isArray(p.items) && p.items.length > 0) || String(p.categoria || '').toLowerCase().includes('combo'));
                 batch.set(ref, {
                     codigo: p.codigo || '',
+                    codigoBarras: String(p.codigoBarras || p.barcode || p.ean || '').trim(),
                     nombre: p.nombre || '',
                     categoria: p.categoria || 'General',
                     costo: Number(p.costo) || 0,
@@ -1262,6 +1263,20 @@ window.InventoryApp = window.InventoryApp || {};
                     items: Array.isArray(p.items) ? p.items : [],
                     puntosCombo: Number(p.puntosCombo || p.points_given || 0),
                     badge: p.badge || '',
+                    es_pesable: Boolean(p.es_pesable || p.esPesable),
+                    esPesable: Boolean(p.es_pesable || p.esPesable),
+                    unidad_medida: p.unidad_medida || p.unidadMedida || ((p.es_pesable || p.esPesable) ? 'kg' : 'und'),
+                    unidadMedida: p.unidad_medida || p.unidadMedida || ((p.es_pesable || p.esPesable) ? 'kg' : 'und'),
+                    tiene_empaque_multiple: Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple),
+                    tieneEmpaqueMultiple: Boolean(p.tiene_empaque_multiple || p.tieneEmpaqueMultiple),
+                    empaque_nombre: p.empaque_nombre || p.empaqueNombre || 'Fardo',
+                    empaqueNombre: p.empaque_nombre || p.empaqueNombre || 'Fardo',
+                    empaque_contenido: Number(p.empaque_contenido || p.empaqueContenido || 0),
+                    empaqueContenido: Number(p.empaque_contenido || p.empaqueContenido || 0),
+                    empaque_precio: Number(p.empaque_precio || p.empaquePrecio || 0),
+                    empaquePrecio: Number(p.empaque_precio || p.empaquePrecio || 0),
+                    empaque_costo: Number(p.empaque_costo || p.empaqueCosto || 0),
+                    empaqueCosto: Number(p.empaque_costo || p.empaqueCosto || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             });
@@ -2355,6 +2370,7 @@ window.InventoryApp = window.InventoryApp || {};
                     : Boolean((Array.isArray(producto.items) && producto.items.length > 0) || String(producto.categoria || '').toLowerCase().includes('combo'));
                 await docRef.set({
                     codigo: producto.codigo || '',
+                    codigoBarras: String(producto.codigoBarras || producto.barcode || producto.ean || '').trim(),
                     nombre: producto.nombre || '',
                     categoria: producto.categoria || 'General',
                     costo: Number(producto.costo) || 0,
@@ -2370,6 +2386,20 @@ window.InventoryApp = window.InventoryApp || {};
                     items: Array.isArray(producto.items) ? producto.items : [],
                     puntosCombo: Number(producto.puntosCombo || producto.points_given || 0),
                     badge: producto.badge || '',
+                    es_pesable: Boolean(producto.es_pesable || producto.esPesable),
+                    esPesable: Boolean(producto.es_pesable || producto.esPesable),
+                    unidad_medida: producto.unidad_medida || producto.unidadMedida || ((producto.es_pesable || producto.esPesable) ? 'kg' : 'und'),
+                    unidadMedida: producto.unidad_medida || producto.unidadMedida || ((producto.es_pesable || producto.esPesable) ? 'kg' : 'und'),
+                    tiene_empaque_multiple: Boolean(producto.tiene_empaque_multiple || producto.tieneEmpaqueMultiple),
+                    tieneEmpaqueMultiple: Boolean(producto.tiene_empaque_multiple || producto.tieneEmpaqueMultiple),
+                    empaque_nombre: producto.empaque_nombre || producto.empaqueNombre || 'Fardo',
+                    empaqueNombre: producto.empaque_nombre || producto.empaqueNombre || 'Fardo',
+                    empaque_contenido: Number(producto.empaque_contenido || producto.empaqueContenido || 0),
+                    empaqueContenido: Number(producto.empaque_contenido || producto.empaqueContenido || 0),
+                    empaque_precio: Number(producto.empaque_precio || producto.empaquePrecio || 0),
+                    empaquePrecio: Number(producto.empaque_precio || producto.empaquePrecio || 0),
+                    empaque_costo: Number(producto.empaque_costo || producto.empaqueCosto || 0),
+                    empaqueCosto: Number(producto.empaque_costo || producto.empaqueCosto || 0),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
