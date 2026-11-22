@@ -1589,6 +1589,23 @@ window.InventoryApp = window.InventoryApp || {};
                                 }
                             }
                         } else if (change.type === 'modified') {
+                            // Detectar nueva solicitud de cambio de contraseña pendiente para alertar al Admin en tiempo real
+                            const prevUser = (AppState.usuarios || []).find(prev => (prev.cedula || prev.id) === idDoc);
+                            const prevSolTs = prevUser?.solicitudCambioPassword?.estado === 'PENDIENTE' ? (prevUser.solicitudCambioPassword.fechaTs || prevUser.solicitudCambioPassword.fechaSolicitud || '') : '';
+                            const currSol = u.solicitudCambioPassword;
+                            const currSolTs = currSol && currSol.estado === 'PENDIENTE' ? (currSol.fechaTs || currSol.fechaSolicitud || 'pending') : '';
+                            if (!primerCargaUsuarios && currSolTs && currSolTs !== prevSolTs) {
+                                const usuarioSesion = window.AppState?.usuarioActual;
+                                if (esUsuarioAdminActivo(usuarioSesion)) {
+                                    reproducirSonidoNotificacion();
+                                    const nombreUsu = u.nombre || u.cedula || 'Cliente';
+                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                    if (typeof notifFn === 'function') {
+                                        notifFn(`🔐 ¡Solicitud de cambio de contraseña! <strong>${nombreUsu}</strong> (${idDoc}) espera aprobación en Usuarios.`, 'warning', 10000);
+                                    }
+                                }
+                            }
+
                             // Si el usuario actual en sesión fue modificado (ej. Aprobado por el Admin)
                             if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === idDoc) {
                                 const estadoPrevio = AppState.usuarioActual.estado;
@@ -3755,7 +3772,9 @@ window.InventoryApp = window.InventoryApp || {};
         if (!usuario || (!usuario.id && !usuario.cedula)) return false;
         const id = usuario.id || usuario.cedula;
 
-        const uKeyHash = `${id}_${usuario.cedula || ''}_${usuario.nombre || ''}_${usuario.email || ''}_${usuario.telefono || ''}_${usuario.rol || ''}_${usuario.estado || ''}_${usuario.clienteId || ''}_${usuario.clienteVinculado || ''}_${(usuario.avatar || '').length}`;
+        const solPwd = usuario.solicitudCambioPassword || null;
+        const solPwdKey = solPwd ? `${solPwd.estado || ''}_${solPwd.fechaTs || ''}_${solPwd.nuevaPasswordHash || ''}` : 'none';
+        const uKeyHash = `${id}_${usuario.cedula || ''}_${usuario.nombre || ''}_${usuario.email || ''}_${usuario.telefono || ''}_${usuario.rol || ''}_${usuario.estado || ''}_${usuario.clienteId || ''}_${usuario.clienteVinculado || ''}_${usuario.avatar || ''}_${usuario.password || ''}_${solPwdKey}`;
         if (_usuariosGuardadosHashes.get(String(id)) === uKeyHash) {
             return true;
         }
@@ -3799,6 +3818,7 @@ window.InventoryApp = window.InventoryApp || {};
                     avatar: avatarUrl,
                     id: String(id),
                     cedula: usuario.cedula || String(id),
+                    solicitudCambioPassword: solPwd,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 

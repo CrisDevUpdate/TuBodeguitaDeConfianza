@@ -425,6 +425,9 @@ function cambiarTabGatewall(tab) {
     const tabReg = document.getElementById('gw-tab-register');
     const viewLogin = document.getElementById('gw-view-login');
     const viewReg = document.getElementById('gw-view-register');
+    const viewReset = document.getElementById('gw-view-reset-password');
+
+    if (viewReset) viewReset.style.display = 'none';
 
     if (tab === 'login') {
         if (tabLogin) tabLogin.classList.add('active');
@@ -440,6 +443,283 @@ function cambiarTabGatewall(tab) {
 }
 function switchGatewallTab(tab) {
     cambiarTabGatewall(tab);
+}
+
+/**
+ * Helper: Verifica si un usuario tiene una solicitud pendiente de cambio de contraseña
+ */
+function tieneSolicitudCambioPasswordPendiente(u) {
+    return Boolean(
+        u &&
+        u.solicitudCambioPassword &&
+        u.solicitudCambioPassword.estado === 'PENDIENTE' &&
+        u.solicitudCambioPassword.nuevaPasswordHash
+    );
+}
+
+/**
+ * Muestra la vista de recuperación / cambio de contraseña en el Gatewall
+ */
+function mostrarRecuperarPasswordGatewall() {
+    const viewLogin = document.getElementById('gw-view-login');
+    const viewReg = document.getElementById('gw-view-register');
+    const viewReset = document.getElementById('gw-view-reset-password');
+    const formWrap = document.getElementById('gw-reset-form-wrap');
+    const successBox = document.getElementById('gw-reset-success-box');
+    const loginIdInput = document.getElementById('gw-login-id');
+    const resetIdInput = document.getElementById('gw-reset-id');
+    const resetNewPass = document.getElementById('gw-reset-new-pass');
+    const resetConfPass = document.getElementById('gw-reset-confirm-pass');
+
+    if (viewLogin) viewLogin.style.display = 'none';
+    if (viewReg) viewReg.style.display = 'none';
+    if (viewReset) viewReset.style.display = 'block';
+    if (formWrap) formWrap.style.display = 'block';
+    if (successBox) successBox.style.display = 'none';
+
+    if (resetIdInput) {
+        resetIdInput.value = (loginIdInput && loginIdInput.value ? loginIdInput.value.trim() : '');
+    }
+    if (resetNewPass) resetNewPass.value = '';
+    if (resetConfPass) resetConfPass.value = '';
+
+    setTimeout(() => {
+        if (resetIdInput && !resetIdInput.value) {
+            resetIdInput.focus();
+        } else if (resetNewPass) {
+            resetNewPass.focus();
+        }
+    }, 60);
+}
+
+/**
+ * Regresa desde recuperación de contraseña a la vista de Login en el Gatewall
+ */
+function volverALoginGatewall() {
+    cambiarTabGatewall('login');
+}
+
+/**
+ * Muestra la vista de recuperación de contraseña dentro del Modal secundario de Auth
+ */
+function mostrarRecuperarPasswordModal() {
+    const subLogin = document.getElementById('auth-subview-login');
+    const subSwitch = document.getElementById('auth-subview-switch');
+    const subReset = document.getElementById('auth-subview-reset');
+    const loginId = document.getElementById('login-identificador');
+    const resetId = document.getElementById('modal-reset-id');
+    const newPass = document.getElementById('modal-reset-new-pass');
+    const confPass = document.getElementById('modal-reset-confirm-pass');
+
+    if (subLogin) subLogin.style.display = 'none';
+    if (subSwitch) subSwitch.style.display = 'none';
+    if (subReset) subReset.style.display = 'block';
+    if (resetId) resetId.value = (loginId && loginId.value ? loginId.value.trim() : '');
+    if (newPass) newPass.value = '';
+    if (confPass) confPass.value = '';
+}
+
+function volverALoginModal() {
+    const subLogin = document.getElementById('auth-subview-login');
+    const subReset = document.getElementById('auth-subview-reset');
+    if (subReset) subReset.style.display = 'none';
+    if (subLogin) subLogin.style.display = 'block';
+}
+
+/**
+ * Procesa la solicitud de recuperación / cambio de contraseña del cliente.
+ * Guarda el hash SHA-256 de la nueva contraseña como PENDIENTE hasta que el Admin la apruebe.
+ */
+async function procesarSolicitudRecuperarPassword(e, origen = 'gatewall') {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const esModal = origen === 'modal';
+    const inputId = document.getElementById(esModal ? 'modal-reset-id' : 'gw-reset-id');
+    const inputNewPass = document.getElementById(esModal ? 'modal-reset-new-pass' : 'gw-reset-new-pass');
+    const inputConfPass = document.getElementById(esModal ? 'modal-reset-confirm-pass' : 'gw-reset-confirm-pass');
+    const btnSubmit = e && e.target ? e.target.querySelector('button[type="submit"]') : null;
+    const btnOriginalHtml = btnSubmit ? btnSubmit.innerHTML : '';
+
+    const id = (inputId?.value || '').trim();
+    const newPass = (inputNewPass?.value || '').trim();
+    const confPass = (inputConfPass?.value || '').trim();
+
+    const alertar = (titulo, msg, tipo = 'warning') => {
+        if (window.InventoryApp?.Modal?.alert) {
+            window.InventoryApp.Modal.alert(titulo, msg, tipo);
+        } else {
+            console.warn(`[Recuperar Contraseña] ${titulo}: ${msg}`);
+        }
+    };
+
+    if (!id || !newPass || !confPass) {
+        alertar('Campos Incompletos', 'Por favor ingresa tu Cédula/Correo y escribe la nueva contraseña dos veces.', 'warning');
+        return false;
+    }
+
+    if (newPass.length < 4) {
+        alertar('Contraseña muy corta', 'Tu nueva contraseña debe tener al menos 4 caracteres.', 'warning');
+        return false;
+    }
+
+    if (newPass !== confPass) {
+        alertar('Las contraseñas no coinciden', 'Verifica que ambos campos de nueva contraseña sean exactamente iguales.', 'warning');
+        return false;
+    }
+
+    const cleanId = id.toUpperCase();
+    const cleanEmail = id.toLowerCase();
+
+    // Proteger cuentas del sistema contra restablecimiento público
+    if (
+        cleanId === 'SUPERADMIN' ||
+        cleanEmail === 'superadmin@tubodeguita.com' ||
+        cleanId === 'AUTOSERVICIO' ||
+        cleanEmail === 'autoservicio@tubodeguita.com'
+    ) {
+        alertar('Cuenta Protegida', 'Esta cuenta del sistema no puede restablecerse desde el formulario público.', 'error');
+        return false;
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando solicitud...';
+    }
+
+    try {
+        // 1. Buscar la cuenta en Firestore (con respaldo local offline)
+        let usuario = null;
+        if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.obtenerUsuario === 'function') {
+            try {
+                usuario = await window.InventoryApp.Firebase.obtenerUsuario(id);
+            } catch (errCloud) {
+                console.warn('[Recuperar Contraseña] Aviso consultando Firestore:', errCloud);
+            }
+        }
+
+        if (!usuario && (!navigator.onLine || !window.InventoryApp?.Firebase)) {
+            usuario = (AppState.usuarios || []).find(u =>
+                (u.id || '').trim().toUpperCase() === cleanId ||
+                (u.cedula || '').trim().toUpperCase() === cleanId ||
+                (u.email || '').trim().toLowerCase() === cleanEmail
+            ) || null;
+        }
+
+        if (!usuario) {
+            alertar('Cuenta No Encontrada', `No encontramos ninguna cuenta registrada con "${id}". Verifica tu Cédula, RIF o Correo.`, 'error');
+            return false;
+        }
+
+        // Proteger cuentas con rol admin si intentan restablecerse desde fuera? Permitimos solo si no es SuperAdmin
+        const idUsuarioReal = usuario.cedula || usuario.id;
+        if (String(idUsuarioReal).toUpperCase() === 'SUPERADMIN') {
+            alertar('Cuenta Protegida', 'La cuenta SuperAdmin no puede restablecerse desde aquí.', 'error');
+            return false;
+        }
+
+        // 2. Calcular hash SHA-256 de la nueva contraseña (nunca texto plano)
+        const nuevaPasswordHash = (window.InventoryApp?.Helpers && typeof window.InventoryApp.Helpers.calcularHashSha256 === 'function')
+            ? window.InventoryApp.Helpers.calcularHashSha256(newPass)
+            : newPass;
+
+        const fechaSolicitud = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const solicitudObj = {
+            estado: 'PENDIENTE',
+            nuevaPasswordHash: nuevaPasswordHash,
+            fechaSolicitud: fechaSolicitud,
+            fechaTs: Date.now()
+        };
+
+        usuario.solicitudCambioPassword = solicitudObj;
+
+        // 3. Sincronizar en AppState.usuarios + Persistencia Local
+        if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+        const idxExistente = AppState.usuarios.findIndex(u => (u.cedula || u.id) === idUsuarioReal);
+        if (idxExistente !== -1) {
+            AppState.usuarios[idxExistente] = { ...AppState.usuarios[idxExistente], ...usuario, solicitudCambioPassword: solicitudObj };
+        } else {
+            AppState.usuarios.push(usuario);
+        }
+
+        if (window.InventoryApp?.Persistence) {
+            window.InventoryApp.Persistence.guardar(true);
+        }
+
+        // 4. Persistir en Firestore inmediatamente
+        if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+            await window.InventoryApp.Firebase.guardarUsuario(usuario);
+        }
+
+        // 5. Notificar al Administrador (In-App + Push Notification real)
+        if (typeof window.registrarNotificacion === 'function') {
+            window.registrarNotificacion({
+                tipo_destinatario: 'ADMIN',
+                paraAdmin: true,
+                tipo: 'sistema',
+                subTipo: 'cambio_password_pendiente',
+                prioridad: 'URGENTE',
+                titulo: '🔐 Solicitud de Cambio de Contraseña',
+                mensaje: `${usuario.nombre || idUsuarioReal} (${idUsuarioReal}) olvidó su contraseña y solicita aprobar su nueva clave.`,
+                emisor: usuario.nombre || idUsuarioReal,
+                clienteId: usuario.clienteId || idUsuarioReal,
+                clienteNombre: usuario.nombre || idUsuarioReal,
+                referenciaId: `pwd_reset_${idUsuarioReal}_${solicitudObj.fechaTs}`,
+                destino: { tab: 'usuarios' }
+            });
+        }
+
+        // 6. Mostrar confirmación + botón de WhatsApp al Administrador
+        const msgTexto = `¡Buenas! Saludos. Le escribe ${usuario.nombre || idUsuarioReal} (C.I. ${idUsuarioReal}). Olvidé mi contraseña en Tu Bodeguita de Confianza y acabo de enviar una solicitud de cambio de clave. ¿Me ayudas aprobándola cuando puedas, porfa? ¡Gracias!`;
+        const rawTel = (typeof AppState !== 'undefined' && AppState.telefonoWhatsApp) || '0412-5363849';
+        const telAdmin = (typeof normalizarNumeroWhatsApp === 'function') ? normalizarNumeroWhatsApp(rawTel) : '584125363849';
+
+        if (esModal) {
+            volverALoginModal();
+            cerrarModalAuth();
+            alertar(
+                '¡Solicitud Enviada!',
+                `Tu nueva contraseña para ${usuario.nombre || idUsuarioReal} quedó pendiente por aprobación del administrador. Apenas la apruebe podrás iniciar sesión con tu nueva clave.`,
+                'success'
+            );
+        } else {
+            const formWrap = document.getElementById('gw-reset-form-wrap');
+            const successBox = document.getElementById('gw-reset-success-box');
+            const sumNombre = document.getElementById('gw-reset-summary-nombre');
+            const sumId = document.getElementById('gw-reset-summary-id');
+            const sumFecha = document.getElementById('gw-reset-summary-fecha');
+            const waBtn = document.getElementById('gw-reset-btn-wa');
+
+            if (sumNombre) sumNombre.textContent = usuario.nombre || '—';
+            if (sumId) sumId.textContent = idUsuarioReal;
+            if (sumFecha) sumFecha.textContent = fechaSolicitud;
+
+            if (waBtn) {
+                waBtn.href = `https://api.whatsapp.com/send?phone=${telAdmin}&text=${encodeURIComponent(msgTexto)}&app=normal`;
+                waBtn.onclick = (ev) => {
+                    if (typeof abrirWhatsAppEnlace === 'function') {
+                        ev.preventDefault();
+                        abrirWhatsAppEnlace({ telefono: telAdmin, mensaje: msgTexto, app: 'normal' });
+                    }
+                };
+            }
+
+            if (formWrap) formWrap.style.display = 'none';
+            if (successBox) successBox.style.display = 'block';
+        }
+
+        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+    } catch (err) {
+        console.error('[Recuperar Contraseña] Error enviando solicitud:', err);
+        alertar('Error al enviar solicitud', 'No pudimos registrar tu solicitud en este momento. Intenta de nuevo en unos segundos.', 'error');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = btnOriginalHtml;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -617,10 +897,14 @@ async function procesarLoginGatewall(e) {
     }
 
     if (!esPasswordValido) {
+        const tieneResetPend = tieneSolicitudCambioPasswordPendiente(usuario);
+        const msgErrorPwd = tieneResetPend
+            ? 'La contraseña ingresada no coincide. Aviso: Tienes una solicitud de cambio de contraseña pendiente de aprobación por el administrador; cuando sea aprobada podrás ingresar con tu nueva clave.'
+            : 'La contraseña ingresada no coincide con nuestros registros. Si la olvidaste, puedes tocar "¿Olvidaste tu contraseña?" para solicitar una nueva.';
         if (window.InventoryApp.Modal?.alert) {
-            window.InventoryApp.Modal.alert('Contraseña Incorrecta', 'La contraseña ingresada no coincide con nuestros registros.', 'error');
+            window.InventoryApp.Modal.alert('Contraseña Incorrecta', msgErrorPwd, 'error');
         } else {
-            alert('Contraseña incorrecta. Verifica tus credenciales.');
+            alert(msgErrorPwd);
         }
         return false;
     }
@@ -1645,6 +1929,182 @@ function aprobarUsuario(cedula) {
 }
 
 /**
+ * Aprueba una solicitud pendiente de cambio de contraseña de un cliente (Solo Admin)
+ */
+async function aprobarCambioPasswordUsuario(cedula) {
+    if (!cedula) return;
+    const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
+    if (!usuario || !tieneSolicitudCambioPasswordPendiente(usuario)) {
+        if (window.InventoryApp?.Modal?.toast) {
+            window.InventoryApp.Modal.toast('Este usuario no tiene una solicitud de cambio de contraseña pendiente.', 'info');
+        }
+        return;
+    }
+
+    const nombreMostrar = usuario.nombre || cedula;
+    let confirmado = true;
+    if (window.InventoryApp?.Modal?.confirm) {
+        confirmado = await window.InventoryApp.Modal.confirm(
+            'Aprobar Nueva Contraseña',
+            `¿Confirmas aprobar la nueva contraseña solicitada por ${nombreMostrar} (${cedula})? A partir de este momento podrá iniciar sesión con su nueva clave.`,
+            'Sí, Aprobar Clave',
+            'Cancelar'
+        );
+    }
+    if (!confirmado) return;
+
+    const nuevaHash = usuario.solicitudCambioPassword.nuevaPasswordHash;
+    usuario.password = nuevaHash;
+    usuario.fechaCambioPassword = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    usuario.solicitudCambioPassword = null;
+
+    if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === cedula) {
+        AppState.usuarioActual.password = nuevaHash;
+        AppState.usuarioActual.solicitudCambioPassword = null;
+    }
+
+    if (window.InventoryApp?.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        await window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+
+    // Notificar al cliente (In-App + Push Notification si está suscrito)
+    if (typeof window.registrarNotificacion === 'function') {
+        window.registrarNotificacion({
+            tipo_destinatario: 'CLIENTE',
+            paraCliente: true,
+            id_cliente: usuario.clienteId || cedula,
+            clienteId: usuario.clienteId || cedula,
+            clienteNombre: nombreMostrar,
+            tipo: 'cliente_inapp',
+            subTipo: 'password_aprobada',
+            prioridad: 'INFO',
+            titulo: '🔐 Nueva Contraseña Aprobada',
+            mensaje: 'El administrador aprobó tu solicitud de cambio de contraseña. ¡Ya puedes ingresar con tu nueva clave!',
+            destino: { tab: 'cliente-cuenta' }
+        });
+    }
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`✅ Contraseña actualizada para ${nombreMostrar}. Ya puede iniciar sesión con su nueva clave.`, 'success', 6000);
+    }
+
+    renderizarUsuarios();
+    actualizarBadgesUsuarios();
+}
+
+/**
+ * Rechaza una solicitud pendiente de cambio de contraseña sin alterar la clave anterior (Solo Admin)
+ */
+async function rechazarCambioPasswordUsuario(cedula) {
+    if (!cedula) return;
+    const usuario = (AppState.usuarios || []).find(u => (u.cedula || u.id) === cedula);
+    if (!usuario || !tieneSolicitudCambioPasswordPendiente(usuario)) return;
+
+    const nombreMostrar = usuario.nombre || cedula;
+    let confirmado = true;
+    if (window.InventoryApp?.Modal?.confirm) {
+        confirmado = await window.InventoryApp.Modal.confirm(
+            'Rechazar Cambio de Contraseña',
+            `¿Deseas rechazar la solicitud de cambio de contraseña de ${nombreMostrar} (${cedula})? Su contraseña anterior seguirá intacta.`,
+            'Sí, Rechazar',
+            'Cancelar'
+        );
+    }
+    if (!confirmado) return;
+
+    usuario.solicitudCambioPassword = null;
+
+    if (AppState.usuarioActual && (AppState.usuarioActual.cedula || AppState.usuarioActual.id) === cedula) {
+        AppState.usuarioActual.solicitudCambioPassword = null;
+    }
+
+    if (window.InventoryApp?.Persistence) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+    if (window.InventoryApp?.Firebase && typeof window.InventoryApp.Firebase.guardarUsuario === 'function') {
+        await window.InventoryApp.Firebase.guardarUsuario(usuario);
+    }
+
+    if (window.InventoryApp?.Modal?.toast) {
+        window.InventoryApp.Modal.toast(`Solicitud de cambio de contraseña de ${nombreMostrar} rechazada. Se mantiene su clave anterior.`, 'info', 5000);
+    }
+
+    renderizarUsuarios();
+    actualizarBadgesUsuarios();
+}
+
+/**
+ * Renderiza el banner de solicitudes de cambio de contraseña pendientes en la vista de Usuarios (Admin)
+ */
+function renderizarBannerCambiosPasswordPendientes(listaUsuarios) {
+    const banner = document.getElementById('usuarios-reset-password-banner');
+    if (!banner) return;
+
+    const solicitudes = (Array.isArray(listaUsuarios) ? listaUsuarios : []).filter(tieneSolicitudCambioPasswordPendiente);
+    if (solicitudes.length === 0) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        return;
+    }
+
+    banner.style.display = 'block';
+    banner.innerHTML = `
+        <div style="background:linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(37, 99, 235, 0.08)); border:1.5px solid #f59e0b; border-radius:12px; padding:14px 16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:9px;">
+                    <span style="width:34px; height:34px; border-radius:10px; background:#fef3c7; color:#d97706; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;">
+                        <i class="fas fa-key"></i>
+                    </span>
+                    <div>
+                        <div style="font-weight:800; color:var(--text-main); font-size:0.95rem;">
+                            Solicitudes de Cambio de Contraseña (${solicitudes.length})
+                        </div>
+                        <div style="font-size:0.78rem; color:var(--text-muted);">
+                            Estos clientes olvidaron su clave y esperan tu aprobación para activar la nueva contraseña.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                ${solicitudes.map(u => {
+                    const idCed = String(u.cedula || u.id || '').replace(/'/g, "\\'");
+                    const fechaSol = u.solicitudCambioPassword?.fechaSolicitud || 'Reciente';
+                    const telLimpio = (u.telefono || '').replace(/\D/g, '');
+                    const waNotify = telLimpio
+                        ? `https://wa.me/${telLimpio.startsWith('58') ? telLimpio : '58' + telLimpio.replace(/^0/, '')}?text=${encodeURIComponent(`¡Hola ${u.nombre || ''}! Ya aprobamos tu nueva contraseña en Tu Bodeguita de Confianza. Ya puedes iniciar sesión.`)}`
+                        : null;
+                    return `
+                        <div style="background:var(--card-bg, #ffffff); border:1px solid var(--border-light, #e2e8f0); border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <div style="min-width:200px;">
+                                <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">
+                                    ${u.nombre || idCed} <span style="color:var(--primary-accent); font-weight:600; font-size:0.82rem;">(${u.cedula || u.id})</span>
+                                </div>
+                                <div style="font-size:0.77rem; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap; margin-top:2px;">
+                                    <span><i class="far fa-envelope"></i> ${u.email || '—'}</span>
+                                    <span><i class="far fa-clock"></i> Solicitado: ${fechaSol}</span>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarCambioPasswordUsuario('${idCed}')" title="Activar la nueva contraseña solicitada">
+                                    <i class="fas fa-check"></i> Aprobar Nueva Clave
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="rechazarCambioPasswordUsuario('${idCed}')" title="Rechazar solicitud y mantener clave anterior">
+                                    <i class="fas fa-times"></i> Rechazar
+                                </button>
+                                ${waNotify ? `<a href="${waNotify}" target="_blank" class="btn btn-sm btn-outline" style="color:#16a34a; border-color:#bbf7d0;" title="Avisar al cliente por WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Abre el modal para capturar el motivo de rechazo de un usuario
  */
 function abrirModalRechazarUsuario(cedula) {
@@ -2400,6 +2860,9 @@ function renderizarUsuarios(busqueda = '') {
     if (kpiActivos) kpiActivos.textContent = activos;
     if (kpiRechazados) kpiRechazados.textContent = rechazados;
 
+    // Renderizar banner destacado si hay solicitudes de cambio de contraseña pendientes
+    renderizarBannerCambiosPasswordPendientes(lista);
+
     // Actualizar también badges de navegación
     actualizarBadgesUsuarios();
 
@@ -2426,10 +2889,10 @@ function renderizarUsuarios(busqueda = '') {
         );
     }
 
-    // Ordenar: Los pendientes de aprobación siempre de primeros para atención inmediata
+    // Ordenar: Los pendientes de aprobación o con solicitud de cambio de clave siempre de primeros
     filtrados.sort((a, b) => {
-        const aPend = esEstadoPendiente(a.estado) ? 1 : 0;
-        const bPend = esEstadoPendiente(b.estado) ? 1 : 0;
+        const aPend = (esEstadoPendiente(a.estado) || tieneSolicitudCambioPasswordPendiente(a)) ? 1 : 0;
+        const bPend = (esEstadoPendiente(b.estado) || tieneSolicitudCambioPasswordPendiente(b)) ? 1 : 0;
         if (aPend !== bPend) return bPend - aPend;
         return (b.fechaRegistro || '').localeCompare(a.fechaRegistro || '');
     });
@@ -2479,8 +2942,13 @@ function renderizarUsuarios(busqueda = '') {
                 </span>
             ` : '';
 
+            const tieneResetPwd = tieneSolicitudCambioPasswordPendiente(u);
+            const resetPwdBadge = tieneResetPwd
+                ? `<div style="margin-top:4px;"><span class="badge-status badge-pending" style="font-size:0.7rem; padding:2px 7px;" title="Solicitó cambio de contraseña el ${u.solicitudCambioPassword?.fechaSolicitud || ''}"><i class="fas fa-key"></i> Cambio de clave</span></div>`
+                : '';
+
             return `
-                <tr style="${esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : ''}">
+                <tr style="${tieneResetPwd ? 'background-color: rgba(245, 158, 11, 0.08);' : (esSesionActual ? 'background-color: rgba(37, 99, 235, 0.05);' : '')}">
                     <td>
                         <strong style="color:var(--primary-accent);">${idCed}</strong>
                         ${esSesionActual ? '<span class="badge-pill" style="font-size:0.65rem; background:#38bdf8; margin-left:4px;">Tú</span>' : ''}
@@ -2511,11 +2979,19 @@ function renderizarUsuarios(busqueda = '') {
                             <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
                         </select>
                     </td>
-                    <td>${badgeEstado}</td>
+                    <td>${badgeEstado}${resetPwdBadge}</td>
                     <td class="num" style="color:var(--primary-accent); font-weight:700;">${puntos} pts</td>
                     <td style="font-size:0.78rem; color:var(--text-muted);">${u.fechaRegistro || '—'}</td>
                     <td>
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            ${tieneResetPwd ? `
+                                <button type="button" class="btn btn-sm btn-success" onclick="aprobarCambioPasswordUsuario('${idCed}')" title="Aprobar nueva contraseña">
+                                    <i class="fas fa-key"></i> Aprobar Clave
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline" style="color:#d97706; border-color:#fcd34d;" onclick="rechazarCambioPasswordUsuario('${idCed}')" title="Rechazar cambio de contraseña">
+                                    <i class="fas fa-times"></i> Clave
+                                </button>
+                            ` : ''}
                             ${u.estado === 'PENDIENTE_APROBACION' ? `
                                 <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')" title="Aprobar usuario">
                                     <i class="fas fa-check"></i> Aprobar
@@ -2583,8 +3059,10 @@ function renderizarUsuarios(busqueda = '') {
                 </span>
             ` : '';
 
+            const tieneResetPwdMob = tieneSolicitudCambioPasswordPendiente(u);
+
             return `
-                <div class="usuarios-item-card ${esSesionActual ? 'current-session' : ''}">
+                <div class="usuarios-item-card ${esSesionActual ? 'current-session' : ''}" style="${tieneResetPwdMob ? 'border-color:#f59e0b; background:rgba(245, 158, 11, 0.06);' : ''}">
                     <div class="usuarios-item-top">
                         <div class="usuarios-item-avatar-wrap">
                             ${uAvatarHtml}
@@ -2602,6 +3080,7 @@ function renderizarUsuarios(busqueda = '') {
                         </div>
                         <div class="usuarios-item-status">
                             ${badgeEstado}
+                            ${tieneResetPwdMob ? '<span class="badge-status badge-pending" style="font-size:0.68rem;"><i class="fas fa-key"></i> Clave pendiente</span>' : ''}
                             <span class="usuarios-pts-pill"><i class="fas fa-coins"></i> ${puntos} pts</span>
                         </div>
                     </div>
@@ -2624,6 +3103,14 @@ function renderizarUsuarios(busqueda = '') {
                     </div>
 
                     <div class="usuarios-item-actions">
+                        ${tieneResetPwdMob ? `
+                            <button type="button" class="btn btn-sm btn-success" onclick="aprobarCambioPasswordUsuario('${idCed}')">
+                                <i class="fas fa-key"></i> Aprobar Clave
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" style="color:#d97706; border-color:#fcd34d;" onclick="rechazarCambioPasswordUsuario('${idCed}')">
+                                <i class="fas fa-times"></i> Rechazar Clave
+                            </button>
+                        ` : ''}
                         ${u.estado === 'PENDIENTE_APROBACION' ? `
                             <button type="button" class="btn btn-sm btn-success" onclick="aprobarUsuario('${idCed}')">
                                 <i class="fas fa-check"></i> Aprobar
@@ -2658,11 +3145,13 @@ function renderizarUsuarios(busqueda = '') {
 }
 
 /**
- * Actualiza los badges numéricos de pendientes
+ * Actualiza los badges numéricos de pendientes (registros + solicitudes de cambio de contraseña)
  */
 function actualizarBadgesUsuarios() {
     const lista = Array.isArray(AppState.usuarios) ? AppState.usuarios : [];
     const pendientes = lista.filter(u => typeof esEstadoPendiente === 'function' ? esEstadoPendiente(u.estado) : String(u.estado).toUpperCase().includes('PEND')).length;
+    const pendientesPassword = lista.filter(tieneSolicitudCambioPasswordPendiente).length;
+    const totalAlertasUsuarios = pendientes + pendientesPassword;
     const total = lista.length;
     const activos = lista.filter(u => typeof esEstadoActivo === 'function' ? esEstadoActivo(u.estado) : u.estado === 'ACTIVO').length;
     const rechazados = lista.filter(u => typeof esEstadoRechazado === 'function' ? esEstadoRechazado(u.estado) : u.estado === 'RECHAZADO').length;
@@ -2671,18 +3160,18 @@ function actualizarBadgesUsuarios() {
     const bMob = document.getElementById('badge-pendientes-mobile');
 
     if (bDesk) {
-        if (pendientes > 0) {
+        if (totalAlertasUsuarios > 0) {
             bDesk.style.display = 'inline-flex';
-            bDesk.textContent = pendientes;
+            bDesk.textContent = totalAlertasUsuarios;
         } else {
             bDesk.style.display = 'none';
         }
     }
 
     if (bMob) {
-        if (pendientes > 0) {
+        if (totalAlertasUsuarios > 0) {
             bMob.style.display = 'block';
-            bMob.textContent = pendientes;
+            bMob.textContent = totalAlertasUsuarios;
         } else {
             bMob.style.display = 'none';
         }
@@ -2926,6 +3415,10 @@ async function procesarLoginUsuario(e) {
 
 function abrirModalAuth() {
     const modal = document.getElementById('modal-auth');
+    const subLogin = document.getElementById('auth-subview-login');
+    const subReset = document.getElementById('auth-subview-reset');
+    if (subReset) subReset.style.display = 'none';
+    if (subLogin) subLogin.style.display = 'block';
     if (modal) modal.classList.add('active');
 }
 
@@ -2938,6 +3431,13 @@ function cerrarModalAuth() {
 window.verificarGatewall = verificarGatewall;
 window.configurarVistasPorRol = configurarVistasPorRol;
 window.switchGatewallTab = switchGatewallTab;
+window.mostrarRecuperarPasswordGatewall = mostrarRecuperarPasswordGatewall;
+window.volverALoginGatewall = volverALoginGatewall;
+window.mostrarRecuperarPasswordModal = mostrarRecuperarPasswordModal;
+window.volverALoginModal = volverALoginModal;
+window.procesarSolicitudRecuperarPassword = procesarSolicitudRecuperarPassword;
+window.aprobarCambioPasswordUsuario = aprobarCambioPasswordUsuario;
+window.rechazarCambioPasswordUsuario = rechazarCambioPasswordUsuario;
 window.procesarLoginGatewall = procesarLoginGatewall;
 window.procesarLoginUsuario = procesarLoginUsuario;
 window.abrirModalAuth = abrirModalAuth;

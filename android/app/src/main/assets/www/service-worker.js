@@ -4,14 +4,14 @@
 // 3. Shell PWA (Network-First): Resiliencia offline para la interfaz.
 // 4. Web Push API: Recepción y apertura de notificaciones incluso con la pantalla bloqueada.
 
-const SHELL_CACHE_NAME = 'bodeguita-shell-v2';
+const SHELL_CACHE_NAME = 'bodeguita-shell-v3';
 const IMAGE_CACHE_NAME = 'bodeguita-images-v1';
 const APP_SHELL = [
   '/',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png'
+  '/manifest.json?v=3',
+  '/icons/icon-192.png?v=3',
+  '/icons/icon-512.png?v=3',
+  '/icons/apple-touch-icon.png?v=3'
 ];
 
 self.addEventListener('install', (event) => {
@@ -35,6 +35,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Ignorar métodos no GET y esquemas no http(s)
   if (event.request.method !== 'GET') {
     return;
   }
@@ -50,6 +51,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Regla 1: CACHÉ DE IMÁGENES (Excepción de Arquitectura autorizada)
   const esPeticionImagen =
     event.request.destination === 'image' ||
     url.pathname.startsWith('/api/avatar/view') ||
@@ -78,6 +80,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Regla 2: APIS DE NEGOCIO & FIREBASE (Estricto 100% en la Nube - Nunca Cachear)
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('firestore.googleapis.com') ||
@@ -88,6 +91,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Regla 3: SHELL PWA (Red primero con fallback a caché local y navegación offline a '/')
   if (url.origin !== self.location.origin) {
     return;
   }
@@ -113,12 +117,15 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// =========================================================================
+// NOTIFICACIONES PUSH REALES (Web Push API — Funciona con pantalla apagada)
+// =========================================================================
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'Tu Bodeguita de Confianza',
     body: 'Tienes una nueva notificación importante.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: '/icons/icon-192.png?v=3',
+    badge: '/icons/icon-192.png?v=3',
     tag: 'bodeguita-notif',
     tab: 'notificaciones',
     url: '/'
@@ -137,8 +144,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: payload.body,
-    icon: payload.icon || '/icons/icon-192.png',
-    badge: payload.badge || '/icons/icon-192.png',
+    icon: payload.icon || '/icons/icon-192.png?v=3',
+    badge: payload.badge || '/icons/icon-192.png?v=3',
     tag: payload.tag || 'bodeguita-notif',
     renotify: true,
     vibrate: [180, 90, 180],
