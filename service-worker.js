@@ -4,14 +4,15 @@
 // 3. Shell PWA (Network-First): Resiliencia offline para la interfaz.
 // 4. Web Push API: Recepción y apertura de notificaciones incluso con la pantalla bloqueada.
 
-const SHELL_CACHE_NAME = 'bodeguita-shell-v5';
+const SHELL_CACHE_NAME = 'bodeguita-shell-v6';
 const IMAGE_CACHE_NAME = 'bodeguita-images-v1';
 const APP_SHELL = [
   '/',
-  '/manifest.json?v=5',
-  '/icons/icon-192.png?v=5',
-  '/icons/icon-512.png?v=5',
-  '/icons/apple-touch-icon.png?v=5'
+  '/manifest.json?v=6',
+  '/favicon.ico?v=6',
+  '/icons/bodeguita-chuches-192.png',
+  '/icons/bodeguita-chuches-512.png',
+  '/icons/bodeguita-chuches-180.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -23,13 +24,32 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== SHELL_CACHE_NAME && k !== IMAGE_CACHE_NAME)
-          .map((k) => caches.delete(k))
-      )
-    )
+    Promise.all([
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== SHELL_CACHE_NAME && k !== IMAGE_CACHE_NAME)
+            .map((k) => caches.delete(k))
+        )
+      ),
+      // Limpiar cualquier ícono viejo que haya quedado en caché de imágenes (sin tocar fotos de productos)
+      caches.open(IMAGE_CACHE_NAME).then((cache) =>
+        cache.keys().then((reqs) =>
+          Promise.all(
+            reqs
+              .filter((r) => {
+                try {
+                  const p = new URL(r.url).pathname;
+                  return p.startsWith('/icons/') || p === '/favicon.ico';
+                } catch {
+                  return false;
+                }
+              })
+              .map((r) => cache.delete(r))
+          )
+        )
+      ).catch(() => {})
+    ])
   );
   self.clients.claim();
 });
@@ -51,13 +71,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Regla 1: CACHÉ DE IMÁGENES (Excepción de Arquitectura autorizada)
+  // Los íconos de la app y el manifiesto siempre van por Red Primero (Regla 3) para reflejar cambios al instante
+  const esIconoOManifiestoApp =
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith('/icons/') || url.pathname === '/favicon.ico' || url.pathname === '/manifest.json');
+
+  // Regla 1: CACHÉ DE IMÁGENES DE PRODUCTOS/AVATARES (Excepción de Arquitectura autorizada)
   const esPeticionImagen =
-    event.request.destination === 'image' ||
-    url.pathname.startsWith('/api/avatar/view') ||
-    url.pathname.startsWith('/api/blob/view') ||
-    url.hostname.includes('blob.vercel-storage.com') ||
-    /\.(png|jpg|jpeg|webp|svg|gif|avif|ico)(\?.*)?$/i.test(url.pathname);
+    !esIconoOManifiestoApp && (
+      event.request.destination === 'image' ||
+      url.pathname.startsWith('/api/avatar/view') ||
+      url.pathname.startsWith('/api/blob/view') ||
+      url.hostname.includes('blob.vercel-storage.com') ||
+      /\.(png|jpg|jpeg|webp|svg|gif|avif|ico)(\?.*)?$/i.test(url.pathname)
+    );
 
   if (esPeticionImagen) {
     event.respondWith(
@@ -124,8 +151,8 @@ self.addEventListener('push', (event) => {
   let payload = {
     title: 'Tu Bodeguita de Confianza',
     body: 'Tienes una nueva notificación importante.',
-    icon: '/icons/icon-192.png?v=5',
-    badge: '/icons/icon-192.png?v=5',
+    icon: '/icons/bodeguita-chuches-192.png',
+    badge: '/icons/bodeguita-chuches-192.png',
     tag: 'bodeguita-notif',
     tab: 'notificaciones',
     url: '/'
@@ -144,8 +171,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: payload.body,
-    icon: payload.icon || '/icons/icon-192.png?v=5',
-    badge: payload.badge || '/icons/icon-192.png?v=5',
+    icon: payload.icon || '/icons/bodeguita-chuches-192.png',
+    badge: payload.badge || '/icons/bodeguita-chuches-192.png',
     tag: payload.tag || 'bodeguita-notif',
     renotify: true,
     vibrate: [180, 90, 180],

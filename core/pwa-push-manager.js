@@ -336,8 +336,8 @@
             if (reg && typeof reg.showNotification === 'function') {
                 await reg.showNotification(title || 'Tu Bodeguita de Confianza', {
                     body: body || 'Tienes una nueva notificación.',
-                    icon: '/icons/icon-192.png',
-                    badge: '/icons/icon-192.png',
+                    icon: '/icons/bodeguita-chuches-192.png',
+                    badge: '/icons/bodeguita-chuches-192.png',
                     vibrate: [180, 90, 180],
                     tag: 'bodeguita-local-' + Date.now(),
                     data: { tab, url: `/?tab=${encodeURIComponent(tab)}` }
@@ -346,7 +346,7 @@
             }
             new Notification(title || 'Tu Bodeguita de Confianza', {
                 body: body || 'Tienes una nueva notificación.',
-                icon: '/icons/icon-192.png'
+                icon: '/icons/bodeguita-chuches-192.png'
             });
             return true;
         } catch (err) {
@@ -447,7 +447,7 @@
                 <div style="width:100%; max-width:400px; background:var(--card-bg, #ffffff); color:var(--text-main, #0f172a); border-radius:16px; padding:22px; box-shadow:0 24px 48px rgba(0,0,0,0.35); border:1px solid var(--border, #e2e8f0);">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
                         <div style="display:flex; align-items:center; gap:10px;">
-                            <img src="/icons/apple-touch-icon.png" alt="Bodeguita" style="width:42px; height:42px; border-radius:10px;">
+                            <img src="/icons/bodeguita-chuches-180.png" alt="Bodeguita" style="width:42px; height:42px; border-radius:10px;">
                             <div>
                                 <h3 style="margin:0; font-size:1.05rem; font-weight:800;">Instalar en iPhone / iPad</h3>
                                 <div style="font-size:0.78rem; color:var(--text-muted, #64748b);">Tu Bodeguita de Confianza</div>
@@ -498,7 +498,7 @@
                 <div style="width:100%; max-width:460px; background:var(--card-bg, #ffffff); color:var(--text-main, #0f172a); border-radius:16px; overflow:hidden; box-shadow:0 24px 48px rgba(0,0,0,0.35); border:1px solid var(--border, #e2e8f0);">
                     <div style="padding:16px 20px; background:linear-gradient(135deg, #0f172a, #0369a1); color:#ffffff; display:flex; align-items:center; justify-content:space-between; gap:12px;">
                         <div style="display:flex; align-items:center; gap:12px;">
-                            <img src="/icons/icon-192.png" alt="Tu Bodeguita" style="width:40px; height:40px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+                            <img src="/icons/bodeguita-chuches-192.png" alt="Tu Bodeguita" style="width:40px; height:40px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
                             <div>
                                 <h3 style="margin:0; font-size:1.05rem; font-weight:800; color:#ffffff;">App Instalable &amp; Alertas Push</h3>
                                 <div style="font-size:0.78rem; color:#bae6fd;">Tu Bodeguita de Confianza</div>

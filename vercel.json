@@ -85,6 +85,24 @@
           "value": "0"
         }
       ]
+    },
+    {
+      "source": "/(manifest.json|service-worker.js|favicon.ico)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/icons/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+      ]
     }
   ]
 }

@@ -847,6 +847,8 @@ window.InventoryApp = window.InventoryApp || {};
                                 }, { merge: true }).catch(() => {});
                             }
                         }
+                        const rawImg = data.imagen || prodLocal?.imagen || '';
+                        const imgFinal = (typeof normalizarUrlBlob === 'function' && rawImg) ? normalizarUrlBlob(rawImg) : rawImg;
                         return { id, ...data, stock: stockVal, imagen: imgFinal };
                     });
                     try {
@@ -955,6 +957,8 @@ window.InventoryApp = window.InventoryApp || {};
                             }, { merge: true }).catch(() => {});
                         }
                     }
+                    const rawImg = data.imagen || prodLocal?.imagen || '';
+                    const imgFinal = (typeof normalizarUrlBlob === 'function' && rawImg) ? normalizarUrlBlob(rawImg) : rawImg;
                     return { id, ...data, stock: stockVal, imagen: imgFinal };
                 });
             }
