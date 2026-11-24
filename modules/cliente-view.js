@@ -70,15 +70,29 @@ function obtenerSaludoSegunHora() {
     }
 }
 
+let historialFrasesRecientes = [];
+
 /**
- * Selecciona una frase aleatoria del banco de 1000 mensajes (o fallback)
+ * Selecciona una frase, chiste o dato curioso aleatorio sin repetir los últimos mostrados
  */
 function obtenerFraseSabiduriaAleatoria() {
     const banco = (Array.isArray(window.BANCO_FRASES_1000) && window.BANCO_FRASES_1000.length > 0)
         ? window.BANCO_FRASES_1000
         : BANCO_MENSAJES_SABIDURIA;
-    const idx = Math.floor(Math.random() * banco.length);
-    return banco[idx];
+    if (!banco.length) return null;
+
+    const maxHistorial = Math.min(40, Math.max(1, banco.length - 1));
+    const candidatos = banco.filter(item => !historialFrasesRecientes.includes(item.id || item.frase));
+    const pool = candidatos.length > 0 ? candidatos : banco;
+    const elegida = pool[Math.floor(Math.random() * pool.length)];
+
+    if (elegida) {
+        historialFrasesRecientes.push(elegida.id || elegida.frase);
+        if (historialFrasesRecientes.length > maxHistorial) {
+            historialFrasesRecientes.shift();
+        }
+    }
+    return elegida;
 }
 
 /**
