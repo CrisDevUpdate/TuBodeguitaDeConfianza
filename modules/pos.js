@@ -1505,8 +1505,8 @@ function procesarVenta() {
         }
     }
 
-    // Guardia de Bloqueo por Turno de Caja (exclusivo para rol Vendedor si está configurado por el Administrador)
-    const exigirTurno = Boolean(AppState.exigirTurnoVendedor);
+    // Guardia de Bloqueo por Turno de Caja (solo si el Módulo de Caja está activo y el Admin exige turno)
+    const exigirTurno = Boolean(AppState.moduloCajaActivo && AppState.exigirTurnoVendedor);
     const usuarioActual = AppState.usuarioActual;
     const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : (usuarioActual?.rol === 'admin' || usuarioActual?.rol === 'superadmin' || usuarioActual?.id === 'SuperAdmin');
     const esVendedor = !esAdmin && (usuarioActual?.rol === 'vendedor');

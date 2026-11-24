@@ -22,6 +22,7 @@ function renderizarConfiguracionAdmin() {
     const esSuperAdmin = usuario && (usuario.rol === 'admin' || usuario.id === 'SuperAdmin' || usuario.cedula === 'SuperAdmin');
     const inviernoActivo = !!AppState.temporadaInviernoActiva;
     const exigirTurnoVendedorActivo = !!AppState.exigirTurnoVendedor;
+    const moduloCajaActivo = !!AppState.moduloCajaActivo;
     const telActualConfig = AppState.telefonoWhatsApp || '0412-5363849';
 
     container.innerHTML = `
@@ -82,44 +83,68 @@ function renderizarConfiguracionAdmin() {
         <!-- MÓDULO: Cuentas Bancarias & Métodos de Pago Móvil (Admin) -->
         <div id="config-cuentas-bancarias-box"></div>
 
-        <!-- MÓDULO: Bloqueo de POS por Turno Cerrado (Exclusivo Rol Vendedor) -->
-        <div class="card" style="margin-bottom:20px; border-left: 4px solid #ef4444;">
+        <!-- MÓDULO: Caja Registradora, Turnos & Arqueos (Opcional - Oculto por defecto para interfaz limpia) -->
+        <div class="card" style="margin-bottom:20px; border-left: 4px solid ${moduloCajaActivo ? '#10b981' : '#64748b'};">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border-light); padding-bottom:10px; flex-wrap:wrap; gap:10px;">
                 <div>
                     <h3 style="margin:0; font-size:1.15rem; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-cash-register" style="color:#ef4444;"></i> Bloqueo de POS por Turno Cerrado (Exclusivo Rol Vendedor)
+                        <i class="fas fa-cash-register" style="color:${moduloCajaActivo ? '#10b981' : '#64748b'};"></i> Módulo de Caja Registradora & Arqueos (Cortes X/Z)
                     </h3>
                     <p style="margin:2px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
-                        Exige apertura obligatoria de turno de caja antes de permitir vender o procesar compras para usuarios con rol de Vendedor.
+                        Actívalo únicamente si operas con caja registradora física y necesitas apertura/cierre de turnos, fondo de gaveta y cortes X/Z.
                     </p>
                 </div>
                 <div>
-                    <span class="badge" style="font-size:0.82rem; padding:5px 12px; background:${exigirTurnoVendedorActivo ? '#fee2e2' : '#dcfce7'}; color:${exigirTurnoVendedorActivo ? '#b91c1c' : '#15803d'}; font-weight:700;">
-                        <i class="fas ${exigirTurnoVendedorActivo ? 'fa-lock' : 'fa-lock-open'}"></i> ${exigirTurnoVendedorActivo ? 'BLOQUEO ACTIVO (Obligatorio para Vendedores)' : 'MODO FLEXIBLE (Venta Libre)'}
+                    <span class="badge" style="font-size:0.82rem; padding:5px 12px; background:${moduloCajaActivo ? '#dcfce7' : '#f1f5f9'}; color:${moduloCajaActivo ? '#15803d' : '#475569'}; font-weight:700;">
+                        <i class="fas ${moduloCajaActivo ? 'fa-toggle-on' : 'fa-eye-slash'}"></i> ${moduloCajaActivo ? 'ACTIVO (Modo Caja Registradora)' : 'OCULTO (Interfaz Limpia)'}
                     </span>
                 </div>
             </div>
 
-            <div style="background:${exigirTurnoVendedorActivo ? 'rgba(239,68,68,0.04)' : 'var(--bg-color, #f8fafc)'}; border:1px solid ${exigirTurnoVendedorActivo ? '#fecaca' : 'var(--border-light)'}; border-radius:10px; padding:16px;">
+            <div style="background:${moduloCajaActivo ? 'rgba(16,185,129,0.05)' : 'var(--bg-color, #f8fafc)'}; border:1px solid ${moduloCajaActivo ? '#a7f3d0' : 'var(--border-light)'}; border-radius:10px; padding:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                    <div style="flex:1; min-width:280px;">
+                    <div style="flex:1; min-width:260px;">
                         <strong style="color:var(--text-main); font-size:0.95rem; display:flex; align-items:center; gap:6px;">
-                            <i class="fas fa-user-shield" style="color:#2563eb;"></i> Control Antifuga para Empleados / Vendedores
+                            <i class="fas ${moduloCajaActivo ? 'fa-calculator' : 'fa-sparkles'}" style="color:${moduloCajaActivo ? '#10b981' : '#2563eb'};"></i>
+                            ${moduloCajaActivo ? 'Panel de Caja y Turnos visible en el programa' : 'Interfaz minimalista sin banners ni pestaña de Caja'}
                         </strong>
-                        <p style="margin:4px 0 0 0; font-size:0.83rem; color:var(--text-muted); line-height:1.4;">
-                            ${exigirTurnoVendedorActivo
-                                ? '⚠️ <strong>Activo:</strong> Los usuarios con rol de <strong>Vendedor</strong> tienen bloqueado el botón de cobro en el POS hasta que abran un turno con su fondo inicial en gaveta. Como <strong>Administrador</strong>, tú siempre podrás vender y fiar libremente sin restricciones.'
-                                : '🔓 <strong>Inactivo:</strong> Los vendedores pueden registrar ventas y fiados libremente sin necesidad de tener un turno abierto (Modo flexible).'}
+                        <p style="margin:4px 0 0 0; font-size:0.83rem; color:var(--text-muted); line-height:1.45;">
+                            ${moduloCajaActivo
+                                ? 'Se muestra la pestaña <strong>Caja & Arqueo (Cortes X/Z)</strong> y el indicador de turno activo/cerrado en el Punto de Venta.'
+                                : 'La pestaña de Caja y el aviso <em>«Caja sin turno activo»</em> están ocultos para mantener el sistema más limpio y estético. Puedes activarlo cuando lo necesites.'}
                         </p>
                     </div>
                     <div>
-                        <button type="button" class="btn ${exigirTurnoVendedorActivo ? 'btn-danger' : 'btn-primary'}" onclick="alternarBloqueoTurnoVendedorAdmin()" style="font-weight:700; display:flex; align-items:center; gap:8px;">
-                            <i class="fas ${exigirTurnoVendedorActivo ? 'fa-lock-open' : 'fa-lock'}"></i>
-                            ${exigirTurnoVendedorActivo ? 'Desactivar Bloqueo (Permitir Venta Libre)' : 'Activar Bloqueo Obligatorio'}
+                        <button type="button" class="btn ${moduloCajaActivo ? 'btn-outline' : 'btn-primary'}" onclick="alternarModuloCajaAdmin()" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+                            <i class="fas ${moduloCajaActivo ? 'fa-eye-slash' : 'fa-cash-register'}"></i>
+                            ${moduloCajaActivo ? 'Ocultar Módulo de Caja' : 'Activar Caja Registradora'}
                         </button>
                     </div>
                 </div>
             </div>
+
+            ${moduloCajaActivo ? `
+            <div style="margin-top:12px; background:${exigirTurnoVendedorActivo ? 'rgba(239,68,68,0.04)' : 'var(--bg-color, #f8fafc)'}; border:1px solid ${exigirTurnoVendedorActivo ? '#fecaca' : 'var(--border-light)'}; border-radius:10px; padding:14px 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div style="flex:1; min-width:260px;">
+                        <strong style="color:var(--text-main); font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-user-shield" style="color:${exigirTurnoVendedorActivo ? '#ef4444' : '#2563eb'};"></i> Bloqueo de POS por Turno Cerrado (Solo Vendedores)
+                        </strong>
+                        <p style="margin:4px 0 0 0; font-size:0.82rem; color:var(--text-muted); line-height:1.4;">
+                            ${exigirTurnoVendedorActivo
+                                ? '<strong>Activo:</strong> Los vendedores deben abrir turno con su fondo inicial antes de cobrar o fiar. El Administrador siempre puede vender libremente.'
+                                : '<strong>Inactivo:</strong> Los vendedores pueden registrar ventas libremente sin exigir turno abierto.'}
+                        </p>
+                    </div>
+                    <div>
+                        <button type="button" class="btn ${exigirTurnoVendedorActivo ? 'btn-danger' : 'btn-outline'}" onclick="alternarBloqueoTurnoVendedorAdmin()" style="font-weight:700; font-size:0.84rem; display:flex; align-items:center; gap:8px;">
+                            <i class="fas ${exigirTurnoVendedorActivo ? 'fa-lock-open' : 'fa-lock'}"></i>
+                            ${exigirTurnoVendedorActivo ? 'Desactivar Bloqueo' : 'Exigir Turno a Vendedores'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
         </div>
 
         <!-- MÓDULO 3: Motor de Temas y Paletas Globales -->
@@ -1775,4 +1800,54 @@ async function alternarBloqueoTurnoVendedorAdmin() {
     }
 }
 window.alternarBloqueoTurnoVendedorAdmin = alternarBloqueoTurnoVendedorAdmin;
+
+/**
+ * Activa u oculta por completo el Módulo de Caja Registradora, Turnos y Arqueos (Cortes X/Z)
+ */
+async function alternarModuloCajaAdmin() {
+    const nuevoEstado = !AppState.moduloCajaActivo;
+    AppState.moduloCajaActivo = nuevoEstado;
+
+    try {
+        localStorage.setItem('bodeguita_modulo_caja_activo', String(nuevoEstado));
+    } catch (e) {}
+
+    // Sincronizar con Firestore
+    try {
+        if (typeof firebase !== 'undefined' && firebase.firestore) {
+            const db = firebase.firestore();
+            await db.collection('config').doc('global').set({
+                moduloCajaActivo: nuevoEstado,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+    } catch (e) {
+        console.warn('[configuracion] Error guardando moduloCajaActivo en Firestore:', e);
+    }
+
+    if (window.InventoryApp?.Firebase?.guardarConfiguracionGlobal) {
+        window.InventoryApp.Firebase.guardarConfiguracionGlobal({
+            moduloCajaActivo: nuevoEstado
+        }).catch(() => {});
+    }
+
+    if (window.InventoryApp?.Persistence?.guardar) {
+        window.InventoryApp.Persistence.guardar(true);
+    }
+
+    renderizarConfiguracionAdmin();
+    if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+        window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+    }
+
+    if (typeof showCustomToast === 'function') {
+        showCustomToast(
+            nuevoEstado
+                ? 'Módulo de Caja Registradora activado. Ahora verás Caja & Arqueo y el estado de turno.'
+                : 'Módulo de Caja ocultado. La interfaz quedó más limpia sin banners ni pestaña de Caja.',
+            nuevoEstado ? 'success' : 'info'
+        );
+    }
+}
+window.alternarModuloCajaAdmin = alternarModuloCajaAdmin;
 

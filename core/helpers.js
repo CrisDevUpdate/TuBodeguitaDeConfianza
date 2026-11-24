@@ -854,6 +854,10 @@ if (window.InventoryApp) window.InventoryApp.esUsuarioAdmin = esUsuarioAdmin;
 function switchTab(tabId) {
     if (!tabId) return;
 
+    if (tabId === 'caja-turnos' && !window.AppState?.moduloCajaActivo) {
+        tabId = 'pos';
+    }
+
     // Control de Acceso por Rol Estricto (RBAC) en Navegación
     const usuarioActual = window.AppState?.usuarioActual;
     if (usuarioActual) {
@@ -870,7 +874,8 @@ function switchTab(tabId) {
                     tabId = 'kiosco-view';
                 }
             } else if (esVendedor) {
-                const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones', 'caja-turnos'];
+                const vendedorAllowed = ['pos', 'clientes', 'historial-ventas', 'notificaciones'];
+                if (window.AppState?.moduloCajaActivo) vendedorAllowed.push('caja-turnos');
                 if (!vendedorAllowed.includes(tabId)) {
                     console.warn(`[switchTab] Acceso restringido a "${tabId}" para perfil vendedor.`);
                     tabId = 'pos';

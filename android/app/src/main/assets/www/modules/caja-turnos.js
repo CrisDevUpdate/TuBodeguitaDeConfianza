@@ -40,8 +40,11 @@ window.InventoryApp = window.InventoryApp || {};
             console.warn('[CajaTurnos] Error al restaurar historial local:', e);
         }
 
-        // 2. Restaurar turno activo y regla de bloqueo
+        // 2. Restaurar preferencia de visibilidad del Módulo de Caja (oculto por defecto), regla de bloqueo y turno activo
         try {
+            const rawModuloCaja = localStorage.getItem('bodeguita_modulo_caja_activo');
+            AppState.moduloCajaActivo = rawModuloCaja === 'true';
+
             const rawExigir = localStorage.getItem('bodeguita_exigir_turno_vendedor');
             if (rawExigir !== null) AppState.exigirTurnoVendedor = rawExigir === 'true';
 
@@ -1228,8 +1231,38 @@ window.InventoryApp = window.InventoryApp || {};
     // =========================================================================
 
     function actualizarBadgesTurno() {
-        const turno = AppState.turnoActivo;
+        const moduloCajaActivo = Boolean(AppState.moduloCajaActivo);
+        const usuarioActual = AppState.usuarioActual;
+        const rol = (usuarioActual?.rol || '').toLowerCase();
+        const esAdmin = typeof esUsuarioAdmin === 'function'
+            ? esUsuarioAdmin(usuarioActual)
+            : (rol === 'admin' || rol === 'superadmin' || usuarioActual?.id === 'SuperAdmin');
+        const esVendedor = !esAdmin && rol === 'vendedor';
+        const puedeVerCaja = moduloCajaActivo && (esAdmin || esVendedor);
+
+        // Mostrar u ocultar pestaña de navegación de Caja (escritorio y móvil)
+        document.querySelectorAll('[data-tab="caja-turnos"]').forEach(btn => {
+            btn.style.display = puedeVerCaja ? '' : 'none';
+        });
+
         const badge = document.getElementById('badge-turno-status');
+        const barPos = document.getElementById('pos-turno-banner');
+
+        // Si el módulo de caja registradora está desactivado, ocultar completamente banners, badges y vista
+        if (!moduloCajaActivo) {
+            if (badge) badge.style.display = 'none';
+            if (barPos) {
+                barPos.style.display = 'none';
+                barPos.innerHTML = '';
+            }
+            const vistaCaja = document.getElementById('caja-turnos');
+            if (vistaCaja && vistaCaja.classList.contains('active') && typeof switchTab === 'function') {
+                switchTab('pos');
+            }
+            return;
+        }
+
+        const turno = AppState.turnoActivo;
         if (badge) {
             if (turno && turno.estado === 'ABIERTO') {
                 badge.style.display = 'inline-block';
@@ -1242,12 +1275,9 @@ window.InventoryApp = window.InventoryApp || {};
             }
         }
 
-        const barPos = document.getElementById('pos-turno-banner');
         if (barPos) {
+            barPos.style.display = '';
             const exigirTurno = Boolean(AppState.exigirTurnoVendedor);
-            const usuarioActual = AppState.usuarioActual;
-            const esAdmin = typeof esUsuarioAdmin === 'function' ? esUsuarioAdmin(usuarioActual) : (usuarioActual?.rol === 'admin' || usuarioActual?.rol === 'superadmin' || usuarioActual?.id === 'SuperAdmin');
-            const esVendedor = !esAdmin && (usuarioActual?.rol === 'vendedor');
 
             if (turno && turno.estado === 'ABIERTO') {
                 barPos.innerHTML = `

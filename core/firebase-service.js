@@ -860,6 +860,13 @@ window.InventoryApp = window.InventoryApp || {};
                     if (cfg.premioMes) AppState.premioMes = cfg.premioMes;
                     if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                     if (typeof cfg.exigirTurnoVendedor === 'boolean') AppState.exigirTurnoVendedor = cfg.exigirTurnoVendedor;
+                    if (typeof cfg.moduloCajaActivo === 'boolean') {
+                        AppState.moduloCajaActivo = cfg.moduloCajaActivo;
+                        try { localStorage.setItem('bodeguita_modulo_caja_activo', String(cfg.moduloCajaActivo)); } catch (_) {}
+                    }
+                    if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+                        window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                    }
                     if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                     if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
                     if (Array.isArray(cfg.categoriasPersonalizadas)) AppState.categoriasPersonalizadas = cfg.categoriasPersonalizadas;
@@ -1137,6 +1144,13 @@ window.InventoryApp = window.InventoryApp || {};
                 if (cfg.cicloRecuperacionActual) AppState.cicloRecuperacionActual = cfg.cicloRecuperacionActual;
                 if (typeof cfg.temporadaInviernoActiva === 'boolean') AppState.temporadaInviernoActiva = cfg.temporadaInviernoActiva;
                 if (typeof cfg.exigirTurnoVendedor === 'boolean') AppState.exigirTurnoVendedor = cfg.exigirTurnoVendedor;
+                if (typeof cfg.moduloCajaActivo === 'boolean') {
+                    AppState.moduloCajaActivo = cfg.moduloCajaActivo;
+                    try { localStorage.setItem('bodeguita_modulo_caja_activo', String(cfg.moduloCajaActivo)); } catch (_) {}
+                }
+                if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+                    window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                }
                 if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
                 if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                 if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;

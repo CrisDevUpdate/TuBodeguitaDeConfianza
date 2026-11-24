@@ -110,8 +110,10 @@ function configurarVistasPorRol(usuario) {
 
     // Tabs exclusivos de administración total (Inventario, Usuarios, Transacciones, Auditoría, Config Premio, Configuración)
     const adminStrictTabs = ['inventario', 'usuarios', 'transacciones', 'auditoria', 'premio-mes-admin', 'configuracion'];
-    // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas)
+    const moduloCajaActivo = Boolean(window.AppState?.moduloCajaActivo);
+    // Tabs compartidos permitidos para Vendedor (POS, Clientes, Historial Ventas, y Caja solo si está activa)
     const vendedorAllowedTabs = ['pos', 'clientes', 'historial-ventas'];
+    if (moduloCajaActivo) vendedorAllowedTabs.push('caja-turnos');
 
     // Ocultar cabecera superior y barra de navegación si está en modo Auto-Servicio
     const mainHeader = document.querySelector('.bodeguita-main-header') || document.getElementById('bodeguita-main-header') || document.getElementById('main-header');
@@ -143,6 +145,11 @@ function configurarVistasPorRol(usuario) {
             return;
         }
 
+        if (tab === 'caja-turnos' && !moduloCajaActivo) {
+            btn.style.display = 'none';
+            return;
+        }
+
         if (esKiosco) {
             btn.style.display = 'none';
         } else if (esAdmin) {
@@ -160,6 +167,11 @@ function configurarVistasPorRol(usuario) {
         const tab = btn.getAttribute('data-tab');
         if (!tab) return;
 
+        if (tab === 'caja-turnos' && !moduloCajaActivo) {
+            btn.style.display = 'none';
+            return;
+        }
+
         if (esKiosco) {
             btn.style.display = 'none';
         } else if (esAdmin) {
@@ -174,6 +186,9 @@ function configurarVistasPorRol(usuario) {
 
     // Encabezado y badges
     actualizarUIUsuarioActual();
+    if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+        window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+    }
 
     // Determinar la vista actualmente visible en el DOM
     const activeView = document.querySelector('.view-content.active')?.id || 
