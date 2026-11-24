@@ -80,6 +80,16 @@ service cloud.firestore {
     match /egresos_caja/{egresoId} {
       allow read, write: if true;
     }
+    match /resenas_sugerencias/{resenaId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.comentario is string
+        && request.resource.data.comentario.size() >= 5
+        && request.resource.data.comentario.size() <= 600
+        && request.resource.data.calificacion is number
+        && request.resource.data.calificacion >= 1
+        && request.resource.data.calificacion <= 5;
+      allow delete: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

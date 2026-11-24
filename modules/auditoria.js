@@ -264,7 +264,20 @@ function renderizarAuditoria(filtro = "") {
 }
 
 function filtrarAuditoria() {
-    renderizarAuditoria(document.getElementById('auditoria-search')?.value || "");
+    const val = document.getElementById('auditoria-search')?.value || "";
+    if (!val.trim()) {
+        if (typeof programarFiltroFluido === 'function') {
+            programarFiltroFluido('audit-search', () => renderizarAuditoria(""), 0);
+        } else {
+            renderizarAuditoria("");
+        }
+        return;
+    }
+    if (typeof programarFiltroFluido === 'function') {
+        programarFiltroFluido('audit-search', () => renderizarAuditoria(val), 95);
+    } else {
+        renderizarAuditoria(val);
+    }
 }
 
 // Se dispara cuando el usuario captura/edita la cantidad física de un producto.

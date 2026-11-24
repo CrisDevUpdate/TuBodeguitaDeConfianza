@@ -260,6 +260,26 @@
         "autorizadoPor": "string",
         "fecha": "string"
       }
+    },
+    {
+      "collection": "resenas_sugerencias",
+      "fields": {
+        "id": "string",
+        "clienteId": "string",
+        "clienteCedula": "string",
+        "clienteNombre": "string",
+        "clienteTelefono": "string",
+        "tipo": "string",
+        "calificacion": "number",
+        "titulo": "string",
+        "comentario": "string",
+        "estado": "string",
+        "respuestaAdmin": "string",
+        "fechaRespuesta": "string",
+        "fecha": "string",
+        "timestamp": "number",
+        "updatedAt": "string"
+      }
     }
   ]
 }

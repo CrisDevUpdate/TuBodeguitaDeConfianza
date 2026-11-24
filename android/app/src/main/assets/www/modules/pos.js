@@ -715,7 +715,20 @@ function renderizarPosProductos(filtro = null) {
 
 function filtrarPosProductos() {
     const input = document.getElementById('pos-search');
-    renderizarPosProductos(input ? input.value : "");
+    const val = input ? input.value : "";
+    if (!val.trim()) {
+        if (typeof programarFiltroFluido === 'function') {
+            programarFiltroFluido('pos-search', () => renderizarPosProductos(""), 0);
+        } else {
+            renderizarPosProductos("");
+        }
+        return;
+    }
+    if (typeof programarFiltroFluido === 'function') {
+        programarFiltroFluido('pos-search', () => renderizarPosProductos(val), 95);
+    } else {
+        renderizarPosProductos(val);
+    }
 }
 
 // =========================================================================
@@ -1078,10 +1091,15 @@ function agregarAlCarritoConPresentacion(id, tipoPresentacion = 'unidad', cantid
     renderizarCarrito();
 
     if (window.navigator && window.navigator.vibrate) {
-        try { window.navigator.vibrate(25); } catch {}
+        try { window.navigator.vibrate(20); } catch {}
     }
     animarBotonAgregar(id);
     animarBarraCarritoMobile();
+    if (typeof animarPulsoElemento === 'function') {
+        animarPulsoElemento('pos-total-usd', 'ui-pop-active');
+        animarPulsoElemento('pos-cart-badge-count', 'ui-pop-active');
+        animarPulsoElemento('pos-mobile-badge-count', 'ui-pop-active');
+    }
 }
 
 /**

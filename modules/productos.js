@@ -782,7 +782,19 @@ function filtrarInventarioTexto(valor) {
     if (btnClear) {
         btnClear.style.display = busquedaInventario ? 'inline-flex' : 'none';
     }
-    renderizarInventario();
+    if (!busquedaInventario) {
+        if (typeof programarFiltroFluido === 'function') {
+            programarFiltroFluido('inv-search', renderizarInventario, 0);
+        } else {
+            renderizarInventario();
+        }
+        return;
+    }
+    if (typeof programarFiltroFluido === 'function') {
+        programarFiltroFluido('inv-search', renderizarInventario, 95);
+    } else {
+        renderizarInventario();
+    }
 }
 window.filtrarInventarioTexto = filtrarInventarioTexto;
 

@@ -510,6 +510,10 @@
         animarCardProducto(productoId);
         actualizarResumenCarritoKiosco();
         renderizarProductosKiosco();
+        if (typeof window.animarPulsoElemento === 'function') {
+            window.animarPulsoElemento('kiosco-bottom-cart-bar', 'ui-pop-active');
+            window.animarPulsoElemento('kiosco-cart-count', 'ui-pop-active');
+        }
 
         if (window.InventoryApp?.Modal?.toast) {
             window.InventoryApp.Modal.toast(`Agregado: ${prod.nombre}`, 'info', 1500);
@@ -1177,7 +1181,7 @@
             // Generar identificador de pedido único de Auto-servicio de Confianza
             const consecutivo = (window.AppState?.ventas?.length || 0) + 1;
             const pedidoId = `AUT_${consecutivo}_${Date.now().toString().slice(-4)}`;
-            const fechaHora = new Date().toISOString().replace('T', ' ').substring(0, 16);
+            const fechaHora = (typeof fechaHoraActual === 'function') ? fechaHoraActual() : ((typeof obtenerFechaHoraLocal === 'function') ? obtenerFechaHoraLocal() : new Date().toLocaleDateString('en-CA') + ' ' + new Date().toTimeString().slice(0, 5));
 
             const itemsPedido = carritoKiosco.map(item => ({
                 productoId: item.productoId,
@@ -1499,7 +1503,19 @@
      */
     function alBuscarProducto(term) {
         busquedaKiosco = term || '';
-        renderizarProductosKiosco();
+        if (!busquedaKiosco.trim()) {
+            if (typeof window.programarFiltroFluido === 'function') {
+                window.programarFiltroFluido('kiosco-search', renderizarProductosKiosco, 0);
+            } else {
+                renderizarProductosKiosco();
+            }
+            return;
+        }
+        if (typeof window.programarFiltroFluido === 'function') {
+            window.programarFiltroFluido('kiosco-search', renderizarProductosKiosco, 95);
+        } else {
+            renderizarProductosKiosco();
+        }
     }
 
     /**

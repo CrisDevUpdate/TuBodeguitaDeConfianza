@@ -77,6 +77,9 @@ function renderizarConfiguracionAdmin() {
             </div>
         </div>
 
+        <!-- MÓDULO: Buzón de Reseñas y Sugerencias de Clientes -->
+        <div id="config-resenas-sugerencias-box"></div>
+
         <!-- MÓDULO: Número de WhatsApp Oficial para Clientes & Pedidos -->
         <div id="config-whatsapp-box"></div>
 
@@ -458,6 +461,11 @@ Tu canje del Premio del Mes ha sido confirmado con éxito. Puedes retirarlo en n
     // Renderizar Selector de Temas del Administrador
     if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.renderizarGestorAdmin === 'function') {
         window.InventoryApp.Theme.renderizarGestorAdmin('config-theme-manager-box');
+    }
+
+    // Renderizar Buzón de Reseñas y Sugerencias de Clientes
+    if (typeof renderizarBuzonResenasAdmin === 'function') {
+        renderizarBuzonResenasAdmin();
     }
 
     // Inicializar frase de sabiduría en tarjeta de administración

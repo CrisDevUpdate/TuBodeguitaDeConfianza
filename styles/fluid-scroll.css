@@ -1,7 +1,7 @@
 /**
  * styles/fluid-scroll.css
- * MÓDULO 1: Navegación Fluida, Scroll Dinámico y Animaciones
- * Lenis / Smooth Momentum Scroll Styles + Dynamic Intersection Scroll Reveals
+ * Navegación Fluida, Micro-Interacciones Táctiles y Optimización de Rendimiento 60fps
+ * Reglas estrictamente compuestas por GPU (transform / opacity) sin blur animado ni layout thrashing.
  */
 
 @charset "UTF-8";
@@ -14,8 +14,8 @@ html {
 }
 
 body {
-    transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: background-color 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+                color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* 2. Barra de Desplazamiento Personalizada y Fluida */
@@ -34,7 +34,7 @@ body {
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.18s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -63,71 +63,222 @@ body {
     border-radius: 6px;
 }
 
-/* 3. Animaciones Dinámicas de Entrada al Desplazarse (Dynamic Scroll Reveal) */
+/* 3. Transición Ligera de Vistas (GPU-Only: opacity + translateY) */
+@keyframes viewEnterFast {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 6px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.view-content.active {
+    animation: viewEnterFast 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 4. Revelaciones al Desplazarse (SIN filter: blur ni will-change permanente) */
 .reveal-on-scroll {
     opacity: 0;
-    transform: translateY(24px) scale(0.98);
-    filter: blur(4px);
-    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
-                filter 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: opacity, transform, filter;
+    transform: translate3d(0, 14px, 0);
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reveal-on-scroll.revealed,
 .reveal-on-scroll.is-visible {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
+    transform: translate3d(0, 0, 0);
 }
 
-/* Revelaciones Escalonadas (Staggered Reveals) */
-.stagger-group > *:nth-child(1) { transition-delay: 0.05s; }
-.stagger-group > *:nth-child(2) { transition-delay: 0.10s; }
-.stagger-group > *:nth-child(3) { transition-delay: 0.15s; }
-.stagger-group > *:nth-child(4) { transition-delay: 0.20s; }
-.stagger-group > *:nth-child(5) { transition-delay: 0.25s; }
-.stagger-group > *:nth-child(6) { transition-delay: 0.30s; }
-.stagger-group > *:nth-child(7) { transition-delay: 0.35s; }
-.stagger-group > *:nth-child(8) { transition-delay: 0.40s; }
+/* Escalonamiento compacto y rápido (<= 160ms total) */
+.stagger-group > *:nth-child(1) { transition-delay: 0.02s; }
+.stagger-group > *:nth-child(2) { transition-delay: 0.04s; }
+.stagger-group > *:nth-child(3) { transition-delay: 0.06s; }
+.stagger-group > *:nth-child(4) { transition-delay: 0.08s; }
+.stagger-group > *:nth-child(5) { transition-delay: 0.10s; }
+.stagger-group > *:nth-child(6) { transition-delay: 0.12s; }
+.stagger-group > *:nth-child(7) { transition-delay: 0.14s; }
+.stagger-group > *:nth-child(8) { transition-delay: 0.16s; }
 
-/* 4. Efectos de Elevación y Desenfoque en Tarjetas del Catálogo */
-.cliente-prod-card {
-    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
-                box-shadow 0.28s ease,
-                border-color 0.2s ease;
-    will-change: transform, box-shadow;
+/* 5. Física Táctil y Micro-Interacciones en Controles (Cero transition: all) */
+.btn,
+.nav-btn,
+.bottom-nav-item,
+.chip-filter,
+.inv-chip,
+.pos-cat-chip,
+.kiosco-cat-chip,
+.cliente-btn-add,
+.kiosco-btn-add-touch,
+.kiosco-card-step-btn,
+.pos-stepper-btn,
+.combo-carousel-btn,
+.audit-btn-apply-row {
+    transition: transform 0.14s cubic-bezier(0.2, 0, 0, 1),
+                background-color 0.15s ease,
+                border-color 0.15s ease,
+                box-shadow 0.15s ease,
+                color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.cliente-prod-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.12),
-                0 4px 10px -2px rgba(15, 23, 42, 0.05);
-    border-color: rgba(37, 99, 235, 0.35);
+.btn:active:not(:disabled),
+.nav-btn:active:not(:disabled),
+.bottom-nav-item:active,
+.chip-filter:active,
+.inv-chip:active,
+.pos-cat-chip:active,
+.kiosco-cat-chip:active,
+.cliente-btn-add:active:not(:disabled),
+.kiosco-btn-add-touch:active:not(:disabled),
+.kiosco-card-step-btn:active,
+.pos-stepper-btn:active,
+.combo-carousel-btn:active:not(:disabled),
+.audit-btn-apply-row:active:not(:disabled) {
+    transform: scale(0.96);
 }
 
-.cliente-prod-thumb-wrapper img {
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+/* 6. Tarjetas Interactivas & Renderizado Eficiente Fuera de Pantalla */
+.cliente-prod-card,
+.pos-prod-card,
+.kiosco-product-card,
+.combo-carousel-item,
+.presentacion-opt-card,
+.kiosco-mode-card {
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.18s ease,
+                border-color 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.cliente-prod-card:hover .cliente-prod-thumb-wrapper img {
-    transform: scale(1.05);
+.cliente-prod-card:active:not(.card-agotado),
+.pos-prod-card:active:not(.out-of-stock),
+.kiosco-product-card:active:not(.card-agotado),
+.combo-carousel-item:active:not(.card-agotado),
+.presentacion-opt-card:active,
+.kiosco-mode-card:active {
+    transform: scale(0.985);
 }
 
-/* 5. Transiciones Suaves para Modales y Paneles */
+/* Elevación sutil únicamente en dispositivos con ratón/hover real */
+@media (hover: hover) and (pointer: fine) {
+    .cliente-prod-card:hover:not(.card-agotado),
+    .pos-prod-card:hover:not(.out-of-stock),
+    .kiosco-product-card:hover:not(.card-agotado),
+    .combo-carousel-item:hover:not(.card-agotado) {
+        transform: translate3d(0, -3px, 0);
+        box-shadow: 0 10px 22px -6px rgba(15, 23, 42, 0.12),
+                    0 3px 8px -2px rgba(15, 23, 42, 0.05);
+        border-color: rgba(37, 99, 235, 0.35);
+    }
+
+    .cliente-prod-card:hover .cliente-prod-img,
+    .cliente-prod-card:hover .cliente-prod-thumb-wrapper img,
+    .combo-carousel-item:hover .combo-carousel-img {
+        transform: scale(1.04);
+    }
+
+    .kpi-card:hover,
+    .audit-kpi-card:hover {
+        transform: translate3d(0, -2px, 0);
+    }
+}
+
+.cliente-prod-img,
+.cliente-prod-thumb-wrapper img,
+.combo-carousel-img {
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-card,
+.audit-kpi-card {
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.18s ease;
+}
+
+/* Ahorro real de CPU/pintado en listas largas (productos, inventario y auditoría) */
+.cliente-prod-card,
+.pos-prod-card,
+.kiosco-product-card,
+.auditoria-item-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 190px;
+}
+
+/* Números tabulares para evitar saltos horizontales al actualizar precios, totales o KPIs */
+.price-usd,
+.price-ves,
+.kiosco-price-usd,
+.kiosco-price-ves,
+.combo-carousel-price,
+.kpi-value,
+.audit-kpi-val,
+.num,
+#pos-total-usd,
+#pos-total-ves,
+#pos-mobile-total-usd,
+#pos-mobile-total-ves,
+#cliente-carrito-total-usd,
+#cliente-carrito-total-ves,
+#cliente-floating-total-usd,
+#cliente-floating-total-ves,
+#cliente-banner-puntos-val {
+    font-variant-numeric: tabular-nums;
+}
+
+/* 7. Micro-Animaciones Elásticas de Feedback (Carrito, Badges, Frases) */
+@keyframes uiPopFast {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.07); }
+    75%  { transform: scale(0.98); }
+    100% { transform: scale(1); }
+}
+
+.ui-pop-active {
+    animation: uiPopFast 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes quoteSwapIn {
+    0% {
+        opacity: 0;
+        transform: translate3d(0, 5px, 0);
+    }
+    100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.quote-swap-active {
+    animation: quoteSwapIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes uiSpinOnce {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.ui-spin-once {
+    animation: uiSpinOnce 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 8. Transiciones Suaves para Modales y Paneles */
 .custom-modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 100000 !important;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.28s ease, visibility 0.28s ease;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
     padding: 16px;
 }
 
@@ -143,20 +294,31 @@ body {
     width: 100%;
     max-width: 480px;
     box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25);
-    transform: scale(0.92) translateY(12px);
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                opacity 0.3s ease;
+    transform: scale(0.95) translate3d(0, 10px, 0);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.2s ease;
     opacity: 0;
     border: 1px solid var(--border-light, #e2e8f0);
 }
 
 .custom-modal-backdrop.active .custom-modal-card,
 .custom-modal-card.active {
-    transform: scale(1) translateY(0);
+    transform: scale(1) translate3d(0, 0, 0);
     opacity: 1;
 }
 
-/* 6. Toasts Flotantes con Entradas Cinemáticas */
+/* Optimización GPU móvil: evitar backdrop-filter costoso en teléfonos */
+@media (max-width: 768px) {
+    .custom-modal-backdrop,
+    .modal-overlay,
+    .pos-cart-drawer-overlay {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(15, 23, 42, 0.66);
+    }
+}
+
+/* 9. Toasts Flotantes Ágiles */
 .custom-toast-container {
     position: fixed;
     bottom: 24px;
@@ -181,39 +343,39 @@ body {
     align-items: center;
     gap: 12px;
     font-size: 0.9rem;
-    animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: toastSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .custom-toast-item.toast-fade-out {
-    animation: toastSlideOut 0.25s ease forwards;
+    animation: toastSlideOut 0.18s ease forwards;
 }
 
 @keyframes toastSlideIn {
     from {
         opacity: 0;
-        transform: translateX(40px) scale(0.95);
+        transform: translate3d(28px, 0, 0) scale(0.96);
     }
     to {
         opacity: 1;
-        transform: translateX(0) scale(1);
+        transform: translate3d(0, 0, 0) scale(1);
     }
 }
 
 @keyframes toastSlideOut {
     from {
         opacity: 1;
-        transform: translateX(0) scale(1);
+        transform: translate3d(0, 0, 0) scale(1);
     }
     to {
         opacity: 0;
-        transform: translateX(40px) scale(0.9);
+        transform: translate3d(28px, 0, 0) scale(0.94);
     }
 }
 
-/* 7. Animaciones del Árbol de Puntos y Micro-interacciones */
+/* 10. Animaciones del Árbol de Puntos y Micro-interacciones */
 .tree-growth-svg {
     filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));
-    transition: transform 0.4s ease;
+    transition: transform 0.3s ease;
 }
 
 .tree-growth-svg:hover {
@@ -246,4 +408,37 @@ body {
     0% { transform: translate(150px, 160px) scaleX(1); }
     50% { transform: translate(153px, 158px) scaleX(0.85); }
     100% { transform: translate(156px, 156px) scaleX(1); }
+}
+
+/* 11. Respeto Estricto a Preferencia de Movimiento Reducido */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+    .view-content.active,
+    .ui-pop-active,
+    .quote-swap-active,
+    .ui-spin-once,
+    .custom-toast-item,
+    .particle-float-1,
+    .particle-float-2,
+    .particle-float-3,
+    .sprout-leaves,
+    .animated-caterpillar-left {
+        animation: none !important;
+    }
+    .reveal-on-scroll,
+    .cliente-prod-card,
+    .pos-prod-card,
+    .kiosco-product-card,
+    .combo-carousel-item,
+    .custom-modal-backdrop,
+    .custom-modal-card,
+    .btn,
+    .nav-btn,
+    .bottom-nav-item {
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
 }

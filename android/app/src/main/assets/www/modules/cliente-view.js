@@ -103,15 +103,25 @@ function cambiarFraseAleatoria() {
     const elemTexto = document.getElementById('cliente-frase-texto');
     const elemAutor = document.getElementById('cliente-frase-autor');
     const elemCat = document.getElementById('cliente-frase-categoria');
+    const btnOtraIcon = document.querySelector('#cliente-btn-otra-frase i');
 
     if (elemTexto && fraseActualSeleccionada) {
         elemTexto.textContent = `"${fraseActualSeleccionada.frase}"`;
+        if (typeof animarPulsoElemento === 'function') {
+            animarPulsoElemento(elemTexto, 'quote-swap-active', 240);
+        }
     }
     if (elemAutor && fraseActualSeleccionada) {
         elemAutor.textContent = `— ${fraseActualSeleccionada.autor}`;
+        if (typeof animarPulsoElemento === 'function') {
+            animarPulsoElemento(elemAutor, 'quote-swap-active', 240);
+        }
     }
     if (elemCat && fraseActualSeleccionada) {
         elemCat.textContent = fraseActualSeleccionada.categoria;
+    }
+    if (btnOtraIcon && typeof animarPulsoElemento === 'function') {
+        animarPulsoElemento(btnOtraIcon, 'ui-spin-once', 360);
     }
 }
 window.cambiarFraseAleatoria = cambiarFraseAleatoria;
@@ -574,7 +584,19 @@ function filtrarCatalogoPorCategoria(cat) {
 
 function buscarEnCatalogoCliente(val) {
     clienteBusqueda = val;
-    renderizarCatalogoCliente();
+    if (!String(val || '').trim()) {
+        if (typeof programarFiltroFluido === 'function') {
+            programarFiltroFluido('cliente-search', renderizarCatalogoCliente, 0);
+        } else {
+            renderizarCatalogoCliente();
+        }
+        return;
+    }
+    if (typeof programarFiltroFluido === 'function') {
+        programarFiltroFluido('cliente-search', renderizarCatalogoCliente, 95);
+    } else {
+        renderizarCatalogoCliente();
+    }
 }
 
 function filtrarCatalogoCliente(val) {
@@ -587,7 +609,11 @@ function filtrarCatalogoCliente(val) {
 function agregarAlCarritoCliente(id) {
     const p = (AppState.productos || []).find(prod => prod.id === id) || (AppState.combos || []).find(c => c.id === id);
     if (!p || Number(p.stock || 0) <= 0) {
-        alert('Producto no disponible o sin existencia.');
+        if (typeof showCustomToast === 'function') {
+            showCustomToast('Producto no disponible o sin existencia.', 'warning');
+        } else {
+            alert('Producto no disponible o sin existencia.');
+        }
         return;
     }
 
@@ -602,7 +628,11 @@ function agregarAlCarritoCliente(id) {
             itemEnCarrito.cantidad++;
             if (!itemEnCarrito.imagen && p.imagen) itemEnCarrito.imagen = p.imagen;
         } else {
-            alert(`Stock máximo disponible alcanzado (${p.stock} unid).`);
+            if (typeof showCustomToast === 'function') {
+                showCustomToast(`Stock máximo disponible alcanzado (${p.stock} unid).`, 'warning');
+            } else {
+                alert(`Stock máximo disponible alcanzado (${p.stock} unid).`);
+            }
             return;
         }
     } else {
@@ -616,14 +646,27 @@ function agregarAlCarritoCliente(id) {
     }
 
     renderizarCarritoCliente();
-    if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
-    if (typeof renderizarCarrito === 'function') renderizarCarrito();
 
-    // Feedback visual flotante
+    // Evitar re-renderizar vistas del POS ocultas en cada toque del cliente (ahorro de CPU/DOM)
+    const posView = document.getElementById('pos');
+    if (posView && posView.classList.contains('active')) {
+        if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+        if (typeof renderizarCarrito === 'function') renderizarCarrito();
+    }
+
+    if (window.navigator && window.navigator.vibrate) {
+        try { window.navigator.vibrate(18); } catch {}
+    }
+
+    // Feedback visual táctil inmediato
     const floatingBar = document.getElementById('cliente-floating-cart-bar');
-    if (floatingBar) {
+    if (typeof animarPulsoElemento === 'function') {
+        if (floatingBar) animarPulsoElemento(floatingBar, 'ui-pop-active');
+        animarPulsoElemento('cliente-carrito-count', 'ui-pop-active');
+        animarPulsoElemento('cliente-floating-cart-count', 'ui-pop-active');
+    } else if (floatingBar) {
         floatingBar.classList.add('pulse-highlight');
-        setTimeout(() => floatingBar.classList.remove('pulse-highlight'), 600);
+        setTimeout(() => floatingBar.classList.remove('pulse-highlight'), 450);
     }
 }
 

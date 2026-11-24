@@ -1301,7 +1301,19 @@ function alBuscarCliente(val) {
     busquedaCliente = (val || '').toLowerCase().trim();
     const btnLimpiar = document.getElementById('btn-limpiar-buscar-cliente');
     if (btnLimpiar) btnLimpiar.style.display = busquedaCliente ? 'block' : 'none';
-    renderizarClientes();
+    if (!busquedaCliente) {
+        if (typeof programarFiltroFluido === 'function') {
+            programarFiltroFluido('cli-search', renderizarClientes, 0);
+        } else {
+            renderizarClientes();
+        }
+        return;
+    }
+    if (typeof programarFiltroFluido === 'function') {
+        programarFiltroFluido('cli-search', renderizarClientes, 95);
+    } else {
+        renderizarClientes();
+    }
 }
 window.alBuscarCliente = alBuscarCliente;
 

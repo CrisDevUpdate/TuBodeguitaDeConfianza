@@ -433,7 +433,8 @@ window.InventoryApp = window.InventoryApp || {};
         PROVEEDORES: 'proveedores',
         NOTIFICACIONES: 'notifications',
         TURNOS: 'cajas_turnos',
-        EGRESOS: 'egresos_caja'
+        EGRESOS: 'egresos_caja',
+        RESENAS_SUGERENCIAS: 'resenas_sugerencias'
     };
 
     /**
@@ -902,7 +903,8 @@ window.InventoryApp = window.InventoryApp || {};
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
                 obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
-                obtenerColeccionSegura(COLLECTIONS.NOTIFICACIONES)
+                obtenerColeccionSegura(COLLECTIONS.NOTIFICACIONES),
+                obtenerColeccionSegura(COLLECTIONS.RESENAS_SUGERENCIAS)
             ];
 
             if (esAdmin) {
@@ -929,16 +931,17 @@ window.InventoryApp = window.InventoryApp || {};
             const snapConfig = resultados[6];
             const snapPagosPorVerificar = resultados[7];
             const snapNotificaciones = resultados[8];
+            const snapResenas = resultados[9];
 
-            const snapTx = esAdmin ? resultados[9] : null;
-            const snapAud = esAdmin ? resultados[10] : null;
-            const snapElim = esAdmin ? resultados[11] : null;
-            const snapCliElim = esAdmin ? resultados[12] : null;
-            const snapFacturas = esAdmin ? resultados[13] : null;
-            const snapKardex = esAdmin ? resultados[14] : null;
-            const snapProveedores = esAdmin ? resultados[15] : null;
-            const snapTurnos = esAdmin ? resultados[16] : null;
-            const snapEgresos = esAdmin ? resultados[17] : null;
+            const snapTx = esAdmin ? resultados[10] : null;
+            const snapAud = esAdmin ? resultados[11] : null;
+            const snapElim = esAdmin ? resultados[12] : null;
+            const snapCliElim = esAdmin ? resultados[13] : null;
+            const snapFacturas = esAdmin ? resultados[14] : null;
+            const snapKardex = esAdmin ? resultados[15] : null;
+            const snapProveedores = esAdmin ? resultados[16] : null;
+            const snapTurnos = esAdmin ? resultados[17] : null;
+            const snapEgresos = esAdmin ? resultados[18] : null;
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
             const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
@@ -1182,6 +1185,26 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }
 
+            if (snapResenas && !snapResenas.empty) {
+                const cloudResenas = snapResenas.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+                const mapRes = new Map();
+                cloudResenas.forEach(r => { if (r && r.id) mapRes.set(r.id, r); });
+                // Preservar reseñas locales aún pendientes de subir y subirlas automáticamente
+                (AppState.resenasSugerencias || []).forEach(localR => {
+                    if (localR && localR.id && !mapRes.has(localR.id) && localR.sincronizadoNube === false) {
+                        mapRes.set(localR.id, localR);
+                        guardarResenaSugerenciaCloud(localR).catch(() => {});
+                    }
+                });
+                AppState.resenasSugerencias = Array.from(mapRes.values()).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+                try {
+                    localStorage.setItem('bodeguita_cache_resenas_v1', JSON.stringify(AppState.resenasSugerencias));
+                } catch (_) {}
+                if (typeof actualizarBadgeResenasAdmin === 'function') {
+                    actualizarBadgeResenasAdmin();
+                }
+            }
+
             if (window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.asegurarUsuarioAdminInicial === 'function') {
                 window.InventoryApp.Persistence.asegurarUsuarioAdminInicial();
             }
@@ -1411,6 +1434,24 @@ window.InventoryApp = window.InventoryApp || {};
                     payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 } catch (e) {}
                 batch.set(ref, payload, { merge: true });
+            });
+
+            // Reseñas y Sugerencias de Clientes
+            (AppState.resenasSugerencias || []).forEach(r => {
+                const id = String(r.id || `RES_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`);
+                const comentarioVal = String(r.comentario || '').trim().slice(0, 600);
+                if (comentarioVal.length >= 5) {
+                    const ref = db.collection(COLLECTIONS.RESENAS_SUGERENCIAS).doc(id);
+                    const payload = sanitizarObjetoParaFirestore({
+                        ...r,
+                        id,
+                        comentario: comentarioVal,
+                        calificacion: Math.max(1, Math.min(5, Number(r.calificacion || 5))),
+                        sincronizadoNube: true
+                    }) || {};
+                    payload.updatedAt = new Date().toISOString();
+                    batch.set(ref, payload, { merge: true });
+                }
             });
 
             // Configuración
@@ -2297,6 +2338,30 @@ window.InventoryApp = window.InventoryApp || {};
                 console.warn('[Firebase] No se pudo inicializar listener de notificaciones:', notifErr);
             }
 
+            // Listener en tiempo real de Reseñas y Sugerencias de Clientes
+            try {
+                const unsubResenasSync = db.collection(COLLECTIONS.RESENAS_SUGERENCIAS).onSnapshot(snapshot => {
+                    if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+                    const cloudResenas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+                    AppState.resenasSugerencias = cloudResenas.sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+                    try {
+                        localStorage.setItem('bodeguita_cache_resenas_v1', JSON.stringify(AppState.resenasSugerencias));
+                    } catch (_) {}
+                    if (typeof actualizarBadgeResenasAdmin === 'function') {
+                        actualizarBadgeResenasAdmin();
+                    }
+                    const activeView = document.querySelector('.view-content.active')?.id;
+                    if (activeView === 'cliente-resenas' && typeof renderizarVistaResenasCliente === 'function') {
+                        renderizarVistaResenasCliente();
+                    } else if ((activeView === 'admin-resenas' || activeView === 'configuracion') && typeof renderizarBuzonResenasAdmin === 'function') {
+                        renderizarBuzonResenasAdmin();
+                    }
+                }, err => console.warn('[Firebase] Aviso en listener de reseñas:', err?.message));
+                syncListeners.push(unsubResenasSync);
+            } catch (resErr) {
+                console.warn('[Firebase] No se pudo inicializar listener de reseñas:', resErr);
+            }
+
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
         }
@@ -2342,6 +2407,10 @@ window.InventoryApp = window.InventoryApp || {};
             if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         } else if (activeView === 'cliente-premio') {
             if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        } else if (activeView === 'cliente-resenas') {
+            if (typeof renderizarVistaResenasCliente === 'function') renderizarVistaResenasCliente();
+        } else if (activeView === 'admin-resenas' || activeView === 'configuracion') {
+            if (typeof renderizarBuzonResenasAdmin === 'function') renderizarBuzonResenasAdmin();
         } else if (activeView === 'kiosco-view') {
             if (window.KioscoModule && typeof window.KioscoModule.actualizarVista === 'function') {
                 window.KioscoModule.actualizarVista();
@@ -2356,6 +2425,7 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
         if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
         if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+        if (typeof actualizarBadgeResenasAdmin === 'function') actualizarBadgeResenasAdmin();
     }
 
     // =========================================================================
@@ -3152,6 +3222,120 @@ window.InventoryApp = window.InventoryApp || {};
                 manejarErrorCuota();
             } else {
                 console.error('[Firebase] Error al guardar notificación en Firestore:', error);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Cargar Reseñas y Sugerencias directamente desde Firestore
+     */
+    async function cargarResenasSugerenciasCloud() {
+        if (isQuotaExhausted) return AppState.resenasSugerencias || [];
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return AppState.resenasSugerencias || [];
+
+            const snap = await db.collection(COLLECTIONS.RESENAS_SUGERENCIAS).get();
+            const cloudResenas = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+            const mapRes = new Map();
+            cloudResenas.forEach(r => { if (r && r.id) mapRes.set(r.id, r); });
+
+            // Si hay reseñas locales marcadas como pendientes de subir, intentar subirlas ahora
+            const pendientes = (AppState.resenasSugerencias || []).filter(r => r && r.id && !mapRes.has(r.id) && r.sincronizadoNube === false);
+            for (const p of pendientes) {
+                const subido = await guardarResenaSugerenciaCloud(p);
+                mapRes.set(p.id, { ...p, sincronizadoNube: Boolean(subido) });
+            }
+
+            AppState.resenasSugerencias = Array.from(mapRes.values()).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+            try {
+                localStorage.setItem('bodeguita_cache_resenas_v1', JSON.stringify(AppState.resenasSugerencias));
+            } catch (_) {}
+
+            if (typeof actualizarBadgeResenasAdmin === 'function') {
+                actualizarBadgeResenasAdmin();
+            }
+            return AppState.resenasSugerencias;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.warn('[Firebase] Aviso al cargar reseñas desde Firestore:', error?.message || error);
+            }
+            return AppState.resenasSugerencias || [];
+        }
+    }
+
+    /**
+     * CRUD: Guardar / Actualizar Reseña o Sugerencia de Cliente en Firestore
+     */
+    async function guardarResenaSugerenciaCloud(item) {
+        if (!item || !item.id) return false;
+        if (isQuotaExhausted) return false;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            const id = String(item.id);
+            const comentarioSeguro = String(item.comentario || '').trim().slice(0, 600);
+            const calificacionSegura = Math.max(1, Math.min(5, Math.round(Number(item.calificacion || 5))));
+            if (comentarioSeguro.length < 5) return false;
+
+            const docRef = db.collection(COLLECTIONS.RESENAS_SUGERENCIAS).doc(id);
+            const payload = sanitizarObjetoParaFirestore({
+                ...item,
+                id,
+                comentario: comentarioSeguro,
+                calificacion: calificacionSegura,
+                sincronizadoNube: true
+            }) || {};
+            payload.updatedAt = new Date().toISOString();
+
+            await docRef.set(payload, { merge: true });
+            item.sincronizadoNube = true;
+            console.log('[Firebase] Reseña/sugerencia guardada en Firestore:', id);
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar reseña/sugerencia en Firestore:', {
+                    operationType: 'write',
+                    path: `${COLLECTIONS.RESENAS_SUGERENCIAS}/${item?.id}`,
+                    error: error?.message || String(error)
+                });
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Reseña o Sugerencia permanentemente en Firestore
+     */
+    async function eliminarResenaSugerenciaCloud(id) {
+        if (!id) return false;
+        if (isQuotaExhausted) return false;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            const docId = String(id);
+            await db.collection(COLLECTIONS.RESENAS_SUGERENCIAS).doc(docId).delete();
+            console.log('[Firebase] Reseña/sugerencia eliminada permanentemente de Firestore:', docId);
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar reseña/sugerencia en Firestore:', {
+                    operationType: 'delete',
+                    path: `${COLLECTIONS.RESENAS_SUGERENCIAS}/${id}`,
+                    error: error?.message || String(error)
+                });
             }
             return false;
         }
@@ -4503,6 +4687,9 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube,
         guardarTurnoCaja: guardarTurnoCajaCloud,
         guardarEgresoCaja: guardarEgresoCajaCloud,
+        guardarResenaSugerencia: guardarResenaSugerenciaCloud,
+        eliminarResenaSugerencia: eliminarResenaSugerenciaCloud,
+        cargarResenasSugerencias: cargarResenasSugerenciasCloud,
         iniciarListeners: iniciarListenersTiempoReal,
         detenerListeners: detenerListenersTiempoReal,
         getConfig: obtenerConfiguracion

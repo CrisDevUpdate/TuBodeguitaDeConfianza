@@ -1002,6 +1002,8 @@ function switchTab(tabId) {
             if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
         } else if (tabId === 'configuracion') {
             if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
+        } else if (tabId === 'admin-resenas') {
+            if (typeof renderizarBuzonResenasAdmin === 'function') renderizarBuzonResenasAdmin();
         } else if (tabId === 'cliente-catalogo') {
             if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
             if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
@@ -1009,6 +1011,8 @@ function switchTab(tabId) {
             if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
         } else if (tabId === 'cliente-premio') {
             if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+        } else if (tabId === 'cliente-resenas') {
+            if (typeof renderizarVistaResenasCliente === 'function') renderizarVistaResenasCliente();
         } else if (tabId === 'cliente-perfil') {
             if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
         } else if (tabId === 'kiosco-view') {

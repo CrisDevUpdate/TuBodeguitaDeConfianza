@@ -58,6 +58,7 @@ window.InventoryApp = window.InventoryApp || {};
         'telefonoWhatsApp',
         'exigirTurnoVendedor',
         'moduloCajaActivo',
+        'resenasSugerencias',
         'tasaUSD_BCV',
         'tasaEUR_BCV',
         'fechaTasaBCV',
@@ -245,6 +246,11 @@ window.InventoryApp = window.InventoryApp || {};
                 try {
                     localStorage.setItem('bodeguita_cache_notificaciones_v1', JSON.stringify(AppState.notificaciones));
                 } catch (nErr) {}
+            }
+            if (Array.isArray(AppState.resenasSugerencias)) {
+                try {
+                    localStorage.setItem('bodeguita_cache_resenas_v1', JSON.stringify(AppState.resenasSugerencias));
+                } catch (rErr) {}
             }
 
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
@@ -505,6 +511,17 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.notificaciones = AppState.notificaciones || [];
         }
 
+        if (!Array.isArray(AppState.resenasSugerencias) || AppState.resenasSugerencias.length === 0) {
+            try {
+                const rawR = localStorage.getItem('bodeguita_cache_resenas_v1');
+                if (rawR) {
+                    const parsedR = JSON.parse(rawR);
+                    if (Array.isArray(parsedR)) AppState.resenasSugerencias = parsedR;
+                }
+            } catch (e) {}
+            AppState.resenasSugerencias = AppState.resenasSugerencias || [];
+        }
+
         if (typeof asegurarSolvenciaRebeca === 'function') {
             asegurarSolvenciaRebeca();
         }
@@ -553,6 +570,8 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.categoriasPersonalizadas = [];
         AppState.nextProductSequence = 1;
         AppState.canjesPremios = [];
+        AppState.resenasSugerencias = [];
+        try { localStorage.removeItem('bodeguita_cache_resenas_v1'); } catch (_) {}
         AppState.treeProgress = { porcentaje: 0, puntosActuales: 0, puntosMeta: 200, ciclo: 1 };
         AppState.temporadaInviernoActiva = false;
         

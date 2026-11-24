@@ -510,6 +510,10 @@
         animarCardProducto(productoId);
         actualizarResumenCarritoKiosco();
         renderizarProductosKiosco();
+        if (typeof window.animarPulsoElemento === 'function') {
+            window.animarPulsoElemento('kiosco-bottom-cart-bar', 'ui-pop-active');
+            window.animarPulsoElemento('kiosco-cart-count', 'ui-pop-active');
+        }
 
         if (window.InventoryApp?.Modal?.toast) {
             window.InventoryApp.Modal.toast(`Agregado: ${prod.nombre}`, 'info', 1500);
@@ -1499,7 +1503,19 @@
      */
     function alBuscarProducto(term) {
         busquedaKiosco = term || '';
-        renderizarProductosKiosco();
+        if (!busquedaKiosco.trim()) {
+            if (typeof window.programarFiltroFluido === 'function') {
+                window.programarFiltroFluido('kiosco-search', renderizarProductosKiosco, 0);
+            } else {
+                renderizarProductosKiosco();
+            }
+            return;
+        }
+        if (typeof window.programarFiltroFluido === 'function') {
+            window.programarFiltroFluido('kiosco-search', renderizarProductosKiosco, 95);
+        } else {
+            renderizarProductosKiosco();
+        }
     }
 
     /**
