@@ -1814,12 +1814,12 @@ async function renderizarEstadoCuentaCliente() {
 
     const cedula = usuario.cedula || usuario.id;
 
-    // Sincronización directa y segura con Firestore para garantizar abonos y deuda 100% al día
+    // Si los listeners en tiempo real ya están activos, abonos/ventas/clientes están al día (0 lecturas extra)
     const now = Date.now();
-    if (window.InventoryApp?.Firebase?.sincronizarEstadoCuentaCliente) {
+    const listenersActivos = Boolean(window.InventoryApp?.Firebase?.tieneListenersActivos?.());
+    if (!listenersActivos && window.InventoryApp?.Firebase?.sincronizarEstadoCuentaCliente) {
         const tiempoSinSync = now - _ultimoSyncAccountStatus;
-        // Anti-ráfaga: los listeners en tiempo real ya mantienen abonos y ventas al día; no forzar peticiones repetitivas
-        if (tiempoSinSync > 60000) {
+        if (tiempoSinSync > 300000) {
             _ultimoSyncAccountStatus = now;
             try {
                 await window.InventoryApp.Firebase.sincronizarEstadoCuentaCliente(cedula);
@@ -1827,7 +1827,7 @@ async function renderizarEstadoCuentaCliente() {
                 console.warn('[ClienteView] Aviso sincronizando estado de cuenta desde Firestore:', errSync);
             }
         }
-    } else if (now - _ultimoSyncAccountStatus > 60000) {
+    } else if (!listenersActivos && now - _ultimoSyncAccountStatus > 300000) {
         _ultimoSyncAccountStatus = now;
         try {
             const resp = await fetch(`/api/account/status?userId=${encodeURIComponent(cedula)}`);

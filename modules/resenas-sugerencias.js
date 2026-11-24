@@ -168,8 +168,12 @@
     }
 
     async function sincronizarResenasDesdeFirebase(forzar = false) {
+        // Si el listener en tiempo real ya está activo, no hacer .get() extra al cambiar de pestaña (0 lecturas)
+        if (!forzar && window.InventoryApp?.Firebase?.tieneListenersActivos?.()) {
+            return;
+        }
         const ahora = Date.now();
-        if (!forzar && (ahora - ultimaSincronizacionResenasMs) < 12000) {
+        if (!forzar && (ahora - ultimaSincronizacionResenasMs) < 300000) {
             return;
         }
         ultimaSincronizacionResenasMs = ahora;

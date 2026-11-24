@@ -27,6 +27,7 @@ window.InventoryApp = window.InventoryApp || {};
     let auth = null;
     let inicializado = false;
     let syncListeners = [];
+    let listenersActivosKey = null;
     let isSaving = false;
     let cloudStatus = 'iniciando'; // 'conectado', 'sincronizando', 'offline', 'error'
     let lastCloudSync = null;
@@ -57,6 +58,20 @@ window.InventoryApp = window.InventoryApp || {};
         );
         const esActivo = (estado === 'ACTIVO' || !usuario.estado);
         return Boolean(esAdmin && esActivo);
+    }
+
+    function esUsuarioVendedorActivo(usuario) {
+        if (!usuario) return false;
+        const rol = String(usuario.rol || '').trim().toLowerCase();
+        const estado = String(usuario.estado || 'ACTIVO').trim().toUpperCase();
+        return Boolean((rol === 'vendedor' || rol === 'cajero') && (estado === 'ACTIVO' || !usuario.estado));
+    }
+
+    /**
+     * Indica si los listeners en tiempo real están activos y conectados para la sesión actual
+     */
+    function tieneListenersActivos() {
+        return Boolean(db && !isQuotaExhausted && syncListeners.length > 0 && listenersActivosKey);
     }
 
     let audioCtxSingleton = null;
@@ -371,6 +386,7 @@ window.InventoryApp = window.InventoryApp || {};
             } catch (e) {}
         });
         syncListeners = [];
+        listenersActivosKey = null;
     }
 
     /**
@@ -637,25 +653,44 @@ window.InventoryApp = window.InventoryApp || {};
             actualizarUIEstadoNube('conectado', 'Nube Conectada (Firestore)');
             console.log('[Firebase] Firestore inicializado exitosamente. Proyecto:', config.projectId);
 
-            // Iniciar sincronización inicial desde la nube
-            await sincronizarTodoDesdeNube();
-
-            // Escuchar cambios en tiempo real si hay usuario en sesión activa
+            // Estrategia anti-duplicación de lecturas (protección de cuota gratuita Spark):
+            // - Si hay usuario en sesión, arrancamos directamente los listeners en tiempo real (evitando
+            //   hacer un .get() completo justo antes de suscribir onSnapshot sobre las mismas colecciones).
+            // - Si es visitante público sin sesión, usamos sincronizarTodoDesdeNube() con caché de 6h (solo catálogo y config).
             const usuarioSesionInit = window.AppState?.usuarioActual;
             if (usuarioSesionInit) {
                 iniciarListenersTiempoReal();
+                // Turnos y Egresos solo se cargan si el Admin activó el módulo opcional de Caja
+                if (esUsuarioAdminActivo(usuarioSesionInit) && AppState.moduloCajaActivo) {
+                    Promise.all([
+                        obtenerColeccionSegura(COLLECTIONS.TURNOS),
+                        obtenerColeccionSegura(COLLECTIONS.EGRESOS)
+                    ]).then(([snapTurnos, snapEgresos]) => {
+                        if (snapTurnos && !snapTurnos.empty) {
+                            AppState.turnosCaja = snapTurnos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        }
+                        if (snapEgresos && !snapEgresos.empty) {
+                            AppState.egresosCaja = snapEgresos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        }
+                    }).catch(() => {});
+                }
+            } else {
+                await sincronizarTodoDesdeNube();
             }
 
-            // Re-validación en foco de ventana (Multi-Device Parity) para usuarios con sesión activa
+            // Re-validación ligera al volver a la pestaña:
+            // Si los listeners en tiempo real ya están activos, Firestore entrega los cambios automáticamente
+            // sin necesidad de re-descargar colecciones enteras cada 20 segundos.
             let lastFocusSync = 0;
             const revalidarEnFoco = () => {
                 if (isQuotaExhausted) return;
                 const usuarioSesion = window.AppState?.usuarioActual;
                 if (!usuarioSesion) return; // Visitantes sin login no revalidan
+                if (tieneListenersActivos()) return; // Los listeners en tiempo real ya mantienen todo al día (0 lecturas extra)
                 const now = Date.now();
-                if (now - lastFocusSync < 20000) return; // Mínimo 20 segundos entre chequeos de foco
+                if (now - lastFocusSync < 300000) return; // Mínimo 5 minutos si no había listeners activos
                 lastFocusSync = now;
-                sincronizarTodoDesdeNube(true).catch(() => {});
+                iniciarListenersTiempoReal();
             };
             window.addEventListener('focus', revalidarEnFoco);
             document.addEventListener('visibilitychange', () => {
@@ -667,6 +702,11 @@ window.InventoryApp = window.InventoryApp || {};
             // Escuchar cambios de conectividad de red
             window.addEventListener('online', () => {
                 if (isQuotaExhausted) return;
+                if (tieneListenersActivos()) {
+                    // El SDK de Firestore reconecta los listeners activos y descarga solo los cambios (deltas)
+                    actualizarUIEstadoNube('conectado', 'Sincronizado en tiempo real');
+                    return;
+                }
                 console.log('[Firebase] Conexión a internet reanudada. Sincronizando con Firestore...');
                 actualizarUIEstadoNube('sincronizando', 'Reconectando con la nube...');
                 sincronizarTodoDesdeNube().then(() => {
@@ -894,15 +934,16 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarUIEstadoNube('sincronizando', 'Sincronizando con la nube...');
 
         try {
+            const cajaActiva = Boolean(AppState.moduloCajaActivo);
             const promesas = [
                 obtenerColeccionSegura(COLLECTIONS.PRODUCTOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
                 obtenerColeccionSegura(COLLECTIONS.VENTAS),
                 obtenerColeccionSegura(COLLECTIONS.ABONOS),
-                obtenerColeccionSegura(COLLECTIONS.USUARIOS),
+                esAdmin ? obtenerColeccionSegura(COLLECTIONS.USUARIOS) : Promise.resolve(null),
                 obtenerColeccionSegura(COLLECTIONS.CANJES),
                 obtenerDocSeguro(COLLECTIONS.CONFIG, 'global'),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR),
+                esAdmin ? obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR) : Promise.resolve(null),
                 obtenerColeccionSegura(COLLECTIONS.NOTIFICACIONES),
                 obtenerColeccionSegura(COLLECTIONS.RESENAS_SUGERENCIAS)
             ];
@@ -916,8 +957,8 @@ window.InventoryApp = window.InventoryApp || {};
                     obtenerColeccionSegura(COLLECTIONS.FACTURAS),
                     obtenerColeccionSegura(COLLECTIONS.KARDEX),
                     obtenerColeccionSegura(COLLECTIONS.PROVEEDORES),
-                    obtenerColeccionSegura(COLLECTIONS.TURNOS),
-                    obtenerColeccionSegura(COLLECTIONS.EGRESOS)
+                    cajaActiva ? obtenerColeccionSegura(COLLECTIONS.TURNOS) : Promise.resolve(null),
+                    cajaActiva ? obtenerColeccionSegura(COLLECTIONS.EGRESOS) : Promise.resolve(null)
                 );
             }
 
@@ -1217,8 +1258,8 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }
 
-            // Validar si el usuario en sesión activa actual todavía existe en la base de datos
-            if (AppState.usuarioActual) {
+            // Validar si el usuario en sesión activa actual todavía existe en la base de datos (solo si descargamos usuarios)
+            if (snapUsuarios && !snapUsuarios.empty && AppState.usuarioActual) {
                 const idActual = AppState.usuarioActual.cedula || AppState.usuarioActual.id;
                 const esSuperAdmin = idActual === 'SuperAdmin' || (AppState.usuarioActual.email || '').toLowerCase() === 'superadmin@tubodeguita.com';
                 const existeEnNube = (AppState.usuarios || []).some(u => (u.cedula || u.id) === idActual || (u.email && u.email.toLowerCase() === (AppState.usuarioActual.email || '').toLowerCase()));
@@ -1506,18 +1547,30 @@ window.InventoryApp = window.InventoryApp || {};
     /**
      * Inicia listeners en tiempo real para mantener sincronizadas múltiples pestañas y clientes
      */
-    function iniciarListenersTiempoReal() {
+    function iniciarListenersTiempoReal(forzar = false) {
         if (!db || isQuotaExhausted) return;
-
-        // Limpiar listeners previos
-        detenerListenersTiempoReal();
 
         const usuarioSesion = window.AppState?.usuarioActual;
         const esAdmin = esUsuarioAdminActivo(usuarioSesion);
+        const esVendedor = esUsuarioVendedorActivo(usuarioSesion);
+        const esStaff = esAdmin || esVendedor;
         if (!usuarioSesion) {
             console.info('[Firebase Realtime] Visitante sin sesión activa: No se inician listeners en segundo plano.');
             return;
         }
+
+        const docIdUsuarioSesion = String(usuarioSesion.id || usuarioSesion.cedula || '').trim();
+        const cedulaUsuarioSesion = String(usuarioSesion.cedula || usuarioSesion.id || '').trim();
+        const targetKey = `${esAdmin ? 'ADMIN' : (esVendedor ? 'VENDEDOR' : 'CLIENTE')}:${docIdUsuarioSesion.toUpperCase()}`;
+
+        // Idempotencia: si los listeners ya están activos para este mismo usuario y rol, no reiniciarlos (0 lecturas extra)
+        if (!forzar && syncListeners.length > 0 && listenersActivosKey === targetKey) {
+            return;
+        }
+
+        // Limpiar listeners previos únicamente al cambiar de usuario/rol o al forzar
+        detenerListenersTiempoReal();
+        listenersActivosKey = targetKey;
 
         try {
             // Helper para persistir caché tras actualización en tiempo real
@@ -1615,7 +1668,10 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('clientes', err));
             syncListeners.push(unsubCli);
 
-            // Listener de usuarios con detección de nuevas solicitudes en tiempo real
+            // Listener de usuarios:
+            // - Admin/Vendedor escucha la colección completa (solicitudes de registro, cambios de clave, gestión).
+            // - Cliente escucha SOLO su propio documento (1 lectura en lugar de 50+).
+            if (esStaff) {
             let primerCargaUsuarios = true;
             const unsubUsu = db.collection(COLLECTIONS.USUARIOS).onSnapshot(snapshot => {
                 if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
@@ -1739,6 +1795,60 @@ window.InventoryApp = window.InventoryApp || {};
                 }
             }, err => manejarErrorListener('usuarios', err));
             syncListeners.push(unsubUsu);
+            } else if (docIdUsuarioSesion) {
+                let primerCargaUsuarioPropio = true;
+                const unsubMiUsuario = db.collection(COLLECTIONS.USUARIOS).doc(docIdUsuarioSesion).onSnapshot(docSnap => {
+                    if (docSnap.metadata && docSnap.metadata.hasPendingWrites) return;
+                    if (!docSnap.exists) {
+                        if (!primerCargaUsuarioPropio && AppState.usuarioActual) {
+                            const idDoc = AppState.usuarioActual.cedula || AppState.usuarioActual.id;
+                            if (idDoc !== 'SuperAdmin' && (AppState.usuarioActual.email || '').toLowerCase() !== 'superadmin@tubodeguita.com') {
+                                AppState.usuarioActual = null;
+                                guardarCacheLocal();
+                                if (typeof verificarGatewall === 'function') verificarGatewall();
+                                const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
+                                if (typeof alertFn === 'function') {
+                                    alertFn('Sesión Finalizada', 'Tu cuenta fue eliminada de la base de datos por el Administrador.', 'error');
+                                }
+                            }
+                        }
+                        primerCargaUsuarioPropio = false;
+                        return;
+                    }
+                    primerCargaUsuarioPropio = false;
+                    const u = { id: docSnap.id, ...docSnap.data() };
+                    const estadoPrevio = AppState.usuarioActual?.estado;
+                    if (AppState.usuarioActual) {
+                        const avatarPrevio = AppState.usuarioActual.avatar;
+                        AppState.usuarioActual = { ...AppState.usuarioActual, ...u };
+                        if (String(avatarPrevio || '').startsWith('data:') && !u.avatar) {
+                            AppState.usuarioActual.avatar = avatarPrevio;
+                        }
+                        if (estadoPrevio === 'PENDIENTE_APROBACION' && u.estado === 'ACTIVO') {
+                            if (typeof verificarGatewall === 'function') verificarGatewall();
+                            const alertFn = window.showAlert || window.showCustomAlert || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.alert);
+                            if (typeof alertFn === 'function') {
+                                alertFn('¡Cuenta Aprobada!', '¡Tu cuenta ha sido aprobada por el Administrador! Bienvenido al sistema.', 'success');
+                            }
+                        } else if (u.estado === 'RECHAZADO' && estadoPrevio !== 'RECHAZADO') {
+                            if (typeof verificarGatewall === 'function') verificarGatewall();
+                        }
+                    }
+                    if (!Array.isArray(AppState.usuarios)) AppState.usuarios = [];
+                    const idxU = AppState.usuarios.findIndex(x => x && (x.id === u.id || (u.cedula && x.cedula === u.cedula)));
+                    if (idxU !== -1) {
+                        AppState.usuarios[idxU] = { ...AppState.usuarios[idxU], ...u };
+                    } else {
+                        AppState.usuarios.push(u);
+                    }
+                    if (typeof actualizarUIUsuarioActual === 'function') {
+                        actualizarUIUsuarioActual();
+                    }
+                    guardarCacheLocal();
+                    solicitarRefrescoVistasDebounced();
+                }, err => manejarErrorListener('usuario_propio', err));
+                syncListeners.push(unsubMiUsuario);
+            }
 
             // Listener de ventas
             const unsubVentas = db.collection(COLLECTIONS.VENTAS).onSnapshot(snapshot => {
@@ -1924,7 +2034,8 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('abonos', err));
             syncListeners.push(unsubAbonos);
 
-            // Listener en tiempo real de PagosPorVerificar (ventas y abonos pendientes de revisión)
+            // Listener en tiempo real de PagosPorVerificar (exclusivo Admin: los clientes reciben aprobaciones vía abonos y notificaciones)
+            if (esAdmin) {
             let primerCargaPagosPorVerificar = true;
             const pagosPorVerificarNotificadosIds = new Set();
             const unsubPagosPorVerificar = db.collection(COLLECTIONS.PAGOS_POR_VERIFICAR).onSnapshot(snapshot => {
@@ -2066,6 +2177,7 @@ window.InventoryApp = window.InventoryApp || {};
                 }, () => {});
                 syncListeners.push(unsubDocAppStatePagos);
             } catch (e) {}
+            } // Fin if (esAdmin) PagosPorVerificar
 
             // Listeners exclusivos de administración total (Transacciones, Auditorías, Eliminaciones, Clientes Eliminados)
             if (esAdmin) {
@@ -2147,8 +2259,11 @@ window.InventoryApp = window.InventoryApp || {};
                 syncListeners.push(unsubCliElim);
             }
 
-            // Listener de canjes de premios
-            const unsubCanjes = db.collection(COLLECTIONS.CANJES).onSnapshot(snapshot => {
+            // Listener de canjes de premios (Admin: todos; Cliente: únicamente sus propios canjes)
+            const canjesQuery = esAdmin
+                ? db.collection(COLLECTIONS.CANJES)
+                : db.collection(COLLECTIONS.CANJES).where('clienteCedula', '==', cedulaUsuarioSesion);
+            const unsubCanjes = canjesQuery.onSnapshot(snapshot => {
                 if (!snapshot.metadata.hasPendingWrites) {
                     const newCanjes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     const hash = calcularHashColeccion(newCanjes);
@@ -2185,6 +2300,13 @@ window.InventoryApp = window.InventoryApp || {};
                             const row = document.getElementById('cliente-carrito-puntos-row');
                             if (row) row.style.display = cfg.temporadaInviernoActiva ? 'none' : 'flex';
                         }
+                        if (typeof cfg.moduloCajaActivo === 'boolean') {
+                            AppState.moduloCajaActivo = cfg.moduloCajaActivo;
+                            try { localStorage.setItem('bodeguita_modulo_caja_activo', String(cfg.moduloCajaActivo)); } catch (_) {}
+                            if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+                                window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                            }
+                        }
                         if (cfg.treeProgress) AppState.treeProgress = cfg.treeProgress;
                         if (Array.isArray(cfg.cuentasBancarias)) AppState.cuentasBancarias = cfg.cuentasBancarias;
                         if (cfg.telefonoWhatsApp) AppState.telefonoWhatsApp = cfg.telefonoWhatsApp;
@@ -2196,59 +2318,62 @@ window.InventoryApp = window.InventoryApp || {};
             }, err => manejarErrorListener('config', err));
             syncListeners.push(unsubConfig);
 
-            // Listener de proveedores en tiempo real
-            const unsubProv = db.collection(COLLECTIONS.PROVEEDORES).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newProv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newProv);
-                    if (lastCollectionHashes[COLLECTIONS.PROVEEDORES] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.PROVEEDORES] = hash;
-                        AppState.proveedores = newProv;
-                        if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
-                        newProv.forEach(p => {
-                            if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
-                                AppState.proveedoresFrecuentes.push(p.nombre);
+            // Listeners de Proveedores, Facturas y Kardex (EXCLUSIVOS DE ADMINISTRACIÓN: los clientes nunca ven estas colecciones)
+            if (esAdmin) {
+                // Listener de proveedores en tiempo real
+                const unsubProv = db.collection(COLLECTIONS.PROVEEDORES).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newProv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newProv);
+                        if (lastCollectionHashes[COLLECTIONS.PROVEEDORES] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.PROVEEDORES] = hash;
+                            AppState.proveedores = newProv;
+                            if (!Array.isArray(AppState.proveedoresFrecuentes)) AppState.proveedoresFrecuentes = [];
+                            newProv.forEach(p => {
+                                if (p && p.nombre && !AppState.proveedoresFrecuentes.includes(p.nombre)) {
+                                    AppState.proveedoresFrecuentes.push(p.nombre);
+                                }
+                            });
+                            guardarCacheLocal();
+                            if (typeof actualizarDatalistProveedores === 'function') {
+                                actualizarDatalistProveedores();
                             }
-                        });
-                        guardarCacheLocal();
-                        if (typeof actualizarDatalistProveedores === 'function') {
-                            actualizarDatalistProveedores();
                         }
                     }
-                }
-            }, err => manejarErrorListener('proveedores', err));
-            syncListeners.push(unsubProv);
+                }, err => manejarErrorListener('proveedores', err));
+                syncListeners.push(unsubProv);
 
-            // Listener de facturas de compras
-            const unsubFacturas = db.collection(COLLECTIONS.FACTURAS).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newFac = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newFac);
-                    if (lastCollectionHashes[COLLECTIONS.FACTURAS] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.FACTURAS] = hash;
-                        AppState.facturasCompras = newFac;
-                        guardarCacheLocal();
-                        if (typeof renderizarHistorialFacturas === 'function') {
-                            renderizarHistorialFacturas();
+                // Listener de facturas de compras
+                const unsubFacturas = db.collection(COLLECTIONS.FACTURAS).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newFac = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newFac);
+                        if (lastCollectionHashes[COLLECTIONS.FACTURAS] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.FACTURAS] = hash;
+                            AppState.facturasCompras = newFac;
+                            guardarCacheLocal();
+                            if (typeof renderizarHistorialFacturas === 'function') {
+                                renderizarHistorialFacturas();
+                            }
                         }
                     }
-                }
-            }, err => manejarErrorListener('facturas', err));
-            syncListeners.push(unsubFacturas);
+                }, err => manejarErrorListener('facturas', err));
+                syncListeners.push(unsubFacturas);
 
-            // Listener de kardex
-            const unsubKardex = db.collection(COLLECTIONS.KARDEX).onSnapshot(snapshot => {
-                if (!snapshot.metadata.hasPendingWrites) {
-                    const newKdx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    const hash = calcularHashColeccion(newKdx);
-                    if (lastCollectionHashes[COLLECTIONS.KARDEX] !== hash) {
-                        lastCollectionHashes[COLLECTIONS.KARDEX] = hash;
-                        AppState.kardex = newKdx;
-                        guardarCacheLocal();
+                // Listener de kardex
+                const unsubKardex = db.collection(COLLECTIONS.KARDEX).onSnapshot(snapshot => {
+                    if (!snapshot.metadata.hasPendingWrites) {
+                        const newKdx = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const hash = calcularHashColeccion(newKdx);
+                        if (lastCollectionHashes[COLLECTIONS.KARDEX] !== hash) {
+                            lastCollectionHashes[COLLECTIONS.KARDEX] = hash;
+                            AppState.kardex = newKdx;
+                            guardarCacheLocal();
+                        }
                     }
-                }
-            }, err => manejarErrorListener('kardex', err));
-            syncListeners.push(unsubKardex);
+                }, err => manejarErrorListener('kardex', err));
+                syncListeners.push(unsubKardex);
+            }
 
             // Listener en tiempo real de /config/gamification para Modo Invierno
             try {
@@ -3447,14 +3572,26 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function consultarNotificacionesPendientesClienteCloud(idCliente) {
         if (!idCliente) return [];
+        const idStr = String(idCliente).trim();
+        const idUpper = idStr.toUpperCase();
+        const idLower = idStr.toLowerCase();
+
+        // Si el listener en tiempo real de notificaciones ya está activo, leer desde memoria local (0 lecturas Firestore)
+        if (tieneListenersActivos() && Array.isArray(AppState.notificaciones)) {
+            return AppState.notificaciones.filter(d => {
+                if (!d) return false;
+                const docIdCli = String(d.id_cliente || d.clienteId || '').trim();
+                const esMio = docIdCli === idStr || docIdCli.toUpperCase() === idUpper || docIdCli.toLowerCase() === idLower;
+                const noLeido = d.leido === false || d.leida === false;
+                const activo = !d.eliminada && !d.oculta;
+                return esMio && noLeido && activo;
+            });
+        }
+
         if (isQuotaExhausted) return [];
         try {
             if (!db) await inicializarFirebase();
             if (!db) return [];
-
-            const idStr = String(idCliente).trim();
-            const idUpper = idStr.toUpperCase();
-            const idLower = idStr.toLowerCase();
 
             const snap = await db.collection(COLLECTIONS.NOTIFICACIONES).get();
             const notifs = [];
@@ -4518,19 +4655,23 @@ window.InventoryApp = window.InventoryApp || {};
      */
     async function sincronizarEstadoCuentaCliente(identificador) {
         if (!db || isQuotaExhausted) return false;
+        // Si los listeners en tiempo real ya están activos, abonos/clientes/ventas ya están 100% al día (0 lecturas extra)
+        if (tieneListenersActivos()) {
+            return true;
+        }
         const now = Date.now();
-        // Anti-ráfaga estricto: mínimo 30s entre consultas de colecciones completas
-        if (now - _lastSincronizarEstadoCuenta < 30000) {
+        // Anti-ráfaga estricto de respaldo: mínimo 5 minutos entre consultas manuales
+        if (now - _lastSincronizarEstadoCuenta < 300000) {
             return true;
         }
         _lastSincronizarEstadoCuenta = now;
         try {
-            const [snapAbonos, snapCli, snapVentas, snapPagos] = await Promise.all([
+            const [snapAbonos, snapCli, snapVentas] = await Promise.all([
                 obtenerColeccionSegura(COLLECTIONS.ABONOS),
                 obtenerColeccionSegura(COLLECTIONS.CLIENTES),
-                obtenerColeccionSegura(COLLECTIONS.VENTAS),
-                obtenerColeccionSegura(COLLECTIONS.PAGOS_POR_VERIFICAR)
+                obtenerColeccionSegura(COLLECTIONS.VENTAS)
             ]);
+            const snapPagos = null;
 
             if (snapAbonos && !snapAbonos.empty) {
                 const cloudAbonos = snapAbonos.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -4692,6 +4833,7 @@ window.InventoryApp = window.InventoryApp || {};
         cargarResenasSugerencias: cargarResenasSugerenciasCloud,
         iniciarListeners: iniciarListenersTiempoReal,
         detenerListeners: detenerListenersTiempoReal,
+        tieneListenersActivos: tieneListenersActivos,
         getConfig: obtenerConfiguracion
     };
 })();

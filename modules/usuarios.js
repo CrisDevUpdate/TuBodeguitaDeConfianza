@@ -234,18 +234,18 @@ function configurarVistasPorRol(usuario) {
             window.KioscoModule.init();
         }
     } else if (esVendedor) {
+        if (window.InventoryApp?.Firebase?.iniciarListeners) {
+            window.InventoryApp.Firebase.iniciarListeners();
+        }
         if (!activeView || !vendedorAllowedTabs.includes(activeView)) {
             switchTab('pos');
         }
         if (typeof renderizarPos === 'function') renderizarPos();
         if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
-        // Cliente
+        // Cliente: iniciarListeners() es idempotente y mantiene todo en tiempo real sin lecturas duplicadas
         if (window.InventoryApp?.Firebase?.iniciarListeners) {
             window.InventoryApp.Firebase.iniciarListeners();
-        }
-        if (window.InventoryApp?.Firebase?.sincronizarTodo) {
-            window.InventoryApp.Firebase.sincronizarTodo(true).catch(() => {});
         }
         if (!activeView || !activeView.startsWith('cliente-')) {
             switchTab('cliente-catalogo');
@@ -2708,6 +2708,9 @@ function procesarSubidaAvatar(fileOrEvent) {
  */
 function cerrarSesionUsuario() {
     AppState.usuarioActual = null;
+    if (window.InventoryApp?.Firebase?.detenerListeners) {
+        window.InventoryApp.Firebase.detenerListeners();
+    }
     if (window.InventoryApp.Persistence) window.InventoryApp.Persistence.guardar(true);
     verificarGatewall();
 }
