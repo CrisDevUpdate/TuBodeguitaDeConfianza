@@ -5217,6 +5217,11 @@
                     </button>
                 </div>
 
+                <button type="button" class="btn btn-outline" onclick="limpiarConteosAuditoria()" id="btn-limpiar-conteo-auditoria" disabled style="font-weight:700; font-size:0.86rem; padding:10px 14px; border-radius:10px; display:inline-flex; align-items:center; gap:6px; opacity:0.55; cursor:not-allowed;" title="Vaciar los conteos escritos en esta sesión para empezar en limpio">
+                    <i class="fas fa-eraser"></i>
+                    <span>Limpiar Conteo</span>
+                </button>
+
                 <button type="button" class="audit-btn-apply-all" onclick="aplicarTodosLosAjustes()" id="btn-aplicar-todos-ajustes">
                     <i class="fas fa-rotate"></i>
                     <span>Aplicar Todos los Ajustes</span>
@@ -5225,11 +5230,14 @@
 
             <!-- 📋 3. TABLA DE CONCILIACIÓN EN TIEMPO REAL -->
             <div class="audit-table-card">
-                <div class="audit-table-header-bar">
+                <div class="audit-table-header-bar" style="flex-direction:column; align-items:flex-start; gap:4px;">
                     <h3 class="audit-table-title">
                         <i class="fas fa-clipboard-check"></i>
                         <span>Conteo Físico vs. Stock Digital Teórico</span>
                     </h3>
+                    <span style="font-size:0.8rem; color:var(--text-muted);">
+                        La mesa inicia en blanco: escribe o escanea solo los productos que cuentes hoy. Nada cambia el stock ni las pérdidas hasta confirmar «Ajustar».
+                    </span>
                 </div>
 
                 <div id="auditoria-mobile-list" class="auditoria-mobile-list"></div>
@@ -8141,12 +8149,12 @@
 <script src="data/inventario-oficial.js?v=20260923_v1"></script>
 <script src="data/clientes-oficiales.js?v=20260923_v1"></script>
 <script type="module" src="lib/comboFinancialMath.js?v=4.5.0_anti_dup"></script>
-<script src="core/app-state.js?v=4.5.0_anti_dup"></script>
+<script src="core/app-state.js?v=20261123_auditoria_limpia"></script>
 <script src="core/modal.js?v=4.5.0_anti_dup"></script>
 <script src="core/firebase-service.js?v=20261123_fix_imgFinal"></script>
 <script src="core/google-drive-service.js?v=4.5.0_anti_dup"></script>
 <script src="core/excel-exporter.js?v=4.5.0_anti_dup"></script>
-<script src="core/persistence.js?v=4.5.0_anti_dup"></script>
+<script src="core/persistence.js?v=20261123_auditoria_limpia"></script>
 <script src="core/bcv.js?v=4.5.0_anti_dup"></script>
 <script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
 <script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
@@ -8162,8 +8170,8 @@
 <script src="modules/movimientos-stock.js?v=20260928_v1"></script>
 <script src="modules/reposicion-compras.js?v=20261121_v1"></script>
 <script src="modules/escaner-barras.js?v=20261122_scan_pay_v1"></script>
-<script src="modules/auditoria.js?v=20261121_barcode"></script>
-<script src="modules/perdidas.js?v=20260915_v5"></script>
+<script src="modules/auditoria.js?v=20261123_auditoria_limpia"></script>
+<script src="modules/perdidas.js?v=20261123_auditoria_limpia"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
 <script src="data/banco-frases.js?v=20261002_v1"></script>
 <script src="modules/cliente-view.js?v=20261121_cliente_scan"></script>

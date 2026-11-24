@@ -47,7 +47,6 @@ window.InventoryApp = window.InventoryApp || {};
         'proveedores',
         'proveedoresFrecuentes',
         'auditorias',
-        'conteosFisicos',
         'eliminaciones',
         'clientesFusionados',
         'usuarios',

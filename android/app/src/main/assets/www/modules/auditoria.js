@@ -29,33 +29,35 @@ function guardarConteosSesion() {
     } catch (e) {}
 }
 
-// Si la toma actual está vacía pero ya existen auditorías registradas en el historial,
-// pre-cargar el último stock físico registrado para dar continuidad inmediata al usuario.
+// Mantiene compatibilidad sin auto-rellenar conteos viejos del historial.
+// Cada auditoría nueva debe iniciar limpia (Sin Conteo) para evitar discrepancias falsas
+// por ventas o compras posteriores a auditorías anteriores.
 function sincronizarConteosDesdeHistorialSiVacio() {
-    if (Object.keys(conteosFisicos).length > 0) return;
-    const listaAud = Array.isArray(AppState.auditorias) ? AppState.auditorias : (typeof auditorias !== 'undefined' ? auditorias : []);
-    if (!listaAud || listaAud.length === 0) return;
-
-    let cargados = 0;
-    // Recorrer cronológicamente para que el último prevalezca
-    listaAud.forEach(a => {
-        if (a.productoId && a.stockFisico !== undefined && a.stockFisico !== null) {
-            conteosFisicos[a.productoId] = Number(a.stockFisico);
-            if (a.codigo) {
-                conteosFisicos[a.codigo] = Number(a.stockFisico);
-            }
-            cargados++;
-        }
-    });
-
-    if (cargados > 0) {
-        guardarConteosSesion();
-    }
+    // Intencionalmente vacío: no pre-cargar conteos de fechas anteriores en el campo editable.
 }
 
-// Inicializar en carga
+// Construye un mapa de solo lectura con el último ajuste aplicado por producto (para referencia visual).
+function obtenerUltimaAuditoriaPorProducto() {
+    const mapa = new Map();
+    const listaAud = Array.isArray(AppState.auditorias) ? AppState.auditorias : (typeof auditorias !== 'undefined' ? auditorias : []);
+    if (!Array.isArray(listaAud) || listaAud.length === 0) return mapa;
+
+    listaAud.forEach(a => {
+        if (!a || typeof a !== 'object') return;
+        if (a.modulo === 'TRANSACCIONES' || a.accion === 'ELIMINAR_TRANSACCION') return;
+        if (!a.productoId || a.stockFisico === undefined || a.stockFisico === null) return;
+        mapa.set(String(a.productoId), {
+            fecha: String(a.fecha || '').slice(0, 10),
+            stockFisico: Number(a.stockFisico),
+            diferencia: Number(a.diferencia || 0)
+        });
+    });
+
+    return mapa;
+}
+
+// Inicializar en carga (siempre limpio)
 cargarConteosSesion();
-sincronizarConteosDesdeHistorialSiVacio();
 
 // Calcula la diferencia (Físico - Digital) para un producto.
 // Devuelve null si el producto todavía no tiene un conteo físico capturado.
@@ -83,13 +85,8 @@ function renderizarAuditoria(filtro = "") {
         renderizarHistorialSesionesConteo();
     }
 
-    // Asegurar conteos de sesión
-    if (Object.keys(conteosFisicos).length === 0) {
-        cargarConteosSesion();
-        sincronizarConteosDesdeHistorialSiVacio();
-    }
-
     const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
+    const ultimasAuditorias = obtenerUltimaAuditoriaPorProducto();
     const filtrados = prods.filter(p =>
         (p.nombre || '').toLowerCase().includes(filtro.toLowerCase()) ||
         (p.codigo || '').toLowerCase().includes(filtro.toLowerCase())
@@ -131,6 +128,11 @@ function renderizarAuditoria(filtro = "") {
                 }
             }
 
+            const ultAud = ultimasAuditorias.get(String(p.id));
+            const refUltAud = ultAud
+                ? ` · <span style="color:#64748b;" title="Último ajuste aplicado en auditoría anterior (solo referencia)">Últ. ajuste: ${ultAud.stockFisico}${ultAud.fecha ? ` (${ultAud.fecha})` : ''}</span>`
+                : '';
+
             return `
                 <tr>
                     <td><span class="audit-badge-code">${p.codigo}</span></td>
@@ -141,7 +143,7 @@ function renderizarAuditoria(filtro = "") {
                             </div>
                             <div class="audit-product-details">
                                 <span class="audit-product-name">${p.nombre}</span>
-                                <span class="audit-product-sub">Costo: $${Number(p.costo || 0).toFixed(2)} · Precio: $${Number(p.precio || 0).toFixed(2)}</span>
+                                <span class="audit-product-sub">Costo: $${Number(p.costo || 0).toFixed(2)} · Precio: $${Number(p.precio || 0).toFixed(2)}${refUltAud}</span>
                             </div>
                         </div>
                     </td>
@@ -204,6 +206,11 @@ function renderizarAuditoria(filtro = "") {
                     }
                 }
 
+                const ultAudMob = ultimasAuditorias.get(String(p.id));
+                const refUltAudMob = ultAudMob
+                    ? `<div style="font-size:0.72rem; color:#64748b; margin-top:2px;">Últ. ajuste: <strong>${ultAudMob.stockFisico}</strong>${ultAudMob.fecha ? ` (${ultAudMob.fecha})` : ''}</div>`
+                    : '';
+
                 return `
                     <div class="auditoria-item-card">
                         <div class="auditoria-item-top">
@@ -219,6 +226,7 @@ function renderizarAuditoria(filtro = "") {
                                     <span>Costo: $${Number(p.costo || 0).toFixed(2)}</span>
                                     <span>· Precio: $${Number(p.precio || 0).toFixed(2)}</span>
                                 </div>
+                                ${refUltAudMob}
                             </div>
                         </div>
 
@@ -277,9 +285,6 @@ function actualizarConteoFisico(productoId, valor) {
     guardarConteosSesion();
     actualizarFilaAuditoria(productoId);
     actualizarResumenAuditoria();
-    if (typeof renderizarResumenPerdidasEconomicas === 'function') {
-        renderizarResumenPerdidasEconomicas();
-    }
 }
 
 // Compara en tiempo real el Stock Físico contra el Stock Digital y actualiza
@@ -485,6 +490,13 @@ function actualizarResumenAuditoria() {
                 ? `Aplicar ${discrepancias} Ajuste(s)` 
                 : 'Sin Ajustes Pendientes';
         }
+    }
+
+    const btnLimpiar = document.getElementById('btn-limpiar-conteo-auditoria');
+    if (btnLimpiar) {
+        btnLimpiar.disabled = totalContados === 0;
+        btnLimpiar.style.opacity = totalContados === 0 ? '0.55' : '1';
+        btnLimpiar.style.cursor = totalContados === 0 ? 'not-allowed' : 'pointer';
     }
 }
 
@@ -929,11 +941,8 @@ async function confirmarAjusteAuditoria() {
         window.InventoryApp.Persistence.guardar(true);
     }
 
-    // Conservamos el conteo físico verificado tanto por ID como por código
+    // Conservamos el conteo físico verificado solo por ID en la sesión actual (queda en 0 · Al día)
     conteosFisicos[p.id] = stockFisico;
-    if (p.codigo) {
-        conteosFisicos[p.codigo] = stockFisico;
-    }
     guardarConteosSesion();
 
     cerrarModalAjusteAuditoria();
@@ -1093,11 +1102,8 @@ async function aplicarTodosLosAjustes() {
                 window.InventoryApp.Firebase.registrarAuditoria(registroAuditoria, productoId, stockFisico).catch(() => {});
             }
         }
-        // Mantiene el conteo físico en memoria y sesión para que quede registrado como Conforme (Al día)
+        // Mantiene el conteo físico en memoria solo por ID para que quede registrado como Conforme (Al día)
         conteosFisicos[productoId] = stockFisico;
-        if (p.codigo) {
-            conteosFisicos[p.codigo] = stockFisico;
-        }
     }
 
     if (window.InventoryApp && window.InventoryApp.Persistence && typeof window.InventoryApp.Persistence.guardar === 'function') {
@@ -1144,8 +1150,24 @@ function precargarStockTeoricoAuditoria() {
     }
 }
 
-// Limpia filtros de búsqueda y restablece la visualización completa sin alterar los conteos físicos
-function reiniciarTomaInventario() {
+// Limpia todos los conteos físicos escritos en la mesa de trabajo actual sin alterar el stock ni el historial
+async function limpiarConteosAuditoria(pedirConfirmacion = true) {
+    const cantidadContados = Object.keys(conteosFisicos).filter(k => conteosFisicos[k] !== '' && conteosFisicos[k] !== null && conteosFisicos[k] !== undefined).length;
+
+    if (pedirConfirmacion && cantidadContados > 0) {
+        const msg = `¿Deseas limpiar los <b>${cantidadContados} conteo(s)</b> escritos en la tabla actual para iniciar una auditoría en blanco?<br><br><small style="color:#64748b;">Esto NO modifica tu inventario ni borra tu historial de ajustes guardados.</small>`;
+        let ok = false;
+        if (typeof showCustomConfirm === 'function') {
+            ok = await showCustomConfirm('Limpiar Conteo Actual', msg, 'info');
+        } else {
+            ok = confirm(`¿Limpiar los ${cantidadContados} conteo(s) de la tabla actual?`);
+        }
+        if (!ok) return;
+    }
+
+    Object.keys(conteosFisicos).forEach(k => delete conteosFisicos[k]);
+    guardarConteosSesion();
+
     const searchInput = document.getElementById('auditoria-search');
     if (searchInput) searchInput.value = '';
     const scanInput = document.getElementById('auditoria-scan');
@@ -1155,6 +1177,15 @@ function reiniciarTomaInventario() {
     if (typeof renderizarResumenPerdidasEconomicas === 'function') {
         renderizarResumenPerdidasEconomicas();
     }
+
+    if (cantidadContados > 0 && typeof showCustomToast === 'function') {
+        showCustomToast('Mesa de conteo limpiada. Lista para una nueva auditoría.', 'info');
+    }
+}
+
+// Reinicia filtros y mesa de conteo para comenzar una toma nueva
+function reiniciarTomaInventario() {
+    return limpiarConteosAuditoria(true);
 }
 
 // Exponer funciones en el ámbito global para eventos inline HTML
@@ -1169,6 +1200,7 @@ window.escanearProductoAuditoria = escanearProductoAuditoria;
 window.aplicarAjusteInventario = aplicarAjusteInventario;
 window.aplicarTodosLosAjustes = aplicarTodosLosAjustes;
 window.precargarStockTeoricoAuditoria = precargarStockTeoricoAuditoria;
+window.limpiarConteosAuditoria = limpiarConteosAuditoria;
 window.reiniciarTomaInventario = reiniciarTomaInventario;
 window.cargarConteosSesion = cargarConteosSesion;
 window.guardarConteosSesion = guardarConteosSesion;

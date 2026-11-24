@@ -225,11 +225,17 @@ window.InventoryApp.StockService = {
         const target = String(productId).trim();
         return list.find(p => String(p.id).trim() === target || String(p.codigo).trim() === target) || null;
     },
+    _limpiarConteoBorrador(p) {
+        if (!p || !window.AppState?.conteosFisicos) return;
+        delete window.AppState.conteosFisicos[p.id];
+        if (p.codigo) delete window.AppState.conteosFisicos[p.codigo];
+    },
     sale(productId, quantity) {
         const p = this._get(productId);
         const qty = Number(quantity);
         if (!p || !Number.isFinite(qty) || qty <= 0 || qty > (Number(p.stock || 0) + 0.0001)) return false;
         p.stock = Math.max(0, Number((Number(p.stock || 0) - qty).toFixed(4)));
+        this._limpiarConteoBorrador(p);
         return true;
     },
     devolver(productId, quantity) {
@@ -237,6 +243,7 @@ window.InventoryApp.StockService = {
         const qty = Number(quantity);
         if (!p || !Number.isFinite(qty) || qty <= 0) return false;
         p.stock = Number((Math.max(0, Number(p.stock || 0)) + qty).toFixed(4));
+        this._limpiarConteoBorrador(p);
         return true;
     },
     retiro(productId, quantity) {
@@ -244,6 +251,7 @@ window.InventoryApp.StockService = {
         const qty = Number(quantity);
         if (!p || !Number.isFinite(qty) || qty <= 0 || qty > (Number(p.stock || 0) + 0.0001)) return false;
         p.stock = Math.max(0, Number((Number(p.stock || 0) - qty).toFixed(4)));
+        this._limpiarConteoBorrador(p);
         return true;
     },
     ajuste(productId, stockFisico) {
@@ -258,6 +266,7 @@ window.InventoryApp.StockService = {
         const qty = Number(stockInicial);
         if (!p || !Number.isFinite(qty) || qty < 0) return false;
         p.stock = Number(qty.toFixed(4));
+        this._limpiarConteoBorrador(p);
         return true;
     },
     ingresoFactura(productId, cantidadComprada, nuevoCostoUnitario, metodoCosto = 'reposicion', nuevoPrecioVenta = null, nuevoMargen = null) {
@@ -271,6 +280,7 @@ window.InventoryApp.StockService = {
         
         // Sumar automáticamente la cantidad comprada al stock actual
         p.stock = stockActual + qty;
+        this._limpiarConteoBorrador(p);
         
         // Actualizar el costo unitario según el método
         if (Number.isFinite(nuevoCosto) && nuevoCosto >= 0) {

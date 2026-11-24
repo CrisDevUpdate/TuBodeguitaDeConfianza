@@ -429,34 +429,8 @@ function calcularResumenPerdidasEconomicas() {
         }
     });
 
-    // Faltantes de conteos físicos actualmente en captura (solo si estamos viendo ciclo actual y el filtro incluye la fecha de hoy)
-    if (cicloSelId === 'actual') {
-        const ahoraHoy = new Date();
-        const incluyeHoy = (!hasta || hasta >= new Date(ahoraHoy.getFullYear(), ahoraHoy.getMonth(), ahoraHoy.getDate(), 0, 0, 0));
-        if (incluyeHoy) {
-            const conteos = (typeof conteosFisicos !== 'undefined' && conteosFisicos) ? conteosFisicos : (state.conteosFisicos || {});
-            Object.keys(conteos).forEach(id => {
-                const p = listProd.find(prod => prod.id === id);
-                if (!p) return;
-                const dif = typeof calcularDiferenciaAuditoria === 'function' ? calcularDiferenciaAuditoria(id) : null;
-                if (dif !== null && dif < 0) {
-                    const monto = Math.abs(dif) * Number(p.costo || 0);
-                    perdidaFaltantes += monto;
-                    movimientos.push({
-                        id: `conteo_activo_${p.id}`,
-                        fecha: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                        tipo: 'faltante',
-                        tipoLabel: 'Faltante en Conteo (Activo)',
-                        concepto: `${p.codigo ? `[${p.codigo}] ` : ''}${p.nombre}`,
-                        detalle: `Diferencia de ${dif} un. antes de aplicar ajuste contable`,
-                        perdidaUSD: monto,
-                        gananciaUSD: 0,
-                        impacto: -monto
-                    });
-                }
-            });
-        }
-    }
+    // Los conteos físicos borrador en captura (conteosFisicos) NO afectan las pérdidas económicas
+    // hasta que el administrador confirme y aplique formalmente el ajuste en AppState.auditorias.
 
     // 4. Ganancia Generada por Ventas Confirmadas (Amortización)
     let gananciaGenerada = 0;
