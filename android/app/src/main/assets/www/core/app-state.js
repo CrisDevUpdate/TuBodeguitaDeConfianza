@@ -104,7 +104,9 @@ const AppState = window.AppState = window.InventoryApp.state = {
     egresosCaja: [],
     exigirTurnoVendedor: false,
     moduloCajaActivo: false,
-    resenasSugerencias: []
+    resenasSugerencias: [],
+    pedidosAdelantados: [],
+    pedidoPOSActivoId: null
 };
 
 const legacyGlobals = [
@@ -114,7 +116,7 @@ const legacyGlobals = [
     'eliminaciones','clientesEliminados','clientesFusionados','usuarios','usuarioActual','premioMes','canjesPremios','notificaciones',
     'ciclosRecuperacion','cicloRecuperacionActual','filtroFechaRecuperacion','cicloSeleccionadoRecuperacion','cuentasBancarias',
     'telefonoWhatsApp','categoriasPersonalizadas','facturasCompras','kardex','proveedores','proveedoresFrecuentes',
-    'turnosCaja','turnoActivo','egresosCaja','exigirTurnoVendedor','moduloCajaActivo','resenasSugerencias'
+    'turnosCaja','turnoActivo','egresosCaja','exigirTurnoVendedor','moduloCajaActivo','resenasSugerencias','pedidosAdelantados','pedidoPOSActivoId'
 ];
 legacyGlobals.forEach((key) => {
     Object.defineProperty(window, key, {

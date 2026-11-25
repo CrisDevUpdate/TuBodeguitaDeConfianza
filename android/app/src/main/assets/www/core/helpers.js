@@ -965,6 +965,8 @@ function switchTab(tabId) {
                 if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
                 if (typeof sincronizarClienteSelects === 'function') sincronizarClienteSelects('pos-cliente-select');
                 if (window.InventoryApp && window.InventoryApp.CajaTurnos) window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                if (window.InventoryApp?.PedidosAdelantados?.renderizarBarraPOS) window.InventoryApp.PedidosAdelantados.renderizarBarraPOS();
+                if (window.InventoryApp?.PedidosAdelantados?.renderizarBannerPedidoActivoEnPOS) window.InventoryApp.PedidosAdelantados.renderizarBannerPedidoActivoEnPOS();
             } else if (tabId === 'caja-turnos') {
                 if (window.InventoryApp && window.InventoryApp.CajaTurnos) {
                     window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
@@ -1009,6 +1011,7 @@ function switchTab(tabId) {
             } else if (tabId === 'cliente-catalogo') {
                 if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
                 if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+                if (window.InventoryApp?.PedidosAdelantados?.actualizarBadgeEncargosCliente) window.InventoryApp.PedidosAdelantados.actualizarBadgeEncargosCliente();
             } else if (tabId === 'cliente-cuenta') {
                 if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
             } else if (tabId === 'cliente-premio') {

@@ -29,7 +29,7 @@
             'modules/kiosco.js?v=20261122_kiosco_undo'
         ],
         pos: [
-            'modules/pos.js?v=20261123_caja_opcional',
+            'modules/pos.js?v=20261124_pedidos_v1',
             'modules/escaner-barras.js?v=20261122_scan_pay_v1'
         ],
         caja: [

@@ -1209,6 +1209,9 @@ function vaciarCarritoPOS() {
     }
 
     carrito = [];
+    if (window.InventoryApp?.PedidosAdelantados?.limpiarPedidoActivoEnPOS) {
+        window.InventoryApp.PedidosAdelantados.limpiarPedidoActivoEnPOS();
+    }
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
     if (desktopSel) desktopSel.value = 'Crédito';
@@ -1222,6 +1225,9 @@ function vaciarCarritoPOS() {
 }
 
 function renderizarCarrito() {
+    if (window.InventoryApp?.PedidosAdelantados?.renderizarBannerPedidoActivoEnPOS) {
+        window.InventoryApp.PedidosAdelantados.renderizarBannerPedidoActivoEnPOS();
+    }
     const tbody = document.getElementById('pos-carrito-body');
     const drawerList = document.getElementById('pos-drawer-items-list');
     const emptyState = document.getElementById('pos-cart-empty-state');
@@ -1876,6 +1882,9 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
     } catch {}
 
     carrito = [];
+    if (window.InventoryApp?.PedidosAdelantados?.completarPedidoActivoPorVenta) {
+        window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id);
+    }
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
     if (desktopSel) desktopSel.value = 'Crédito';
@@ -2206,6 +2215,9 @@ async function ejecutarFinalizacionCheckoutPOS() {
     } catch {}
 
     carrito = [];
+    if (window.InventoryApp?.PedidosAdelantados?.completarPedidoActivoPorVenta) {
+        window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id);
+    }
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
     if (desktopSel) desktopSel.value = 'Crédito';

@@ -450,7 +450,8 @@ window.InventoryApp = window.InventoryApp || {};
         NOTIFICACIONES: 'notifications',
         TURNOS: 'cajas_turnos',
         EGRESOS: 'egresos_caja',
-        RESENAS_SUGERENCIAS: 'resenas_sugerencias'
+        RESENAS_SUGERENCIAS: 'resenas_sugerencias',
+        PEDIDOS_ADELANTADOS: 'pedidos_adelantados'
     };
 
     /**
@@ -2561,6 +2562,76 @@ window.InventoryApp = window.InventoryApp || {};
                 console.warn('[Firebase] No se pudo inicializar listener de reseñas:', resErr);
             }
 
+            // Listener en tiempo real de Pedidos / Encargos por Adelantado (Admin/Vendedor: todos; Cliente: solo los suyos)
+            try {
+                const rolSesionPed = String(window.AppState?.usuarioActual?.rol || '').toLowerCase();
+                const esStaffPedidos = esAdmin || rolSesionPed === 'vendedor';
+                const pedidosQuery = esStaffPedidos
+                    ? db.collection(COLLECTIONS.PEDIDOS_ADELANTADOS)
+                    : db.collection(COLLECTIONS.PEDIDOS_ADELANTADOS).where('clienteCedula', '==', cedulaUsuarioSesion);
+
+                let primerCargaPedidos = true;
+                const pedidosNotificadosIds = new Set();
+
+                const unsubPedidosSync = pedidosQuery.onSnapshot(snapshot => {
+                    if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+                    const cloudPedidos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+
+                    if (esStaffPedidos) {
+                        snapshot.docChanges().forEach(change => {
+                            const ped = { id: change.doc.id, ...change.doc.data() };
+                            if (primerCargaPedidos) {
+                                pedidosNotificadosIds.add(ped.id);
+                            } else if (change.type === 'added' && String(ped.estado || '').toUpperCase() === 'PENDIENTE' && !pedidosNotificadosIds.has(ped.id)) {
+                                pedidosNotificadosIds.add(ped.id);
+                                reproducirSonidoNotificacion();
+                                const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                if (typeof notifFn === 'function') {
+                                    const modTxt = ped.modalidadEntrega === 'DELIVERY' ? '🛵 Delivery' : '🏪 Retiro';
+                                    notifFn(`🛍️ ¡Nuevo encargo! <strong>${ped.clienteNombre || 'Cliente'}</strong> (${ped.codigoCorto || ped.id}) · ${modTxt} · $${Number(ped.totalUSD || 0).toFixed(2)}. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof abrirModalBandejaPedidosPOS==='function')abrirModalBandejaPedidosPOS()">Ver</button>`, 'warning', 14000);
+                                }
+                            }
+                        });
+                    } else if (!primerCargaPedidos) {
+                        snapshot.docChanges().forEach(change => {
+                            if (change.type === 'modified') {
+                                const ped = { id: change.doc.id, ...change.doc.data() };
+                                if (String(ped.estado || '').toUpperCase() === 'LISTO') {
+                                    reproducirSonidoNotificacion();
+                                    const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
+                                    if (typeof notifFn === 'function') {
+                                        const txtListo = ped.modalidadEntrega === 'DELIVERY'
+                                            ? `🛵 ¡Tu encargo ${ped.codigoCorto || ''} está listo para salir en delivery!`
+                                            : `✅ ¡Tu encargo ${ped.codigoCorto || ''} ya está listo para retirar en tienda!`;
+                                        notifFn(txtListo, 'success', 12000);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    primerCargaPedidos = false;
+
+                    const mapPed = new Map();
+                    cloudPedidos.forEach(p => { if (p && p.id) mapPed.set(String(p.id), p); });
+                    (AppState.pedidosAdelantados || []).forEach(localP => {
+                        if (localP && localP.id && !mapPed.has(String(localP.id)) && localP.sincronizadoNube === false) {
+                            mapPed.set(String(localP.id), localP);
+                            guardarPedidoAdelantadoCloud(localP).catch(() => {});
+                        }
+                    });
+                    AppState.pedidosAdelantados = Array.from(mapPed.values()).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+                    try {
+                        localStorage.setItem('bodeguita_pedidos_adelantados_v1', JSON.stringify(AppState.pedidosAdelantados));
+                    } catch (_) {}
+                    if (window.InventoryApp?.PedidosAdelantados?.refrescarTodasLasVistasPedidos) {
+                        window.InventoryApp.PedidosAdelantados.refrescarTodasLasVistasPedidos();
+                    }
+                }, err => console.warn('[Firebase] Aviso en listener de pedidos adelantados:', err?.message));
+                syncListeners.push(unsubPedidosSync);
+            } catch (pedErr) {
+                console.warn('[Firebase] No se pudo inicializar listener de pedidos adelantados:', pedErr);
+            }
+
         } catch (e) {
             console.warn('[Firebase] Error al iniciar listeners en tiempo real:', e);
         }
@@ -3534,6 +3605,74 @@ window.InventoryApp = window.InventoryApp || {};
                 console.error('[Firebase] Error al eliminar reseña/sugerencia en Firestore:', {
                     operationType: 'delete',
                     path: `${COLLECTIONS.RESENAS_SUGERENCIAS}/${id}`,
+                    error: error?.message || String(error)
+                });
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Guardar / Actualizar Pedido por Adelantado (Encargo) en Firestore
+     */
+    async function guardarPedidoAdelantadoCloud(pedido) {
+        if (!pedido || !pedido.id) return false;
+        if (isQuotaExhausted) return false;
+
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            const id = String(pedido.id);
+            const payload = sanitizarObjetoParaFirestore({
+                ...pedido,
+                id,
+                clienteNombre: String(pedido.clienteNombre || 'Cliente').trim().slice(0, 120),
+                modalidadEntrega: pedido.modalidadEntrega === 'DELIVERY' ? 'DELIVERY' : 'RETIRO_TIENDA',
+                estado: ['PENDIENTE', 'PREPARANDO', 'LISTO', 'COMPLETADO', 'CANCELADO'].includes(String(pedido.estado || '').toUpperCase())
+                    ? String(pedido.estado).toUpperCase()
+                    : 'PENDIENTE',
+                items: Array.isArray(pedido.items) ? pedido.items.slice(0, 100) : [],
+                totalUSD: Math.max(0, Number(pedido.totalUSD || 0)),
+                sincronizadoNube: true,
+                updatedAt: new Date().toISOString()
+            }) || {};
+
+            await db.collection(COLLECTIONS.PEDIDOS_ADELANTADOS).doc(id).set(payload, { merge: true });
+            pedido.sincronizadoNube = true;
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al guardar pedido adelantado en Firestore:', {
+                    operationType: 'write',
+                    path: `${COLLECTIONS.PEDIDOS_ADELANTADOS}/${pedido?.id}`,
+                    error: error?.message || String(error)
+                });
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Pedido por Adelantado en Firestore
+     */
+    async function eliminarPedidoAdelantadoCloud(id) {
+        if (!id || isQuotaExhausted) return false;
+        try {
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            await db.collection(COLLECTIONS.PEDIDOS_ADELANTADOS).doc(String(id)).delete();
+            return true;
+        } catch (error) {
+            if (esErrorDeCuota(error)) {
+                manejarErrorCuota();
+            } else {
+                console.error('[Firebase] Error al eliminar pedido adelantado:', {
+                    operationType: 'delete',
+                    path: `${COLLECTIONS.PEDIDOS_ADELANTADOS}/${id}`,
                     error: error?.message || String(error)
                 });
             }
@@ -4936,6 +5075,8 @@ window.InventoryApp = window.InventoryApp || {};
         guardarResenaSugerencia: guardarResenaSugerenciaCloud,
         eliminarResenaSugerencia: eliminarResenaSugerenciaCloud,
         cargarResenasSugerencias: cargarResenasSugerenciasCloud,
+        guardarPedidoAdelantado: guardarPedidoAdelantadoCloud,
+        eliminarPedidoAdelantado: eliminarPedidoAdelantadoCloud,
         iniciarListeners: iniciarListenersTiempoReal,
         detenerListeners: detenerListenersTiempoReal,
         tieneListenersActivos: tieneListenersActivos,

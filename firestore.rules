@@ -93,6 +93,20 @@ service cloud.firestore {
         && request.resource.data.calificacion <= 5;
       allow delete: if true;
     }
+    match /pedidos_adelantados/{pedidoId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.clienteNombre is string
+        && request.resource.data.clienteNombre.size() >= 1
+        && request.resource.data.clienteNombre.size() <= 120
+        && request.resource.data.modalidadEntrega in ['RETIRO_TIENDA', 'DELIVERY']
+        && request.resource.data.estado in ['PENDIENTE', 'PREPARANDO', 'LISTO', 'COMPLETADO', 'CANCELADO']
+        && request.resource.data.items is list
+        && request.resource.data.items.size() >= 1
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.totalUSD is number
+        && request.resource.data.totalUSD >= 0;
+      allow delete: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

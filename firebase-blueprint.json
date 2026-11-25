@@ -300,6 +300,33 @@
         "timestamp": "number",
         "updatedAt": "string"
       }
+    },
+    {
+      "collection": "pedidos_adelantados",
+      "fields": {
+        "id": "string",
+        "codigoCorto": "string",
+        "clienteId": "string",
+        "clienteCedula": "string",
+        "clienteNombre": "string",
+        "clienteTelefono": "string",
+        "modalidadEntrega": "string",
+        "horaEstimada": "string",
+        "direccionEntrega": "string",
+        "metodoPagoPreferido": "string",
+        "nota": "string",
+        "items": "array",
+        "totalUSD": "number",
+        "totalVES": "number",
+        "tasaReferencia": "number",
+        "estado": "string",
+        "ventaId": "string",
+        "motivoCancelacion": "string",
+        "atendidoPor": "string",
+        "fecha": "string",
+        "timestamp": "number",
+        "updatedAt": "string"
+      }
     }
   ]
 }
