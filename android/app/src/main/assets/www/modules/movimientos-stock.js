@@ -694,7 +694,15 @@
     /**
      * Exporta el kardex de movimientos a archivo Excel (.xlsx)
      */
-    function descargarKardexProductoExcel() {
+    async function descargarKardexProductoExcel() {
+        try {
+            if (typeof XLSX === 'undefined' && window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+                await window.InventoryApp.ModuleLoader.asegurarExcel();
+            }
+        } catch (err) {
+            console.warn('[movimientos-stock] Error cargando XLSX; usando respaldo CSV:', err);
+        }
+
         const data = obtenerMovimientosProducto(productoActualId);
         const { esGlobal, producto, movimientos } = data;
 

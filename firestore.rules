@@ -20,6 +20,9 @@ service cloud.firestore {
     match /auditorias/{auditoriaId} {
       allow read, write: if true;
     }
+    match /sesiones_conteo/{sesionId} {
+      allow read, write: if true;
+    }
     match /eliminaciones/{eliminacionId} {
       allow read, write: if true;
     }

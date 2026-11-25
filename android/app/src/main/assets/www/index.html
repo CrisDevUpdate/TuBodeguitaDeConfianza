@@ -54,8 +54,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
     <!-- Font Awesome para los íconos del BCV -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SheetJS con xlsx-js-style para exportación profesional con estilos, fórmulas y configuración de impresión -->
-    <script src="vendor/xlsx.bundle.js"></script>
+    <!-- SheetJS (xlsx.bundle.js) ahora se carga bajo demanda solo al exportar/importar Excel -->
     <link rel="stylesheet" href="styles.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/fluid-scroll.css?v=20260916_v2">
     <link rel="stylesheet" href="styles/themeEngine.css?v=20260916_v2">
@@ -8171,46 +8170,32 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-analytics-compat.js"></script>
 
-<!-- Scripts de Arquitectura y Módulos -->
-<script src="core/helpers.js?v=20261124_resenas_v2"></script>
+<!-- Scripts de Arquitectura Núcleo (Carga Inicial Ligera; Admin/Kiosco/Excel/Escáner cargan bajo demanda vía core/module-loader.js) -->
+<script src="core/helpers.js?v=20261124_lazy_v1"></script>
+<script src="core/module-loader.js?v=20261124_lazy_v1"></script>
 <script src="core/image-cache-service.js?v=4.5.0_anti_dup"></script>
 <script src="data/inventario-oficial.js?v=20260923_v1"></script>
 <script src="data/clientes-oficiales.js?v=20260923_v1"></script>
 <script type="module" src="lib/comboFinancialMath.js?v=4.5.0_anti_dup"></script>
-<script src="core/app-state.js?v=20261124_resenas_v1"></script>
+<script src="core/app-state.js?v=20261124_conteos_v1"></script>
 <script src="core/modal.js?v=4.5.0_anti_dup"></script>
-<script src="core/firebase-service.js?v=20261124_opt_v1"></script>
-<script src="core/google-drive-service.js?v=4.5.0_anti_dup"></script>
-<script src="core/excel-exporter.js?v=4.5.0_anti_dup"></script>
-<script src="core/persistence.js?v=20261124_resenas_v1"></script>
+<script src="core/firebase-service.js?v=20261124_conteos_v1"></script>
+<script src="core/persistence.js?v=20261124_lazy_v1"></script>
 <script src="core/bcv.js?v=4.5.0_anti_dup"></script>
 <script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
 <script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
 <script src="components/Catalog.js?v=20261121_cliente_scan"></script>
 <script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
 <script src="components/TerminosPrivacidad.js?v=20260927_v1"></script>
-<script src="modules/productos.js?v=20261121_barcode"></script>
-<script src="modules/pos.js?v=20261123_caja_opcional"></script>
-<script src="modules/caja-turnos.js?v=20261123_caja_opcional"></script>
-<script src="modules/clientes.js?v=4.6.0_fix_loop"></script>
-<script src="modules/pagos-transacciones.js?v=20260915_v5"></script>
-<script src="modules/facturas.js?v=20261121_barcode"></script>
-<script src="modules/movimientos-stock.js?v=20260928_v1"></script>
-<script src="modules/reposicion-compras.js?v=20261121_v1"></script>
-<script src="modules/escaner-barras.js?v=20261122_scan_pay_v1"></script>
-<script src="modules/auditoria.js?v=20261123_auditoria_limpia"></script>
-<script src="modules/perdidas.js?v=20261123_auditoria_limpia"></script>
+<script src="modules/clientes.js?v=20261124_lazy_v1"></script>
 <script src="modules/premio-mes.js?v=20260915_v5"></script>
 <script src="data/banco-frases.js?v=20261123_frases_curadas_v2"></script>
-<script src="modules/cliente-view.js?v=20261124_opt_v1"></script>
+<script src="modules/cliente-view.js?v=20261124_lazy_v1"></script>
 <script src="modules/resenas-sugerencias.js?v=20261124_opt_v1"></script>
-<script src="modules/historial-ventas.js?v=20260915_v5"></script>
-<script src="modules/usuarios.js?v=20261124_opt_v1"></script>
+<script src="modules/usuarios.js?v=20261124_lazy_v1"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
-<script src="modules/kiosco.js?v=20261122_kiosco_undo"></script>
-<script src="modules/configuracion.js?v=20261124_resenas_v1"></script>
 <script src="core/pwa-push-manager.js?v=20261123_icon_v6"></script>
-<script src="app.js?v=20260915_v5"></script>
+<script src="app.js?v=20261124_lazy_v1"></script>
 </body>
 </html>
 

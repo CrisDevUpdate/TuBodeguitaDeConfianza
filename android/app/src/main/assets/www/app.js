@@ -17,64 +17,29 @@
         sincronizarSecuenciaIdsProducto();
         if (typeof iniciarSincronizacionBCV === 'function') {
             iniciarSincronizacionBCV();
-        } else {
+        } else if (typeof obtenerTasaOficialBCV === 'function') {
             obtenerTasaOficialBCV();
         }
 
-        // Renderizado inicial de vistas del sistema
+        // Aplicar tema visual inmediatamente antes de pintar vistas
         if (window.InventoryApp && window.InventoryApp.Theme && typeof window.InventoryApp.Theme.inicializarTema === 'function') {
             window.InventoryApp.Theme.inicializarTema();
         }
 
         if (typeof asegurarSincronizacionUsuariosAClientes === 'function') {
-            asegurarSincronizacionUsuariosAClientes();
+            asegurarSincronizacionUsuariosAClientes(false);
         }
-        renderizarPosProductos();
-        renderizarInventario();
-        renderizarClientes();
-        renderizarHistorialClientesEliminados();
-        actualizarSelectClientes();
-        renderizarAuditoria();
-        renderizarHistorialAuditoria();
-        renderizarResumenPerdidasEconomicas();
-        if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
-        if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
-        if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
-        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
-        if (typeof verificarPenalizacionesPorMoraGlobal === 'function') verificarPenalizacionesPorMoraGlobal();
-        prepararCodigoNuevoProducto();
-        actualizarVistaImagenProducto();
 
-        // Módulo de Usuarios, Control de Acceso y Aprobaciones
-        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
-        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+        if (typeof sanitizarAbonosConMonedaInvertida === 'function') {
+            sanitizarAbonosConMonedaInvertida();
+        }
+
+        // Badges ligeros comunes de cabecera y navegación
         if (typeof actualizarUIUsuarioActual === 'function') actualizarUIUsuarioActual();
-
-        // Módulo de Historial de Ventas
-        if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
-        if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
-
-        // Módulo de Notificaciones en Vivo
-        if (typeof sanitizarAbonosConMonedaInvertida === 'function') sanitizarAbonosConMonedaInvertida();
-        if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+        if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
         if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
 
-        // Módulos de Gamificación, Premio del Mes y Experiencia Cliente
-        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
-        if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
-        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-        if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
-        if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
-        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
-
-        // Inicialización del Módulo Kiosco de Auto-Servicio solo si la sesión activa corresponde
-        const usuarioSesion = window.AppState?.usuarioActual;
-        const rolSesion = (usuarioSesion?.rol || '').toLowerCase();
-        if ((rolSesion === 'autoservicio' || rolSesion === 'kiosco') && window.KioscoModule && typeof window.KioscoModule.init === 'function') {
-            window.KioscoModule.init();
-        }
-
-        // Barrera de Acceso y Segregación de Roles (Gatewall)
+        // Barrera de Acceso, Carga Diferida por Rol y Renderizado de la Vista Activa
         if (typeof verificarGatewall === 'function') {
             verificarGatewall();
         }

@@ -89,6 +89,26 @@
       }
     },
     {
+      "collection": "sesiones_conteo",
+      "fields": {
+        "id": "string",
+        "fecha": "string",
+        "titulo": "string",
+        "usuario": "string",
+        "totalContados": "number",
+        "conformes": "number",
+        "sobrantesProductos": "number",
+        "sobrantesUnidades": "number",
+        "faltantesProductos": "number",
+        "faltantesUnidades": "number",
+        "perdidaTotalUSD": "number",
+        "productos": "array",
+        "ajustado": "boolean",
+        "fechaCreacion": "string",
+        "updatedAt": "string"
+      }
+    },
+    {
       "collection": "config",
       "fields": {
         "id": "string",

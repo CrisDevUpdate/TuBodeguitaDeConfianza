@@ -1026,15 +1026,21 @@ async function aplicarAjusteInventarioLegacy(productoId) {
 }
 
 // Aplica en bloque todos los ajustes pendientes (todos los productos con conteo físico capturado que difieran del stock digital).
-async function aplicarTodosLosAjustes() {
-    const todosContados = Object.keys(conteosFisicos);
+async function aplicarTodosLosAjustes(opciones = {}) {
+    const saltarConfirmacion = Boolean(opciones && opciones.saltarConfirmacion);
+    const omitirGuardarSesion = Boolean(opciones && opciones.omitirGuardarSesion);
+
+    const todosContados = Object.keys(conteosFisicos).filter(id => {
+        const val = conteosFisicos[id];
+        return val !== '' && val !== null && val !== undefined;
+    });
     if (todosContados.length === 0) {
         if (typeof showCustomAlert === 'function') {
             showCustomAlert('Sin Conteos', 'No hay conteos físicos registrados para aplicar.', 'warning');
         } else {
             alert('No hay conteos físicos registrados para aplicar.');
         }
-        return;
+        return false;
     }
 
     // Filtrar solo aquellos que tienen discrepancia real con el stock digital
@@ -1049,18 +1055,42 @@ async function aplicarTodosLosAjustes() {
         } else {
             alert('Todos los productos contados coinciden con el stock digital.');
         }
-        return;
+        return false;
     }
 
-    let confirmado = false;
-    const msg = `¿Confirmar ajuste contable para <b>${pendientes.length} producto(s)</b> con discrepancias detectadas?<br><br>El Stock Digital de cada producto se actualizará para coincidir con el inventario físico verificado.`;
-    if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Ajuste Masivo de Inventario', msg, 'warning');
-    } else {
-        confirmado = confirm(`¿Confirmar ${pendientes.length} ajuste(s) de inventario?`);
+    if (!saltarConfirmacion) {
+        let confirmado = false;
+        const msg = `¿Confirmar ajuste contable para <b>${pendientes.length} producto(s)</b> con discrepancias detectadas?<br><br>El Stock Digital de cada producto se actualizará para coincidir con el inventario físico verificado y se archivará el registro en el Historial de Conteos.`;
+        if (typeof showCustomConfirm === 'function') {
+            confirmado = await showCustomConfirm('Ajuste Masivo de Inventario', msg, {
+                confirmText: 'Sí, aplicar ajustes',
+                cancelText: 'Cancelar',
+                tipo: 'warning'
+            });
+        } else {
+            confirmado = confirm(`¿Confirmar ${pendientes.length} ajuste(s) de inventario?`);
+        }
+
+        if (!confirmado) return false;
     }
 
-    if (!confirmado) return;
+    // Si el admin presionó directamente "Aplicar Todos los Ajustes", archivar automáticamente la sesión
+    // ANTES de modificar los stocks para preservar el balance exacto de sobrantes y faltantes en el historial.
+    if (!omitirGuardarSesion && typeof construirObjetoSesionConteo === 'function') {
+        const sesionAuto = construirObjetoSesionConteo(true);
+        if (sesionAuto) {
+            const sesiones = obtenerSesionesConteo();
+            sesiones.unshift(sesionAuto);
+            guardarSesionesConteo(sesiones);
+            if (window.InventoryApp?.Firebase?.guardarSesionConteo) {
+                window.InventoryApp.Firebase.guardarSesionConteo(sesionAuto).then(ok => {
+                    sesionAuto.sincronizadoNube = Boolean(ok);
+                    guardarSesionesConteo(obtenerSesionesConteo());
+                }).catch(() => {});
+            }
+            renderizarHistorialSesionesConteo();
+        }
+    }
 
     for (const productoId of pendientes) {
         const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
@@ -1136,6 +1166,7 @@ async function aplicarTodosLosAjustes() {
     if (typeof showCustomToast === 'function') {
         showCustomToast(`Se aplicaron exitosamente ${pendientes.length} ajuste(s) de inventario`, 'success');
     }
+    return true;
 }
 
 // Pre-carga el stock digital actual como conteo físico para todos los productos (Marcando todos conformes como base)
@@ -1171,7 +1202,11 @@ async function limpiarConteosAuditoria(pedirConfirmacion = true) {
         const msg = `¿Deseas limpiar los <b>${cantidadContados} conteo(s)</b> escritos en la tabla actual para iniciar una auditoría en blanco?<br><br><small style="color:#64748b;">Esto NO modifica tu inventario ni borra tu historial de ajustes guardados.</small>`;
         let ok = false;
         if (typeof showCustomConfirm === 'function') {
-            ok = await showCustomConfirm('Limpiar Conteo Actual', msg, 'info');
+            ok = await showCustomConfirm('Limpiar Conteo Actual', msg, {
+                confirmText: 'Sí, limpiar mesa',
+                cancelText: 'Cancelar',
+                tipo: 'info'
+            });
         } else {
             ok = confirm(`¿Limpiar los ${cantidadContados} conteo(s) de la tabla actual?`);
         }
@@ -1225,19 +1260,26 @@ window.guardarConteosSesion = guardarConteosSesion;
 const SESIONES_CONTEO_STORAGE_KEY = 'bodeguita_sesiones_conteo_v1';
 
 function obtenerSesionesConteo() {
-    if (!Array.isArray(AppState.sesionesConteo)) {
+    if (!Array.isArray(AppState.sesionesConteo) || AppState.sesionesConteo.length === 0) {
         try {
             const raw = localStorage.getItem(SESIONES_CONTEO_STORAGE_KEY);
-            AppState.sesionesConteo = raw ? JSON.parse(raw) : [];
+            const parsed = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                AppState.sesionesConteo = parsed;
+            } else if (!Array.isArray(AppState.sesionesConteo)) {
+                AppState.sesionesConteo = [];
+            }
         } catch (_) {
-            AppState.sesionesConteo = [];
+            if (!Array.isArray(AppState.sesionesConteo)) {
+                AppState.sesionesConteo = [];
+            }
         }
     }
     return AppState.sesionesConteo;
 }
 
 function guardarSesionesConteo(sesiones) {
-    AppState.sesionesConteo = sesiones || [];
+    AppState.sesionesConteo = Array.isArray(sesiones) ? sesiones : [];
     try {
         localStorage.setItem(SESIONES_CONTEO_STORAGE_KEY, JSON.stringify(AppState.sesionesConteo));
     } catch (_) {}
@@ -1283,24 +1325,16 @@ function inicializarSesionConteoActual() {
 }
 
 /**
- * Guarda y registra formalmente una sesión de conteo físico con su fecha,
- * productos contados, detalle y balance de faltantes/sobrantes.
+ * Construye el snapshot formal de la toma física actual en memoria antes de ajustar stocks.
  */
-async function guardarYRegistrarSesionConteo(autoAjustar = false) {
+function construirObjetoSesionConteo(yaAjustado = false) {
     const prods = Array.isArray(productos) ? productos : (AppState.productos || []);
     const contadosIds = Object.keys(conteosFisicos).filter(id => {
         const val = conteosFisicos[id];
         return val !== '' && val !== null && val !== undefined;
     });
 
-    if (contadosIds.length === 0) {
-        if (typeof showCustomAlert === 'function') {
-            showCustomAlert('Sin Productos Contados', 'Ingresa el conteo físico de al menos 1 producto en la tabla antes de guardar el registro.', 'warning');
-        } else {
-            alert('Ingresa el conteo físico de al menos 1 producto antes de guardar el registro.');
-        }
-        return;
-    }
+    if (contadosIds.length === 0) return null;
 
     const fechaSeleccionada = obtenerFechaSeleccionadaConteo();
     const tituloInput = document.getElementById('auditoria-session-titulo')?.value?.trim();
@@ -1357,8 +1391,10 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
         });
     });
 
+    if (productosDetalle.length === 0) return null;
+
     const tituloFinal = tituloInput || `Conteo de ${productosDetalle.length} productos`;
-    const nuevaSesion = {
+    return {
         id: `CONTEO-${Date.now()}`,
         fecha: fechaSeleccionada,
         titulo: tituloFinal,
@@ -1371,19 +1407,44 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
         faltantesUnidades: faltantesUnds,
         perdidaTotalUSD: perdidaTotalUSD,
         productos: productosDetalle,
-        ajustado: false,
+        ajustado: Boolean(yaAjustado),
+        sincronizadoNube: false,
         fechaCreacion: new Date().toISOString()
     };
+}
+
+/**
+ * Guarda y registra formalmente una sesión de conteo físico con su fecha,
+ * productos contados, detalle y balance de faltantes/sobrantes.
+ */
+async function guardarYRegistrarSesionConteo(autoAjustar = false) {
+    const nuevaSesion = construirObjetoSesionConteo(autoAjustar);
+
+    if (!nuevaSesion) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('Sin Productos Contados', 'Ingresa el conteo físico de al menos 1 producto en la tabla antes de guardar el registro.', 'warning');
+        } else {
+            alert('Ingresa el conteo físico de al menos 1 producto antes de guardar el registro.');
+        }
+        return;
+    }
 
     const sesiones = obtenerSesionesConteo();
     sesiones.unshift(nuevaSesion);
     guardarSesionesConteo(sesiones);
 
-    // Sincronizar en la nube Firestore
+    // Sincronizar de inmediato en Firebase Firestore y confirmar resultado
+    let guardadoCloud = false;
     if (window.InventoryApp && window.InventoryApp.Firebase && typeof window.InventoryApp.Firebase.guardarSesionConteo === 'function') {
-        window.InventoryApp.Firebase.guardarSesionConteo(nuevaSesion).catch(err => {
+        try {
+            guardadoCloud = await window.InventoryApp.Firebase.guardarSesionConteo(nuevaSesion);
+            if (guardadoCloud) {
+                nuevaSesion.sincronizadoNube = true;
+                guardarSesionesConteo(sesiones);
+            }
+        } catch (err) {
             console.warn('[Auditoría] Error sincronizando sesión en la nube:', err);
-        });
+        }
     }
 
     renderizarHistorialSesionesConteo();
@@ -1391,15 +1452,15 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
     const badgeTotal = document.getElementById('badge-total-sesiones-conteo');
     if (badgeTotal) badgeTotal.textContent = sesiones.length;
 
-    const discrepancias = sobrantesProds + faltantesProds;
+    const discrepancias = nuevaSesion.sobrantesProductos + nuevaSesion.faltantesProductos;
     let mensajeConfirmacion = `
         <div style="text-align:left; font-size:0.9rem; line-height:1.5;">
-            <p>Se ha guardado el registro del conteo <strong>"${tituloFinal}"</strong> con fecha <strong>${fechaSeleccionada}</strong>.</p>
+            <p>Se ha guardado el registro del conteo <strong>"${nuevaSesion.titulo}"</strong> con fecha <strong>${nuevaSesion.fecha}</strong>${guardadoCloud ? ' (respaldado en Firebase)' : ''}.</p>
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0;">
-                <div>📦 <strong>Total contados:</strong> ${productosDetalle.length} productos</div>
-                <div style="color:#16a34a;">🟢 <strong>Conformes:</strong> ${conformes} productos</div>
-                <div style="color:#d97706;">🟡 <strong>Sobrantes:</strong> ${sobrantesProds} productos (+${sobrantesUnds} unds)</div>
-                <div style="color:#dc2626;">🔴 <strong>Faltantes:</strong> ${faltantesProds} productos (-${faltantesUnds} unds)</div>
+                <div>📦 <strong>Total contados:</strong> ${nuevaSesion.totalContados} productos</div>
+                <div style="color:#16a34a;">🟢 <strong>Conformes:</strong> ${nuevaSesion.conformes} productos</div>
+                <div style="color:#d97706;">🟡 <strong>Sobrantes:</strong> ${nuevaSesion.sobrantesProductos} productos (+${nuevaSesion.sobrantesUnidades} unds)</div>
+                <div style="color:#dc2626;">🔴 <strong>Faltantes:</strong> ${nuevaSesion.faltantesProductos} productos (-${nuevaSesion.faltantesUnidades} unds)</div>
             </div>
             ${discrepancias > 0 
                 ? '<p>¿Deseas aplicar los ajustes contables de inventario de este conteo ahora mismo?</p>'
@@ -1411,25 +1472,40 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
     if (discrepancias > 0 && !autoAjustar) {
         let aplicarAhora = false;
         if (typeof showCustomConfirm === 'function') {
-            aplicarAhora = await showCustomConfirm('Conteo Registrado con Éxito', mensajeConfirmacion, 'question');
+            aplicarAhora = await showCustomConfirm('Conteo Registrado con Éxito', mensajeConfirmacion, {
+                confirmText: 'Sí, aplicar ajustes',
+                cancelText: 'Solo guardar historial',
+                tipo: 'question'
+            });
         } else {
             aplicarAhora = confirm(`Conteo registrado con éxito. ¿Deseas aplicar los ajustes contables ahora?`);
         }
 
         if (aplicarAhora) {
-            nuevaSesion.ajustado = true;
-            guardarSesionesConteo(sesiones);
-            await aplicarTodosLosAjustes();
+            const aplicado = await aplicarTodosLosAjustes({ saltarConfirmacion: true, omitirGuardarSesion: true });
+            if (aplicado) {
+                nuevaSesion.ajustado = true;
+                guardarSesionesConteo(sesiones);
+                if (window.InventoryApp?.Firebase?.guardarSesionConteo) {
+                    const okUpd = await window.InventoryApp.Firebase.guardarSesionConteo(nuevaSesion).catch(() => false);
+                    if (okUpd) {
+                        nuevaSesion.sincronizadoNube = true;
+                        guardarSesionesConteo(sesiones);
+                    }
+                }
+            }
             renderizarHistorialSesionesConteo();
             return;
         }
-    } else if (autoAjustar) {
-        nuevaSesion.ajustado = true;
-        guardarSesionesConteo(sesiones);
     }
 
     if (typeof showCustomToast === 'function') {
-        showCustomToast(`Registro de conteo guardado: ${productosDetalle.length} productos auditados`, 'success');
+        showCustomToast(
+            guardadoCloud
+                ? `Conteo guardado en historial y Firebase (${nuevaSesion.totalContados} productos)`
+                : `Registro de conteo guardado localmente (${nuevaSesion.totalContados} productos)`,
+            'success'
+        );
     }
 }
 
@@ -1861,7 +1937,11 @@ function imprimirActaSesionConteo(sesionId) {
 async function eliminarSesionConteo(sesionId) {
     let confirmado = false;
     if (typeof showCustomConfirm === 'function') {
-        confirmado = await showCustomConfirm('Eliminar Registro', '¿Seguro que deseas eliminar este registro de conteo físico? Esta acción no altera el inventario actual.', 'warning');
+        confirmado = await showCustomConfirm(
+            'Eliminar Registro',
+            '¿Seguro que deseas eliminar este registro de conteo físico? Esta acción también lo borrará de Firebase, sin alterar tu inventario actual.',
+            { confirmText: 'Sí, eliminar', cancelText: 'Cancelar', isDanger: true, tipo: 'danger' }
+        );
     } else {
         confirmado = confirm('¿Eliminar este registro de conteo físico?');
     }
@@ -1871,6 +1951,10 @@ async function eliminarSesionConteo(sesionId) {
     let sesiones = obtenerSesionesConteo();
     sesiones = sesiones.filter(s => s.id !== sesionId);
     guardarSesionesConteo(sesiones);
+
+    if (window.InventoryApp?.Firebase?.eliminarSesionConteo) {
+        await window.InventoryApp.Firebase.eliminarSesionConteo(sesionId).catch(() => {});
+    }
 
     renderizarHistorialSesionesConteo();
     cerrarModalDetalleSesionConteo();
@@ -1890,10 +1974,15 @@ async function aplicarAjustesDesdeSesion(sesionId) {
 
     // Cargar los productos de la sesión a la mesa y ejecutar el ajuste masivo
     cargarSesionConteoEnMesa(sesionId);
-    s.ajustado = true;
-    guardarSesionesConteo(sesiones);
-
-    await aplicarTodosLosAjustes();
+    const aplicado = await aplicarTodosLosAjustes({ omitirGuardarSesion: true });
+    if (aplicado) {
+        s.ajustado = true;
+        guardarSesionesConteo(sesiones);
+        if (window.InventoryApp?.Firebase?.guardarSesionConteo) {
+            await window.InventoryApp.Firebase.guardarSesionConteo(s).catch(() => {});
+        }
+        renderizarHistorialSesionesConteo();
+    }
     verDetalleSesionConteo(sesionId);
 }
 

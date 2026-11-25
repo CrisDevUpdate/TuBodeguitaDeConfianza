@@ -958,7 +958,8 @@ window.InventoryApp = window.InventoryApp || {};
                     obtenerColeccionSegura(COLLECTIONS.KARDEX),
                     obtenerColeccionSegura(COLLECTIONS.PROVEEDORES),
                     cajaActiva ? obtenerColeccionSegura(COLLECTIONS.TURNOS) : Promise.resolve(null),
-                    cajaActiva ? obtenerColeccionSegura(COLLECTIONS.EGRESOS) : Promise.resolve(null)
+                    cajaActiva ? obtenerColeccionSegura(COLLECTIONS.EGRESOS) : Promise.resolve(null),
+                    obtenerColeccionSegura(COLLECTIONS.SESIONES_CONTEO)
                 );
             }
 
@@ -983,6 +984,7 @@ window.InventoryApp = window.InventoryApp || {};
             const snapProveedores = esAdmin ? resultados[16] : null;
             const snapTurnos = esAdmin ? resultados[17] : null;
             const snapEgresos = esAdmin ? resultados[18] : null;
+            const snapSesionesConteo = esAdmin ? resultados[19] : null;
 
             // Si no se pudo obtener ninguna respuesta (ej: offline sin caché aún), mantenemos estado local
             const algunoRespondio = snapProds !== null || snapCli !== null || snapVentas !== null || snapAbonos !== null || snapTx !== null || snapUsuarios !== null;
@@ -1120,6 +1122,37 @@ window.InventoryApp = window.InventoryApp || {};
 
             if (snapAud && !snapAud.empty) {
                 AppState.auditorias = snapAud.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            if (snapSesionesConteo) {
+                const cloudSesiones = snapSesionesConteo.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+                const mapSes = new Map();
+                cloudSesiones.forEach(s => { if (s && s.id) mapSes.set(String(s.id), s); });
+                // Preservar sesiones locales aún pendientes de subir y subirlas automáticamente
+                let localesSes = Array.isArray(AppState.sesionesConteo) ? AppState.sesionesConteo : [];
+                if (localesSes.length === 0) {
+                    try {
+                        const rawSC = localStorage.getItem('bodeguita_sesiones_conteo_v1');
+                        if (rawSC) {
+                            const parsedSC = JSON.parse(rawSC);
+                            if (Array.isArray(parsedSC)) localesSes = parsedSC;
+                        }
+                    } catch (_) {}
+                }
+                localesSes.forEach(localS => {
+                    if (localS && localS.id && !mapSes.has(String(localS.id)) && localS.sincronizadoNube !== true) {
+                        mapSes.set(String(localS.id), localS);
+                        guardarSesionConteoCloud(localS).catch(() => {});
+                    }
+                });
+                AppState.sesionesConteo = Array.from(mapSes.values()).sort((a, b) => {
+                    const ta = new Date(a.fechaCreacion || a.fecha || 0).getTime() || 0;
+                    const tb = new Date(b.fechaCreacion || b.fecha || 0).getTime() || 0;
+                    return tb - ta;
+                });
+                try {
+                    localStorage.setItem('bodeguita_sesiones_conteo_v1', JSON.stringify(AppState.sesionesConteo));
+                } catch (_) {}
             }
 
             if (snapElim && !snapElim.empty) {
@@ -1437,6 +1470,15 @@ window.InventoryApp = window.InventoryApp || {};
                 const id = String(a.id || `AUD-${Date.now()}-${Math.random()}`);
                 const ref = db.collection(COLLECTIONS.AUDITORIAS).doc(id);
                 const payload = sanitizarObjetoParaFirestore({ ...a, id }) || {};
+                batch.set(ref, payload, { merge: true });
+            });
+
+            // Sesiones de Conteo Físico (Historial de Conteos)
+            (AppState.sesionesConteo || []).forEach(s => {
+                const id = String(s.id || `CONTEO-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+                const ref = db.collection(COLLECTIONS.SESIONES_CONTEO).doc(id);
+                const payload = sanitizarObjetoParaFirestore({ ...s, id, sincronizadoNube: true }) || {};
+                payload.updatedAt = new Date().toISOString();
                 batch.set(ref, payload, { merge: true });
             });
 
@@ -2211,6 +2253,38 @@ window.InventoryApp = window.InventoryApp || {};
                 }, err => manejarErrorListener('auditorias', err));
                 syncListeners.push(unsubAud);
 
+                // Listener de sesiones de conteo físico (Historial de Conteos - exclusivo Admin)
+                const unsubSesionesConteo = db.collection(COLLECTIONS.SESIONES_CONTEO).onSnapshot(snapshot => {
+                    if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+                    const cloudSesiones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), sincronizadoNube: true }));
+                    const mapSes = new Map();
+                    cloudSesiones.forEach(s => { if (s && s.id) mapSes.set(String(s.id), s); });
+                    // Conservar cualquier sesión local aún no confirmada en nube y subirla
+                    (AppState.sesionesConteo || []).forEach(localS => {
+                        if (localS && localS.id && !mapSes.has(String(localS.id)) && localS.sincronizadoNube === false) {
+                            mapSes.set(String(localS.id), localS);
+                            guardarSesionConteoCloud(localS).catch(() => {});
+                        }
+                    });
+                    const mergedSesiones = Array.from(mapSes.values()).sort((a, b) => {
+                        const ta = new Date(a.fechaCreacion || a.fecha || 0).getTime() || 0;
+                        const tb = new Date(b.fechaCreacion || b.fecha || 0).getTime() || 0;
+                        return tb - ta;
+                    });
+                    const hash = calcularHashColeccion(mergedSesiones);
+                    if (lastCollectionHashes[COLLECTIONS.SESIONES_CONTEO] !== hash) {
+                        lastCollectionHashes[COLLECTIONS.SESIONES_CONTEO] = hash;
+                        AppState.sesionesConteo = mergedSesiones;
+                        try {
+                            localStorage.setItem('bodeguita_sesiones_conteo_v1', JSON.stringify(mergedSesiones));
+                        } catch (_) {}
+                        if (typeof renderizarHistorialSesionesConteo === 'function') {
+                            renderizarHistorialSesionesConteo();
+                        }
+                    }
+                }, err => manejarErrorListener('sesiones_conteo', err));
+                syncListeners.push(unsubSesionesConteo);
+
                 // Listener de eliminaciones
                 const unsubElim = db.collection(COLLECTIONS.ELIMINACIONES).onSnapshot(snapshot => {
                     if (!snapshot.metadata.hasPendingWrites) {
@@ -2515,6 +2589,7 @@ window.InventoryApp = window.InventoryApp || {};
             if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
         } else if (activeView === 'auditoria') {
             if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
+            if (typeof renderizarHistorialSesionesConteo === 'function') renderizarHistorialSesionesConteo();
             if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
             if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
         } else if (activeView === 'usuarios') {
@@ -3849,27 +3924,56 @@ window.InventoryApp = window.InventoryApp || {};
     }
 
     /**
-     * CRUD: Guardar Sesión de Conteo / Toma de Inventario en Firestore
+     * CRUD: Guardar o actualizar Sesión de Conteo / Toma de Inventario en Firestore
      */
     async function guardarSesionConteoCloud(sesion) {
         if (!sesion) return false;
         try {
             if (window.InventoryApp && window.InventoryApp.Persistence) {
-                window.InventoryApp.Persistence.guardar(true);
+                window.InventoryApp.Persistence.guardar(false);
             }
-            if (db) {
-                const sid = sesion.id || `CONTEO-${Date.now()}`;
-                const ref = db.collection(COLLECTIONS.SESIONES_CONTEO).doc(String(sid));
-                const payload = sanitizarObjetoParaFirestore({
-                    ...sesion,
-                    id: sid,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }) || {};
-                await ref.set(payload, { merge: true });
-            }
+            if (isQuotaExhausted) return false;
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            const sid = String(sesion.id || `CONTEO-${Date.now()}`);
+            const ref = db.collection(COLLECTIONS.SESIONES_CONTEO).doc(sid);
+            const payload = sanitizarObjetoParaFirestore({
+                ...sesion,
+                id: sid,
+                sincronizadoNube: true,
+                updatedAt: new Date().toISOString()
+            }) || {};
+            await ref.set(payload, { merge: true });
             return true;
         } catch (e) {
-            console.warn('[Firebase] Error guardando sesión de conteo:', e);
+            if (esErrorDeCuota(e)) {
+                manejarErrorCuota();
+            } else {
+                console.warn('[Firebase] Error guardando sesión de conteo:', e);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * CRUD: Eliminar Sesión de Conteo / Toma de Inventario de Firestore
+     */
+    async function eliminarSesionConteoCloud(sesionId) {
+        if (!sesionId) return false;
+        try {
+            if (isQuotaExhausted) return false;
+            if (!db) await inicializarFirebase();
+            if (!db) return false;
+
+            await db.collection(COLLECTIONS.SESIONES_CONTEO).doc(String(sesionId)).delete();
+            return true;
+        } catch (e) {
+            if (esErrorDeCuota(e)) {
+                manejarErrorCuota();
+            } else {
+                console.warn('[Firebase] Error eliminando sesión de conteo:', e);
+            }
             return false;
         }
     }
@@ -4804,6 +4908,7 @@ window.InventoryApp = window.InventoryApp || {};
         actualizarEstadoPagoPorVerificar: actualizarEstadoPagoPorVerificarCloud,
         registrarAuditoria: registrarAuditoriaCloud,
         guardarSesionConteo: guardarSesionConteoCloud,
+        eliminarSesionConteo: eliminarSesionConteoCloud,
         guardarFacturaCompra: guardarFacturaCompraCloud,
         guardarProveedor: guardarProveedorCloud,
         eliminarProveedor: eliminarProveedorCloud,

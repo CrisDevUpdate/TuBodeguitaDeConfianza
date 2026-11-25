@@ -194,18 +194,41 @@ function configurarVistasPorRol(usuario) {
     const activeView = document.querySelector('.view-content.active')?.id || 
                        document.querySelector('#main-nav-tabs .nav-btn.active')?.getAttribute('data-tab') ||
                        document.querySelector('#mobile-bottom-nav .bottom-nav-item.active')?.getAttribute('data-tab');
-    
+    const loader = window.InventoryApp?.ModuleLoader;
+
     if (esAdmin) {
         if (window.InventoryApp?.Firebase?.iniciarListeners) {
             window.InventoryApp.Firebase.iniciarListeners();
         }
-        if (!activeView || activeView.startsWith('cliente-')) {
-            switchTab('pos');
+        const destinoAdmin = (!activeView || activeView.startsWith('cliente-')) ? 'pos' : activeView;
+        switchTab(destinoAdmin);
+
+        const completarInicializacionAdmin = () => {
+            if (typeof verificarPenalizacionesPorMoraGlobal === 'function') verificarPenalizacionesPorMoraGlobal();
+            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+            if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
+            if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+            if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+                window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+            }
+            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+            if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+            if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+            if (document.body.getAttribute('data-active-tab') === 'pos') {
+                if (typeof actualizarChipsCategoriasPOS === 'function') actualizarChipsCategoriasPOS();
+                if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+                if (typeof renderizarCarrito === 'function') renderizarCarrito();
+                if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+            }
+        };
+
+        if (loader && typeof loader.cargarParaRol === 'function') {
+            loader.cargarParaRol('admin').then(completarInicializacionAdmin).catch(err => {
+                console.warn('[usuarios] Error cargando módulos de administrador:', err);
+            });
+        } else {
+            completarInicializacionAdmin();
         }
-        if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
-        if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
-        if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
-        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
 
         // Si existen abonos o pagos pendientes de conciliación en PagosPorVerificar, avisar de inmediato al Administrador
         const abonosPendientes = (AppState.abonos || []).filter(a => a.estado === 'PENDIENTE_CONFIRMACION');
@@ -230,29 +253,65 @@ function configurarVistasPorRol(usuario) {
         if (activeView !== 'kiosco-view') {
             switchTab('kiosco-view');
         }
-        if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
-            window.KioscoModule.init();
+        const iniciarKiosco = () => {
+            if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+                window.KioscoModule.init();
+            }
+        };
+        if (loader && typeof loader.cargarParaRol === 'function') {
+            loader.cargarParaRol('kiosco').then(iniciarKiosco).catch(err => {
+                console.warn('[usuarios] Error cargando módulo Kiosco:', err);
+            });
+        } else {
+            iniciarKiosco();
         }
     } else if (esVendedor) {
         if (window.InventoryApp?.Firebase?.iniciarListeners) {
             window.InventoryApp.Firebase.iniciarListeners();
         }
-        if (!activeView || !vendedorAllowedTabs.includes(activeView)) {
-            switchTab('pos');
+        const destinoVendedor = (!activeView || !vendedorAllowedTabs.includes(activeView)) ? 'pos' : activeView;
+        switchTab(destinoVendedor);
+
+        const completarInicializacionVendedor = () => {
+            if (typeof renderizarPos === 'function') renderizarPos();
+            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+            if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+            if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
+                window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+            }
+            if (typeof renderizarClientes === 'function') renderizarClientes();
+        };
+
+        if (loader && typeof loader.cargarParaRol === 'function') {
+            loader.cargarParaRol('vendedor').then(completarInicializacionVendedor).catch(err => {
+                console.warn('[usuarios] Error cargando módulos de vendedor:', err);
+            });
+        } else {
+            completarInicializacionVendedor();
         }
-        if (typeof renderizarPos === 'function') renderizarPos();
-        if (typeof renderizarClientes === 'function') renderizarClientes();
     } else {
-        // Cliente: iniciarListeners() es idempotente y mantiene todo en tiempo real sin lecturas duplicadas
+        // Cliente: 0 bytes de módulos de admin descargados. Render inmediato solo de la vista activa.
         if (window.InventoryApp?.Firebase?.iniciarListeners) {
             window.InventoryApp.Firebase.iniciarListeners();
         }
-        if (!activeView || !activeView.startsWith('cliente-')) {
-            switchTab('cliente-catalogo');
+        const destinoCliente = (!activeView || !activeView.startsWith('cliente-')) ? 'cliente-catalogo' : activeView;
+        switchTab(destinoCliente);
+
+        // Diferir el refresco secundario de badges/vistas ocultas del cliente tras el primer pintado
+        const hidratarSecundariasCliente = () => {
+            const tabActual = document.body.getAttribute('data-active-tab');
+            if (tabActual !== 'cliente-cuenta' && typeof renderizarEstadoCuentaCliente === 'function') {
+                renderizarEstadoCuentaCliente();
+            }
+            if (tabActual !== 'cliente-premio' && typeof renderizarPremioMesCliente === 'function') {
+                renderizarPremioMesCliente();
+            }
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(hidratarSecundariasCliente, { timeout: 1200 });
+        } else {
+            setTimeout(hidratarSecundariasCliente, 450);
         }
-        if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-        if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
-        if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
 
         // Consulta de Notificaciones In-App Dirigidas al Cliente (Recepción In-App prominente)
         setTimeout(() => {

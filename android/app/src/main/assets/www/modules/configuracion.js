@@ -1843,6 +1843,14 @@ async function alternarModuloCajaAdmin() {
         window.InventoryApp.Persistence.guardar(true);
     }
 
+    if (nuevoEstado && !window.InventoryApp?.CajaTurnos && window.InventoryApp?.ModuleLoader?.cargarBundle) {
+        try {
+            await window.InventoryApp.ModuleLoader.cargarBundle('caja');
+        } catch (err) {
+            console.warn('[configuracion] No se pudo cargar el módulo de Caja bajo demanda:', err);
+        }
+    }
+
     renderizarConfiguracionAdmin();
     if (window.InventoryApp?.CajaTurnos?.actualizarBadgesTurno) {
         window.InventoryApp.CajaTurnos.actualizarBadgesTurno();

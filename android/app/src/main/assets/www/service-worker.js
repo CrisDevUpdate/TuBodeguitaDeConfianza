@@ -4,7 +4,7 @@
 // 3. Shell PWA (Network-First): Resiliencia offline para la interfaz.
 // 4. Web Push API: Recepción y apertura de notificaciones incluso con la pantalla bloqueada.
 
-const SHELL_CACHE_NAME = 'bodeguita-shell-v6';
+const SHELL_CACHE_NAME = 'bodeguita-shell-v7';
 const IMAGE_CACHE_NAME = 'bodeguita-images-v1';
 const APP_SHELL = [
   '/',

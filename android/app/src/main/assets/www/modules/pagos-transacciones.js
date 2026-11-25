@@ -450,7 +450,7 @@ const previsualizarLoteDebounced = debounce(previsualizarLote);
 // Lee un archivo CSV o Excel (.xlsx/.xls) y vuelca su contenido como líneas
 // "Cliente | Tipo | Referencia | Monto" dentro del área de texto, reutilizando
 // el mismo parser flexible que el pegado manual.
-function manejarArchivoLote(evento) {
+async function manejarArchivoLote(evento) {
     const archivo = evento.target.files && evento.target.files[0];
     const nombreEl = document.getElementById('transaccion-lote-archivo-nombre');
     const input = document.getElementById('transaccion-lote-input');
@@ -474,6 +474,13 @@ function manejarArchivoLote(evento) {
     };
 
     if (extension === 'csv' || extension === 'xlsx' || extension === 'xls') {
+        try {
+            if (typeof XLSX === 'undefined' && window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+                await window.InventoryApp.ModuleLoader.asegurarExcel();
+            }
+        } catch (err) {
+            console.warn('[pagos-transacciones] Error cargando XLSX:', err);
+        }
         if (typeof XLSX === 'undefined') {
             alert('No se pudo cargar el lector de archivos. Verifica tu conexión a internet e inténtalo de nuevo.');
             return;

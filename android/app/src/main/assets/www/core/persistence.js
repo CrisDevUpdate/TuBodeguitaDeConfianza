@@ -47,6 +47,7 @@ window.InventoryApp = window.InventoryApp || {};
         'proveedores',
         'proveedoresFrecuentes',
         'auditorias',
+        'sesionesConteo',
         'eliminaciones',
         'clientesFusionados',
         'usuarios',
@@ -251,6 +252,12 @@ window.InventoryApp = window.InventoryApp || {};
                 try {
                     localStorage.setItem('bodeguita_cache_resenas_v1', JSON.stringify(AppState.resenasSugerencias));
                 } catch (rErr) {}
+            }
+
+            if (Array.isArray(AppState.sesionesConteo)) {
+                try {
+                    localStorage.setItem('bodeguita_sesiones_conteo_v1', JSON.stringify(AppState.sesionesConteo));
+                } catch (scErr) {}
             }
 
             // 2. Purgar cualquier residuo de entidades o cachés locales obsoletas
@@ -522,6 +529,17 @@ window.InventoryApp = window.InventoryApp || {};
             AppState.resenasSugerencias = AppState.resenasSugerencias || [];
         }
 
+        if (!Array.isArray(AppState.sesionesConteo) || AppState.sesionesConteo.length === 0) {
+            try {
+                const rawSC = localStorage.getItem('bodeguita_sesiones_conteo_v1');
+                if (rawSC) {
+                    const parsedSC = JSON.parse(rawSC);
+                    if (Array.isArray(parsedSC)) AppState.sesionesConteo = parsedSC;
+                }
+            } catch (e) {}
+            AppState.sesionesConteo = AppState.sesionesConteo || [];
+        }
+
         if (typeof asegurarSolvenciaRebeca === 'function') {
             asegurarSolvenciaRebeca();
         }
@@ -558,6 +576,8 @@ window.InventoryApp = window.InventoryApp || {};
         AppState.productoImagenTemporal = '';
         AppState.conteosFisicos = {};
         AppState.auditorias = [];
+        AppState.sesionesConteo = [];
+        try { localStorage.removeItem('bodeguita_sesiones_conteo_v1'); } catch (_) {}
         AppState.eliminaciones = [];
         AppState.clientesEliminados = [];
         AppState.cuentasBancarias = [];
@@ -725,21 +745,35 @@ window.InventoryApp = window.InventoryApp || {};
      * Transacciones, Puntos de Fidelización, Canjes, Facturas de Compras, Proveedores, Kardex,
      * Auditorías, Mermas y Usuarios del Sistema.
      */
-    function exportarMasterExcel() {
+    async function exportarMasterExcel() {
+        try {
+            if (window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+                await window.InventoryApp.ModuleLoader.asegurarExcel();
+            }
+        } catch (err) {
+            console.warn('[Persistence] Error cargando módulo Excel:', err);
+        }
         if (window.InventoryApp && window.InventoryApp.ExcelExporter && typeof window.InventoryApp.ExcelExporter.exportarMasterExcelCompleto === 'function') {
             return window.InventoryApp.ExcelExporter.exportarMasterExcelCompleto(AppState, typeof CLIENTES_OFICIALES !== 'undefined' ? CLIENTES_OFICIALES : []);
         }
-        alert('El módulo financiero de exportación Excel no está disponible.');
+        alert('El módulo financiero de exportación Excel no está disponible. Verifica tu conexión a internet.');
         return false;
     }
 
     /**
      * Importa y sincroniza base de datos completa desde un archivo máster Excel (.xlsx)
      */
-    function importarMasterExcel(archivo) {
+    async function importarMasterExcel(archivo) {
+        try {
+            if (window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+                await window.InventoryApp.ModuleLoader.asegurarExcel();
+            }
+        } catch (err) {
+            console.warn('[Persistence] Error cargando XLSX:', err);
+        }
         return new Promise((resolve, reject) => {
             if (typeof XLSX === 'undefined') {
-                return reject(new Error('Librería XLSX no disponible.'));
+                return reject(new Error('Librería XLSX no disponible. Verifica tu conexión a internet.'));
             }
 
             const reader = new FileReader();

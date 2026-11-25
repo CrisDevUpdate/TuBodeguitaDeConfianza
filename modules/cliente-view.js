@@ -2376,7 +2376,7 @@ window.toggleDesgloseVentaCliente = toggleDesgloseVentaCliente;
 /**
  * Descarga el historial completo de deuda y estado de cuenta del cliente en formato Excel (.xlsx)
  */
-function descargarHistorialDeudaClienteExcel() {
+async function descargarHistorialDeudaClienteExcel() {
     const usuario = window.AppState?.usuarioActual || (typeof obtenerUsuarioActual === 'function' ? obtenerUsuarioActual() : null);
     if (!usuario) {
         if (typeof showCustomAlert === 'function') {
@@ -2418,6 +2418,14 @@ function descargarHistorialDeudaClienteExcel() {
         const cId = clienteObj?.id ? String(clienteObj.id).toUpperCase() : '';
         return (cId && aCId === cId) || (uCed && (aCCed === uCed || aCId === uCed)) || (uId && aUId === uId) || (uNom && aNom === uNom);
     });
+
+    try {
+        if (window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+            await window.InventoryApp.ModuleLoader.asegurarExcel();
+        }
+    } catch (err) {
+        console.warn('[cliente-view] No se pudo cargar el módulo Excel; usando respaldo CSV:', err);
+    }
 
     if (window.InventoryApp?.ExcelExporter?.exportarEstadoCuentaClienteCompleto) {
         return window.InventoryApp.ExcelExporter.exportarEstadoCuentaClienteCompleto({

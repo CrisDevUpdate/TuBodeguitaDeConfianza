@@ -3298,11 +3298,19 @@ window.enviarCorreoCliente = enviarCorreoCliente;
 /**
  * Descarga el estado de cuenta y desglose de movimientos en formato Excel (.xlsx)
  */
-function descargarEstadoCuentaCliente() {
+async function descargarEstadoCuentaCliente() {
     const ctx = obtenerDatosContextoCliente360();
     if (!ctx) {
         alert('No se pudo cargar la información del cliente para la descarga.');
         return;
+    }
+
+    try {
+        if (window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+            await window.InventoryApp.ModuleLoader.asegurarExcel();
+        }
+    } catch (err) {
+        console.warn('[clientes] No se pudo cargar el módulo Excel; usando respaldo CSV:', err);
     }
 
     if (window.InventoryApp?.ExcelExporter?.exportarEstadoCuentaClienteCompleto) {

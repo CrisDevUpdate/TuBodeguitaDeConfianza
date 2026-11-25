@@ -956,92 +956,124 @@ function switchTab(tabId) {
         }
     } catch {}
 
-    // Re-renderizado seguro según la pestaña activa
-    try {
-        if (tabId === 'pos') {
-            if (typeof actualizarChipsCategoriasPOS === 'function') actualizarChipsCategoriasPOS();
-            if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
-            if (typeof renderizarCarrito === 'function') renderizarCarrito();
-            if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
-            if (typeof sincronizarClienteSelects === 'function') sincronizarClienteSelects('pos-cliente-select');
-            if (window.InventoryApp && window.InventoryApp.CajaTurnos) window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
-        } else if (tabId === 'caja-turnos') {
-            if (window.InventoryApp && window.InventoryApp.CajaTurnos) {
-                window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
-                window.InventoryApp.CajaTurnos.renderizarVistaCajaTurnos();
+    const renderizarContenidoTab = () => {
+        try {
+            if (tabId === 'pos') {
+                if (typeof actualizarChipsCategoriasPOS === 'function') actualizarChipsCategoriasPOS();
+                if (typeof renderizarPosProductos === 'function') renderizarPosProductos();
+                if (typeof renderizarCarrito === 'function') renderizarCarrito();
+                if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
+                if (typeof sincronizarClienteSelects === 'function') sincronizarClienteSelects('pos-cliente-select');
+                if (window.InventoryApp && window.InventoryApp.CajaTurnos) window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+            } else if (tabId === 'caja-turnos') {
+                if (window.InventoryApp && window.InventoryApp.CajaTurnos) {
+                    window.InventoryApp.CajaTurnos.actualizarBadgesTurno();
+                    window.InventoryApp.CajaTurnos.renderizarVistaCajaTurnos();
+                }
+            } else if (tabId === 'inventario') {
+                if (typeof renderizarInventario === 'function') renderizarInventario();
+                if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
+                if (typeof actualizarVistaImagenProducto === 'function') actualizarVistaImagenProducto();
+                if (typeof actualizarBadgeReposicionCompras === 'function') actualizarBadgeReposicionCompras();
+            } else if (tabId === 'clientes') {
+                if (typeof renderizarClientes === 'function') renderizarClientes();
+                if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
+                if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+            } else if (tabId === 'transacciones') {
+                if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
+                if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
+                if (typeof alCambiarMetodoTransaccionDirecta === 'function') alCambiarMetodoTransaccionDirecta();
+                if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
+            } else if (tabId === 'facturas') {
+                if (typeof inicializarModuloFacturas === 'function') inicializarModuloFacturas();
+            } else if (tabId === 'auditoria') {
+                if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
+                if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
+                if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
+            } else if (tabId === 'usuarios') {
+                if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
+                if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
+            } else if (tabId === 'historial-ventas') {
+                if (typeof marcarHistorialVentasRevisado === 'function') marcarHistorialVentasRevisado();
+                if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
+                if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
+            } else if (tabId === 'notificaciones') {
+                if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
+                if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
+            } else if (tabId === 'premio-mes-admin') {
+                if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
+            } else if (tabId === 'configuracion') {
+                if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
+            } else if (tabId === 'admin-resenas') {
+                if (typeof renderizarBuzonResenasAdmin === 'function') renderizarBuzonResenasAdmin();
+            } else if (tabId === 'cliente-catalogo') {
+                if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
+                if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
+            } else if (tabId === 'cliente-cuenta') {
+                if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
+            } else if (tabId === 'cliente-premio') {
+                if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
+            } else if (tabId === 'cliente-resenas') {
+                if (typeof renderizarVistaResenasCliente === 'function') renderizarVistaResenasCliente();
+            } else if (tabId === 'cliente-perfil') {
+                if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
+            } else if (tabId === 'kiosco-view') {
+                document.body.classList.add('modo-autoservicio');
+                if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
+                    window.KioscoModule.init();
+                }
             }
-        } else if (tabId === 'inventario') {
-            if (typeof renderizarInventario === 'function') renderizarInventario();
-            if (typeof prepararCodigoNuevoProducto === 'function') prepararCodigoNuevoProducto();
-        } else if (tabId === 'clientes') {
-            if (typeof renderizarClientes === 'function') renderizarClientes();
-            if (typeof renderizarHistorialClientesEliminados === 'function') renderizarHistorialClientesEliminados();
-            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
-        } else if (tabId === 'transacciones') {
-            if (typeof renderizarTransacciones === 'function') renderizarTransacciones();
-            if (typeof actualizarSelectTransacciones === 'function') actualizarSelectTransacciones();
-            if (typeof alCambiarMetodoTransaccionDirecta === 'function') alCambiarMetodoTransaccionDirecta();
-            if (typeof renderizarAbonosPendientesReportados === 'function') renderizarAbonosPendientesReportados();
-        } else if (tabId === 'facturas') {
-            if (typeof inicializarModuloFacturas === 'function') inicializarModuloFacturas();
-        } else if (tabId === 'auditoria') {
-            if (typeof renderizarAuditoria === 'function') renderizarAuditoria();
-            if (typeof renderizarHistorialAuditoria === 'function') renderizarHistorialAuditoria();
-            if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
-        } else if (tabId === 'usuarios') {
-            if (typeof renderizarUsuarios === 'function') renderizarUsuarios();
-            if (typeof actualizarBadgesUsuarios === 'function') actualizarBadgesUsuarios();
-        } else if (tabId === 'historial-ventas') {
-            if (typeof marcarHistorialVentasRevisado === 'function') marcarHistorialVentasRevisado();
-            if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
-            if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
-        } else if (tabId === 'notificaciones') {
-            if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
-            if (typeof actualizarBadgesNotificaciones === 'function') actualizarBadgesNotificaciones();
-        } else if (tabId === 'premio-mes-admin') {
-            if (typeof renderizarConfiguradorPremioAdmin === 'function') renderizarConfiguradorPremioAdmin();
-        } else if (tabId === 'configuracion') {
-            if (typeof renderizarConfiguracionAdmin === 'function') renderizarConfiguracionAdmin();
-        } else if (tabId === 'admin-resenas') {
-            if (typeof renderizarBuzonResenasAdmin === 'function') renderizarBuzonResenasAdmin();
-        } else if (tabId === 'cliente-catalogo') {
-            if (typeof renderizarCatalogoCliente === 'function') renderizarCatalogoCliente();
-            if (typeof renderizarCarritoCliente === 'function') renderizarCarritoCliente();
-        } else if (tabId === 'cliente-cuenta') {
-            if (typeof renderizarEstadoCuentaCliente === 'function') renderizarEstadoCuentaCliente();
-        } else if (tabId === 'cliente-premio') {
-            if (typeof renderizarPremioMesCliente === 'function') renderizarPremioMesCliente();
-        } else if (tabId === 'cliente-resenas') {
-            if (typeof renderizarVistaResenasCliente === 'function') renderizarVistaResenasCliente();
-        } else if (tabId === 'cliente-perfil') {
-            if (typeof renderizarPerfilCliente === 'function') renderizarPerfilCliente();
-        } else if (tabId === 'kiosco-view') {
-            document.body.classList.add('modo-autoservicio');
-            if (window.KioscoModule && typeof window.KioscoModule.init === 'function') {
-                window.KioscoModule.init();
+
+            if (tabId !== 'kiosco-view') {
+                const u = window.AppState?.usuarioActual;
+                const esAutoServicioUser = u && (u.rol === 'autoservicio' || u.rol === 'kiosco');
+                if (!esAutoServicioUser) {
+                    document.body.classList.remove('modo-autoservicio');
+                }
             }
-        }
 
-        if (tabId !== 'kiosco-view') {
-            const u = window.AppState?.usuarioActual;
-            const esAutoServicioUser = u && (u.rol === 'autoservicio' || u.rol === 'kiosco');
-            if (!esAutoServicioUser) {
-                document.body.classList.remove('modo-autoservicio');
-            }
+            if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
+        } catch (err) {
+            console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
         }
+    };
 
-        if (typeof actualizarBadgesAbonos === 'function') actualizarBadgesAbonos();
-
-        // En pantallas móviles, colapsar el menú de navegación para maximizar el espacio de trabajo
-        if (window.innerWidth <= 768) {
-            const navTabs = document.getElementById('main-nav-tabs');
-            const chevron = document.querySelector('.main-nav-mobile-chevron');
-            if (navTabs) navTabs.classList.add('nav-tabs-collapsed-mobile');
-            if (chevron) chevron.classList.remove('open');
-        }
-    } catch (err) {
-        console.warn('[switchTab] Advertencia al renderizar tab:', tabId, err);
+    // En pantallas móviles, colapsar el menú de navegación para maximizar el espacio de trabajo
+    if (window.innerWidth <= 768) {
+        const navTabs = document.getElementById('main-nav-tabs');
+        const chevron = document.querySelector('.main-nav-mobile-chevron');
+        if (navTabs) navTabs.classList.add('nav-tabs-collapsed-mobile');
+        if (chevron) chevron.classList.remove('open');
     }
+
+    // Si la pestaña requiere módulos diferidos que aún no se han descargado, cargarlos bajo demanda
+    const loader = window.InventoryApp?.ModuleLoader;
+    if (loader && typeof loader.necesitaCargaParaTab === 'function' && loader.necesitaCargaParaTab(tabId)) {
+        let toastTimer = setTimeout(() => {
+            if (typeof window.showCustomToast === 'function') {
+                window.showCustomToast('Cargando módulo...', 'info', 1800);
+            }
+        }, 250);
+
+        loader.asegurarParaTab(tabId)
+            .then(() => {
+                clearTimeout(toastTimer);
+                if (document.body.getAttribute('data-active-tab') === tabId) {
+                    renderizarContenidoTab();
+                }
+            })
+            .catch((err) => {
+                clearTimeout(toastTimer);
+                console.warn('[switchTab] No se pudo cargar el módulo para tab:', tabId, err);
+                if (typeof window.showCustomToast === 'function') {
+                    window.showCustomToast('No se pudo cargar este módulo. Verifica tu conexión e inténtalo de nuevo.', 'warning', 3500);
+                }
+            });
+        return;
+    }
+
+    // Re-renderizado inmediato cuando los módulos ya están en memoria
+    renderizarContenidoTab();
 }
 
 /**

@@ -1202,12 +1202,20 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
-    function descargarListaComprasExcel() {
+    async function descargarListaComprasExcel() {
         const analisis = state.ultimoAnalisis || calcularPrediccionReposicion();
         const items = obtenerItemsSeleccionadosParaDescargar();
         if (!items.length) {
             notificar('Marca al menos un producto con cantidad mayor a 0 para descargar la lista.', 'warning');
             return false;
+        }
+
+        try {
+            if (typeof XLSX === 'undefined' && window.InventoryApp?.ModuleLoader?.asegurarExcel) {
+                await window.InventoryApp.ModuleLoader.asegurarExcel();
+            }
+        } catch (err) {
+            console.warn('[reposicion-compras] Error cargando XLSX; usando respaldo CSV:', err);
         }
 
         const XLSX_LIB = (typeof XLSX !== 'undefined' ? XLSX : window.XLSX);
