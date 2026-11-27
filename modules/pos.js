@@ -1754,6 +1754,7 @@ function cambiarAContadoDesdeModal() {
  * Asienta la venta a crédito directamente en cuenta corriente sin pedir métodos de pago en caja
  */
 async function ejecutarVentaCreditoDirecta(clienteIdParam) {
+    const pedidoAdelantadoActivoId = window.AppState?.pedidoPOSActivoId || null;
     const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
     const clienteId = clienteIdParam || (clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000'));
     const listaClientes = Array.isArray(clientes) ? clientes : (AppState.clientes || []);
@@ -1883,7 +1884,14 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
 
     carrito = [];
     if (window.InventoryApp?.PedidosAdelantados?.completarPedidoActivoPorVenta) {
-        window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id);
+        try {
+            await window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id, pedidoAdelantadoActivoId);
+        } catch (pedErr) {
+            console.warn('[POS] Aviso al completar encargo tras venta a crédito:', pedErr);
+        }
+    }
+    if (window.InventoryApp?.Persistence?.guardar) {
+        try { window.InventoryApp.Persistence.guardar(false); } catch {}
     }
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
@@ -1894,12 +1902,12 @@ async function ejecutarVentaCreditoDirecta(clienteIdParam) {
     cerrarDrawerCarritoMobile();
     renderizarCarrito();
     renderizarPosProductos();
-    renderizarInventario();
-    renderizarClientes();
+    if (typeof renderizarInventario === 'function') renderizarInventario();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
     if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
-    renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
-    renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarAuditoria === 'function') renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
     if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();
@@ -2041,6 +2049,7 @@ function cerrarModalCheckoutPOS() {
 }
 
 async function ejecutarFinalizacionCheckoutPOS() {
+    const pedidoAdelantadoActivoId = window.AppState?.pedidoPOSActivoId || null;
     const clienteIdSelect = document.getElementById('pos-cliente-select') || document.getElementById('pos-cliente-select-mobile');
     const clienteId = clienteIdSelect ? clienteIdSelect.value : (clientes[0]?.id || 'V-00000000');
     const metodoPago = document.getElementById('pos-checkout-metodo')?.value || 'Efectivo USD';
@@ -2216,7 +2225,14 @@ async function ejecutarFinalizacionCheckoutPOS() {
 
     carrito = [];
     if (window.InventoryApp?.PedidosAdelantados?.completarPedidoActivoPorVenta) {
-        window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id);
+        try {
+            await window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id, pedidoAdelantadoActivoId);
+        } catch (pedErr) {
+            console.warn('[POS] Aviso al completar encargo tras cobro POS:', pedErr);
+        }
+    }
+    if (window.InventoryApp?.Persistence?.guardar) {
+        try { window.InventoryApp.Persistence.guardar(false); } catch {}
     }
     const desktopSel = document.getElementById('pos-tipo-pago');
     const mobileSel = document.getElementById('pos-tipo-pago-mobile');
@@ -2227,12 +2243,12 @@ async function ejecutarFinalizacionCheckoutPOS() {
     cerrarDrawerCarritoMobile();
     renderizarCarrito();
     renderizarPosProductos();
-    renderizarInventario();
-    renderizarClientes();
+    if (typeof renderizarInventario === 'function') renderizarInventario();
+    if (typeof renderizarClientes === 'function') renderizarClientes();
     if (typeof actualizarSelectClientes === 'function') actualizarSelectClientes();
     if (typeof renderizarCustomClientePickersPOS === 'function') renderizarCustomClientePickersPOS('both');
-    renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
-    renderizarResumenPerdidasEconomicas();
+    if (typeof renderizarAuditoria === 'function') renderizarAuditoria(document.getElementById('auditoria-search') ? document.getElementById('auditoria-search').value : "");
+    if (typeof renderizarResumenPerdidasEconomicas === 'function') renderizarResumenPerdidasEconomicas();
     if (typeof renderizarHistorialVentasAdmin === 'function') renderizarHistorialVentasAdmin();
     if (typeof actualizarBadgeVentasHoy === 'function') actualizarBadgeVentasHoy();
     if (typeof renderizarNotificaciones === 'function') renderizarNotificaciones();

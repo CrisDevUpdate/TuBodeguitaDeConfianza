@@ -244,7 +244,7 @@ function configurarVistasPorRol(usuario) {
                 }
                 const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                 if (typeof notifFn === 'function') {
-                    notifFn(`🔔 Tienes <strong>${totalPendientes} pago(s) o abono(s) por verificar</strong> en Firebase. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
+                    notifFn(`🔔 Tienes <strong>${totalPendientes} pago(s) o abono(s) por verificar</strong>. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
                 }
             }, 600);
         }
@@ -2411,7 +2411,7 @@ function crearModalSelectorAvatarDOM() {
             </div>
 
             <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
-                Personaliza tu foto de perfil. Tu imagen se guardará de forma permanente y segura en tu almacenamiento en la nube de <strong>Vercel Blob</strong>.
+                Personaliza tu foto de perfil. Tu imagen se guardará de forma segura en tu cuenta.
             </p>
 
             <!-- Preview del Avatar Actual -->
@@ -2421,7 +2421,7 @@ function crearModalSelectorAvatarDOM() {
                 </div>
                 <div>
                     <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);" id="avatar-preview-name">Tu Perfil</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Sincronizado con Vercel Blob & Firestore</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Sincronizado con tu perfil</div>
                 </div>
             </div>
 
@@ -2429,7 +2429,7 @@ function crearModalSelectorAvatarDOM() {
             <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">Elige un avatar prediseñado:</div>
             <div id="avatar-presets-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; margin-bottom:20px;"></div>
 
-            <!-- Subida Personalizada a Vercel Blob -->
+            <!-- Subida Personalizada -->
             <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
                 <div style="font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:10px;">O sube tu propia foto desde tu dispositivo:</div>
                 
@@ -2441,7 +2441,7 @@ function crearModalSelectorAvatarDOM() {
                         Haz clic aquí o arrastra tu foto a esta casilla
                     </div>
                     <div style="font-size: 0.78rem; color: var(--text-muted);">
-                        Formatos: JPG, PNG, WEBP, GIF (Se optimiza y almacena en Vercel Blob)
+                        Formatos: JPG, PNG, WEBP, GIF
                     </div>
                     <input type="file" id="avatar-custom-file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp" style="display:none;" onchange="procesarSubidaAvatar(event)" onclick="this.value=''">
                 </div>
@@ -2458,7 +2458,7 @@ function crearModalSelectorAvatarDOM() {
                 <div id="avatar-upload-status" style="margin-top:12px; display:none; padding:10px; border-radius:8px; font-size:0.85rem; text-align:center;"></div>
 
                 <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:10px;">
-                    <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento seguro en la nube conectado con Vercel Blob Storage privado.
+                    <i class="fas fa-shield-alt" style="color:var(--primary-accent);"></i> Almacenamiento seguro en la nube para tu perfil.
                 </small>
             </div>
 
@@ -2639,7 +2639,7 @@ function procesarSubidaAvatar(fileOrEvent) {
         statusEl.style.display = 'block';
         statusEl.style.background = 'rgba(37, 99, 235, 0.1)';
         statusEl.style.color = 'var(--primary-accent)';
-        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando imagen y sincronizando con Vercel Blob...`;
+        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Optimizando y guardando tu foto...`;
     }
 
     const reader = new FileReader();
@@ -2731,11 +2731,11 @@ function procesarSubidaAvatar(fileOrEvent) {
                 if (statusEl) {
                     statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
                     statusEl.style.color = '#059669';
-                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ¡Foto guardada exitosamente en Vercel Blob!`;
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ¡Foto guardada con éxito!`;
                 }
 
                 if (window.InventoryApp?.Modal?.toast) {
-                    window.InventoryApp.Modal.toast('¡Foto de perfil actualizada y guardada con éxito en Vercel Blob!', 'success');
+                    window.InventoryApp.Modal.toast('¡Foto de perfil actualizada con éxito!', 'success');
                 }
 
                 setTimeout(() => {

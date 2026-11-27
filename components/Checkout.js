@@ -307,7 +307,13 @@ class PosCheckoutManager {
         }
 
         // 4. Limpiar Carrito y Persistir
+        const pedidoAdelantadoActivoId = window.AppState?.pedidoPOSActivoId || null;
         window.AppState.carrito = [];
+        if (window.InventoryApp?.PedidosAdelantados?.completarPedidoActivoPorVenta) {
+            try {
+                await window.InventoryApp.PedidosAdelantados.completarPedidoActivoPorVenta(nuevaVenta.id, pedidoAdelantadoActivoId);
+            } catch {}
+        }
         this.cerrarModal();
 
         if (window.InventoryApp.Persistence?.guardar) {

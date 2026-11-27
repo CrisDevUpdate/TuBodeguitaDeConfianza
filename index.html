@@ -3644,6 +3644,12 @@
                             <i class="fas fa-bell-concierge"></i> <span>Encargos</span>
                             <span id="pos-btn-encargos-count" style="display:none; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#f59e0b; color:#ffffff; font-size:0.7rem; font-weight:800; margin-left:4px;">0</span>
                         </button>
+                        <button type="button" class="btn-scan-camera-inline" id="btn-pos-cierre-diario"
+                                onclick="if(window.abrirModalCierreDiario) window.abrirModalCierreDiario();"
+                                title="Ver Cierre del Día y enviar resumen por WhatsApp"
+                                style="background:#f0fdf4; color:#15803d; border-color:#86efac;">
+                            <i class="fas fa-calendar-check"></i> <span>Cierre</span>
+                        </button>
                         <!-- Selector de Vista (Cuadrícula / Lista) -->
                         <div class="pos-view-mode-toggle" role="group" aria-label="Modo de visualización">
                             <button type="button" class="pos-view-btn active" id="btn-pos-view-grid" 
@@ -4778,7 +4784,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
                                 <label for="factura-proveedor" style="font-size:0.82rem; font-weight:700; color:var(--text-color); display:flex; align-items:center; gap:6px; margin:0;">
                                     <span>Proveedor <span style="color:#ef4444;">*</span></span>
-                                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">(Se guarda automáticamente en Firebase al procesar)</span>
+                                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">(Se guarda automáticamente al procesar)</span>
                                 </label>
                                 <button type="button" onclick="abrirDirectorioProveedores()" title="Ver, editar o eliminar proveedores registrados" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; border-radius:6px; padding:4px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">
                                     <i class="fas fa-address-book" style="color:#2563eb;"></i> Directorio / Editar Proveedores
@@ -5677,7 +5683,7 @@
                     </div>
                     <div>
                         <h2 id="reward-config-title">Configuración del Premio del Mes & Sistema de Puntos</h2>
-                        <p>Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y gestiona la imagen en Vercel Blob.</p>
+                        <p>Establece el incentivo del mes, la equivalencia de puntos por dólar consumido y gestiona la imagen del premio.</p>
                     </div>
                 </div>
                 <button type="button" class="reward-config-back-btn" onclick="switchTab('usuarios')">
@@ -5831,7 +5837,7 @@
                         <div class="reward-config-card-header">
                             <h3><i class="fas fa-cloud-arrow-up" style="color:var(--rc-emerald-600);"></i> Multimedia & Live Preview</h3>
                             <span class="reward-dropzone-badge">
-                                <i class="fas fa-bolt"></i> Vercel Blob Storage
+                                <i class="fas fa-image"></i> Almacenamiento seguro
                             </span>
                         </div>
 
@@ -5844,7 +5850,7 @@
                                 </div>
                                 <div>
                                     <p class="reward-dropzone-title" id="dropzone-title-status">Arrastra una imagen o haz clic aquí</p>
-                                    <p class="reward-dropzone-hint">Sube directo a Vercel Blob (.png, .jpg, .webp hasta 8MB)</p>
+                                    <p class="reward-dropzone-hint">Formatos permitidos: .png, .jpg, .webp (hasta 8MB)</p>
                                 </div>
                             </div>
                             <!-- Barra de progreso oculta por defecto -->
@@ -6025,7 +6031,10 @@
                         <i class="fas fa-list-check"></i> Historial General (Filtros)
                     </button>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-sm btn-success" onclick="if(window.abrirModalCierreDiario) window.abrirModalCierreDiario();" title="Ver resumen de cierre del día y enviar por WhatsApp" style="font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fas fa-calendar-check"></i> Cierre del Día
+                    </button>
                     <button type="button" class="btn btn-sm btn-outline" onclick="renderizarHistorialVentasAdmin()" title="Actualizar datos de ventas">
                         <i class="fas fa-rotate"></i> Actualizar
                     </button>
@@ -8175,7 +8184,7 @@
                     Cancelar
                 </button>
                 <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg, #ea580c, #f59e0b); border-color:#ea580c; color:#ffffff; font-weight:800; padding:10px 22px; display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-check"></i> Guardar Combo en Catálogo & Firestore
+                    <i class="fas fa-check"></i> Guardar Combo en Catálogo
                 </button>
             </div>
         </form>
@@ -8190,28 +8199,28 @@
 
 <!-- Scripts de Arquitectura Núcleo (Carga Inicial Ligera; Admin/Kiosco/Excel/Escáner cargan bajo demanda vía core/module-loader.js) -->
 <script src="core/helpers.js?v=20261124_pedidos_v1"></script>
-<script src="core/module-loader.js?v=20261124_pedidos_v1"></script>
+<script src="core/module-loader.js?v=20261126_cierre_v1"></script>
 <script src="core/image-cache-service.js?v=4.5.0_anti_dup"></script>
 <script src="data/inventario-oficial.js?v=20260923_v1"></script>
 <script src="data/clientes-oficiales.js?v=20260923_v1"></script>
 <script type="module" src="lib/comboFinancialMath.js?v=4.5.0_anti_dup"></script>
 <script src="core/app-state.js?v=20261124_pedidos_v1"></script>
 <script src="core/modal.js?v=4.5.0_anti_dup"></script>
-<script src="core/firebase-service.js?v=20261124_pedidos_v1"></script>
+<script src="core/firebase-service.js?v=20261126_pedidos_fix"></script>
 <script src="core/persistence.js?v=20261124_lazy_v1"></script>
 <script src="core/bcv.js?v=4.5.0_anti_dup"></script>
 <script src="components/ThemeSelector.js?v=4.5.0_anti_dup"></script>
-<script src="components/Checkout.js?v=4.5.0_anti_dup"></script>
+<script src="components/Checkout.js?v=20261126_pedidos_fix"></script>
 <script src="components/Catalog.js?v=20261121_cliente_scan"></script>
 <script src="components/TreeGamification.js?v=4.5.0_anti_dup"></script>
 <script src="components/TerminosPrivacidad.js?v=20260927_v1"></script>
 <script src="modules/clientes.js?v=20261124_lazy_v1"></script>
-<script src="modules/premio-mes.js?v=20260915_v5"></script>
+<script src="modules/premio-mes.js?v=20261126_clean_copy"></script>
 <script src="data/banco-frases.js?v=20261123_frases_curadas_v2"></script>
 <script src="modules/cliente-view.js?v=20261124_lazy_v1"></script>
-<script src="modules/pedidos-adelantados.js?v=20261124_pedidos_v1"></script>
-<script src="modules/resenas-sugerencias.js?v=20261124_opt_v1"></script>
-<script src="modules/usuarios.js?v=20261124_lazy_v1"></script>
+<script src="modules/pedidos-adelantados.js?v=20261126_pedidos_fix"></script>
+<script src="modules/resenas-sugerencias.js?v=20261126_clean_copy"></script>
+<script src="modules/usuarios.js?v=20261126_clean_copy"></script>
 <script src="modules/notificaciones.js?v=20260915_v5"></script>
 <script src="core/pwa-push-manager.js?v=20261123_icon_v6"></script>
 <script src="app.js?v=20261124_lazy_v1"></script>

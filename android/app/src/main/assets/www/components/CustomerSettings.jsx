@@ -146,7 +146,7 @@ export default function CustomerSettings({
       );
 
       if (!response.ok) {
-        throw new Error('Error al comunicar con el servicio de Vercel Blob');
+        throw new Error('No se pudo guardar la imagen de perfil');
       }
 
       const newBlob = await response.json();
@@ -158,7 +158,7 @@ export default function CustomerSettings({
         await onUpdateAvatar(finalUrl);
       }
 
-      setSaveToast('¡Foto de perfil actualizada en Vercel Blob!');
+      setSaveToast('¡Foto de perfil actualizada con éxito!');
       setTimeout(() => setSaveToast(null), 3000);
     } catch (err) {
       alert('Error al procesar la imagen: ' + err.message);

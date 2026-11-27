@@ -1455,7 +1455,7 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
     const discrepancias = nuevaSesion.sobrantesProductos + nuevaSesion.faltantesProductos;
     let mensajeConfirmacion = `
         <div style="text-align:left; font-size:0.9rem; line-height:1.5;">
-            <p>Se ha guardado el registro del conteo <strong>"${nuevaSesion.titulo}"</strong> con fecha <strong>${nuevaSesion.fecha}</strong>${guardadoCloud ? ' (respaldado en Firebase)' : ''}.</p>
+            <p>Se ha guardado el registro del conteo <strong>"${nuevaSesion.titulo}"</strong> con fecha <strong>${nuevaSesion.fecha}</strong>${guardadoCloud ? ' (respaldado en la nube)' : ''}.</p>
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin:12px 0;">
                 <div>📦 <strong>Total contados:</strong> ${nuevaSesion.totalContados} productos</div>
                 <div style="color:#16a34a;">🟢 <strong>Conformes:</strong> ${nuevaSesion.conformes} productos</div>
@@ -1502,7 +1502,7 @@ async function guardarYRegistrarSesionConteo(autoAjustar = false) {
     if (typeof showCustomToast === 'function') {
         showCustomToast(
             guardadoCloud
-                ? `Conteo guardado en historial y Firebase (${nuevaSesion.totalContados} productos)`
+                ? `Conteo guardado en el historial (${nuevaSesion.totalContados} productos)`
                 : `Registro de conteo guardado localmente (${nuevaSesion.totalContados} productos)`,
             'success'
         );
@@ -1939,7 +1939,7 @@ async function eliminarSesionConteo(sesionId) {
     if (typeof showCustomConfirm === 'function') {
         confirmado = await showCustomConfirm(
             'Eliminar Registro',
-            '¿Seguro que deseas eliminar este registro de conteo físico? Esta acción también lo borrará de Firebase, sin alterar tu inventario actual.',
+            '¿Seguro que deseas eliminar este registro de conteo físico? Esta acción lo borrará del historial, sin alterar tu inventario actual.',
             { confirmText: 'Sí, eliminar', cancelText: 'Cancelar', isDanger: true, tipo: 'danger' }
         );
     } else {

@@ -29,7 +29,7 @@
             'modules/kiosco.js?v=20261122_kiosco_undo'
         ],
         pos: [
-            'modules/pos.js?v=20261124_pedidos_v1',
+            'modules/pos.js?v=20261126_pedidos_fix',
             'modules/escaner-barras.js?v=20261122_scan_pay_v1'
         ],
         caja: [
@@ -39,7 +39,7 @@
             'modules/historial-ventas.js?v=20260915_v5'
         ],
         inventario: [
-            'modules/productos.js?v=20261121_barcode',
+            'modules/productos.js?v=20261126_clean_copy',
             `modules/movimientos-stock.js?v=${VERSION_LAZY}`,
             `modules/reposicion-compras.js?v=${VERSION_LAZY}`
         ],
@@ -47,15 +47,18 @@
             `modules/pagos-transacciones.js?v=${VERSION_LAZY}`
         ],
         facturas: [
-            'modules/facturas.js?v=20261121_barcode'
+            'modules/facturas.js?v=20261126_clean_copy'
         ],
         auditoria: [
-            'modules/auditoria.js?v=20261124_conteos_v1',
+            'modules/auditoria.js?v=20261126_clean_copy',
             'modules/perdidas.js?v=20261123_auditoria_limpia'
         ],
         configuracion: [
             'core/google-drive-service.js?v=4.5.0_anti_dup',
             `modules/configuracion.js?v=${VERSION_LAZY}`
+        ],
+        cierreDiario: [
+            'modules/cierre-diario.js?v=20261126_cierre_v1'
         ]
     };
 
@@ -320,6 +323,24 @@
             }
         };
         window.descargarInformeRecuperacionExcel = stubInformeRec;
+    }
+
+    if (typeof window.abrirModalCierreDiario !== 'function') {
+        const stubCierreDiario = async function (...args) {
+            try {
+                await cargarBundle('cierreDiario');
+                if (typeof window.abrirModalCierreDiario === 'function' && window.abrirModalCierreDiario !== stubCierreDiario) {
+                    return window.abrirModalCierreDiario(...args);
+                }
+                if (window.InventoryApp?.CierreDiario?.abrir) {
+                    return window.InventoryApp.CierreDiario.abrir(...args);
+                }
+            } catch (err) {
+                console.warn('[ModuleLoader] Error cargando cierre diario:', err);
+                notificarCarga('No se pudo abrir el Cierre del Día. Revisa tu conexión.', 'warning', 3200);
+            }
+        };
+        window.abrirModalCierreDiario = stubCierreDiario;
     }
 
     window.InventoryApp.ModuleLoader = {

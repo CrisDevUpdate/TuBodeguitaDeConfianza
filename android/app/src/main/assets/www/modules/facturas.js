@@ -388,7 +388,7 @@ window.InventoryApp = window.InventoryApp || {};
                         <div>
                             <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#ffffff;">${esEdicion ? 'Editar Proveedor' : 'Registrar Proveedor'}</h3>
                             <p style="margin:2px 0 0 0; font-size:0.75rem; color:${esEdicion ? '#fef3c7' : '#bfdbfe'};">
-                                ${esEdicion ? 'Actualiza los datos y se sincronizará automáticamente en Firebase' : 'Persistencia garantizada en Firebase Firestore'}
+                                ${esEdicion ? 'Actualiza los datos y se sincronizará automáticamente' : 'Tus proveedores quedan guardados de forma segura'}
                             </p>
                         </div>
                     </div>
@@ -449,7 +449,7 @@ window.InventoryApp = window.InventoryApp || {};
                             Cancelar
                         </button>
                         <button type="submit" id="btn-guardar-proveedor-submit" style="padding:9px 20px; background:${esEdicion ? '#d97706' : '#2563eb'}; color:#ffffff; border:none; border-radius:8px; font-weight:700; font-size:0.88rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
-                            <i class="fas ${esEdicion ? 'fa-save' : 'fa-cloud-upload-alt'}"></i> ${esEdicion ? 'Guardar Cambios' : 'Guardar en Firebase'}
+                            <i class="fas ${esEdicion ? 'fa-save' : 'fa-cloud-upload-alt'}"></i> ${esEdicion ? 'Guardar Cambios' : 'Guardar Proveedor'}
                         </button>
                     </div>
                 </form>
@@ -575,14 +575,14 @@ window.InventoryApp = window.InventoryApp || {};
                 }
                 const contadorDirectorio = document.getElementById('contador-directorio-provs');
                 if (contadorDirectorio) {
-                    contadorDirectorio.textContent = `${todos.length} proveedores registrados en Firebase`;
+                    contadorDirectorio.textContent = `${todos.length} proveedores registrados`;
                 }
             }
 
             cerrarModalRegistrarProveedor();
 
             if (typeof showCustomToast === 'function') {
-                showCustomToast(esEdicion ? `Proveedor "${nombre}" actualizado en Firebase` : `Proveedor "${nombre}" guardado en Firebase`, 'success');
+                showCustomToast(esEdicion ? `Proveedor "${nombre}" actualizado` : `Proveedor "${nombre}" guardado`, 'success');
             }
         } catch (err) {
             console.error('[Facturas] Error guardando proveedor:', err);
@@ -617,7 +617,7 @@ window.InventoryApp = window.InventoryApp || {};
         }
         actualizarDatalistProveedores();
         if (typeof showCustomToast === 'function') {
-            showCustomToast(`"${nombre}" registrado en Firebase`, 'success');
+            showCustomToast(`"${nombre}" registrado correctamente`, 'success');
         }
     }
 
@@ -650,7 +650,7 @@ window.InventoryApp = window.InventoryApp || {};
                         </div>
                         <div>
                             <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#ffffff;">Directorio y Gestión de Proveedores</h3>
-                            <p id="contador-directorio-provs" style="margin:2px 0 0 0; font-size:0.75rem; color:#cbd5e1;">${proveedores.length} proveedores registrados en Firebase</p>
+                            <p id="contador-directorio-provs" style="margin:2px 0 0 0; font-size:0.75rem; color:#cbd5e1;">${proveedores.length} proveedores registrados</p>
                         </div>
                     </div>
                     <div style="display:flex; gap:8px;">
@@ -685,7 +685,7 @@ window.InventoryApp = window.InventoryApp || {};
                 <div style="text-align:center; padding:36px 10px; color:var(--text-muted);">
                     <i class="fas fa-truck-moving" style="font-size:2.2rem; opacity:0.35; margin-bottom:12px; display:block;"></i>
                     <p style="margin:0 0 6px 0; font-size:0.95rem; font-weight:600;">No hay proveedores registrados aún.</p>
-                    <p style="margin:0; font-size:0.8rem; color:var(--text-muted);">Los proveedores se guardarán automáticamente en Firebase al procesar facturas de compra o puedes registrarlos con el botón "+ Nuevo Proveedor".</p>
+                    <p style="margin:0; font-size:0.8rem; color:var(--text-muted);">Los proveedores se guardarán automáticamente al procesar facturas de compra o puedes registrarlos con el botón "+ Nuevo Proveedor".</p>
                 </div>
             `;
         }
@@ -722,7 +722,7 @@ window.InventoryApp = window.InventoryApp || {};
                         <button type="button" onclick="abrirModalEditarProveedor(decodeURIComponent('${safeId}'))" title="Editar datos del proveedor" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:6px; padding:6px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s ease;">
                             <i class="fas fa-edit"></i> <span class="d-none-mobile">Editar</span>
                         </button>
-                        <button type="button" onclick="eliminarProveedorDesdeDirectorio(decodeURIComponent('${safeId}'))" title="Eliminar proveedor de Firebase" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:6px 9px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.15s ease;">
+                        <button type="button" onclick="eliminarProveedorDesdeDirectorio(decodeURIComponent('${safeId}'))" title="Eliminar proveedor" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:6px 9px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.15s ease;">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
@@ -777,11 +777,11 @@ window.InventoryApp = window.InventoryApp || {};
         if (typeof showCustomConfirm === 'function') {
             confirmado = await showCustomConfirm(
                 'Eliminar Proveedor',
-                `¿Deseas eliminar al proveedor <strong>"${prov.nombre}"</strong>?<br><br><small style="color:var(--text-muted, #64748b);">Esta acción lo removerá de la lista registrada en Firebase.</small>`,
+                `¿Deseas eliminar al proveedor <strong>"${prov.nombre}"</strong>?<br><br><small style="color:var(--text-muted, #64748b);">Esta acción lo removerá de tu lista de proveedores.</small>`,
                 'warning'
             );
         } else {
-            confirmado = confirm(`¿Eliminar proveedor "${prov.nombre}" de Firebase?`);
+            confirmado = confirm(`¿Eliminar proveedor "${prov.nombre}"?`);
         }
 
         if (!confirmado) return;
@@ -810,7 +810,7 @@ window.InventoryApp = window.InventoryApp || {};
                 }
                 const contador = document.getElementById('contador-directorio-provs');
                 if (contador) {
-                    contador.textContent = `${todos.length} proveedores registrados en Firebase`;
+                    contador.textContent = `${todos.length} proveedores registrados`;
                 }
             }
 

@@ -297,12 +297,12 @@ function actualizarVistaImagenProducto(estadoBlob = null) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#e0f2fe';
             statusBadge.style.color = '#0369a1';
-            statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando imagen con Vercel Blob...';
+            statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando imagen...';
         } else if (productoImagenTemporal && (productoImagenTemporal.includes('blob') || productoImagenTemporal.includes('/api/avatar/view') || productoImagenTemporal.includes('/api/blob/view'))) {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#dcfce7';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Almacenada en Vercel Blob (carpeta: <strong>productos/</strong>) <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
+            statusBadge.innerHTML = '<i class="fas fa-circle-check"></i> Imagen guardada en la nube <button type="button" onclick="if(window.abrirModalVisorBlob) window.abrirModalVisorBlob();" style="margin-left:8px; border:none; background:none; color:#0369a1; text-decoration:underline; font-weight:700; cursor:pointer; font-size:0.75rem;">Ver fotos</button>';
         } else {
             statusBadge.style.display = 'flex';
             statusBadge.style.background = '#f1f5f9';
@@ -413,7 +413,7 @@ async function guardarProducto(e) {
     if (imagenFinal.startsWith('data:')) {
         if (btnSave) {
             btnSave.disabled = true;
-            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vinculando a Vercel Blob...';
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando imagen...';
         }
         try {
             if (window.InventoryApp && window.InventoryApp.ImageCache) {

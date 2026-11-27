@@ -2180,7 +2180,7 @@ window.InventoryApp = window.InventoryApp || {};
                                 reproducirSonidoNotificacion();
                                 const notifFn = window.showToast || window.showCustomToast || (window.InventoryApp && window.InventoryApp.Modal && window.InventoryApp.Modal.toast);
                                 if (typeof notifFn === 'function') {
-                                    notifFn(`🔔 Tienes <strong>${pendientesIniciales.length} pago(s) o venta(s) por verificar</strong> en Firebase. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
+                                    notifFn(`🔔 Tienes <strong>${pendientesIniciales.length} pago(s) o venta(s) por verificar</strong>. <button type="button" class="btn btn-sm btn-light" style="padding:2px 8px; margin-left:8px; font-weight:700; font-size:0.75rem; border:1px solid rgba(0,0,0,0.15);" onclick="if(typeof switchTab==='function')switchTab('transacciones')">Verificar</button>`, 'warning', 12000);
                                 }
                             }, 1000);
                         }
@@ -2613,10 +2613,25 @@ window.InventoryApp = window.InventoryApp || {};
 
                     const mapPed = new Map();
                     cloudPedidos.forEach(p => { if (p && p.id) mapPed.set(String(p.id), p); });
+                    const ESTADOS_FINALES_PED = new Set(['COMPLETADO', 'CANCELADO']);
                     (AppState.pedidosAdelantados || []).forEach(localP => {
-                        if (localP && localP.id && !mapPed.has(String(localP.id)) && localP.sincronizadoNube === false) {
-                            mapPed.set(String(localP.id), localP);
-                            guardarPedidoAdelantadoCloud(localP).catch(() => {});
+                        if (!localP || !localP.id) return;
+                        const key = String(localP.id);
+                        const cloudP = mapPed.get(key);
+                        if (!cloudP) {
+                            if (localP.sincronizadoNube === false) {
+                                mapPed.set(key, localP);
+                                guardarPedidoAdelantadoCloud(localP).catch(() => {});
+                            }
+                        } else if (localP.sincronizadoNube === false) {
+                            const localTs = Date.parse(localP.updatedAt || '') || 0;
+                            const cloudTs = Date.parse(cloudP.updatedAt || '') || 0;
+                            const localFinal = ESTADOS_FINALES_PED.has(String(localP.estado || '').toUpperCase());
+                            const cloudFinal = ESTADOS_FINALES_PED.has(String(cloudP.estado || '').toUpperCase());
+                            if (localTs >= cloudTs || (localFinal && !cloudFinal)) {
+                                mapPed.set(key, localP);
+                                guardarPedidoAdelantadoCloud(localP).catch(() => {});
+                            }
                         }
                     });
                     AppState.pedidosAdelantados = Array.from(mapPed.values()).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));

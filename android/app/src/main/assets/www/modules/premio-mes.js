@@ -1126,7 +1126,7 @@ async function manejarSubidaImagenPremioBlob(event) {
 
     if (progressContainer) progressContainer.style.display = 'block';
     if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    if (dropzoneTitle) dropzoneTitle.textContent = 'Subiendo a Vercel Blob...';
+    if (dropzoneTitle) dropzoneTitle.textContent = 'Subiendo imagen...';
     if (progressBar) progressBar.style.width = '30%';
     if (percentText) percentText.textContent = '30%';
     if (statusText) statusText.textContent = 'Procesando archivo...';
@@ -1141,7 +1141,7 @@ async function manejarSubidaImagenPremioBlob(event) {
 
         if (progressBar) progressBar.style.width = '65%';
         if (percentText) percentText.textContent = '65%';
-        if (statusText) statusText.textContent = 'Transfiriendo a CDN Vercel Blob...';
+        if (statusText) statusText.textContent = 'Guardando imagen...';
 
         const response = await fetch('/api/upload/blob', {
             method: 'POST',
@@ -1167,7 +1167,7 @@ async function manejarSubidaImagenPremioBlob(event) {
 
         if (progressBar) progressBar.style.width = '100%';
         if (percentText) percentText.textContent = '100%';
-        if (statusText) statusText.textContent = '¡Imagen guardada en Vercel Blob!';
+        if (statusText) statusText.textContent = '¡Imagen guardada!';
 
         // Actualizar URL en inputs y preview
         const imgInput = document.getElementById('premio-admin-img') || document.getElementById('premio-imagen-url');
@@ -1191,12 +1191,12 @@ async function manejarSubidaImagenPremioBlob(event) {
         setTimeout(() => {
             if (progressContainer) progressContainer.style.display = 'none';
             if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-check-circle" style="color:var(--rc-emerald-600)"></i>';
-            if (dropzoneTitle) dropzoneTitle.textContent = '¡Imagen lista en Vercel Blob! Haz clic para cambiar';
+            if (dropzoneTitle) dropzoneTitle.textContent = '¡Imagen lista! Haz clic para cambiar';
         }, 1800);
 
     } catch (err) {
-        console.error('[VercelBlob] Error al subir imagen:', err);
-        alert('Error al subir a Vercel Blob: ' + err.message);
+        console.error('[PremioMes] Error al subir imagen:', err);
+        alert('Error al subir la imagen: ' + err.message);
         if (progressContainer) progressContainer.style.display = 'none';
         if (dropzoneIcon) dropzoneIcon.innerHTML = '<i class="fas fa-cloud-arrow-up"></i>';
         if (dropzoneTitle) dropzoneTitle.textContent = 'Arrastra una imagen o haz clic aquí';

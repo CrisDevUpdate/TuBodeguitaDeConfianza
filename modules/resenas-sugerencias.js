@@ -188,7 +188,7 @@
                 renderizarBuzonResenasAdmin(true);
             }
             if (forzar) {
-                mostrarAviso('Reseñas sincronizadas con Firebase.', 'success');
+                mostrarAviso('Reseñas actualizadas correctamente.', 'success');
             }
         }
     }
@@ -313,7 +313,7 @@
 
         if (btnEnviar) {
             btnEnviar.disabled = true;
-            btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando en Firebase...';
+            btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
         }
 
         try {
@@ -359,13 +359,13 @@
             actualizarBadgeResenasAdmin();
             renderizarVistaResenasCliente(true);
             if (guardadoEnFirebase) {
-                mostrarAviso('¡Gracias! Tu reseña se guardó en Firebase correctamente.', 'success');
+                mostrarAviso('¡Gracias! Tu opinión se envió correctamente.', 'success');
             } else {
-                mostrarAviso('Tu opinión se guardó localmente y se subirá a Firebase al reconectar.', 'info');
+                mostrarAviso('Tu opinión se guardó y se enviará automáticamente al recuperar conexión.', 'info');
             }
         } catch (err) {
             console.warn('[Reseñas] Error al enviar opinión:', err);
-            mostrarAviso('Tu opinión se guardó localmente. Se sincronizará con Firebase al reconectar.', 'info');
+            mostrarAviso('Tu opinión se guardó y se enviará automáticamente al recuperar conexión.', 'info');
             renderizarVistaResenasCliente(true);
         }
     }
@@ -558,8 +558,8 @@
 
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <small style="font-size:0.78rem; color:var(--text-muted, #64748b); display:inline-flex; align-items:center; gap:6px;">
-                            <i class="fas fa-cloud-arrow-up" style="color:#10b981;"></i>
-                            Enviando como <strong>${esc(usuario?.nombre || 'Cliente')}</strong> · Guardado en Firebase en tiempo real.
+                            <i class="fas fa-check-circle" style="color:#10b981;"></i>
+                            Enviando como <strong>${esc(usuario?.nombre || 'Cliente')}</strong> · Llegará directamente a la tienda.
                         </small>
                         <button type="submit" id="btn-enviar-resena-cliente" class="btn btn-primary" style="padding:11px 22px; font-weight:800; font-size:0.92rem; display:inline-flex; align-items:center; gap:8px; border-radius:10px;">
                             <i class="fas fa-paper-plane"></i> Enviar mi opinión
@@ -699,7 +699,7 @@
 
         actualizarBadgeResenasAdmin();
         renderizarBuzonResenasAdmin(true);
-        mostrarAviso(guardadoCloud ? 'Respuesta guardada en Firebase y enviada al cliente.' : 'Respuesta guardada localmente.', 'success');
+        mostrarAviso(guardadoCloud ? 'Respuesta enviada al cliente correctamente.' : 'Respuesta guardada.', 'success');
     }
 
     async function eliminarResenaAdmin(id) {
@@ -715,7 +715,7 @@
         if (typeof window.showCustomConfirm === 'function') {
             confirmado = await window.showCustomConfirm(
                 'Eliminar reseña / sugerencia',
-                `¿Seguro que deseas eliminar permanentemente la opinión enviada por <strong>${esc(item.clienteNombre || 'este cliente')}</strong>? Esta acción también la borrará de Firebase.`,
+                `¿Seguro que deseas eliminar permanentemente la opinión enviada por <strong>${esc(item.clienteNombre || 'este cliente')}</strong>?`,
                 {
                     confirmText: 'Sí, eliminar',
                     cancelText: 'Cancelar',
@@ -742,7 +742,7 @@
         renderizarVistaResenasCliente(true);
 
         mostrarAviso(
-            eliminadaNube ? 'Reseña eliminada permanentemente de Firebase.' : 'Reseña eliminada localmente.',
+            eliminadaNube ? 'Reseña eliminada permanentemente.' : 'Reseña eliminada.',
             'success'
         );
     }
@@ -766,12 +766,12 @@
                             ${stats.nuevas > 0 ? `<span style="background:#ef4444; color:#ffffff; font-size:0.72rem; font-weight:800; padding:2px 8px; border-radius:999px;">${stats.nuevas} nueva${stats.nuevas === 1 ? '' : 's'}</span>` : ''}
                         </h3>
                         <p style="margin:3px 0 0 0; font-size:0.84rem; color:var(--text-muted);">
-                            Almacenado en Firebase (<code>resenas_sugerencias</code>). Responde, marca como leída o elimina cualquier reseña como administrador.
+                            Responde, marca como leída o elimina cualquier reseña o sugerencia enviada por tus clientes.
                         </p>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <button type="button" class="btn btn-outline btn-sm" onclick="sincronizarResenasDesdeFirebase(true)" style="font-size:0.78rem; padding:6px 11px; display:inline-flex; align-items:center; gap:6px; font-weight:700;">
-                            <i class="fas fa-cloud-arrow-down" style="color:#0284c7;"></i> Sincronizar Firebase
+                            <i class="fas fa-rotate" style="color:#0284c7;"></i> Actualizar
                         </button>
                         <div style="display:flex; align-items:center; gap:10px; background:var(--bg-color, #f8fafc); border:1px solid var(--border-light, #e2e8f0); padding:7px 14px; border-radius:10px;">
                             <div style="text-align:center;">
@@ -832,7 +832,7 @@
                                                 ${esNueva ? `<span style="font-size:0.68rem; font-weight:800; padding:2px 7px; border-radius:6px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca;">NUEVA</span>` : ''}
                                                 ${est === 'ATENDIDA' ? `<span style="font-size:0.68rem; font-weight:800; padding:2px 7px; border-radius:6px; background:#dcfce7; color:#15803d;">RESPONDIDA</span>` : ''}
                                                 <span style="font-size:0.67rem; font-weight:700; padding:2px 7px; border-radius:6px; background:${enFirebase ? '#f0fdf4' : '#fffbeb'}; color:${enFirebase ? '#15803d' : '#b45309'}; border:1px solid ${enFirebase ? '#bbf7d0' : '#fde68a'};">
-                                                    <i class="fas ${enFirebase ? 'fa-cloud-check' : 'fa-cloud-arrow-up'}"></i> ${enFirebase ? 'Firebase' : 'Pendiente'}
+                                                    <i class="fas ${enFirebase ? 'fa-check' : 'fa-clock'}"></i> ${enFirebase ? 'Guardada' : 'Pendiente'}
                                                 </span>
                                             </div>
                                             <div style="display:flex; align-items:center; gap:8px; margin-top:3px;">
@@ -849,7 +849,7 @@
                                             <button type="button" class="btn btn-primary btn-sm" onclick="toggleResponderResenaAdmin('${esc(item.id)}')" style="font-size:0.76rem; padding:5px 10px;">
                                                 <i class="fas fa-reply"></i> ${item.respuestaAdmin ? 'Editar respuesta' : 'Responder'}
                                             </button>
-                                            <button type="button" class="btn btn-sm" onclick="eliminarResenaAdmin('${esc(item.id)}')" style="font-size:0.76rem; padding:5px 10px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="Eliminar reseña permanentemente de Firebase">
+                                            <button type="button" class="btn btn-sm" onclick="eliminarResenaAdmin('${esc(item.id)}')" style="font-size:0.76rem; padding:5px 10px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="Eliminar reseña permanentemente">
                                                 <i class="fas fa-trash-can"></i> Eliminar
                                             </button>
                                         </div>

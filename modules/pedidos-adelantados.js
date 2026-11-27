@@ -591,17 +591,21 @@
 
         const primero = activos[0];
         const esDeliv = primero.modalidadEntrega === 'DELIVERY';
+        const primeroCargadoEnPOS = window.AppState?.pedidoPOSActivoId === primero.id;
         bar.style.display = 'flex';
         bar.innerHTML = `
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; width:100%; background:linear-gradient(135deg, #eff6ff, #fefce8); border:1px solid #93c5fd; border-left:4px solid ${pendientes > 0 ? '#f59e0b' : '#2563eb'}; border-radius:12px; padding:10px 14px; margin-bottom:10px; box-shadow:0 2px 8px rgba(37,99,235,0.08);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; width:100%; background:${primeroCargadoEnPOS ? 'linear-gradient(135deg, #ecfdf5, #eff6ff)' : 'linear-gradient(135deg, #eff6ff, #fefce8)'}; border:1px solid ${primeroCargadoEnPOS ? '#86efac' : '#93c5fd'}; border-left:4px solid ${primeroCargadoEnPOS ? '#16a34a' : (pendientes > 0 ? '#f59e0b' : '#2563eb')}; border-radius:12px; padding:10px 14px; margin-bottom:10px; box-shadow:0 2px 8px rgba(37,99,235,0.08);">
                 <div style="display:flex; align-items:center; gap:10px; min-width:210px; flex:1;">
-                    <div style="width:36px; height:36px; border-radius:10px; background:${pendientes > 0 ? '#f59e0b' : '#2563eb'}; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;">
-                        <i class="fas fa-bell-concierge"></i>
+                    <div style="width:36px; height:36px; border-radius:10px; background:${primeroCargadoEnPOS ? '#16a34a' : (pendientes > 0 ? '#f59e0b' : '#2563eb')}; color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;">
+                        <i class="fas ${primeroCargadoEnPOS ? 'fa-cart-shopping' : 'fa-bell-concierge'}"></i>
                     </div>
                     <div style="line-height:1.25;">
                         <div style="font-size:0.86rem; font-weight:800; color:#0f172a;">
                             ${activos.length} encargo${activos.length === 1 ? '' : 's'} de clientes en curso
-                            ${pendientes > 0 ? `<span style="background:#fef3c7; color:#b45309; padding:1px 7px; border-radius:999px; font-size:0.72rem; margin-left:4px; border:1px solid #fcd34d;">${pendientes} nuevo${pendientes === 1 ? '' : 's'}</span>` : ''}
+                            ${primeroCargadoEnPOS
+                                ? `<span style="background:#dcfce7; color:#15803d; padding:1px 7px; border-radius:999px; font-size:0.72rem; margin-left:4px; border:1px solid #86efac;">Cargado en carrito</span>`
+                                : (pendientes > 0 ? `<span style="background:#fef3c7; color:#b45309; padding:1px 7px; border-radius:999px; font-size:0.72rem; margin-left:4px; border:1px solid #fcd34d;">${pendientes} nuevo${pendientes === 1 ? '' : 's'}</span>` : '')
+                            }
                         </div>
                         <div style="font-size:0.76rem; color:#475569;">
                             Último: <strong>${esc(primero.clienteNombre)}</strong> (${esc(primero.codigoCorto)}) · ${esDeliv ? '🛵 Delivery' : '🏪 Retiro'} · <strong>$${Number(primero.totalUSD || 0).toFixed(2)}</strong>
@@ -609,9 +613,15 @@
                     </div>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-sm btn-success" onclick="cargarPedidoAdelantadoEnPOS('${esc(primero.id)}')" style="font-weight:700; font-size:0.78rem; padding:7px 12px; border-radius:8px;">
-                        <i class="fas fa-cart-arrow-down"></i> Cargar último al POS
-                    </button>
+                    ${primeroCargadoEnPOS ? `
+                        <button type="button" class="btn btn-sm btn-success" onclick="if(typeof procesarVenta==='function')procesarVenta()" style="font-weight:700; font-size:0.78rem; padding:7px 12px; border-radius:8px;">
+                            <i class="fas fa-cash-register"></i> Cobrar ahora
+                        </button>
+                    ` : `
+                        <button type="button" class="btn btn-sm btn-success" onclick="cargarPedidoAdelantadoEnPOS('${esc(primero.id)}')" style="font-weight:700; font-size:0.78rem; padding:7px 12px; border-radius:8px;">
+                            <i class="fas fa-cart-arrow-down"></i> Cargar último al POS
+                        </button>
+                    `}
                     <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalBandejaPedidosPOS()" style="font-weight:700; font-size:0.78rem; padding:7px 12px; border-radius:8px;">
                         <i class="fas fa-list-check"></i> Ver Bandeja (${activos.length})
                     </button>
@@ -749,6 +759,9 @@
                                             <i class="fas fa-check"></i> Marcar Listo
                                         </button>
                                     ` : ''}
+                                    <button type="button" class="btn btn-sm btn-outline" onclick="marcarPedidoAdelantadoCobradoManual('${esc(p.id)}')" style="font-size:0.74rem; padding:6px 9px; border-radius:8px; color:#334155; border-color:#cbd5e1;" title="Marcar como cobrado y entregado sin duplicar venta">
+                                        <i class="fas fa-receipt"></i> Ya Cobrado
+                                    </button>
                                     ${p.clienteTelefono ? `
                                         <button type="button" class="btn btn-sm" onclick="notificarClientePedidoWhatsApp('${esc(p.id)}')" style="font-size:0.74rem; padding:6px 9px; border-radius:8px; background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:700;" title="Avisar al cliente por WhatsApp">
                                             <i class="fab fa-whatsapp"></i>
@@ -810,12 +823,20 @@
         pedido.estado = nuevoEstado;
         pedido.updatedAt = new Date().toISOString();
         pedido.atendidoPor = window.AppState?.usuarioActual?.nombre || pedido.atendidoPor || '';
+        pedido.sincronizadoNube = false;
         Object.assign(pedido, extra);
         guardarCacheLocalPedidos();
 
+        // Actualizar UI de inmediato (optimista) para que el banner desaparezca al instante
+        refrescarTodasLasVistasPedidos();
+
         try {
             if (window.InventoryApp?.Firebase?.guardarPedidoAdelantado) {
-                await window.InventoryApp.Firebase.guardarPedidoAdelantado(pedido);
+                const okCloud = await window.InventoryApp.Firebase.guardarPedidoAdelantado(pedido);
+                if (okCloud) {
+                    pedido.sincronizadoNube = true;
+                    guardarCacheLocalPedidos();
+                }
             }
         } catch (err) {
             console.warn('[PedidosAdelantados] Error sincronizando cambio de estado:', err);
@@ -832,6 +853,18 @@
             ? 'Encargo marcado como LISTO. El cliente ya lo ve en su celular.'
             : (nuevoEstado === 'PREPARANDO' ? 'Encargo marcado en preparación.' : `Estado actualizado a ${nuevoEstado}.`);
         toast(msg, 'success');
+    }
+
+    async function marcarPedidoAdelantadoCobradoManual(pedidoId) {
+        const pedido = obtenerListaPedidos().find(p => p && p.id === pedidoId);
+        if (!pedido) return;
+        if (window.AppState?.pedidoPOSActivoId === pedidoId) {
+            window.AppState.pedidoPOSActivoId = null;
+        }
+        await actualizarEstadoPedido(pedidoId, 'COMPLETADO', {
+            fechaCompletado: new Date().toISOString()
+        });
+        toast(`Encargo ${pedido.codigoCorto} marcado como cobrado y entregado.`, 'success');
     }
 
     async function cancelarPedidoAdelantadoAdmin(pedidoId) {
@@ -938,10 +971,16 @@
                 productoId: prod.id,
                 codigo: prod.codigo || it.codigo || '',
                 nombre: prod.nombre || it.nombre,
+                nombreBase: prod.nombre || it.nombre,
                 cantidad: cantFinal,
                 precio: Number(prod.precio ?? it.precio ?? 0),
                 costo: Number(prod.costo ?? it.costo ?? 0),
-                imagen: prod.imagen || ''
+                imagen: prod.imagen || '',
+                esPesable: Boolean(prod.es_pesable || prod.esPesable),
+                unidadMedida: prod.unidad_medida || prod.unidadMedida || 'und',
+                tipoPresentacion: 'unidad',
+                nombrePresentacion: 'Unidad',
+                factorStock: 1
             });
         });
 
@@ -988,6 +1027,7 @@
         }
 
         if (typeof window.renderizarCarrito === 'function') window.renderizarCarrito();
+        renderizarBarraPOS();
         renderizarBannerPedidoActivoEnPOS();
         cerrarModalBandejaPedidosPOS();
 
@@ -1054,8 +1094,8 @@
         renderizarBarraPOS();
     }
 
-    async function completarPedidoActivoPorVenta(ventaId) {
-        const pedidoId = window.AppState?.pedidoPOSActivoId;
+    async function completarPedidoActivoPorVenta(ventaId, pedidoIdExplicito = null) {
+        const pedidoId = pedidoIdExplicito || window.AppState?.pedidoPOSActivoId;
         if (!pedidoId) return;
         window.AppState.pedidoPOSActivoId = null;
         renderizarBannerPedidoActivoEnPOS();
@@ -1091,6 +1131,7 @@
     window.cambiarFiltroBandejaPedidosPOS = cambiarFiltroBandejaPedidosPOS;
     window.cargarPedidoAdelantadoEnPOS = cargarPedidoAdelantadoEnPOS;
     window.cambiarEstadoPedidoAdelantado = cambiarEstadoPedidoAdelantado;
+    window.marcarPedidoAdelantadoCobradoManual = marcarPedidoAdelantadoCobradoManual;
     window.cancelarPedidoAdelantadoAdmin = cancelarPedidoAdelantadoAdmin;
     window.eliminarPedidoAdelantadoAdmin = eliminarPedidoAdelantadoAdmin;
     window.notificarClientePedidoWhatsApp = notificarClientePedidoWhatsApp;
